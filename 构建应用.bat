@@ -19,18 +19,25 @@ if "%choice%"=="1" (
     npm run tauri:build
 ) else if "%choice%"=="2" (
     echo.
-    echo 正在构建可执行文件...
+    echo 第1步：构建前端...
     echo.
-    npm run tauri:build:exe
+    npm run build
+    echo.
+    echo 第2步：构建可执行文件...
+    echo.
+    set "PATH=%USERPROFILE%\.cargo\bin;%PATH%"
+    set "CARGO=%USERPROFILE%\.cargo\bin\cargo.exe"
+    cargo build --manifest-path src-tauri/Cargo.toml --release
+    echo.
+    echo 第3步：复制可执行文件...
+    echo.
+    copy "src-tauri\target\release\focused-moment.exe" "Focused-Moment.exe"
     echo.
     echo ========================================
     echo 构建完成！
     echo.
     echo 可执行文件位置：
-    echo src-tauri\target\release\focused-moment.exe
-    echo.
-    echo 注意：如果这是第一次构建，文件名可能是 tauri-app.exe
-    echo 请检查 src-tauri\target\release\ 目录
+    echo Focused-Moment.exe
     echo.
     echo 你可以直接运行这个文件，或者复制到其他位置使用。
     echo ========================================
