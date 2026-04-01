@@ -13,8 +13,7 @@ Focused Moment is a local-first desktop focus app built with Tauri + Svelte.
 
 - Desktop shell: Tauri v2
 - Frontend: SvelteKit + TypeScript
-- Local storage (current stage): browser localStorage
-- Planned storage upgrade: SQLite (Tauri plugin)
+- Local storage: SQLite (rusqlite, local file only)
 
 ## Run Locally
 
@@ -40,6 +39,7 @@ npm run tauri build
 - Replaced template UI with Focused Moment MVP shell.
 - Added local-first logic for timer, todos, stats, whitelist flow, and creative mechanics.
 - Removed template greet command from Rust backend.
+- Added SQLite persistence commands in Tauri backend and migrated data loading/saving path.
 - Added GitHub Actions workflow for Windows release builds.
 
 ## Repository Bootstrap
@@ -61,6 +61,5 @@ git push -u origin main
 
 ## Next Milestones
 
-- Migrate persistence from localStorage to SQLite.
 - Add export/import and automatic backup.
 - Add GitHub Actions for Windows installer releases.

@@ -1,5 +1,7 @@
 <script lang="ts">
+  import { invoke } from "@tauri-apps/api/core";
   import { openUrl } from "@tauri-apps/plugin-opener";
+  import { onMount } from "svelte";
 
   type Todo = {
     id: string;
@@ -82,12 +84,26 @@
   let whitelistInput = $state("");
   let focusNote = $state("");
   let currentTip = $state("准备好了吗？今天把分心雾霾清掉。");
+  let hydrated = false;
+  let saveTimerRef: number | null = null;
 
   function nowId(prefix: string): string {
     return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   }
 
-  function saveState() {
+  function applyPersistedState(parsed: Record<string, unknown>) {
+    settings = (parsed.settings as AppSettings) ?? { ...DEFAULT_SETTINGS };
+    todos = (parsed.todos as Todo[]) ?? [];
+    sessions = (parsed.sessions as FocusSession[]) ?? [];
+    visitLogs = (parsed.visitLogs as VisitLog[]) ?? [];
+    petLevel = Number(parsed.petLevel ?? 1);
+    petXp = Number(parsed.petXp ?? 0);
+    bossPoints = Number(parsed.bossPoints ?? 0);
+    focusNote = String(parsed.focusNote ?? "");
+    timerSecondsLeft = settings.workMinutes * 60;
+  }
+
+  async function saveState() {
     const data = {
       settings,
       todos,
@@ -98,28 +114,50 @@
       bossPoints,
       focusNote,
     };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    const payload = JSON.stringify(data);
+    localStorage.setItem(STORAGE_KEY, payload);
+    await invoke("save_app_state", { payload });
   }
 
-  function loadState() {
+  function scheduleSave() {
+    if (!hydrated) {
+      return;
+    }
+    if (saveTimerRef !== null) {
+      window.clearTimeout(saveTimerRef);
+    }
+    saveTimerRef = window.setTimeout(() => {
+      void saveState();
+    }, 200);
+  }
+
+  async function loadState() {
+    try {
+      const persisted = await invoke<string | null>("load_app_state");
+      if (persisted) {
+        const parsed = JSON.parse(persisted) as Record<string, unknown>;
+        applyPersistedState(parsed);
+        hydrated = true;
+        return;
+      }
+    } catch {
+      // Fall back to localStorage migration path.
+    }
+
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
+      hydrated = true;
       return;
     }
 
     try {
-      const parsed = JSON.parse(raw);
-      settings = parsed.settings ?? { ...DEFAULT_SETTINGS };
-      todos = parsed.todos ?? [];
-      sessions = parsed.sessions ?? [];
-      visitLogs = parsed.visitLogs ?? [];
-      petLevel = parsed.petLevel ?? 1;
-      petXp = parsed.petXp ?? 0;
-      bossPoints = parsed.bossPoints ?? 0;
-      focusNote = parsed.focusNote ?? "";
-      timerSecondsLeft = settings.workMinutes * 60;
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      applyPersistedState(parsed);
+      hydrated = true;
+      await saveState();
     } catch {
       localStorage.removeItem(STORAGE_KEY);
+      hydrated = true;
     }
   }
 
@@ -167,7 +205,7 @@
       ...todos,
     ];
     todoInput = "";
-    saveState();
+    scheduleSave();
   }
 
   function toggleTodo(id: string) {
@@ -183,12 +221,12 @@
       };
     });
     currentTip = "任务触发城市修复事件：东区路灯恢复供电。";
-    saveState();
+    scheduleSave();
   }
 
   function removeTodo(id: string) {
     todos = todos.filter((todo) => todo.id !== id);
-    saveState();
+    scheduleSave();
   }
 
   function applyWorkSettings() {
@@ -196,7 +234,7 @@
       return;
     }
     timerSecondsLeft = (timerMode === "work" ? settings.workMinutes : settings.breakMinutes) * 60;
-    saveState();
+    scheduleSave();
   }
 
   function clearTick() {
@@ -254,7 +292,7 @@
     timerSecondsLeft = (timerMode === "work" ? settings.breakMinutes : settings.workMinutes) * 60;
     selectedChallenge = null;
     challengeBroken = false;
-    saveState();
+    scheduleSave();
   }
 
   function startTimer() {
@@ -284,7 +322,7 @@
     timerRunning = false;
     challengeBroken = true;
     clearTick();
-    saveState();
+    scheduleSave();
   }
 
   function resetTimer() {
@@ -293,7 +331,7 @@
     challengeBroken = true;
     timerStartedAt = null;
     timerSecondsLeft = (timerMode === "work" ? settings.workMinutes : settings.breakMinutes) * 60;
-    saveState();
+    scheduleSave();
   }
 
   function skipSession() {
@@ -347,7 +385,7 @@
     currentTip = whitelisted
       ? "学习资料已打开，保持专注。"
       : "已放行并记录一次偏航，请尽快回到任务轨道。";
-    saveState();
+    scheduleSave();
   }
 
   function addWhitelist() {
@@ -360,7 +398,7 @@
       whitelist: [...settings.whitelist, value],
     };
     whitelistInput = "";
-    saveState();
+    scheduleSave();
   }
 
   function removeWhitelist(item: string) {
@@ -368,7 +406,7 @@
       ...settings,
       whitelist: settings.whitelist.filter((value) => value !== item),
     };
-    saveState();
+    scheduleSave();
   }
 
   function totalFocusedMinutes(): number {
@@ -388,8 +426,8 @@
     return "电子沙尘暴";
   }
 
-  $effect(() => {
-    loadState();
+  onMount(() => {
+    void loadState();
     return () => clearTick();
   });
 </script>
@@ -450,7 +488,7 @@
         </label>
         <label>
           每日目标番茄
-          <input type="number" min="1" max="16" bind:value={settings.dailyGoal} onchange={saveState} />
+          <input type="number" min="1" max="16" bind:value={settings.dailyGoal} onchange={scheduleSave} />
         </label>
       </div>
     </section>
@@ -501,7 +539,7 @@
 
       <article class="stat-wide">
         <h3>专注留言</h3>
-        <textarea bind:value={focusNote} placeholder="写下一句今天最清醒的话" onblur={saveState}></textarea>
+        <textarea bind:value={focusNote} placeholder="写下一句今天最清醒的话" onblur={scheduleSave}></textarea>
       </article>
     </section>
   {/if}
