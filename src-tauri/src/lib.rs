@@ -1,6 +1,7 @@
 use rusqlite::{params, Connection};
 use std::fs;
 use std::path::PathBuf;
+use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Manager};
 
 const STATE_KEY: &str = "state_v1";
@@ -77,11 +78,51 @@ fn save_app_state(app: AppHandle, payload: String) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+fn export_app_state(app: AppHandle) -> Result<String, String> {
+    let conn = open_db(&app)?;
+    let mut stmt = conn
+        .prepare("SELECT value FROM app_kv WHERE key = ?1")
+        .map_err(|e| format!("failed to prepare export query: {e}"))?;
+
+    let value: Option<String> = stmt
+        .query_row(params![STATE_KEY], |row| row.get(0))
+        .ok();
+
+    let payload = value.unwrap_or_else(|| "{}".to_string());
+    let app_data_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("failed to resolve app data dir: {e}"))?;
+    let backup_dir = app_data_dir.join("backups");
+    fs::create_dir_all(&backup_dir)
+        .map_err(|e| format!("failed to create backup dir: {e}"))?;
+
+    let ts = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|e| format!("failed to get timestamp: {e}"))?
+        .as_secs();
+    let file_path = backup_dir.join(format!("focused_moment_backup_{ts}.json"));
+    fs::write(&file_path, payload).map_err(|e| format!("failed to write backup file: {e}"))?;
+
+    Ok(file_path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+fn import_app_state(app: AppHandle, payload: String) -> Result<(), String> {
+    save_app_state(app, payload)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![load_app_state, save_app_state])
+        .invoke_handler(tauri::generate_handler![
+            load_app_state,
+            save_app_state,
+            export_app_state,
+            import_app_state
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

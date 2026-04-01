@@ -8,9 +8,12 @@
     "build": "vite build",
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-    "check:desktop": "cargo check -j 1 --manifest-path src-tauri/Cargo.toml",
+    "check:desktop": "set \"PATH=%USERPROFILE%\\.cargo\\bin;%PATH%\" && set \"CARGO=%USERPROFILE%\\.cargo\\bin\\cargo.exe\" && cargo check -j 1 --manifest-path src-tauri/Cargo.toml",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
-    "tauri": "tauri"
+    "tauri": "set \"PATH=%USERPROFILE%\\.cargo\\bin;%PATH%\" && set \"CARGO=%USERPROFILE%\\.cargo\\bin\\cargo.exe\" && tauri",
+    "tauri:dev": "set \"PATH=%USERPROFILE%\\.cargo\\bin;%PATH%\" && set \"CARGO=%USERPROFILE%\\.cargo\\bin\\cargo.exe\" && set \"CARGO_BUILD_JOBS=1\" && set \"CARGO_INCREMENTAL=0\" && tauri dev",
+    "tauri:build": "set \"PATH=%USERPROFILE%\\.cargo\\bin;%PATH%\" && set \"CARGO=%USERPROFILE%\\.cargo\\bin\\cargo.exe\" && set \"CARGO_BUILD_JOBS=1\" && set \"CARGO_INCREMENTAL=0\" && tauri build",
+    "tauri:build:exe": "set \"PATH=%USERPROFILE%\\.cargo\\bin;%PATH%\" && set \"CARGO=%USERPROFILE%\\.cargo\\bin\\cargo.exe\" && set \"CARGO_BUILD_JOBS=1\" && set \"CARGO_INCREMENTAL=0\" && cargo build --manifest-path src-tauri/Cargo.toml --release"
   },
   "license": "MIT",
   "dependencies": {

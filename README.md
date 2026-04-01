@@ -1,65 +1,276 @@
-# Focused Moment
+# Focused Moment - 专注沙漏
 
-Focused Moment is a local-first desktop focus app built with Tauri + Svelte.
+<div align="center">
 
-## Product Direction
+![Focused Moment](static/favicon.png)
 
-- Core: Pomodoro timer, To-Do list, study time analytics.
-- Creative mechanics: cyber pet growth, boss-round pomodoro, anti-procrastination challenge wheel.
-- Web study flow: no hard ban. Uses whitelist + soft warnings + behavior logging.
-- Privacy: all data is stored locally.
+**一款本地优先的专注力提升工具**
 
-## Tech Stack
+基于番茄工作法 · 赛博宠物成长 · 成就系统 · 数据可视化
 
-- Desktop shell: Tauri v2
-- Frontend: SvelteKit + TypeScript
-- Local storage: SQLite (rusqlite, local file only)
+[快速开始](docs/快速开始.md) · [使用指南](docs/使用指南.md) · [更新日志](CHANGELOG.md) · [贡献指南](CONTRIBUTING.md)
 
-## Run Locally
+</div>
 
+---
+
+## 📖 简介
+
+Focused Moment（专注沙漏）是一款帮助你提升专注力、管理时间的桌面应用。它结合了经典的番茄工作法和创意的游戏化机制，让专注变得更有趣、更有动力。
+
+### 为什么选择 Focused Moment？
+
+- 🔒 **隐私优先** - 所有数据存储在本地，不上传云端
+- 🎮 **游戏化设计** - 赛博宠物、Boss战、成就系统让专注更有趣
+- 📊 **数据可视化** - 专注热力图、多维度统计帮你了解自己
+- 💾 **数据安全** - 支持导入导出，数据完全掌控
+- 🎨 **界面友好** - 暖色调设计，舒适护眼
+- ⚡ **轻量高效** - 基于 Tauri，内存占用低，启动快速
+
+---
+
+## ✨ 核心功能
+
+### 🍅 番茄钟计时器
+- 工作/休息模式自动切换
+- 自定义时长设置（10-90分钟）
+- Boss 回合机制（每日最后一轮）
+- 反拖延轮盘（6种随机挑战）
+- 音效提示和实时反馈
+
+### ✅ 待办事项管理
+- 三级优先级系统（🔴高 🟠中 🟢低）
+- 多标签支持（便于分类管理）
+- 智能筛选（全部/进行中/已完成）
+- 批量操作（一键清除已完成）
+- 任务完成时间记录
+
+### 📊 数据统计分析
+- **多时间维度**：今日/本周/本月/全部
+- **8个核心指标**：专注时长、完成率、Boss胜场、中断次数等
+- **专注热力图**：最近7天可视化（GitHub风格）
+- **专注记录**：详细的会话历史
+- **心流天气**：根据完成情况显示状态
+
+### 🐾 赛博宠物系统
+- 等级和经验值系统
+- 专注成功获得经验（普通+20，Boss+35，挑战+20）
+- 升级提示和动画效果
+- 宠物状态统计（Boss胜场/连续天数/成就数）
+
+### 🏆 成就系统
+10个成就等你解锁：
+- 初次专注、专注新手/达人/大师
+- Boss杀手、挑战者
+- 宠物培养师、待办清道夫
+- 连击王、夜猫子
+
+### 🌐 学习资料管理
+- 学习白名单系统
+- 非白名单软提醒（不强制封禁）
+- 访问记录归档
+- 外部浏览器打开（保持应用轻量）
+
+### 💾 数据管理
+- 本地 SQLite 数据库存储
+- 一键导出备份（JSON格式）
+- 一键导入恢复
+- 自动保存机制（200ms防抖）
+
+---
+
+## 🚀 快速开始
+
+### 环境要求
+- Windows 10/11
+- Node.js 18+
+- Rust 1.70+
+
+### 安装依赖
 ```bash
 npm install
-npm run tauri dev
 ```
 
-If Rust check is unstable on low-memory machines, use:
-
+### 开发模式
 ```bash
-npm run check:desktop
+# 方式1：使用脚本
+双击 "启动开发环境.bat"
+
+# 方式2：命令行
+npm run tauri:dev
 ```
 
-## Build
-
+### 构建应用
 ```bash
-npm run tauri build
+# 方式1：使用脚本（推荐）
+双击 "构建应用.bat"，选择选项2
+
+# 方式2：命令行
+npm run tauri:build:exe
 ```
 
-## Current Implementation Status
+构建完成后，可执行文件位于：
+```
+src-tauri/target/release/focused-moment.exe
+```
 
-- Replaced template UI with Focused Moment MVP shell.
-- Added local-first logic for timer, todos, stats, whitelist flow, and creative mechanics.
-- Removed template greet command from Rust backend.
-- Added SQLite persistence commands in Tauri backend and migrated data loading/saving path.
-- Added GitHub Actions workflow for Windows release builds.
-
-## Repository Bootstrap
-
+### 完整构建（包含安装程序）
 ```bash
-git init
-git branch -M main
-git remote add origin https://github.com/zhulongqihan/Focused-Moment.git
-git add .
-git commit -m "feat: initialize Focused Moment MVP"
-git push -u origin main
+npm run tauri:build
 ```
 
-## Release Flow
+> 注意：完整构建需要下载 WiX Toolset，可能会比较慢。推荐使用 `tauri:build:exe` 直接生成可执行文件。
 
-- Create a semantic tag like `v0.1.0`.
-- Push the tag: `git push origin v0.1.0`.
-- GitHub Actions will build and publish a Windows installer in Releases.
+---
 
-## Next Milestones
+## 📸 界面预览
 
-- Add export/import and automatic backup.
-- Add GitHub Actions for Windows installer releases.
+### 番茄战场
+- 专注/休息模式切换
+- Boss 回合标识
+- 反拖延轮盘挑战
+- 计时器设置
+
+### 待办舱
+- 优先级颜色标识
+- 标签彩色徽章
+- 任务筛选功能
+- 批量操作
+
+### 统计星图
+- 多维度统计视图
+- 专注热力图（最近7天）
+- 8个核心指标
+- 最近专注记录
+
+### 赛博宠物
+- 宠物等级和经验值
+- 三个统计卡片
+- 数据备份和导入
+
+### 成就殿堂
+- 10个成就展示
+- 解锁状态和时间
+- 金色背景特效
+
+---
+
+## 💡 使用技巧
+
+### 提高专注效率
+1. **设定合理目标** - 建议从4-6个番茄开始
+2. **优先处理重要任务** - 使用红色标记最重要的任务
+3. **利用标签分类** - 为任务添加标签便于管理
+4. **挑战自己** - 尝试完成反拖延轮盘的挑战
+5. **定期查看统计** - 了解自己的专注习惯
+
+### 养成良好习惯
+1. **每天使用** - 保持连续天数记录
+2. **完成 Boss 回合** - 挑战每日最后一个番茄
+3. **记录感悟** - 在专注留言中写下思考
+4. **定期备份** - 每周导出一次数据备份
+5. **解锁成就** - 以成就为目标激励自己
+
+---
+
+## 🛠️ 技术栈
+
+- **桌面框架**：Tauri v2
+- **前端框架**：SvelteKit + TypeScript + Vite
+- **本地存储**：SQLite (rusqlite)
+- **UI设计**：响应式设计，暖色调配色
+
+---
+
+## 📚 文档
+
+- [快速开始指南](docs/快速开始.md) - 5分钟快速上手
+- [完整使用指南](docs/使用指南.md) - 详细的功能说明
+- [更新日志](CHANGELOG.md) - 版本更新记录
+- [贡献指南](CONTRIBUTING.md) - 如何参与贡献
+- [项目开发汇总](docs/project_summary.md) - 开发过程记录
+
+---
+
+## 🗺️ 开发路线图
+
+### v0.1.0（当前版本）✅
+- ✅ 完整的番茄钟功能
+- ✅ 待办事项管理（优先级、标签、筛选）
+- ✅ 多维度统计分析
+- ✅ 赛博宠物成长系统
+- ✅ Boss战番茄机制
+- ✅ 反拖延轮盘挑战
+- ✅ 成就系统（10个成就）
+- ✅ 连续天数追踪
+- ✅ 每日激励名言
+- ✅ 专注热力图
+- ✅ 数据导入导出
+
+### v0.2.0（计划中）
+- [ ] 性能优化（长列表虚拟滚动）
+- [ ] 待办任务编辑功能
+- [ ] 键盘快捷键支持
+- [ ] 更多宠物形象和进化路线
+- [ ] 背景音乐/白噪音支持
+- [ ] 番茄钟倒计时动画
+
+### v0.3.0（计划中）
+- [ ] 月度/年度报告生成
+- [ ] 专注时段分析
+- [ ] 任务完成效率分析
+- [ ] 成就截图分享功能
+- [ ] 自定义主题颜色
+
+### v1.0.0（长期规划）
+- [ ] macOS 版本
+- [ ] Linux 版本
+- [ ] 移动端版本（iOS/Android）
+- [ ] 云同步功能（可选）
+- [ ] 多设备数据同步
+
+---
+
+## 🤝 贡献
+
+欢迎提交 Issue 和 Pull Request！
+
+在提交 PR 之前，请：
+1. 阅读[贡献指南](CONTRIBUTING.md)
+2. 确保代码通过检查：`npm run check`
+3. 遵循现有的代码风格
+4. 添加必要的注释
+
+---
+
+## 📄 许可证
+
+本项目采用 [MIT License](LICENSE) 开源协议。
+
+---
+
+## 🙏 致谢
+
+感谢以下开源项目：
+- [Tauri](https://tauri.app/) - 跨平台桌面应用框架
+- [Svelte](https://svelte.dev/) - 高效的前端框架
+- [Rust](https://www.rust-lang.org/) - 安全可靠的系统编程语言
+- [SQLite](https://www.sqlite.org/) - 轻量级数据库
+
+---
+
+## 📞 联系方式
+
+- **GitHub**: https://github.com/zhulongqihan/Focused-Moment
+- **Issues**: https://github.com/zhulongqihan/Focused-Moment/issues
+- **Discussions**: https://github.com/zhulongqihan/Focused-Moment/discussions
+
+---
+
+<div align="center">
+
+**专注是通往心流的唯一道路。** 🚀
+
+Made with ❤️ by Focused Moment Contributors
+
+</div>

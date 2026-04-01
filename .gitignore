@@ -1,4 +1,4 @@
-.DS_Store
+﻿.DS_Store
 node_modules
 /build
 /.svelte-kit
@@ -8,3 +8,10 @@ node_modules
 !.env.example
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Documentation (Do not upload to GitHub)
+docs/
+
+# Build artifacts
+*.exe
+src-tauri/target/
