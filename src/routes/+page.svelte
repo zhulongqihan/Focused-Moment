@@ -786,6 +786,12 @@ ${todoList}`;
     <button class:active={activeTab === "settings"} onclick={() => (activeTab = "settings")}>设置</button>
     <button class:active={activeTab === "pet"} onclick={() => (activeTab = "pet")}>赛博宠物</button>
     <button class:active={activeTab === "achievements"} onclick={() => (activeTab = "achievements")}>成就殿堂</button>
+    <a href="/gacha" class="tab-link">
+      <button>🎲 寻访系统</button>
+    </a>
+    <a href="/operators" class="tab-link">
+      <button>📋 干员收藏</button>
+    </a>
   </nav>
 
   <div class="daily-quote">
