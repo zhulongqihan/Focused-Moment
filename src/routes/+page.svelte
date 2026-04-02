@@ -770,8 +770,8 @@
 
   <header class="headline">
     <div>
-      <p class="eyebrow">Focused Moment</p>
-      <h1>走神污染治理局</h1>
+      <p class="eyebrow">Focused Moment · Rhodes Island</p>
+      <h1>走神污染治理局 <span class="rhodes-emblem">◆</span></h1>
       <p class="subtitle">本地存储模式已启用。你的数据不会上传云端。</p>
     </div>
     <div class="goal-chip">
@@ -1187,6 +1187,7 @@
   .settings-box .ornament-corner {
     width: 40px;
     height: 40px;
+    z-index: 10;
   }
 
   .timer-box .ornament-corner::before,
@@ -1195,44 +1196,49 @@
   .challenge-box .ornament-corner::after,
   .settings-box .ornament-corner::before,
   .settings-box .ornament-corner::after {
-    background: #0098DC;
-    opacity: 0.6;
+    background: linear-gradient(135deg, #0098DC 0%, #FFB800 100%);
+    opacity: 0.85;
+    box-shadow: 0 0 6px rgba(0, 152, 220, 0.4);
   }
 
   .timer-box .ornament-top-left::before,
   .challenge-box .ornament-top-left::before,
   .settings-box .ornament-bottom-left::before {
-    width: 30px;
-    height: 2px;
+    width: 35px;
+    height: 3px;
     top: 8px;
     left: 0;
+    border-radius: 2px;
   }
 
   .timer-box .ornament-top-left::after,
   .challenge-box .ornament-top-left::after,
   .settings-box .ornament-bottom-left::after {
-    width: 2px;
-    height: 30px;
+    width: 3px;
+    height: 35px;
     top: 0;
     left: 8px;
+    border-radius: 2px;
   }
 
   .timer-box .ornament-top-right::before,
   .challenge-box .ornament-top-right::before,
   .settings-box .ornament-bottom-right::before {
-    width: 30px;
-    height: 2px;
+    width: 35px;
+    height: 3px;
     top: 8px;
     right: 0;
+    border-radius: 2px;
   }
 
   .timer-box .ornament-top-right::after,
   .challenge-box .ornament-top-right::after,
   .settings-box .ornament-bottom-right::after {
-    width: 2px;
-    height: 30px;
+    width: 3px;
+    height: 35px;
     top: 0;
     right: 8px;
+    border-radius: 2px;
   }
 
   .settings-box .ornament-bottom-left::before {
@@ -1268,18 +1274,6 @@
     position: relative;
   }
 
-  .widget-controls {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-
-  .widget-controls .ark-button {
-    padding: 8px 16px;
-    font-size: 13px;
-    white-space: nowrap;
-  }
-
   .eyebrow {
     margin: 0;
     text-transform: uppercase;
@@ -1291,6 +1285,27 @@
   h1 {
     margin: 2px 0;
     font-size: 28px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .rhodes-emblem {
+    color: #0098DC;
+    font-size: 20px;
+    text-shadow: 0 0 10px rgba(0, 152, 220, 0.6);
+    animation: emblem-pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes emblem-pulse {
+    0%, 100% {
+      opacity: 1;
+      text-shadow: 0 0 10px rgba(0, 152, 220, 0.6);
+    }
+    50% {
+      opacity: 0.7;
+      text-shadow: 0 0 20px rgba(0, 152, 220, 0.8);
+    }
   }
 
   .subtitle {
@@ -1364,6 +1379,23 @@
     border: 2px solid rgba(0, 152, 220, 0.3);
     position: relative;
     box-shadow: 0 4px 12px rgba(0, 152, 220, 0.1);
+  }
+
+  /* 增强罗德岛装饰可见度 */
+  .timer-box::before,
+  .challenge-box::before,
+  .settings-box::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 95%;
+    height: 95%;
+    border: 1px solid rgba(0, 152, 220, 0.15);
+    border-radius: 12px;
+    pointer-events: none;
+    z-index: 0;
   }
 
   /* 计时模式切换按钮 */

@@ -26,20 +26,22 @@
   --ark-border-secondary: #FFB800;
 }
 
-/* 古朴花纹装饰 */
+/* 古朴花纹装饰 - 增强可见度 */
 .ornament-corner {
   position: absolute;
   width: 60px;
   height: 60px;
   pointer-events: none;
+  z-index: 5;
 }
 
 .ornament-corner::before,
 .ornament-corner::after {
   content: '';
   position: absolute;
-  background: var(--ark-border);
-  opacity: 0.6;
+  background: linear-gradient(135deg, var(--ark-border) 0%, var(--ark-accent) 100%);
+  opacity: 0.9;
+  box-shadow: 0 0 8px rgba(0, 152, 220, 0.5);
 }
 
 /* 左上角装饰 */
@@ -49,17 +51,19 @@
 }
 
 .ornament-top-left::before {
-  width: 40px;
-  height: 2px;
+  width: 50px;
+  height: 3px;
   top: 10px;
   left: 0;
+  border-radius: 2px;
 }
 
 .ornament-top-left::after {
-  width: 2px;
-  height: 40px;
+  width: 3px;
+  height: 50px;
   top: 0;
   left: 10px;
+  border-radius: 2px;
 }
 
 /* 右上角装饰 */
@@ -69,17 +73,19 @@
 }
 
 .ornament-top-right::before {
-  width: 40px;
-  height: 2px;
+  width: 50px;
+  height: 3px;
   top: 10px;
   right: 0;
+  border-radius: 2px;
 }
 
 .ornament-top-right::after {
-  width: 2px;
-  height: 40px;
+  width: 3px;
+  height: 50px;
   top: 0;
   right: 10px;
+  border-radius: 2px;
 }
 
 /* 左下角装饰 */
@@ -89,17 +95,19 @@
 }
 
 .ornament-bottom-left::before {
-  width: 40px;
-  height: 2px;
+  width: 50px;
+  height: 3px;
   bottom: 10px;
   left: 0;
+  border-radius: 2px;
 }
 
 .ornament-bottom-left::after {
-  width: 2px;
-  height: 40px;
+  width: 3px;
+  height: 50px;
   bottom: 0;
   left: 10px;
+  border-radius: 2px;
 }
 
 /* 右下角装饰 */
@@ -109,35 +117,40 @@
 }
 
 .ornament-bottom-right::before {
-  width: 40px;
-  height: 2px;
+  width: 50px;
+  height: 3px;
   bottom: 10px;
   right: 0;
+  border-radius: 2px;
 }
 
 .ornament-bottom-right::after {
-  width: 2px;
-  height: 40px;
+  width: 3px;
+  height: 50px;
   bottom: 0;
   right: 10px;
+  border-radius: 2px;
 }
 
 /* 罗德岛风格边框 */
 .ark-border {
   position: relative;
-  border: 2px solid var(--ark-border);
-  background: linear-gradient(135deg, rgba(0, 152, 220, 0.05) 0%, rgba(0, 0, 0, 0) 100%);
+  border: 3px solid var(--ark-border);
+  background: linear-gradient(135deg, rgba(0, 152, 220, 0.08) 0%, rgba(255, 184, 0, 0.03) 100%);
+  box-shadow: 
+    0 0 20px rgba(0, 152, 220, 0.2),
+    inset 0 0 30px rgba(0, 152, 220, 0.05);
 }
 
 .ark-border::before {
   content: '';
   position: absolute;
-  top: -2px;
-  left: -2px;
-  right: -2px;
-  bottom: -2px;
+  top: -3px;
+  left: -3px;
+  right: -3px;
+  bottom: -3px;
   background: linear-gradient(45deg, var(--ark-border) 0%, transparent 50%, var(--ark-accent) 100%);
-  opacity: 0.1;
+  opacity: 0.2;
   pointer-events: none;
   z-index: -1;
 }
@@ -148,7 +161,7 @@
   overflow: hidden;
 }
 
-.originium-texture::before {
+.originium-texture::after {
   content: '';
   position: absolute;
   top: 0;
@@ -156,9 +169,10 @@
   right: 0;
   bottom: 0;
   background-image: 
-    repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(0, 152, 220, 0.03) 10px, rgba(0, 152, 220, 0.03) 20px),
-    repeating-linear-gradient(-45deg, transparent, transparent 10px, rgba(255, 184, 0, 0.02) 10px, rgba(255, 184, 0, 0.02) 20px);
+    repeating-linear-gradient(45deg, transparent, transparent 15px, rgba(0, 152, 220, 0.08) 15px, rgba(0, 152, 220, 0.08) 30px),
+    repeating-linear-gradient(-45deg, transparent, transparent 15px, rgba(255, 184, 0, 0.05) 15px, rgba(255, 184, 0, 0.05) 30px);
   pointer-events: none;
+  z-index: 1;
 }
 
 /* 罗德岛标题样式 */
