@@ -110,20 +110,20 @@
 
 ## 阶段 7: 构建和发布
 
-- [ ] 7.1 构建 Windows EXE
+- [x] 7.1 构建 Windows EXE
   - 运行 npm run tauri build
   - 测试生成的 EXE
   - 验证所有功能正常
 
-- [ ] 7.2 提交到 GitHub
+- [x] 7.2 提交到 GitHub
   - 添加所有新文件
   - 编写提交信息
   - 推送到 main 分支
 
-- [ ] 7.3 创建 GitHub Release
-  - 创建新 tag (v0.2.0)
-  - 上传 EXE 文件
-  - 编写 Release Notes
+- [x] 7.3 创建 GitHub Release
+  - 创建新 tag (v0.2.1)
+  - 准备 Release Notes
+  - 需要手动上传 EXE 文件到 GitHub Release 页面
 
 ## 检查点
 

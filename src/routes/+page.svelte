@@ -100,7 +100,7 @@
     whitelist: ["docs", "wikipedia.org", "github.com", "developer.mozilla.org"],
   };
 
-  let activeTab = $state<"focus" | "todo" | "stats" | "web" | "pet" | "achievements">("focus");
+  let activeTab = $state<"focus" | "todo" | "stats" | "settings" | "pet" | "achievements">("focus");
 
   let settings = $state<AppSettings>({ ...DEFAULT_SETTINGS });
   let todos = $state<Todo[]>([]);
@@ -129,12 +129,14 @@
   let todoTags = $state("");
   let todoFilter = $state<"all" | "active" | "done">("all");
   let statsView = $state<"today" | "week" | "month" | "all">("today");
-  let urlInput = $state("https://");
-  let whitelistInput = $state("");
   let focusNote = $state("");
   let currentTip = $state("准备好了吗？今天把分心雾霾清掉。");
   let hydrated = false;
   let saveTimerRef: number | null = null;
+  
+  // API 设置
+  let apiKey = $state("");
+  let apiKeyInput = $state("");
 
   function nowId(prefix: string): string {
     return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -152,6 +154,7 @@
     achievements = (parsed.achievements as Achievement[]) ?? [...ACHIEVEMENTS];
     consecutiveDays = Number(parsed.consecutiveDays ?? 0);
     lastActiveDate = (parsed.lastActiveDate as string) ?? null;
+    apiKey = String(parsed.apiKey ?? "");
     timerSecondsLeft = settings.workMinutes * 60;
     
     checkDailyStreak();
@@ -171,6 +174,7 @@
       achievements,
       consecutiveDays,
       lastActiveDate,
+      apiKey,
     };
     const payload = JSON.stringify(data);
     localStorage.setItem(STORAGE_KEY, payload);
@@ -425,7 +429,12 @@
     clearTick();
     challengeBroken = true;
     timerStartedAt = null;
-    timerSecondsLeft = (timerMode === "work" ? settings.workMinutes : settings.breakMinutes) * 60;
+    // 根据计时模式重置时间
+    if (timerCountMode === "countdown") {
+      timerSecondsLeft = (timerMode === "work" ? settings.workMinutes : settings.breakMinutes) * 60;
+    } else {
+      timerSecondsLeft = 0;
+    }
     scheduleSave();
   }
 
@@ -434,84 +443,30 @@
     finishSession(false);
   }
 
-  function extractDomain(url: string): string {
-    try {
-      return new URL(url).hostname.toLowerCase();
-    } catch {
-      return "";
-    }
-  }
-
-  function isWhitelisted(domain: string): boolean {
-    return settings.whitelist.some((item) => domain.includes(item.toLowerCase()));
-  }
-
-  async function openLearningUrl() {
-    const domain = extractDomain(urlInput);
-    if (!domain) {
-      currentTip = "链接无效，请输入完整 URL。";
-      return;
-    }
-
-    const whitelisted = isWhitelisted(domain);
-    const softWarned = !whitelisted;
-    if (softWarned) {
-      const yes = window.confirm(
-        "该网站不在学习白名单中。继续打开将记录一次诱惑事件，是否继续？"
-      );
-      if (!yes) {
-        return;
+  async function saveApiKey() {
+    apiKey = apiKeyInput.trim();
+    if (apiKey) {
+      try {
+        await invoke("set_api_key", { apiKey });
+        currentTip = "API Key 已保存！";
+      } catch (error) {
+        currentTip = `保存失败：${error}`;
       }
     }
-
-    visitLogs = [
-      {
-        id: nowId("visit"),
-        url: urlInput,
-        domain,
-        createdAt: Date.now(),
-        whitelisted,
-        softWarned,
-      },
-      ...visitLogs,
-    ];
-
-    await openUrl(urlInput);
-    currentTip = whitelisted
-      ? "学习资料已打开，保持专注。"
-      : "已放行并记录一次偏航，请尽快回到任务轨道。";
     scheduleSave();
   }
 
-  function addWhitelist() {
-    const value = whitelistInput.trim().toLowerCase();
-    if (!value || settings.whitelist.includes(value)) {
+  async function testAiConnection() {
+    if (!apiKey) {
+      currentTip = "请先配置 API Key";
       return;
     }
-    settings = {
-      ...settings,
-      whitelist: [...settings.whitelist, value],
-    };
-    whitelistInput = "";
-    scheduleSave();
-  }
-
-  function removeWhitelist(item: string) {
-    settings = {
-      ...settings,
-      whitelist: settings.whitelist.filter((value) => value !== item),
-    };
-    scheduleSave();
-  }
-
-  function totalFocusedMinutes(): number {
-    return sessions
-      .filter((session) => session.mode === "work" && session.completed)
-      .reduce((total, session) => total + session.minutes, 0);
-  }
-
-  function completedTodosCount(): number {
-    return todos.filter((todo) => todo.done).length;
+    try {
+      const available = await invoke<boolean>("check_ai_available");
+      currentTip = available ? "AI 连接成功！" : "AI 连接失败，请检查 API Key";
+    } catch (error) {
+      currentTip = `测试失败：${error}`;
+    }
   }
 
   function getStatsTimeRange(): [number, number] {
@@ -739,24 +694,10 @@
     input.click();
   }
 
-  async function toggleTimerWidget() {
-    try {
-      await invoke("toggle_timer_widget");
-    } catch (error) {
-      currentTip = `打开计时器失败：${error}`;
-    }
-  }
-
-  async function toggleTodoWidget() {
-    try {
-      await invoke("toggle_todo_widget");
-    } catch (error) {
-      currentTip = `打开待办清单失败：${error}`;
-    }
-  }
-
   onMount(() => {
     void loadState();
+    // 加载后设置 API Key 输入框
+    apiKeyInput = apiKey;
     return () => clearTick();
   });
 </script>
@@ -784,7 +725,7 @@
     <button class:active={activeTab === "focus"} onclick={() => (activeTab = "focus")}>番茄战场</button>
     <button class:active={activeTab === "todo"} onclick={() => (activeTab = "todo")}>待办舱</button>
     <button class:active={activeTab === "stats"} onclick={() => (activeTab = "stats")}>统计星图</button>
-    <button class:active={activeTab === "web"} onclick={() => (activeTab = "web")}>资料航道</button>
+    <button class:active={activeTab === "settings"} onclick={() => (activeTab = "settings")}>设置</button>
     <button class:active={activeTab === "pet"} onclick={() => (activeTab = "pet")}>赛博宠物</button>
     <button class:active={activeTab === "achievements"} onclick={() => (activeTab = "achievements")}>成就殿堂</button>
   </nav>
@@ -836,11 +777,21 @@
         <div class="ornament-corner ornament-top-left"></div>
         <div class="ornament-corner ornament-top-right"></div>
         
-        <h3>反拖延轮盘</h3>
-        <p>{selectedChallenge ? selectedChallenge.title : "点击抽取挑战后开始番茄。"}</p>
-        <small>{selectedChallenge ? selectedChallenge.reward : "奖励将在专注成功后结算"}</small>
+        <h3>反拖延挑战</h3>
+        {#if selectedChallenge}
+          <p class="challenge-title">{selectedChallenge.title}</p>
+          <small class="challenge-reward">奖励：{selectedChallenge.reward}</small>
+          <p class="challenge-status">
+            {challengeBroken ? "❌ 挑战失败" : timerRunning ? "⏳ 挑战进行中..." : "✅ 准备就绪"}
+          </p>
+        {:else}
+          <p class="challenge-desc">开始专注时自动抽取挑战</p>
+          <p class="challenge-hint">完成挑战可获得额外经验值</p>
+        {/if}
         <div class="controls">
-          <button onclick={spinChallenge}>抽挑战</button>
+          <button onclick={spinChallenge} disabled={timerRunning}>
+            {selectedChallenge ? "重新抽取" : "抽取挑战"}
+          </button>
         </div>
       </div>
 
@@ -999,37 +950,56 @@
     </section>
   {/if}
 
-  {#if activeTab === "web"}
+  {#if activeTab === "settings"}
     <section class="panel">
-      <div class="todo-add">
-        <input bind:value={urlInput} placeholder="https://example.com" />
-        <button onclick={openLearningUrl}>打开资料</button>
+      <h2>设置</h2>
+      
+      <div class="settings-section">
+        <h3>AI 功能配置（可选）</h3>
+        <p class="settings-desc">配置通义千问 API 后可使用 AI 总结和建议功能。不配置也不影响其他功能使用。</p>
+        
+        <div class="settings-form">
+          <label>
+            API Key
+            <input 
+              type="password" 
+              bind:value={apiKeyInput} 
+              placeholder="输入通义千问 API Key"
+            />
+          </label>
+          
+          <div class="controls">
+            <button onclick={saveApiKey}>保存 API Key</button>
+            <button onclick={testAiConnection}>测试连接</button>
+          </div>
+          
+          <small class="settings-hint">
+            获取 API Key：访问 <a href="https://dashscope.aliyun.com/" target="_blank">阿里云百炼平台</a>
+          </small>
+        </div>
       </div>
 
-      <h3>学习白名单</h3>
-      <div class="todo-add">
-        <input bind:value={whitelistInput} placeholder="输入域名关键字，例如 arxiv.org" />
-        <button onclick={addWhitelist}>加入白名单</button>
+      <div class="settings-section">
+        <h3>应用信息</h3>
+        <div class="info-grid">
+          <div class="info-item">
+            <span>版本</span>
+            <strong>v0.2.1</strong>
+          </div>
+          <div class="info-item">
+            <span>数据存储</span>
+            <strong>本地</strong>
+          </div>
+          <div class="info-item">
+            <span>累计专注</span>
+            <strong>{sessions.filter(s => s.mode === "work" && s.completed).length} 次</strong>
+          </div>
+          <div class="info-item">
+            <span>宠物等级</span>
+            <strong>Lv.{petLevel}</strong>
+          </div>
+        </div>
       </div>
-
-      <ul class="chips">
-        {#each settings.whitelist as item}
-          <li>
-            <span>{item}</span>
-            <button class="ghost" onclick={() => removeWhitelist(item)}>移除</button>
-          </li>
-        {/each}
-      </ul>
-
-      <h3>最近访问</h3>
-      <ul class="logs">
-        {#each visitLogs.slice(0, 8) as log}
-          <li>
-            <strong>{log.domain}</strong>
-            <span>{log.whitelisted ? "白名单" : "软提醒放行"}</span>
-          </li>
-        {/each}
-      </ul>
     </section>
   {/if}
 
@@ -1040,6 +1010,18 @@
       </div>
       <h3>量子仓鼠 Mk-{petLevel}</h3>
       <p>等级 {petLevel} · 当前经验 {petXp}/{petLevel * 100}</p>
+      
+      <div class="pet-explanation">
+        <h4>🎮 宠物成长机制</h4>
+        <ul class="pet-rules">
+          <li>✅ 完成普通番茄：+20 经验</li>
+          <li>🏆 完成 Boss 番茄：+35 经验</li>
+          <li>🎯 完成挑战：额外 +20 经验</li>
+          <li>⭐ 每 100 经验升 1 级</li>
+        </ul>
+        <p class="pet-tip">💡 宠物等级越高，解锁的成就越多！</p>
+      </div>
+      
       <div class="pet-stats">
         <div class="pet-stat">
           <span>Boss胜场</span>
@@ -1588,6 +1570,151 @@
     margin-bottom: 10px;
   }
 
+  /* 设置页面样式 */
+  .settings-section {
+    margin-bottom: 30px;
+    padding: 20px;
+    background: #fff;
+    border-radius: 12px;
+    border: 1px solid rgba(30, 26, 22, 0.1);
+  }
+
+  .settings-section h3 {
+    margin-top: 0;
+    margin-bottom: 8px;
+    color: #1e1a16;
+  }
+
+  .settings-desc {
+    color: #725444;
+    font-size: 14px;
+    margin-bottom: 16px;
+  }
+
+  .settings-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .settings-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .settings-hint {
+    color: #80513a;
+    font-size: 12px;
+  }
+
+  .settings-hint a {
+    color: #0098DC;
+    text-decoration: none;
+  }
+
+  .settings-hint a:hover {
+    text-decoration: underline;
+  }
+
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-top: 12px;
+  }
+
+  .info-item {
+    background: #fffdf8;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(30, 26, 22, 0.1);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .info-item span {
+    font-size: 12px;
+    color: #725444;
+  }
+
+  .info-item strong {
+    font-size: 18px;
+    font-family: "JetBrains Mono", monospace;
+  }
+
+  /* 挑战框增强样式 */
+  .challenge-title {
+    font-weight: 600;
+    color: #1e1a16;
+    margin: 8px 0;
+  }
+
+  .challenge-reward {
+    color: #ff9944;
+    font-weight: 600;
+  }
+
+  .challenge-status {
+    margin: 12px 0;
+    padding: 8px;
+    background: rgba(0, 152, 220, 0.1);
+    border-radius: 8px;
+    font-size: 13px;
+    text-align: center;
+  }
+
+  .challenge-desc {
+    color: #725444;
+    margin: 8px 0;
+  }
+
+  .challenge-hint {
+    color: #80513a;
+    font-size: 13px;
+    margin: 4px 0;
+  }
+
+  /* 宠物说明样式 */
+  .pet-explanation {
+    background: #fffdf8;
+    border-radius: 12px;
+    padding: 16px;
+    margin: 16px 0;
+    border: 1px solid rgba(30, 26, 22, 0.1);
+    text-align: left;
+  }
+
+  .pet-explanation h4 {
+    margin: 0 0 12px 0;
+    color: #1e1a16;
+  }
+
+  .pet-rules {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 12px 0;
+  }
+
+  .pet-rules li {
+    padding: 6px 0;
+    color: #614a3e;
+    font-size: 14px;
+  }
+
+  .pet-tip {
+    margin: 0;
+    padding: 10px;
+    background: rgba(0, 152, 220, 0.1);
+    border-radius: 8px;
+    color: #0098DC;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
   .daily-quote {
     background: rgba(255, 255, 255, 0.7);
     border-radius: 14px;
@@ -1716,9 +1843,7 @@
     font-family: "JetBrains Mono", monospace;
   }
 
-  .todo-list,
-  .chips,
-  .logs {
+  .todo-list {
     list-style: none;
     padding: 0;
     margin: 0;
@@ -1727,9 +1852,7 @@
     gap: 8px;
   }
 
-  .todo-list li,
-  .chips li,
-  .logs li {
+  .todo-list li {
     display: flex;
     justify-content: space-between;
     align-items: center;

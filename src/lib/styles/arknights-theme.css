@@ -155,7 +155,7 @@
   z-index: -1;
 }
 
-/* 源石纹理背景 */
+/* 源石纹理背景 - 移除刺眼的交叉花纹 */
 .originium-texture {
   position: relative;
   overflow: hidden;
@@ -168,9 +168,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background-image: 
-    repeating-linear-gradient(45deg, transparent, transparent 15px, rgba(0, 152, 220, 0.08) 15px, rgba(0, 152, 220, 0.08) 30px),
-    repeating-linear-gradient(-45deg, transparent, transparent 15px, rgba(255, 184, 0, 0.05) 15px, rgba(255, 184, 0, 0.05) 30px);
+  background: linear-gradient(135deg, rgba(0, 152, 220, 0.02) 0%, rgba(255, 184, 0, 0.01) 100%);
   pointer-events: none;
   z-index: 1;
 }
