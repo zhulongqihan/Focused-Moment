@@ -724,8 +724,8 @@ ${todoList}`;
 
   async function exportData() {
     try {
-      const filePath = await invoke<string>("export_app_state");
-      currentTip = `备份成功！文件保存在：${filePath}`;
+      const filePath = await invoke<string>("export_data_json");
+      currentTip = `导出成功！文件保存在：${filePath}`;
     } catch (error) {
       currentTip = `导出失败：${error}`;
     }

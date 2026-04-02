@@ -14,6 +14,9 @@ pub use ai::QwenClient;
 mod windows;
 pub use windows::{create_timer_widget, create_todo_widget, toggle_timer_widget, toggle_todo_widget};
 
+pub mod gacha;
+pub use gacha::*;
+
 #[cfg(test)]
 mod config_test;
 
@@ -50,6 +53,10 @@ fn open_db(app: &AppHandle) -> Result<Connection, String> {
         [],
     )
     .map_err(|e| format!("failed to initialize sqlite schema: {e}"))?;
+
+    // 初始化抽卡系统数据库表
+    gacha::database::initialize_gacha_database(&conn)
+        .map_err(|e| format!("failed to initialize gacha database: {e}"))?;
 
     Ok(conn)
 }
@@ -132,6 +139,53 @@ fn import_app_state(app: AppHandle, payload: String) -> Result<(), String> {
     save_app_state(app, payload)
 }
 
+#[tauri::command]
+async fn export_data_json(app: AppHandle) -> Result<String, String> {
+    use tauri_plugin_dialog::{DialogExt, FilePath};
+    
+    // Get the app state data
+    let conn = open_db(&app)?;
+    let mut stmt = conn
+        .prepare("SELECT value FROM app_kv WHERE key = ?1")
+        .map_err(|e| format!("failed to prepare export query: {e}"))?;
+
+    let value: Option<String> = stmt
+        .query_row(params![STATE_KEY], |row| row.get(0))
+        .ok();
+
+    let payload = value.unwrap_or_else(|| "{}".to_string());
+    
+    // Parse and pretty-print the JSON
+    let json_value: serde_json::Value = serde_json::from_str(&payload)
+        .map_err(|e| format!("failed to parse state data: {e}"))?;
+    let pretty_json = serde_json::to_string_pretty(&json_value)
+        .map_err(|e| format!("failed to format JSON: {e}"))?;
+    
+    // Show file save dialog
+    let file_path = app.dialog()
+        .file()
+        .set_title("导出数据")
+        .set_file_name("focused_moment_export.json")
+        .add_filter("JSON 文件", &["json"])
+        .blocking_save_file();
+    
+    match file_path {
+        Some(FilePath::Path(path)) => {
+            // Write the pretty-printed JSON to the selected file
+            fs::write(&path, pretty_json)
+                .map_err(|e| format!("failed to write export file: {e}"))?;
+            
+            Ok(path.to_string_lossy().to_string())
+        }
+        Some(FilePath::Url(_)) => {
+            Err("URL paths are not supported".to_string())
+        }
+        None => {
+            Err("用户取消了导出操作".to_string())
+        }
+    }
+}
+
 /// Load application configuration
 #[tauri::command]
 fn load_config(state: State<AppState>) -> Result<AppConfig, String> {
@@ -207,6 +261,44 @@ async fn generate_ai_summary(state: State<'_, AppState>, focus_data: String) -> 
     qwen_client.generate_text(prompt).await
 }
 
+/// Perform single gacha pull
+#[tauri::command]
+fn perform_single_gacha_pull(app: AppHandle) -> Result<GachaResult, String> {
+    let conn = open_db(&app)?;
+    gacha::single_pull::perform_single_gacha(&conn)
+}
+
+/// Perform ten gacha pulls
+#[tauri::command]
+fn perform_ten_gacha_pull(app: AppHandle) -> Result<GachaResult, String> {
+    let conn = open_db(&app)?;
+    gacha::ten_pull::perform_ten_gacha(&conn)
+}
+
+/// Get current gacha system state
+#[tauri::command]
+fn get_gacha_state(app: AppHandle) -> Result<GachaSystemState, String> {
+    let conn = open_db(&app)?;
+    gacha::database::load_gacha_system_state(&conn)
+        .map_err(|e| format!("Failed to load gacha state: {}", e))
+}
+
+/// Get current currency
+#[tauri::command]
+fn get_currency(app: AppHandle) -> Result<Currency, String> {
+    let conn = open_db(&app)?;
+    gacha::database::load_currency(&conn)
+        .map_err(|e| format!("Failed to load currency: {}", e))
+}
+
+/// Update currency (for testing/admin purposes)
+#[tauri::command]
+fn update_currency_balance(app: AppHandle, currency: Currency) -> Result<(), String> {
+    let conn = open_db(&app)?;
+    gacha::database::update_currency(&conn, &currency)
+        .map_err(|e| format!("Failed to update currency: {}", e))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Load configuration on startup
@@ -239,19 +331,26 @@ pub fn run() {
     
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .manage(app_state)
         .invoke_handler(tauri::generate_handler![
             load_app_state,
             save_app_state,
             export_app_state,
             import_app_state,
+            export_data_json,
             load_config,
             save_config,
             set_api_key,
             check_ai_available,
             generate_ai_summary,
             toggle_timer_widget,
-            toggle_todo_widget
+            toggle_todo_widget,
+            perform_single_gacha_pull,
+            perform_ten_gacha_pull,
+            get_gacha_state,
+            get_currency,
+            update_currency_balance
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
