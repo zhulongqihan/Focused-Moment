@@ -1,8 +1,24 @@
 use rusqlite::{params, Connection};
 use std::fs;
 use std::path::PathBuf;
+use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager, State};
+
+mod config;
+pub use config::AppConfig;
+
+mod ai;
+pub use ai::QwenClient;
+
+#[cfg(test)]
+mod config_test;
+
+/// Application state for managing configuration
+pub struct AppState {
+    config: Mutex<AppConfig>,
+    qwen_client: Mutex<Option<QwenClient>>,
+}
 
 const STATE_KEY: &str = "state_v1";
 
@@ -113,15 +129,124 @@ fn import_app_state(app: AppHandle, payload: String) -> Result<(), String> {
     save_app_state(app, payload)
 }
 
+/// Load application configuration
+#[tauri::command]
+fn load_config(state: State<AppState>) -> Result<AppConfig, String> {
+    let config = state.config.lock()
+        .map_err(|e| format!("Failed to lock config state: {}", e))?;
+    Ok(config.clone())
+}
+
+/// Save application configuration
+#[tauri::command]
+fn save_config(state: State<AppState>, config: AppConfig) -> Result<(), String> {
+    // Save to disk
+    config.save()?;
+    
+    // Update in-memory state
+    let mut state_config = state.config.lock()
+        .map_err(|e| format!("Failed to lock config state: {}", e))?;
+    *state_config = config;
+    
+    Ok(())
+}
+
+/// Set Qwen API key
+#[tauri::command]
+fn set_api_key(state: State<AppState>, api_key: String) -> Result<(), String> {
+    let mut config = state.config.lock()
+        .map_err(|e| format!("Failed to lock config state: {}", e))?;
+    
+    config.qwen_api_key = Some(api_key.clone());
+    config.save()?;
+    
+    // Update QwenClient in state
+    let mut client = state.qwen_client.lock()
+        .map_err(|e| format!("Failed to lock qwen client state: {}", e))?;
+    
+    if !api_key.trim().is_empty() {
+        *client = Some(QwenClient::new(api_key)?);
+    } else {
+        *client = None;
+    }
+    
+    Ok(())
+}
+
+/// Check if AI is available (API key configured)
+#[tauri::command]
+fn check_ai_available(state: State<AppState>) -> Result<bool, String> {
+    let client = state.qwen_client.lock()
+        .map_err(|e| format!("Failed to lock qwen client state: {}", e))?;
+    
+    Ok(client.is_some())
+}
+
+/// Generate AI summary for daily focus sessions
+#[tauri::command]
+async fn generate_ai_summary(state: State<'_, AppState>, focus_data: String) -> Result<String, String> {
+    // Clone the client to avoid holding the lock across await
+    let qwen_client = {
+        let client = state.qwen_client.lock()
+            .map_err(|e| format!("Failed to lock qwen client state: {}", e))?;
+        
+        client.as_ref()
+            .ok_or_else(|| "AI 功能未配置。请先在设置中配置通义千问 API Key。".to_string())?
+            .clone()
+    };
+    
+    // Create prompt for daily summary
+    let prompt = format!(
+        "请根据以下专注数据生成一份简洁的每日总结（200字以内）：\n\n{}\n\n请包含：\n1. 今日专注时长和完成情况\n2. 主要成就\n3. 改进建议",
+        focus_data
+    );
+    
+    qwen_client.generate_text(prompt).await
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Load configuration on startup
+    let config = AppConfig::load().unwrap_or_else(|e| {
+        eprintln!("Failed to load config, using defaults: {}", e);
+        AppConfig::default()
+    });
+    
+    // Initialize QwenClient if API key is configured
+    let qwen_client = if let Some(ref api_key) = config.qwen_api_key {
+        if !api_key.trim().is_empty() {
+            match QwenClient::new(api_key.clone()) {
+                Ok(client) => Some(client),
+                Err(e) => {
+                    eprintln!("Failed to initialize QwenClient: {}", e);
+                    None
+                }
+            }
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+    
+    let app_state = AppState {
+        config: Mutex::new(config),
+        qwen_client: Mutex::new(qwen_client),
+    };
+    
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .manage(app_state)
         .invoke_handler(tauri::generate_handler![
             load_app_state,
             save_app_state,
             export_app_state,
-            import_app_state
+            import_app_state,
+            load_config,
+            save_config,
+            set_api_key,
+            check_ai_available,
+            generate_ai_summary
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
