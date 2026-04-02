@@ -2,6 +2,7 @@
   import { invoke } from "@tauri-apps/api/core";
   import { openUrl } from "@tauri-apps/plugin-opener";
   import { onMount } from "svelte";
+  import '$lib/styles/arknights-theme.css';
 
   type Todo = {
     id: string;
@@ -731,22 +732,53 @@
     input.click();
   }
 
+  async function toggleTimerWidget() {
+    try {
+      await invoke("toggle_timer_widget");
+    } catch (error) {
+      currentTip = `打开计时器失败：${error}`;
+    }
+  }
+
+  async function toggleTodoWidget() {
+    try {
+      await invoke("toggle_todo_widget");
+    } catch (error) {
+      currentTip = `打开待办清单失败：${error}`;
+    }
+  }
+
   onMount(() => {
     void loadState();
     return () => clearTick();
   });
 </script>
 
-<main class="shell">
+<main class="shell ark-border originium-texture">
+  <!-- 罗德岛装饰角 -->
+  <div class="ornament-corner ornament-top-left"></div>
+  <div class="ornament-corner ornament-top-right"></div>
+  <div class="ornament-corner ornament-bottom-left"></div>
+  <div class="ornament-corner ornament-bottom-right"></div>
+
   <header class="headline">
     <div>
-      <p class="eyebrow">Focused Moment</p>
-      <h1>走神污染治理局</h1>
+      <p class="eyebrow ark-title">Focused Moment</p>
+      <h1 class="ark-title">走神污染治理局</h1>
       <p class="subtitle">本地存储模式已启用。你的数据不会上传云端。</p>
     </div>
-    <div class="goal-chip">
+    <div class="goal-chip ark-card originium-glow">
       <span>今日进度</span>
       <strong>{todayWorkSessionsCount()} / {settings.dailyGoal}</strong>
+    </div>
+    <!-- 悬浮窗按钮 -->
+    <div class="widget-controls">
+      <button class="ark-button" onclick={toggleTimerWidget} title="打开悬浮计时器">
+        ⏱️ 计时器
+      </button>
+      <button class="ark-button" onclick={toggleTodoWidget} title="打开悬浮待办">
+        📋 待办
+      </button>
     </div>
   </header>
 
@@ -1056,6 +1088,19 @@
     border-radius: 18px;
     padding: 16px;
     backdrop-filter: blur(8px);
+    position: relative;
+  }
+
+  .widget-controls {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .widget-controls .ark-button {
+    padding: 8px 16px;
+    font-size: 13px;
+    white-space: nowrap;
   }
 
   .eyebrow {

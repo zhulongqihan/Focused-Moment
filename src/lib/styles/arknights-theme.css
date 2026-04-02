@@ -1,0 +1,423 @@
+/* 明日方舟风格主题 - Arknights Theme */
+
+/* 罗德岛配色方案 */
+:root {
+  /* 主色调 - 罗德岛蓝 */
+  --ark-primary: #0098DC;
+  --ark-primary-dark: #006BA6;
+  --ark-primary-light: #33AADF;
+  
+  /* 辅助色 - 源石黑 */
+  --ark-dark: #1a1a1a;
+  --ark-dark-secondary: #2a2a2a;
+  --ark-dark-tertiary: #3a3a3a;
+  
+  /* 强调色 - 源石金 */
+  --ark-accent: #FFB800;
+  --ark-accent-glow: rgba(255, 184, 0, 0.3);
+  
+  /* 文字颜色 */
+  --ark-text-primary: #E8E8E8;
+  --ark-text-secondary: #B8B8B8;
+  --ark-text-muted: #888888;
+  
+  /* 边框和装饰 */
+  --ark-border: #0098DC;
+  --ark-border-secondary: #FFB800;
+}
+
+/* 古朴花纹装饰 */
+.ornament-corner {
+  position: absolute;
+  width: 60px;
+  height: 60px;
+  pointer-events: none;
+}
+
+.ornament-corner::before,
+.ornament-corner::after {
+  content: '';
+  position: absolute;
+  background: var(--ark-border);
+  opacity: 0.6;
+}
+
+/* 左上角装饰 */
+.ornament-top-left {
+  top: 0;
+  left: 0;
+}
+
+.ornament-top-left::before {
+  width: 40px;
+  height: 2px;
+  top: 10px;
+  left: 0;
+}
+
+.ornament-top-left::after {
+  width: 2px;
+  height: 40px;
+  top: 0;
+  left: 10px;
+}
+
+/* 右上角装饰 */
+.ornament-top-right {
+  top: 0;
+  right: 0;
+}
+
+.ornament-top-right::before {
+  width: 40px;
+  height: 2px;
+  top: 10px;
+  right: 0;
+}
+
+.ornament-top-right::after {
+  width: 2px;
+  height: 40px;
+  top: 0;
+  right: 10px;
+}
+
+/* 左下角装饰 */
+.ornament-bottom-left {
+  bottom: 0;
+  left: 0;
+}
+
+.ornament-bottom-left::before {
+  width: 40px;
+  height: 2px;
+  bottom: 10px;
+  left: 0;
+}
+
+.ornament-bottom-left::after {
+  width: 2px;
+  height: 40px;
+  bottom: 0;
+  left: 10px;
+}
+
+/* 右下角装饰 */
+.ornament-bottom-right {
+  bottom: 0;
+  right: 0;
+}
+
+.ornament-bottom-right::before {
+  width: 40px;
+  height: 2px;
+  bottom: 10px;
+  right: 0;
+}
+
+.ornament-bottom-right::after {
+  width: 2px;
+  height: 40px;
+  bottom: 0;
+  right: 10px;
+}
+
+/* 罗德岛风格边框 */
+.ark-border {
+  position: relative;
+  border: 2px solid var(--ark-border);
+  background: linear-gradient(135deg, rgba(0, 152, 220, 0.05) 0%, rgba(0, 0, 0, 0) 100%);
+}
+
+.ark-border::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: linear-gradient(45deg, var(--ark-border) 0%, transparent 50%, var(--ark-accent) 100%);
+  opacity: 0.1;
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* 源石纹理背景 */
+.originium-texture {
+  position: relative;
+  overflow: hidden;
+}
+
+.originium-texture::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: 
+    repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(0, 152, 220, 0.03) 10px, rgba(0, 152, 220, 0.03) 20px),
+    repeating-linear-gradient(-45deg, transparent, transparent 10px, rgba(255, 184, 0, 0.02) 10px, rgba(255, 184, 0, 0.02) 20px);
+  pointer-events: none;
+}
+
+/* 罗德岛标题样式 */
+.ark-title {
+  font-family: 'Microsoft YaHei', 'SimHei', sans-serif;
+  font-weight: bold;
+  color: var(--ark-text-primary);
+  text-shadow: 0 0 10px var(--ark-accent-glow);
+  letter-spacing: 2px;
+}
+
+/* 源石发光效果 */
+.originium-glow {
+  box-shadow: 
+    0 0 10px rgba(0, 152, 220, 0.3),
+    0 0 20px rgba(0, 152, 220, 0.2),
+    inset 0 0 10px rgba(0, 152, 220, 0.1);
+  transition: box-shadow 0.3s ease;
+}
+
+.originium-glow:hover {
+  box-shadow: 
+    0 0 15px rgba(0, 152, 220, 0.5),
+    0 0 30px rgba(0, 152, 220, 0.3),
+    inset 0 0 15px rgba(0, 152, 220, 0.2);
+}
+
+/* 罗德岛按钮样式 */
+.ark-button {
+  position: relative;
+  background: linear-gradient(135deg, var(--ark-primary-dark) 0%, var(--ark-primary) 100%);
+  border: 2px solid var(--ark-border);
+  color: var(--ark-text-primary);
+  padding: 10px 20px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.ark-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s ease;
+}
+
+.ark-button:hover::before {
+  left: 100%;
+}
+
+.ark-button:hover {
+  background: linear-gradient(135deg, var(--ark-primary) 0%, var(--ark-primary-light) 100%);
+  box-shadow: 0 0 20px rgba(0, 152, 220, 0.5);
+  transform: translateY(-2px);
+}
+
+.ark-button:active {
+  transform: translateY(0);
+  box-shadow: 0 0 10px rgba(0, 152, 220, 0.3);
+}
+
+/* 罗德岛卡片样式 */
+.ark-card {
+  background: rgba(26, 26, 26, 0.8);
+  border: 2px solid var(--ark-border);
+  border-radius: 4px;
+  padding: 20px;
+  position: relative;
+  backdrop-filter: blur(10px);
+}
+
+.ark-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: linear-gradient(180deg, var(--ark-accent) 0%, transparent 100%);
+}
+
+/* 干员档案风格分隔线 */
+.ark-divider {
+  height: 2px;
+  background: linear-gradient(90deg, transparent 0%, var(--ark-border) 50%, transparent 100%);
+  margin: 20px 0;
+  position: relative;
+}
+
+.ark-divider::before {
+  content: '◆';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--ark-accent);
+  background: var(--ark-dark);
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+/* 罗德岛徽章样式 */
+.ark-badge {
+  display: inline-block;
+  background: var(--ark-primary);
+  color: var(--ark-text-primary);
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: bold;
+  border-radius: 2px;
+  border: 1px solid var(--ark-border);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.ark-badge.gold {
+  background: var(--ark-accent);
+  border-color: var(--ark-accent);
+  color: var(--ark-dark);
+}
+
+/* 源石能量条 */
+.originium-bar {
+  height: 8px;
+  background: rgba(0, 152, 220, 0.2);
+  border: 1px solid var(--ark-border);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.originium-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--ark-primary) 0%, var(--ark-accent) 100%);
+  transition: width 0.5s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.originium-bar-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.3) 50%, transparent 100%);
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* 罗德岛图标样式 */
+.ark-icon {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  background: var(--ark-primary);
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+}
+
+/* 干员立绘框架 */
+.operator-frame {
+  position: relative;
+  border: 3px solid var(--ark-border);
+  background: linear-gradient(135deg, rgba(0, 152, 220, 0.1) 0%, rgba(0, 0, 0, 0.5) 100%);
+  padding: 10px;
+}
+
+.operator-frame::before,
+.operator-frame::after {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--ark-accent);
+}
+
+.operator-frame::before {
+  top: -2px;
+  left: -2px;
+  border-right: none;
+  border-bottom: none;
+}
+
+.operator-frame::after {
+  bottom: -2px;
+  right: -2px;
+  border-left: none;
+  border-top: none;
+}
+
+/* 罗德岛滚动条 */
+.ark-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.ark-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 152, 220, 0.1);
+  border: 1px solid var(--ark-border);
+}
+
+.ark-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--ark-primary) 0%, var(--ark-primary-dark) 100%);
+  border: 1px solid var(--ark-border);
+}
+
+.ark-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, var(--ark-primary-light) 0%, var(--ark-primary) 100%);
+}
+
+/* 罗德岛动画 */
+@keyframes ark-pulse {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 10px rgba(0, 152, 220, 0.3);
+  }
+  50% {
+    opacity: 0.8;
+    box-shadow: 0 0 20px rgba(0, 152, 220, 0.5);
+  }
+}
+
+.ark-pulse {
+  animation: ark-pulse 2s ease-in-out infinite;
+}
+
+/* 源石粒子效果 */
+@keyframes float-particle {
+  0% {
+    transform: translateY(0) translateX(0);
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-100px) translateX(20px);
+    opacity: 0;
+  }
+}
+
+.originium-particle {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: var(--ark-accent);
+  border-radius: 50%;
+  animation: float-particle 3s ease-in-out infinite;
+  pointer-events: none;
+}

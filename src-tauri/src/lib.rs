@@ -11,6 +11,9 @@ pub use config::AppConfig;
 mod ai;
 pub use ai::QwenClient;
 
+mod windows;
+pub use windows::{create_timer_widget, create_todo_widget, toggle_timer_widget, toggle_todo_widget};
+
 #[cfg(test)]
 mod config_test;
 
@@ -246,7 +249,9 @@ pub fn run() {
             save_config,
             set_api_key,
             check_ai_available,
-            generate_ai_summary
+            generate_ai_summary,
+            toggle_timer_widget,
+            toggle_todo_widget
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
