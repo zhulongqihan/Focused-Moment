@@ -469,6 +469,64 @@
     }
   }
 
+  async function generateDailySummary() {
+    if (!apiKey) {
+      currentTip = "请先在设置页面配置 API Key";
+      return;
+    }
+
+    const todayStats = {
+      completedSessions: getStatsCompletedSessions(),
+      focusMinutes: getStatsFocusMinutes(),
+      completedTodos: getStatsCompletedTodos(),
+      bossWins: getStatsBossWins(),
+      challengeSuccess: getStatsChallengeSuccess(),
+    };
+
+    const prompt = `作为一个专注力教练，请根据以下数据生成一段简短的鼓励性总结（50字以内）：
+今日完成番茄钟：${todayStats.completedSessions}个
+专注时长：${todayStats.focusMinutes}分钟
+完成待办：${todayStats.completedTodos}个
+Boss胜场：${todayStats.bossWins}次
+挑战成功：${todayStats.challengeSuccess}次`;
+
+    try {
+      currentTip = "AI 正在生成总结...";
+      const summary = await invoke<string>("generate_ai_summary", { prompt });
+      currentTip = `📊 AI 总结：${summary}`;
+    } catch (error) {
+      currentTip = `生成失败：${error}`;
+    }
+  }
+
+  async function generateTodoSuggestion() {
+    if (!apiKey) {
+      currentTip = "请先在设置页面配置 API Key";
+      return;
+    }
+
+    const activeTodos = todos.filter(t => !t.done);
+    if (activeTodos.length === 0) {
+      currentTip = "暂无待办任务";
+      return;
+    }
+
+    const todoList = activeTodos.map((t, i) => 
+      `${i + 1}. ${t.title} (优先级: ${t.priority || 'medium'})`
+    ).join('\n');
+
+    const prompt = `作为任务管理专家，请分析以下待办列表，给出最应该优先完成的3个任务及理由（50字以内）：
+${todoList}`;
+
+    try {
+      currentTip = "AI 正在分析任务...";
+      const suggestion = await invoke<string>("generate_ai_summary", { prompt });
+      currentTip = `💡 AI 建议：${suggestion}`;
+    } catch (error) {
+      currentTip = `生成失败：${error}`;
+    }
+  }
+
   function getStatsTimeRange(): [number, number] {
     const now = Date.now();
     if (statsView === "today") {
@@ -819,6 +877,13 @@
 
   {#if activeTab === "todo"}
     <section class="panel">
+      <div class="todo-header">
+        <h2>待办清单</h2>
+        <button class="ai-button" onclick={generateTodoSuggestion}>
+          🤖 AI 建议
+        </button>
+      </div>
+      
       <div class="todo-add">
         <input placeholder="输入待办，例如：整理线代笔记" bind:value={todoInput} />
         <select bind:value={todoPriority}>
@@ -870,11 +935,18 @@
 
   {#if activeTab === "stats"}
     <section class="panel">
-      <div class="stats-tabs">
-        <button class:active={statsView === "today"} onclick={() => (statsView = "today")}>今日</button>
-        <button class:active={statsView === "week"} onclick={() => (statsView = "week")}>本周</button>
-        <button class:active={statsView === "month"} onclick={() => (statsView = "month")}>本月</button>
-        <button class:active={statsView === "all"} onclick={() => (statsView = "all")}>全部</button>
+      <div class="stats-header">
+        <div class="stats-tabs">
+          <button class:active={statsView === "today"} onclick={() => (statsView = "today")}>今日</button>
+          <button class:active={statsView === "week"} onclick={() => (statsView = "week")}>本周</button>
+          <button class:active={statsView === "month"} onclick={() => (statsView = "month")}>本月</button>
+          <button class:active={statsView === "all"} onclick={() => (statsView = "all")}>全部</button>
+        </div>
+        {#if statsView === "today"}
+          <button class="ai-button" onclick={generateDailySummary}>
+            🤖 AI 总结
+          </button>
+        {/if}
       </div>
 
       <div class="stats-grid">
@@ -1005,11 +1077,25 @@
 
   {#if activeTab === "pet"}
     <section class="panel pet-panel">
+      <!-- 宠物头像 - 使用简单的表情符号组合 -->
       <div class="pet-avatar">
-        <span>◉</span>
+        <div class="pet-face">
+          <div class="pet-eyes">
+            <span class="eye">●</span>
+            <span class="eye">●</span>
+          </div>
+          <div class="pet-mouth">ω</div>
+        </div>
+        <div class="pet-level-badge">Lv.{petLevel}</div>
       </div>
+      
       <h3>量子仓鼠 Mk-{petLevel}</h3>
-      <p>等级 {petLevel} · 当前经验 {petXp}/{petLevel * 100}</p>
+      <p>当前经验 {petXp}/{petLevel * 100}</p>
+      
+      <!-- 经验条 -->
+      <div class="xp-bar-container">
+        <div class="xp-bar" style="width: {(petXp / (petLevel * 100)) * 100}%"></div>
+      </div>
       
       <div class="pet-explanation">
         <h4>🎮 宠物成长机制</h4>
@@ -1715,6 +1801,138 @@
     font-weight: 600;
   }
 
+  /* AI 按钮样式 */
+  .ai-button {
+    background: linear-gradient(135deg, #0098DC 0%, #33AADF 100%);
+    border: 2px solid #0098DC;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 152, 220, 0.3);
+  }
+
+  .ai-button:hover {
+    background: linear-gradient(135deg, #33AADF 0%, #0098DC 100%);
+    box-shadow: 0 4px 12px rgba(0, 152, 220, 0.5);
+    transform: translateY(-2px);
+  }
+
+  .ai-button:active {
+    transform: translateY(0);
+  }
+
+  /* 统计页面头部 */
+  .stats-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    gap: 12px;
+  }
+
+  /* 待办页面头部 */
+  .todo-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+
+  .todo-header h2 {
+    margin: 0;
+  }
+
+  /* 宠物头像增强 */
+  .pet-avatar {
+    position: relative;
+    margin: 0 auto 16px;
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #FFB800 0%, #FF8A3D 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 8px 24px rgba(255, 184, 0, 0.4);
+    animation: pet-float 3s ease-in-out infinite;
+  }
+
+  @keyframes pet-float {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+
+  .pet-face {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .pet-eyes {
+    display: flex;
+    gap: 20px;
+  }
+
+  .eye {
+    font-size: 24px;
+    color: #1e1a16;
+    animation: blink 4s infinite;
+  }
+
+  @keyframes blink {
+    0%, 48%, 52%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0;
+    }
+  }
+
+  .pet-mouth {
+    font-size: 20px;
+    color: #1e1a16;
+  }
+
+  .pet-level-badge {
+    position: absolute;
+    bottom: 5px;
+    right: 5px;
+    background: #0098DC;
+    color: white;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: bold;
+    box-shadow: 0 2px 8px rgba(0, 152, 220, 0.4);
+  }
+
+  /* 经验条 */
+  .xp-bar-container {
+    width: 100%;
+    height: 12px;
+    background: rgba(0, 152, 220, 0.2);
+    border-radius: 6px;
+    overflow: hidden;
+    margin: 12px 0;
+    border: 1px solid rgba(0, 152, 220, 0.3);
+  }
+
+  .xp-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #0098DC 0%, #FFB800 100%);
+    transition: width 0.5s ease;
+    box-shadow: 0 0 10px rgba(0, 152, 220, 0.5);
+  }
+
   .daily-quote {
     background: rgba(255, 255, 255, 0.7);
     border-radius: 14px;
@@ -1909,30 +2127,8 @@
     gap: 8px;
   }
 
-  .pet-avatar {
-    margin: 0 auto;
-    width: 86px;
-    height: 86px;
-    border-radius: 999px;
-    display: grid;
-    place-items: center;
-    background: conic-gradient(from 0deg, #ff8a3d, #ffc14a, #ff8a3d);
-    color: #fff;
-    font-size: 40px;
-    animation: orbit 5s linear infinite;
-  }
-
   .tip {
     color: #614a3e;
-  }
-
-  @keyframes orbit {
-    from {
-      transform: rotate(0deg);
-    }
-    to {
-      transform: rotate(360deg);
-    }
   }
 
   @media (max-width: 900px) {
