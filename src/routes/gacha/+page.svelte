@@ -2,12 +2,14 @@
   import { onMount } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
   import type { GachaSystemState, GachaResult, Operator } from '$lib/types/gacha';
+  import GachaAnnouncement from '$lib/components/GachaAnnouncement.svelte';
 
   let gachaState: GachaSystemState | null = null;
   let isLoading = false;
   let gachaResults: Operator[] = [];
   let showResults = false;
   let errorMessage = '';
+  let showAnnouncement = false;
 
   // 稀有度颜色映射
   const rarityColors: Record<number, string> = {
@@ -39,6 +41,12 @@
 
   onMount(async () => {
     await loadGachaState();
+    
+    // 检查是否是首次访问抽卡页面
+    const hasSeenAnnouncement = localStorage.getItem('gacha_announcement_seen');
+    if (!hasSeenAnnouncement) {
+      showAnnouncement = true;
+    }
   });
 
   async function loadGachaState() {
@@ -48,6 +56,15 @@
       console.error('Failed to load gacha state:', e);
       errorMessage = '加载抽卡状态失败';
     }
+  }
+
+  function closeAnnouncement() {
+    showAnnouncement = false;
+    localStorage.setItem('gacha_announcement_seen', 'true');
+  }
+
+  function showAnnouncementAgain() {
+    showAnnouncement = true;
   }
 
   async function performSinglePull() {
@@ -124,6 +141,7 @@
     <div class="nav-links">
       <a href="/" class="nav-link ark-button">← 返回主页</a>
       <a href="/operators" class="nav-link ark-button">📋 干员收藏</a>
+      <button class="nav-link ark-button" on:click={showAnnouncementAgain}>📢 寻访公告</button>
     </div>
 
     <!-- 标题 -->
@@ -242,6 +260,11 @@
         </button>
       </div>
     </div>
+  {/if}
+
+  <!-- 公告弹窗 -->
+  {#if showAnnouncement}
+    <GachaAnnouncement onClose={closeAnnouncement} />
   {/if}
 </div>
 

@@ -433,3 +433,174 @@
   animation: float-particle 3s ease-in-out infinite;
   pointer-events: none;
 }
+
+
+/* 源石纹理背景 */
+.originium-texture::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: 
+    repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 10px,
+      rgba(0, 152, 220, 0.02) 10px,
+      rgba(0, 152, 220, 0.02) 20px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      transparent,
+      transparent 10px,
+      rgba(0, 152, 220, 0.02) 10px,
+      rgba(0, 152, 220, 0.02) 20px
+    );
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* 装饰角 */
+.ornament-corner {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  border: 2px solid var(--ark-accent);
+  pointer-events: none;
+  z-index: 10;
+}
+
+.ornament-top-left {
+  top: 20px;
+  left: 20px;
+  border-right: none;
+  border-bottom: none;
+}
+
+.ornament-top-right {
+  top: 20px;
+  right: 20px;
+  border-left: none;
+  border-bottom: none;
+}
+
+.ornament-bottom-left {
+  bottom: 20px;
+  left: 20px;
+  border-right: none;
+  border-top: none;
+}
+
+.ornament-bottom-right {
+  bottom: 20px;
+  right: 20px;
+  border-left: none;
+  border-top: none;
+}
+
+/* 源石发光效果增强 */
+.originium-glow {
+  position: relative;
+  animation: originium-pulse 3s ease-in-out infinite;
+}
+
+@keyframes originium-pulse {
+  0%, 100% {
+    text-shadow: 
+      0 0 10px rgba(0, 152, 220, 0.5),
+      0 0 20px rgba(0, 152, 220, 0.3),
+      0 0 30px rgba(0, 152, 220, 0.2);
+  }
+  50% {
+    text-shadow: 
+      0 0 15px rgba(0, 152, 220, 0.7),
+      0 0 30px rgba(0, 152, 220, 0.5),
+      0 0 45px rgba(0, 152, 220, 0.3);
+  }
+}
+
+/* 干员框架增强 */
+.operator-frame {
+  position: relative;
+  overflow: hidden;
+}
+
+.operator-frame::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: linear-gradient(
+    45deg,
+    transparent 30%,
+    rgba(0, 152, 220, 0.1) 50%,
+    transparent 70%
+  );
+  animation: shine 3s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes shine {
+  0% { transform: translateX(-100%) translateY(-100%); }
+  100% { transform: translateX(100%) translateY(100%); }
+}
+
+/* 源石能量条增强 */
+.originium-bar {
+  position: relative;
+  height: 8px;
+  background: rgba(0, 152, 220, 0.2);
+  border: 1px solid var(--ark-border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.originium-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--ark-primary) 0%, var(--ark-accent) 100%);
+  transition: width 0.5s ease;
+  position: relative;
+  box-shadow: 0 0 10px rgba(0, 152, 220, 0.5);
+}
+
+.originium-bar-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.3) 50%,
+    transparent 100%
+  );
+  animation: bar-shine 2s ease-in-out infinite;
+}
+
+@keyframes bar-shine {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* 徽章增强 */
+.ark-badge.gold {
+  background: linear-gradient(135deg, var(--ark-accent) 0%, #FF8C00 100%);
+  border-color: var(--ark-accent);
+  box-shadow: 0 0 15px rgba(255, 184, 0, 0.5);
+  animation: badge-glow 2s ease-in-out infinite;
+}
+
+@keyframes badge-glow {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(255, 184, 0, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(255, 184, 0, 0.7);
+  }
+}
