@@ -110,6 +110,7 @@
   let timerSecondsLeft = $state(DEFAULT_SETTINGS.workMinutes * 60);
   let timerRunning = $state(false);
   let timerMode = $state<"work" | "break">("work");
+  let timerCountMode = $state<"countdown" | "countup">("countdown"); // 倒计时或正向计时
   let timerStartedAt = $state<number | null>(null);
   let timerTickRef: number | null = null;
   let selectedChallenge = $state<Challenge | null>(null);
@@ -396,9 +397,15 @@
     clearTick();
 
     timerTickRef = window.setInterval(() => {
-      timerSecondsLeft -= 1;
-      if (timerSecondsLeft <= 0) {
-        finishSession(true);
+      if (timerCountMode === "countdown") {
+        // 倒计时模式
+        timerSecondsLeft -= 1;
+        if (timerSecondsLeft <= 0) {
+          finishSession(true);
+        }
+      } else {
+        // 正向计时模式
+        timerSecondsLeft += 1;
       }
     }, 1000);
   }
@@ -763,22 +770,13 @@
 
   <header class="headline">
     <div>
-      <p class="eyebrow ark-title">Focused Moment</p>
-      <h1 class="ark-title">走神污染治理局</h1>
+      <p class="eyebrow">Focused Moment</p>
+      <h1>走神污染治理局</h1>
       <p class="subtitle">本地存储模式已启用。你的数据不会上传云端。</p>
     </div>
-    <div class="goal-chip ark-card originium-glow">
+    <div class="goal-chip">
       <span>今日进度</span>
       <strong>{todayWorkSessionsCount()} / {settings.dailyGoal}</strong>
-    </div>
-    <!-- 悬浮窗按钮 -->
-    <div class="widget-controls">
-      <button class="ark-button" onclick={toggleTimerWidget} title="打开悬浮计时器">
-        ⏱️ 计时器
-      </button>
-      <button class="ark-button" onclick={toggleTodoWidget} title="打开悬浮待办">
-        📋 待办
-      </button>
     </div>
   </header>
 
@@ -798,10 +796,33 @@
 
   {#if activeTab === "focus"}
     <section class="panel panel-focus">
-      <div class="timer-box">
+      <div class="timer-box ark-border originium-texture">
+        <!-- 罗德岛装饰 -->
+        <div class="ornament-corner ornament-top-left"></div>
+        <div class="ornament-corner ornament-top-right"></div>
+        
         <p class="mode">{timerMode === "work" ? "专注回合" : "恢复回合"}</p>
         <p class="clock">{formatClock(timerSecondsLeft)}</p>
         <p class="boss">{isBossRound() && timerMode === "work" ? "Boss 回合：开启" : "普通回合"}</p>
+        
+        <!-- 计时模式切换 -->
+        <div class="timer-mode-switch">
+          <button 
+            class:active={timerCountMode === "countdown"} 
+            onclick={() => { timerCountMode = "countdown"; resetTimer(); }}
+            class="mode-btn"
+          >
+            ⏱️ 倒计时
+          </button>
+          <button 
+            class:active={timerCountMode === "countup"} 
+            onclick={() => { timerCountMode = "countup"; timerSecondsLeft = 0; resetTimer(); }}
+            class="mode-btn"
+          >
+            ⏲️ 正向计时
+          </button>
+        </div>
+        
         <div class="controls">
           <button onclick={startTimer}>开始</button>
           <button onclick={pauseTimer}>暂停</button>
@@ -810,7 +831,11 @@
         </div>
       </div>
 
-      <div class="challenge-box">
+      <div class="challenge-box ark-border originium-texture">
+        <!-- 罗德岛装饰 -->
+        <div class="ornament-corner ornament-top-left"></div>
+        <div class="ornament-corner ornament-top-right"></div>
+        
         <h3>反拖延轮盘</h3>
         <p>{selectedChallenge ? selectedChallenge.title : "点击抽取挑战后开始番茄。"}</p>
         <small>{selectedChallenge ? selectedChallenge.reward : "奖励将在专注成功后结算"}</small>
@@ -819,7 +844,11 @@
         </div>
       </div>
 
-      <div class="settings-box">
+      <div class="settings-box ark-border originium-texture">
+        <!-- 罗德岛装饰 -->
+        <div class="ornament-corner ornament-bottom-left"></div>
+        <div class="ornament-corner ornament-bottom-right"></div>
+        
         <h3>计时设置</h3>
         <label>
           专注分钟
@@ -1076,6 +1105,154 @@
     gap: 16px;
     max-width: 1100px;
     margin: 0 auto;
+    position: relative;
+  }
+
+  /* 主容器的罗德岛装饰 - 更明显 */
+  .shell .ornament-corner {
+    position: absolute;
+    width: 80px;
+    height: 80px;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  .shell .ornament-corner::before,
+  .shell .ornament-corner::after {
+    content: '';
+    position: absolute;
+    background: linear-gradient(135deg, #0098DC 0%, #FFB800 100%);
+    opacity: 0.8;
+  }
+
+  .shell .ornament-top-left::before {
+    width: 60px;
+    height: 3px;
+    top: 15px;
+    left: 0;
+  }
+
+  .shell .ornament-top-left::after {
+    width: 3px;
+    height: 60px;
+    top: 0;
+    left: 15px;
+  }
+
+  .shell .ornament-top-right::before {
+    width: 60px;
+    height: 3px;
+    top: 15px;
+    right: 0;
+  }
+
+  .shell .ornament-top-right::after {
+    width: 3px;
+    height: 60px;
+    top: 0;
+    right: 15px;
+  }
+
+  .shell .ornament-bottom-left::before {
+    width: 60px;
+    height: 3px;
+    bottom: 15px;
+    left: 0;
+  }
+
+  .shell .ornament-bottom-left::after {
+    width: 3px;
+    height: 60px;
+    bottom: 0;
+    left: 15px;
+  }
+
+  .shell .ornament-bottom-right::before {
+    width: 60px;
+    height: 3px;
+    bottom: 15px;
+    right: 0;
+  }
+
+  .shell .ornament-bottom-right::after {
+    width: 3px;
+    height: 60px;
+    bottom: 0;
+    right: 15px;
+  }
+
+  /* 面板内的装饰 - 更小更精致 */
+  .timer-box .ornament-corner,
+  .challenge-box .ornament-corner,
+  .settings-box .ornament-corner {
+    width: 40px;
+    height: 40px;
+  }
+
+  .timer-box .ornament-corner::before,
+  .timer-box .ornament-corner::after,
+  .challenge-box .ornament-corner::before,
+  .challenge-box .ornament-corner::after,
+  .settings-box .ornament-corner::before,
+  .settings-box .ornament-corner::after {
+    background: #0098DC;
+    opacity: 0.6;
+  }
+
+  .timer-box .ornament-top-left::before,
+  .challenge-box .ornament-top-left::before,
+  .settings-box .ornament-bottom-left::before {
+    width: 30px;
+    height: 2px;
+    top: 8px;
+    left: 0;
+  }
+
+  .timer-box .ornament-top-left::after,
+  .challenge-box .ornament-top-left::after,
+  .settings-box .ornament-bottom-left::after {
+    width: 2px;
+    height: 30px;
+    top: 0;
+    left: 8px;
+  }
+
+  .timer-box .ornament-top-right::before,
+  .challenge-box .ornament-top-right::before,
+  .settings-box .ornament-bottom-right::before {
+    width: 30px;
+    height: 2px;
+    top: 8px;
+    right: 0;
+  }
+
+  .timer-box .ornament-top-right::after,
+  .challenge-box .ornament-top-right::after,
+  .settings-box .ornament-bottom-right::after {
+    width: 2px;
+    height: 30px;
+    top: 0;
+    right: 8px;
+  }
+
+  .settings-box .ornament-bottom-left::before {
+    bottom: 8px;
+    top: auto;
+  }
+
+  .settings-box .ornament-bottom-left::after {
+    bottom: 0;
+    top: auto;
+  }
+
+  .settings-box .ornament-bottom-right::before {
+    bottom: 8px;
+    top: auto;
+  }
+
+  .settings-box .ornament-bottom-right::after {
+    bottom: 0;
+    top: auto;
   }
 
   .headline {
@@ -1181,10 +1358,43 @@
   .timer-box,
   .challenge-box,
   .settings-box {
-    background: #fff;
+    background: rgba(255, 255, 255, 0.9);
     border-radius: 14px;
-    padding: 14px;
-    border: 1px solid rgba(30, 26, 22, 0.1);
+    padding: 20px;
+    border: 2px solid rgba(0, 152, 220, 0.3);
+    position: relative;
+    box-shadow: 0 4px 12px rgba(0, 152, 220, 0.1);
+  }
+
+  /* 计时模式切换按钮 */
+  .timer-mode-switch {
+    display: flex;
+    gap: 8px;
+    margin: 12px 0;
+    justify-content: center;
+  }
+
+  .mode-btn {
+    padding: 8px 16px;
+    border: 2px solid rgba(0, 152, 220, 0.3);
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.3s ease;
+  }
+
+  .mode-btn:hover {
+    background: rgba(0, 152, 220, 0.1);
+    border-color: rgba(0, 152, 220, 0.6);
+  }
+
+  .mode-btn.active {
+    background: linear-gradient(135deg, #0098DC 0%, #33AADF 100%);
+    border-color: #0098DC;
+    color: white;
+    font-weight: bold;
+    box-shadow: 0 0 15px rgba(0, 152, 220, 0.4);
   }
 
   .mode,
