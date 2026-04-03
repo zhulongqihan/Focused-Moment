@@ -252,7 +252,8 @@
       {#if filteredOperators.length > 0}
         <div class="operators-grid ark-scrollbar">
           {#each filteredOperators as operator (operator.id)}
-            <div 
+            <a 
+              href="/operators/{operator.id}"
               class="operator-card operator-frame"
               style="border-color: {rarityColors[operator.rarity]}"
             >
@@ -278,7 +279,7 @@
                   <span class="stat-value-small">{eliteNames[operator.elite]}</span>
                 </div>
               </div>
-            </div>
+            </a>
           {/each}
         </div>
       {:else}
@@ -434,6 +435,7 @@
     background: rgba(26, 26, 26, 0.8);
     transition: all 0.3s ease;
     cursor: pointer;
+    text-decoration: none;
   }
 
   .operator-card:hover {

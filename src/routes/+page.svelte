@@ -333,12 +333,14 @@
     }
   }
 
-  function finishSession(completed: boolean) {
+  async function finishSession(completed: boolean) {
     if (timerStartedAt === null) {
       return;
     }
 
     const bossRound = isBossRound();
+    const challengePassed = selectedChallenge ? !challengeBroken && completed : false;
+    
     sessions = [
       {
         id: nowId("session"),
@@ -349,12 +351,13 @@
         completed,
         isBoss: bossRound,
         challengeId: selectedChallenge?.id,
-        challengePassed: selectedChallenge ? !challengeBroken && completed : undefined,
+        challengePassed: selectedChallenge ? challengePassed : undefined,
       },
       ...sessions,
     ];
 
     if (timerMode === "work" && completed) {
+      // 旧的宠物系统（保留用于向后兼容）
       const gain = bossRound ? 35 : 20;
       petXp += gain;
       if (selectedChallenge && !challengeBroken) {
@@ -364,14 +367,34 @@
       while (petXp >= petLevel * 100) {
         petXp -= petLevel * 100;
         petLevel += 1;
-        currentTip = `🎊 宠物升级！现在是 Lv.${petLevel}`;
       }
 
       if (bossRound) {
         bossPoints += 1;
-        currentTip = "Boss 作战完成，罗德岛战术评价：优秀！";
-      } else {
-        currentTip = "作战成功，干员经验值增加。";
+      }
+
+      // 新的奖励系统：调用后端计算并发放奖励
+      try {
+        const rewardResult = await invoke<{
+          earned_currency: { orundum: number };
+          earned_resources: { lmd: number; exp: number };
+          message: string;
+        }>("complete_focus_session", {
+          mode: timerMode,
+          isBoss: bossRound,
+          challengeCompleted: challengePassed,
+        });
+
+        // 显示奖励信息
+        currentTip = rewardResult.message;
+      } catch (error) {
+        console.error("Failed to apply session rewards:", error);
+        // 如果奖励系统失败，显示传统提示
+        if (bossRound) {
+          currentTip = "Boss 作战完成，罗德岛战术评价：优秀！";
+        } else {
+          currentTip = "作战成功，干员经验值增加。";
+        }
       }
 
       playNotificationSound();

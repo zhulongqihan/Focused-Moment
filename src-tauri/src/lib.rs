@@ -20,6 +20,12 @@ pub use gacha::*;
 pub mod resources;
 pub use resources::*;
 
+pub mod operator;
+pub use operator::*;
+
+pub mod timer;
+pub use timer::*;
+
 #[cfg(test)]
 mod config_test;
 
@@ -338,6 +344,39 @@ fn spend_resources_amount(app: AppHandle, cost: Resources) -> Result<Resources, 
     resources::spend_resources(&conn, &cost)
 }
 
+/// Upgrade operator level
+#[tauri::command]
+fn upgrade_operator(app: AppHandle, operator_id: String) -> Result<UpgradeResult, String> {
+    let conn = open_db(&app)?;
+    operator::upgrade_operator_level(&conn, &operator_id)
+}
+
+/// Elite operator (promote to next elite level)
+#[tauri::command]
+fn elite_operator_promotion(app: AppHandle, operator_id: String) -> Result<UpgradeResult, String> {
+    let conn = open_db(&app)?;
+    operator::elite_operator(&conn, &operator_id)
+}
+
+/// Complete a focus session and grant rewards
+#[tauri::command]
+fn complete_focus_session(
+    app: AppHandle,
+    mode: String,
+    is_boss: bool,
+    challenge_completed: bool,
+) -> Result<timer::SessionRewardResult, String> {
+    let conn = open_db(&app)?;
+    
+    let session_mode = if mode == "work" {
+        timer::SessionMode::Work
+    } else {
+        timer::SessionMode::Break
+    };
+    
+    timer::apply_session_rewards(&conn, session_mode, true, is_boss, challenge_completed)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Load configuration on startup
@@ -392,7 +431,10 @@ pub fn run() {
             update_currency_balance,
             get_resources_balance,
             add_resources_amount,
-            spend_resources_amount
+            spend_resources_amount,
+            upgrade_operator,
+            elite_operator_promotion,
+            complete_focus_session
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
