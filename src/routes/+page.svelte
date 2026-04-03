@@ -457,15 +457,22 @@
   }
 
   async function testAiConnection() {
-    if (!apiKey) {
+    if (!apiKey && !apiKeyInput) {
       currentTip = "请先配置 API Key";
       return;
     }
+    
+    // 如果有新输入的key，先保存
+    if (apiKeyInput && apiKeyInput !== apiKey) {
+      await saveApiKey();
+    }
+    
     try {
+      currentTip = "正在测试 AI 连接...";
       const available = await invoke<boolean>("check_ai_available");
-      currentTip = available ? "AI 连接成功！" : "AI 连接失败，请检查 API Key";
+      currentTip = available ? "✅ AI 连接成功！" : "❌ AI 连接失败，请检查 API Key";
     } catch (error) {
-      currentTip = `测试失败：${error}`;
+      currentTip = `❌ 测试失败：${error}`;
     }
   }
 
@@ -883,12 +890,7 @@ ${todoList}`;
 
   {#if activeTab === "todo"}
     <section class="panel">
-      <div class="todo-header">
-        <h2>待办清单</h2>
-        <button class="ai-button" onclick={generateTodoSuggestion}>
-          🤖 AI 建议
-        </button>
-      </div>
+      <h2>待办清单</h2>
       
       <div class="todo-add">
         <input placeholder="输入待办，例如：整理线代笔记" bind:value={todoInput} />
@@ -948,11 +950,6 @@ ${todoList}`;
           <button class:active={statsView === "month"} onclick={() => (statsView = "month")}>本月</button>
           <button class:active={statsView === "all"} onclick={() => (statsView = "all")}>全部</button>
         </div>
-        {#if statsView === "today"}
-          <button class="ai-button" onclick={generateDailySummary}>
-            🤖 AI 总结
-          </button>
-        {/if}
       </div>
 
       <div class="stats-grid">
@@ -1034,7 +1031,7 @@ ${todoList}`;
       
       <div class="settings-section">
         <h3>AI 功能配置（可选）</h3>
-        <p class="settings-desc">配置通义千问 API 后可使用 AI 总结和建议功能。不配置也不影响其他功能使用。</p>
+        <p class="settings-desc">配置通义千问 API 后可使用 AI 分析功能。不配置也不影响其他功能使用。</p>
         
         <div class="settings-form">
           <label>
@@ -1054,6 +1051,21 @@ ${todoList}`;
           <small class="settings-hint">
             获取 API Key：访问 <a href="https://dashscope.aliyun.com/" target="_blank">阿里云百炼平台</a>
           </small>
+          
+          {#if apiKey}
+            <div class="ai-features">
+              <h4>AI 功能</h4>
+              <div class="ai-actions">
+                <button class="ai-button" onclick={generateDailySummary}>
+                  📊 生成今日总结
+                </button>
+                <button class="ai-button" onclick={generateTodoSuggestion}>
+                  💡 分析待办优先级
+                </button>
+              </div>
+              <p class="ai-hint">AI 功能需要消耗 API 调用次数，请合理使用</p>
+            </div>
+          {/if}
         </div>
       </div>
 
@@ -1062,7 +1074,7 @@ ${todoList}`;
         <div class="info-grid">
           <div class="info-item">
             <span>版本</span>
-            <strong>v0.2.1</strong>
+            <strong>v0.7.0</strong>
           </div>
           <div class="info-item">
             <span>数据存储</span>
@@ -1073,8 +1085,8 @@ ${todoList}`;
             <strong>{sessions.filter(s => s.mode === "work" && s.completed).length} 次</strong>
           </div>
           <div class="info-item">
-            <span>宠物等级</span>
-            <strong>Lv.{petLevel}</strong>
+            <span>干员收藏</span>
+            <strong>查看收藏页</strong>
           </div>
         </div>
       </div>
@@ -1850,6 +1862,33 @@ ${todoList}`;
 
   .todo-header h2 {
     margin: 0;
+  }
+
+  /* AI 功能区域 */
+  .ai-features {
+    margin-top: 20px;
+    padding: 16px;
+    background: rgba(0, 152, 220, 0.05);
+    border-radius: 10px;
+    border: 1px solid rgba(0, 152, 220, 0.2);
+  }
+
+  .ai-features h4 {
+    margin: 0 0 12px 0;
+    color: var(--ark-primary);
+    font-size: 14px;
+  }
+
+  .ai-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .ai-hint {
+    margin: 12px 0 0 0;
+    font-size: 12px;
+    color: var(--ark-text-muted);
   }
 
   /* 宠物头像增强 */

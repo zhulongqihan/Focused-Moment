@@ -233,13 +233,28 @@ fn set_api_key(state: State<AppState>, api_key: String) -> Result<(), String> {
     Ok(())
 }
 
-/// Check if AI is available (API key configured)
+/// Check if AI is available (API key configured and working)
 #[tauri::command]
-fn check_ai_available(state: State<AppState>) -> Result<bool, String> {
-    let client = state.qwen_client.lock()
-        .map_err(|e| format!("Failed to lock qwen client state: {}", e))?;
+async fn check_ai_available(state: State<'_, AppState>) -> Result<bool, String> {
+    // Clone the client to avoid holding the lock across await
+    let qwen_client = {
+        let client = state.qwen_client.lock()
+            .map_err(|e| format!("Failed to lock qwen client state: {}", e))?;
+        
+        match client.as_ref() {
+            Some(c) => c.clone(),
+            None => return Ok(false),
+        }
+    };
     
-    Ok(client.is_some())
+    // Test the connection with a simple prompt
+    match qwen_client.generate_text("测试".to_string()).await {
+        Ok(_) => Ok(true),
+        Err(e) => {
+            eprintln!("AI connection test failed: {}", e);
+            Err(format!("AI 连接测试失败: {}", e))
+        }
+    }
 }
 
 /// Generate AI summary for daily focus sessions
