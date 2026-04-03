@@ -462,40 +462,40 @@
   z-index: 1;
 }
 
-/* 装饰角 */
+/* 装饰角 - 调整位置避免遮挡文字 */
 .ornament-corner {
   position: absolute;
-  width: 40px;
-  height: 40px;
+  width: 30px;
+  height: 30px;
   border: 2px solid var(--ark-accent);
   pointer-events: none;
   z-index: 10;
 }
 
 .ornament-top-left {
-  top: 20px;
-  left: 20px;
+  top: 8px;
+  left: 8px;
   border-right: none;
   border-bottom: none;
 }
 
 .ornament-top-right {
-  top: 20px;
-  right: 20px;
+  top: 8px;
+  right: 8px;
   border-left: none;
   border-bottom: none;
 }
 
 .ornament-bottom-left {
-  bottom: 20px;
-  left: 20px;
+  bottom: 8px;
+  left: 8px;
   border-right: none;
   border-top: none;
 }
 
 .ornament-bottom-right {
-  bottom: 20px;
-  right: 20px;
+  bottom: 8px;
+  right: 8px;
   border-left: none;
   border-top: none;
 }

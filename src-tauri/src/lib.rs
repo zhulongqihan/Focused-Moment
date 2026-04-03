@@ -17,6 +17,9 @@ pub use windows::{create_timer_widget, create_todo_widget, toggle_timer_widget, 
 pub mod gacha;
 pub use gacha::*;
 
+pub mod resources;
+pub use resources::*;
+
 #[cfg(test)]
 mod config_test;
 
@@ -299,6 +302,27 @@ fn update_currency_balance(app: AppHandle, currency: Currency) -> Result<(), Str
         .map_err(|e| format!("Failed to update currency: {}", e))
 }
 
+/// Get current resources
+#[tauri::command]
+fn get_resources_balance(app: AppHandle) -> Result<Resources, String> {
+    let conn = open_db(&app)?;
+    resources::get_resources(&conn)
+}
+
+/// Add resources
+#[tauri::command]
+fn add_resources_amount(app: AppHandle, amount: Resources) -> Result<Resources, String> {
+    let conn = open_db(&app)?;
+    resources::add_resources(&conn, &amount)
+}
+
+/// Spend resources
+#[tauri::command]
+fn spend_resources_amount(app: AppHandle, cost: Resources) -> Result<Resources, String> {
+    let conn = open_db(&app)?;
+    resources::spend_resources(&conn, &cost)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Load configuration on startup
@@ -350,7 +374,10 @@ pub fn run() {
             perform_ten_gacha_pull,
             get_gacha_state,
             get_currency,
-            update_currency_balance
+            update_currency_balance,
+            get_resources_balance,
+            add_resources_amount,
+            spend_resources_amount
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

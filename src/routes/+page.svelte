@@ -59,12 +59,12 @@
 
   const STORAGE_KEY = "focused_moment_v1";
   const CHALLENGES: Challenge[] = [
-    { id: "c1", title: "专注期间不切到其它窗口", reward: "+20 宠物经验" },
-    { id: "c2", title: "本轮不允许暂停", reward: "+15 宠物经验" },
-    { id: "c3", title: "结束后写一句今日最清醒的话", reward: "Boss 积分 +1" },
-    { id: "c4", title: "完成后立刻处理一个待办", reward: "今日金币 +30" },
-    { id: "c5", title: "连续完成3个番茄不休息", reward: "+50 宠物经验" },
-    { id: "c6", title: "在凌晨时段完成番茄", reward: "夜猫子徽章" },
+    { id: "c1", title: "【资源采集】专注期间不切到其它窗口", reward: "+100 合成玉" },
+    { id: "c2", title: "【紧急委托】本轮不允许暂停", reward: "+150 合成玉" },
+    { id: "c3", title: "【情报收集】结束后写一句作战总结", reward: "+200 龙门币" },
+    { id: "c4", title: "【后勤支援】完成后立刻处理一个待办", reward: "+50 合成玉 +100 龙门币" },
+    { id: "c5", title: "【连续作战】连续完成3个番茄不休息", reward: "+300 合成玉" },
+    { id: "c6", title: "【夜间行动】在凌晨时段完成番茄", reward: "+200 合成玉 +夜行者徽章" },
   ];
 
   const DAILY_QUOTES = [
@@ -72,12 +72,12 @@
     "每一个番茄钟，都是对拖延症的一次胜利。",
     "不要让分心成为你的常态。",
     "今天的专注，是明天的成就。",
-    "量子仓鼠在看着你，别让它失望。",
+    "博士，干员们在等待你的指令。",
     "Boss战即将开启，准备好了吗？",
     "专注不是天赋，而是选择。",
-    "走神污染指数正在下降...",
+    "罗德岛的未来，掌握在你手中。",
     "你的大脑值得更好的待遇。",
-    "专注时刻，城市修复中...",
+    "作战记录更新中...",
   ];
 
   const ACHIEVEMENTS: Achievement[] = [
@@ -249,7 +249,7 @@
   function spinChallenge() {
     selectedChallenge = CHALLENGES[Math.floor(Math.random() * CHALLENGES.length)];
     challengeBroken = false;
-    currentTip = `今日挑战：${selectedChallenge.title}`;
+    currentTip = `作战委托已接取：${selectedChallenge.title}`;
   }
 
   function addTodo() {
@@ -291,7 +291,7 @@
         completedAt: done ? Date.now() : undefined,
       };
     });
-    currentTip = "任务触发城市修复事件：东区路灯恢复供电。";
+    currentTip = "任务完成，罗德岛后勤部门记录更新。";
     scheduleSave();
   }
 
@@ -369,9 +369,9 @@
 
       if (bossRound) {
         bossPoints += 1;
-        currentTip = "Boss 番茄击破，迷雾核心塔恢复 3%！";
+        currentTip = "Boss 作战完成，罗德岛战术评价：优秀！";
       } else {
-        currentTip = "专注成功，赛博宠物获得经验值。";
+        currentTip = "作战成功，干员经验值增加。";
       }
 
       playNotificationSound();
@@ -770,7 +770,7 @@ ${todoList}`;
   <header class="headline">
     <div>
       <p class="eyebrow">Focused Moment · Rhodes Island</p>
-      <h1>走神污染治理局 <span class="rhodes-emblem">◆</span></h1>
+      <h1>罗德岛作战记录 <span class="rhodes-emblem">◆</span></h1>
       <p class="subtitle">本地存储模式已启用。你的数据不会上传云端。</p>
     </div>
     <div class="goal-chip">
@@ -841,20 +841,20 @@ ${todoList}`;
         <div class="ornament-corner ornament-top-left"></div>
         <div class="ornament-corner ornament-top-right"></div>
         
-        <h3>反拖延挑战</h3>
+        <h3>作战委托</h3>
         {#if selectedChallenge}
           <p class="challenge-title">{selectedChallenge.title}</p>
           <small class="challenge-reward">奖励：{selectedChallenge.reward}</small>
           <p class="challenge-status">
-            {challengeBroken ? "❌ 挑战失败" : timerRunning ? "⏳ 挑战进行中..." : "✅ 准备就绪"}
+            {challengeBroken ? "❌ 委托失败" : timerRunning ? "⏳ 委托进行中..." : "✅ 准备就绪"}
           </p>
         {:else}
-          <p class="challenge-desc">开始专注时自动抽取挑战</p>
-          <p class="challenge-hint">完成挑战可获得额外经验值</p>
+          <p class="challenge-desc">开始专注时自动接取委托</p>
+          <p class="challenge-hint">完成委托可获得额外合成玉和经验</p>
         {/if}
         <div class="controls">
           <button onclick={spinChallenge} disabled={timerRunning}>
-            {selectedChallenge ? "重新抽取" : "抽取挑战"}
+            {selectedChallenge ? "更换委托" : "接取委托"}
           </button>
         </div>
       </div>
@@ -1182,11 +1182,11 @@ ${todoList}`;
     position: relative;
   }
 
-  /* 主容器的罗德岛装饰 - 更明显 */
+  /* 主容器的罗德岛装饰 - 调整位置避免遮挡 */
   .shell .ornament-corner {
     position: absolute;
-    width: 80px;
-    height: 80px;
+    width: 50px;
+    height: 50px;
     pointer-events: none;
     z-index: 10;
   }
@@ -1196,71 +1196,71 @@ ${todoList}`;
     content: '';
     position: absolute;
     background: linear-gradient(135deg, #0098DC 0%, #FFB800 100%);
-    opacity: 0.8;
+    opacity: 0.7;
   }
 
   .shell .ornament-top-left::before {
-    width: 60px;
+    width: 40px;
     height: 3px;
-    top: 15px;
+    top: 10px;
     left: 0;
   }
 
   .shell .ornament-top-left::after {
     width: 3px;
-    height: 60px;
+    height: 40px;
     top: 0;
-    left: 15px;
+    left: 10px;
   }
 
   .shell .ornament-top-right::before {
-    width: 60px;
+    width: 40px;
     height: 3px;
-    top: 15px;
+    top: 10px;
     right: 0;
   }
 
   .shell .ornament-top-right::after {
     width: 3px;
-    height: 60px;
+    height: 40px;
     top: 0;
-    right: 15px;
+    right: 10px;
   }
 
   .shell .ornament-bottom-left::before {
-    width: 60px;
+    width: 40px;
     height: 3px;
-    bottom: 15px;
+    bottom: 10px;
     left: 0;
   }
 
   .shell .ornament-bottom-left::after {
     width: 3px;
-    height: 60px;
+    height: 40px;
     bottom: 0;
-    left: 15px;
+    left: 10px;
   }
 
   .shell .ornament-bottom-right::before {
-    width: 60px;
+    width: 40px;
     height: 3px;
-    bottom: 15px;
+    bottom: 10px;
     right: 0;
   }
 
   .shell .ornament-bottom-right::after {
     width: 3px;
-    height: 60px;
+    height: 40px;
     bottom: 0;
-    right: 15px;
+    right: 10px;
   }
 
-  /* 面板内的装饰 - 更小更精致 */
+  /* 面板内的装饰 - 更小更精致，避免遮挡 */
   .timer-box .ornament-corner,
   .challenge-box .ornament-corner,
   .settings-box .ornament-corner {
-    width: 40px;
-    height: 40px;
+    width: 30px;
+    height: 30px;
     z-index: 10;
   }
 
@@ -1271,16 +1271,16 @@ ${todoList}`;
   .settings-box .ornament-corner::before,
   .settings-box .ornament-corner::after {
     background: linear-gradient(135deg, #0098DC 0%, #FFB800 100%);
-    opacity: 0.85;
-    box-shadow: 0 0 6px rgba(0, 152, 220, 0.4);
+    opacity: 0.7;
+    box-shadow: 0 0 4px rgba(0, 152, 220, 0.3);
   }
 
   .timer-box .ornament-top-left::before,
   .challenge-box .ornament-top-left::before,
   .settings-box .ornament-bottom-left::before {
-    width: 35px;
-    height: 3px;
-    top: 8px;
+    width: 25px;
+    height: 2px;
+    top: 6px;
     left: 0;
     border-radius: 2px;
   }
@@ -1288,19 +1288,19 @@ ${todoList}`;
   .timer-box .ornament-top-left::after,
   .challenge-box .ornament-top-left::after,
   .settings-box .ornament-bottom-left::after {
-    width: 3px;
-    height: 35px;
+    width: 2px;
+    height: 25px;
     top: 0;
-    left: 8px;
+    left: 6px;
     border-radius: 2px;
   }
 
   .timer-box .ornament-top-right::before,
   .challenge-box .ornament-top-right::before,
   .settings-box .ornament-bottom-right::before {
-    width: 35px;
-    height: 3px;
-    top: 8px;
+    width: 25px;
+    height: 2px;
+    top: 6px;
     right: 0;
     border-radius: 2px;
   }
@@ -1308,15 +1308,15 @@ ${todoList}`;
   .timer-box .ornament-top-right::after,
   .challenge-box .ornament-top-right::after,
   .settings-box .ornament-bottom-right::after {
-    width: 3px;
-    height: 35px;
+    width: 2px;
+    height: 25px;
     top: 0;
-    right: 8px;
+    right: 6px;
     border-radius: 2px;
   }
 
   .settings-box .ornament-bottom-left::before {
-    bottom: 8px;
+    bottom: 6px;
     top: auto;
   }
 
@@ -1326,7 +1326,7 @@ ${todoList}`;
   }
 
   .settings-box .ornament-bottom-right::before {
-    bottom: 8px;
+    bottom: 6px;
     top: auto;
   }
 
