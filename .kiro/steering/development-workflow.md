@@ -36,30 +36,32 @@ inclusion: auto
 1. 修改代码
 2. 更新版本号（3个文件）
 3. 在开发模式测试：`npm run tauri dev`
-4. 确认功能正常后，**先构建前端**（非常重要！）：
+4. 确认功能正常后，**使用正确的Tauri构建命令**（非常重要！）：
    ```bash
-   npm run build
+   npm run tauri build
    ```
-5. 然后构建后端release版本：
-   ```bash
-   cd src-tauri
-   cargo build --release
-   cd ..
-   ```
-6. **重要：复制exe到根目录**（不要忘记这一步！）
+   **关键说明**：
+   - `npm run tauri build` 是唯一正确的生产构建命令
+   - 它会自动执行 `beforeBuildCommand`（即 `npm run build`）构建前端
+   - 然后构建后端并打包所有资源到exe中
+   - 不要使用 `cargo build --release`，它只构建后端，不包含前端资源
+   - 不要手动运行 `npm run build` 再 `cargo build --release`，这样打包的exe缺少资源
+5. **重要：复制exe到根目录**（不要忘记这一步！）
    ```bash
    Copy-Item "src-tauri\target\release\focused-moment.exe" "Focused-Moment-vX.X.X.exe" -Force
    ```
-7. 验证exe文件在根目录：
+6. 验证exe文件在根目录：
    ```bash
    Get-ChildItem -Path . -Filter "Focused-Moment-v*.exe"
    ```
+7. 测试新构建的exe是否可以正常打开
 8. 更新用户反馈文档
 9. 提交到git并推送到GitHub
 
 **关键注意事项：**
-- 生产构建必须先运行 `npm run build`，否则应用会显示"无法访问此页面"
-- 开发模式（`npm run tauri dev`）会自动构建前端，但生产模式不会
+- 必须使用 `npm run tauri build`，这是唯一正确的构建命令
+- 使用 `cargo build --release` 会导致应用显示"无法访问此页面"
+- 开发模式（`npm run tauri dev`）会自动构建前端，但生产模式必须用tauri build
 - 如果exe文件被占用无法覆盖，使用新的文件名
 
 ### 5. 测试规则
