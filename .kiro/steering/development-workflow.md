@@ -32,14 +32,26 @@ inclusion: auto
   * `src-tauri/tauri.conf.json`
   * `src/routes/+page.svelte`（设置页面中的版本显示）
 
-### 4. 构建和发布流程
+### 4. 构建和发布流程（必须严格遵守）
 1. 修改代码
 2. 更新版本号（3个文件）
-3. 更新用户反馈文档
-4. 提交到git
-5. 构建release版本：`cargo build --release`（在src-tauri目录）
-6. 复制exe到根目录：`Copy-Item "src-tauri\target\release\focused-moment.exe" "Focused-Moment-vX.X.X.exe"`
-7. 推送到GitHub
+3. 在开发模式测试：`npm run tauri dev`
+4. 确认功能正常后，构建release版本：
+   ```bash
+   cd src-tauri
+   cargo build --release
+   cd ..
+   ```
+5. **重要：复制exe到根目录**（不要忘记这一步！）
+   ```bash
+   Copy-Item "src-tauri\target\release\focused-moment.exe" "Focused-Moment-vX.X.X.exe" -Force
+   ```
+6. 验证exe文件在根目录：
+   ```bash
+   Get-ChildItem -Path . -Filter "Focused-Moment-v*.exe"
+   ```
+7. 更新用户反馈文档
+8. 提交到git并推送到GitHub
 
 ### 5. 测试规则
 - 重大修改必须先在开发模式测试：`npm run tauri dev`
