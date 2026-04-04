@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
   import type { GachaSystemState, Operator } from '$lib/types/gacha';
+  import { getOperatorImageUrl, handleImageError } from '$lib/utils/operator';
 
   let gachaState: GachaSystemState | null = null;
   let filteredOperators: Operator[] = [];
@@ -188,7 +189,7 @@
                 class="filter-btn ark-button"
                 class:active={selectedRarity === rarity}
                 style="border-color: {rarityColors[rarity]}"
-                on:click={() => toggleRarityFilter(rarity)}
+                onclick={() => toggleRarityFilter(rarity)}
               >
                 {rarityStars[rarity]}
               </button>
@@ -204,7 +205,7 @@
               <button
                 class="filter-btn ark-button"
                 class:active={selectedClass === classKey}
-                on:click={() => toggleClassFilter(classKey)}
+                onclick={() => toggleClassFilter(classKey)}
               >
                 {className}
               </button>
@@ -219,21 +220,21 @@
             <button
               class="sort-btn ark-button"
               class:active={sortBy === 'rarity'}
-              on:click={() => changeSortBy('rarity')}
+              onclick={() => changeSortBy('rarity')}
             >
               稀有度 {sortBy === 'rarity' ? (sortOrder === 'desc' ? '↓' : '↑') : ''}
             </button>
             <button
               class="sort-btn ark-button"
               class:active={sortBy === 'level'}
-              on:click={() => changeSortBy('level')}
+              onclick={() => changeSortBy('level')}
             >
               等级 {sortBy === 'level' ? (sortOrder === 'desc' ? '↓' : '↑') : ''}
             </button>
             <button
               class="sort-btn ark-button"
               class:active={sortBy === 'obtained'}
-              on:click={() => changeSortBy('obtained')}
+              onclick={() => changeSortBy('obtained')}
             >
               获得时间 {sortBy === 'obtained' ? (sortOrder === 'desc' ? '↓' : '↑') : ''}
             </button>
@@ -242,7 +243,7 @@
 
         <!-- 清除筛选按钮 -->
         {#if selectedRarity !== null || selectedClass !== null}
-          <button class="clear-btn ark-button" on:click={clearFilters}>
+          <button class="clear-btn ark-button" onclick={clearFilters}>
             清除筛选
           </button>
         {/if}
@@ -257,6 +258,16 @@
               class="operator-card operator-frame"
               style="border-color: {rarityColors[operator.rarity]}"
             >
+              <div class="operator-image-container">
+                <img 
+                  src={getOperatorImageUrl(operator.name)} 
+                  alt={operator.name}
+                  class="operator-image"
+                  onerror={handleImageError}
+                  loading="lazy"
+                />
+              </div>
+              
               <div class="operator-header">
                 <div class="operator-rarity" style="color: {rarityColors[operator.rarity]}">
                   {rarityStars[operator.rarity]}
@@ -285,7 +296,7 @@
       {:else}
         <div class="empty-state ark-card">
           <p>没有符合条件的干员</p>
-          <button class="ark-button" on:click={clearFilters}>清除筛选</button>
+          <button class="ark-button" onclick={clearFilters}>清除筛选</button>
         </div>
       {/if}
     {/if}
@@ -436,6 +447,29 @@
     transition: all 0.3s ease;
     cursor: pointer;
     text-decoration: none;
+  }
+
+  .operator-image-container {
+    width: 100%;
+    aspect-ratio: 1;
+    overflow: hidden;
+    border-radius: 8px;
+    background: rgba(0, 152, 220, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 8px;
+  }
+
+  .operator-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+  }
+
+  .operator-card:hover .operator-image {
+    transform: scale(1.1);
   }
 
   .operator-card:hover {

@@ -132,6 +132,20 @@
 	$: maxLevel = operator ? getMaxLevel(operator.elite) : 0;
 	$: canUpgrade = operator && operator.level < maxLevel;
 	$: canElite = operator && operator.level >= maxLevel && operator.elite < 2;
+
+	// 获取干员图片URL
+	function getOperatorImageUrl(operatorName: string): string {
+		const encodedName = encodeURIComponent(operatorName);
+		return `https://prts.wiki/images/${encodedName}_1.png`;
+	}
+
+	// 图片加载失败时的占位符
+	function handleImageError(event: Event) {
+		const img = event.target as HTMLImageElement;
+		img.src =
+			'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="%230098DC"/><text x="100" y="100" text-anchor="middle" dy=".3em" fill="white" font-size="60">?</text></svg>';
+	}
+
 </script>
 
 <div class="operator-detail">
@@ -140,6 +154,15 @@
 	{:else if error && !operator}
 		<div class="error">{error}</div>
 	{:else if operator}
+		<div class="operator-image-section">
+			<img
+				src={getOperatorImageUrl(operator.name)}
+				alt={operator.name}
+				class="operator-portrait"
+				onerror={handleImageError}
+			/>
+		</div>
+
 		<div class="operator-header">
 			<h1 class="operator-name rarity-{operator.rarity}">{operator.name}</h1>
 			<div class="operator-meta">
@@ -248,6 +271,25 @@
 		max-width: 800px;
 		margin: 0 auto;
 		padding: 2rem;
+	}
+
+	.operator-image-section {
+		text-align: center;
+		margin-bottom: 2rem;
+	}
+
+	.operator-portrait {
+		max-width: 300px;
+		width: 100%;
+		height: auto;
+		border-radius: 12px;
+		border: 3px solid rgba(212, 175, 55, 0.5);
+		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+		transition: transform 0.3s ease;
+	}
+
+	.operator-portrait:hover {
+		transform: scale(1.05);
 	}
 
 	.loading,

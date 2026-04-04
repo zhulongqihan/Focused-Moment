@@ -190,6 +190,8 @@
     background: rgba(26, 26, 26, 0.95);
     backdrop-filter: blur(10px);
     overflow-y: auto;
+    position: fixed;
+    z-index: 1000;
   }
 
   .drag-handle {

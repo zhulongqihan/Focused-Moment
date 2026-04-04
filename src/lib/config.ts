@@ -30,3 +30,24 @@ export async function saveConfig(config: AppConfig): Promise<void> {
 export async function setApiKey(apiKey: string): Promise<void> {
   await invoke('set_api_key', { apiKey });
 }
+
+/**
+ * Boss names for boss round display
+ * Format: "中文名 EnglishName"
+ */
+export const BOSS_NAMES = [
+  "爱国者 Patriot",
+  "塔露拉 Talulah",
+  "霜星 FrostNova",
+  "浮士德 Faust",
+  "梅菲斯特 Mephisto",
+  "碎骨 Crownslayer",
+  "W W",
+  "泥岩 Mudrock",
+  "九 Nine",
+  "曼弗雷德 Manfred",
+  "伊桑 Ethan",
+  "赫拉格 Hellagur",
+  "凯尔希 Kal'tsit",
+  "阿米娅 Amiya",
+] as const;

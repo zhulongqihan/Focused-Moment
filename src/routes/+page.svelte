@@ -3,6 +3,7 @@
   import { openUrl } from "@tauri-apps/plugin-opener";
   import { onMount } from "svelte";
   import '$lib/styles/arknights-theme.css';
+  import { BOSS_NAMES } from '$lib/config';
 
   type Todo = {
     id: string;
@@ -123,6 +124,7 @@
   let dailyQuote = $state("");
   let consecutiveDays = $state(0);
   let lastActiveDate = $state<string | null>(null);
+  let currentBossName = $state<string>("");
 
   let todoInput = $state("");
   let todoPriority = $state<"low" | "medium" | "high">("medium");
@@ -137,6 +139,13 @@
   // API 设置
   let apiKey = $state("");
   let apiKeyInput = $state("");
+
+  // 干员相关状态
+  let myOperators = $state<any[]>([]);
+  let selectedOperatorId = $state<string>("");
+  let selectedOperator = $state<any | null>(null);
+  let operatorStory = $state<string>("");
+  let generatingStory = $state(false);
 
   function nowId(prefix: string): string {
     return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -200,6 +209,8 @@
         const parsed = JSON.parse(persisted) as Record<string, unknown>;
         applyPersistedState(parsed);
         hydrated = true;
+        // 加载干员数据
+        await loadMyOperators();
         return;
       }
     } catch {
@@ -209,6 +220,7 @@
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
       hydrated = true;
+      await loadMyOperators();
       return;
     }
 
@@ -217,6 +229,7 @@
       applyPersistedState(parsed);
       hydrated = true;
       await saveState();
+      await loadMyOperators();
     } catch {
       localStorage.removeItem(STORAGE_KEY);
       hydrated = true;
@@ -244,6 +257,10 @@
 
   function isBossRound(): boolean {
     return timerMode === "work" && todayWorkSessionsCount() + 1 >= settings.dailyGoal;
+  }
+
+  function selectRandomBoss(): string {
+    return BOSS_NAMES[Math.floor(Math.random() * BOSS_NAMES.length)];
   }
 
   function spinChallenge() {
@@ -417,6 +434,11 @@
     }
     if (timerRunning) {
       return;
+    }
+
+    // 如果是Boss回合，选择一个随机Boss名称
+    if (isBossRound()) {
+      currentBossName = selectRandomBoss();
     }
 
     timerRunning = true;
@@ -782,6 +804,78 @@ ${todoList}`;
     input.click();
   }
 
+  // 加载我的干员
+  async function loadMyOperators() {
+    try {
+      const gachaState = await invoke<any>("get_gacha_state");
+      myOperators = gachaState.operators || [];
+    } catch (error) {
+      console.error("Failed to load operators:", error);
+      myOperators = [];
+    }
+  }
+
+  // 处理干员选择
+  function handleOperatorSelect() {
+    selectedOperator = myOperators.find(op => op.id === selectedOperatorId) || null;
+    operatorStory = ""; // 清空之前的故事
+  }
+
+  // 获取职业中文名称
+  function getClassName(className: string): string {
+    const classMap: Record<string, string> = {
+      VANGUARD: '先锋',
+      GUARD: '近卫',
+      DEFENDER: '重装',
+      SNIPER: '狙击',
+      CASTER: '术师',
+      MEDIC: '医疗',
+      SUPPORTER: '辅助',
+      SPECIALIST: '特种'
+    };
+    return classMap[className] || className;
+  }
+
+  // 获取干员图片URL
+  function getOperatorImageUrl(operatorName: string): string {
+    const encodedName = encodeURIComponent(operatorName);
+    return `https://prts.wiki/images/${encodedName}_1.png`;
+  }
+
+  // 图片加载失败时的占位符
+  function handleImageError(event: Event) {
+    const img = event.target as HTMLImageElement;
+    img.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="%230098DC"/><text x="50" y="50" text-anchor="middle" dy=".3em" fill="white" font-size="40">?</text></svg>';
+  }
+
+  // 生成干员故事
+  async function generateOperatorStory() {
+    if (!selectedOperator || !apiKey || generatingStory) return;
+
+    generatingStory = true;
+    currentTip = "AI 正在创作干员故事...";
+
+    const prompt = `作为明日方舟的故事创作者，请为以下干员创作一段简短的背景故事（100字以内）：
+干员名称：${selectedOperator.name}
+稀有度：${selectedOperator.rarity}星
+职业：${getClassName(selectedOperator.class)}
+等级：Lv.${selectedOperator.level}
+精英化：Elite ${selectedOperator.elite}
+
+请创作一段富有明日方舟世界观特色的故事，体现干员的性格和能力。`;
+
+    try {
+      const story = await invoke<string>("generate_ai_summary", { prompt });
+      operatorStory = story;
+      currentTip = "✨ 故事生成成功！";
+    } catch (error) {
+      currentTip = `生成失败：${error}`;
+      operatorStory = "";
+    } finally {
+      generatingStory = false;
+    }
+  }
+
   onMount(() => {
     void loadState();
     // 加载后设置 API Key 输入框
@@ -838,7 +932,7 @@ ${todoList}`;
         
         <p class="mode">{timerMode === "work" ? "专注回合" : "恢复回合"}</p>
         <p class="clock">{formatClock(timerSecondsLeft)}</p>
-        <p class="boss">{isBossRound() && timerMode === "work" ? "Boss 回合：开启" : "普通回合"}</p>
+        <p class="boss">{isBossRound() && timerMode === "work" ? `Boss 回合：${currentBossName || "开启"}` : "普通回合"}</p>
         
         <!-- 计时模式切换 -->
         <div class="timer-mode-switch">
@@ -1097,7 +1191,7 @@ ${todoList}`;
         <div class="info-grid">
           <div class="info-item">
             <span>版本</span>
-            <strong>v0.7.0</strong>
+            <strong>v0.9.0</strong>
           </div>
           <div class="info-item">
             <span>数据存储</span>
@@ -1118,52 +1212,86 @@ ${todoList}`;
 
   {#if activeTab === "pet"}
     <section class="panel pet-panel">
-      <!-- 宠物头像 - 使用简单的表情符号组合 -->
-      <div class="pet-avatar">
-        <div class="pet-face">
-          <div class="pet-eyes">
-            <span class="eye">●</span>
-            <span class="eye">●</span>
+      <h2>罗德岛干员收藏</h2>
+      <p class="subtitle">查看你的干员并使用AI生成干员故事</p>
+      
+      {#if myOperators.length === 0}
+        <div class="empty-state">
+          <p>暂无干员</p>
+          <p class="hint">前往寻访系统获取干员</p>
+          <a href="/gacha" class="ark-button">前往寻访</a>
+        </div>
+      {:else}
+        <!-- 干员选择器 -->
+        <div class="operator-selector">
+          <label>选择干员：</label>
+          <select bind:value={selectedOperatorId} onchange={handleOperatorSelect}>
+            <option value="">-- 选择一个干员 --</option>
+            {#each myOperators as op}
+              <option value={op.id}>{op.name} (★{op.rarity})</option>
+            {/each}
+          </select>
+        </div>
+
+        {#if selectedOperator}
+          <!-- 选中的干员信息 -->
+          <div class="selected-operator-card ark-card">
+            <div class="operator-image-container">
+              <img 
+                src={getOperatorImageUrl(selectedOperator.name)} 
+                alt={selectedOperator.name}
+                class="operator-image"
+                onerror={handleImageError}
+              />
+            </div>
+            <div class="operator-info">
+              <h3>{selectedOperator.name}</h3>
+              <p>稀有度: {'★'.repeat(selectedOperator.rarity)}</p>
+              <p>职业: {getClassName(selectedOperator.class)}</p>
+              <p>等级: Lv.{selectedOperator.level} (Elite {selectedOperator.elite})</p>
+              <p>潜能: {selectedOperator.potential}</p>
+            </div>
           </div>
-          <div class="pet-mouth">ω</div>
+
+          <!-- AI生成描述 -->
+          <div class="ai-description-section">
+            <button 
+              class="ark-button ai-button" 
+              onclick={generateOperatorStory}
+              disabled={generatingStory || !apiKey}
+            >
+              {generatingStory ? '生成中...' : '🤖 AI生成干员故事'}
+            </button>
+            
+            {#if !apiKey}
+              <p class="hint">请先在设置页面配置 API Key</p>
+            {/if}
+
+            {#if operatorStory}
+              <div class="story-card ark-card">
+                <h4>干员故事</h4>
+                <p class="story-text">{operatorStory}</p>
+              </div>
+            {/if}
+          </div>
+        {/if}
+
+        <!-- 统计信息 -->
+        <div class="pet-stats">
+          <div class="pet-stat">
+            <span>干员总数</span>
+            <strong>{myOperators.length}</strong>
+          </div>
+          <div class="pet-stat">
+            <span>6★干员</span>
+            <strong>{myOperators.filter(op => op.rarity === 6).length}</strong>
+          </div>
+          <div class="pet-stat">
+            <span>5★干员</span>
+            <strong>{myOperators.filter(op => op.rarity === 5).length}</strong>
+          </div>
         </div>
-        <div class="pet-level-badge">Lv.{petLevel}</div>
-      </div>
-      
-      <h3>量子仓鼠 Mk-{petLevel}</h3>
-      <p>当前经验 {petXp}/{petLevel * 100}</p>
-      
-      <!-- 经验条 -->
-      <div class="xp-bar-container">
-        <div class="xp-bar" style="width: {(petXp / (petLevel * 100)) * 100}%"></div>
-      </div>
-      
-      <div class="pet-explanation">
-        <h4>🎮 宠物成长机制</h4>
-        <ul class="pet-rules">
-          <li>✅ 完成普通番茄：+20 经验</li>
-          <li>🏆 完成 Boss 番茄：+35 经验</li>
-          <li>🎯 完成挑战：额外 +20 经验</li>
-          <li>⭐ 每 100 经验升 1 级</li>
-        </ul>
-        <p class="pet-tip">💡 宠物等级越高，解锁的成就越多！</p>
-      </div>
-      
-      <div class="pet-stats">
-        <div class="pet-stat">
-          <span>Boss胜场</span>
-          <strong>{bossPoints}</strong>
-        </div>
-        <div class="pet-stat">
-          <span>连续天数</span>
-          <strong>{consecutiveDays}</strong>
-        </div>
-        <div class="pet-stat">
-          <span>成就数</span>
-          <strong>{getUnlockedAchievements().length}/{achievements.length}</strong>
-        </div>
-      </div>
-      <p class="tip">{currentTip}</p>
+      {/if}
       
       <div class="backup-controls">
         <h3>数据备份</h3>
@@ -2192,7 +2320,107 @@ ${todoList}`;
     text-align: center;
     display: flex;
     flex-direction: column;
+    gap: 16px;
+  }
+
+  .operator-selector {
+    display: flex;
+    flex-direction: column;
     gap: 8px;
+    text-align: left;
+  }
+
+  .operator-selector label {
+    font-weight: 600;
+    color: #1e1a16;
+  }
+
+  .operator-selector select {
+    padding: 10px;
+    border: 1px solid rgba(30, 26, 22, 0.2);
+    border-radius: 10px;
+    background: #fffdf8;
+    font-size: 14px;
+  }
+
+  .selected-operator-card {
+    display: flex;
+    gap: 16px;
+    padding: 16px;
+    text-align: left;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 12px;
+  }
+
+  .selected-operator-card .operator-image-container {
+    width: 120px;
+    height: 120px;
+    flex-shrink: 0;
+    border-radius: 8px;
+    overflow: hidden;
+    background: rgba(0, 152, 220, 0.1);
+  }
+
+  .selected-operator-card .operator-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .operator-info {
+    flex: 1;
+  }
+
+  .operator-info h3 {
+    margin: 0 0 8px 0;
+    color: #1e1a16;
+  }
+
+  .operator-info p {
+    margin: 4px 0;
+    color: #614a3e;
+    font-size: 14px;
+  }
+
+  .ai-description-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .story-card {
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 12px;
+    text-align: left;
+  }
+
+  .story-card h4 {
+    margin: 0 0 12px 0;
+    color: #1e1a16;
+  }
+
+  .story-text {
+    margin: 0;
+    color: #614a3e;
+    line-height: 1.6;
+    font-size: 14px;
+  }
+
+  .empty-state {
+    padding: 40px 20px;
+    text-align: center;
+  }
+
+  .empty-state p {
+    margin: 8px 0;
+    color: #614a3e;
+  }
+
+  .hint {
+    font-size: 12px;
+    opacity: 0.7;
+    color: #80513a;
   }
 
   .tip {

@@ -3,6 +3,7 @@
   import { invoke } from '@tauri-apps/api/core';
   import type { GachaSystemState, GachaResult, Operator } from '$lib/types/gacha';
   import GachaAnnouncement from '$lib/components/GachaAnnouncement.svelte';
+  import { getOperatorImageUrl, handleImageError } from '$lib/utils/operator';
 
   let gachaState: GachaSystemState | null = null;
   let isLoading = false;
@@ -37,7 +38,7 @@
     MEDIC: '医疗',
     SUPPORTER: '辅助',
     SPECIALIST: '特种'
-  };
+  }
 
   onMount(async () => {
     await loadGachaState();
@@ -141,7 +142,7 @@
     <div class="nav-links">
       <a href="/" class="nav-link ark-button">← 返回主页</a>
       <a href="/operators" class="nav-link ark-button">📋 干员收藏</a>
-      <button class="nav-link ark-button" on:click={showAnnouncementAgain}>📢 寻访公告</button>
+      <button class="nav-link ark-button" onclick={showAnnouncementAgain}>📢 寻访公告</button>
     </div>
 
     <!-- 标题 -->
@@ -184,7 +185,7 @@
       <div class="gacha-buttons">
         <button 
           class="ark-button gacha-btn single-pull"
-          on:click={performSinglePull}
+          onclick={performSinglePull}
           disabled={isLoading || gachaState.currency.orundum < 600}
         >
           <div class="btn-content">
@@ -195,7 +196,7 @@
 
         <button 
           class="ark-button gacha-btn ten-pull"
-          on:click={performTenPull}
+          onclick={performTenPull}
           disabled={isLoading || gachaState.currency.orundum < 6000}
         >
           <div class="btn-content">
@@ -207,7 +208,7 @@
 
       <!-- 错误提示 -->
       {#if errorMessage}
-        <div class="error-message ark-card" role="button" tabindex="0" on:click={clearError} on:keydown={(e) => e.key === 'Enter' && clearError()}>
+        <div class="error-message ark-card" role="button" tabindex="0" onclick={clearError} onkeydown={(e) => e.key === 'Enter' && clearError()}>
           <span class="error-icon">⚠</span>
           <span class="error-text">{errorMessage}</span>
         </div>
@@ -230,11 +231,11 @@
 
   <!-- 抽卡结果弹窗 -->
   {#if showResults && gachaResults.length > 0}
-    <div class="results-overlay" role="button" tabindex="0" on:click={closeResults} on:keydown={(e) => e.key === 'Escape' && closeResults()}>
-      <div class="results-modal ark-card" role="dialog" aria-modal="true" tabindex="-1" on:click|stopPropagation on:keydown|stopPropagation>
+    <div class="results-overlay" role="button" tabindex="0" onclick={closeResults} onkeydown={(e) => e.key === 'Escape' && closeResults()}>
+      <div class="results-modal ark-card" role="dialog" aria-modal="true" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
         <div class="results-header">
           <h2 class="ark-title">寻访结果</h2>
-          <button class="close-btn" on:click={closeResults}>✕</button>
+          <button class="close-btn" onclick={closeResults}>✕</button>
         </div>
 
         <div class="results-grid">
@@ -243,6 +244,15 @@
               class="operator-card operator-frame"
               style="border-color: {rarityColors[operator.rarity]}"
             >
+              <div class="operator-image-container">
+                <img 
+                  src={getOperatorImageUrl(operator.name)} 
+                  alt={operator.name}
+                  class="operator-image"
+                  onerror={handleImageError}
+                  loading="lazy"
+                />
+              </div>
               <div class="operator-rarity" style="color: {rarityColors[operator.rarity]}">
                 {rarityStars[operator.rarity]}
               </div>
@@ -255,7 +265,7 @@
           {/each}
         </div>
 
-        <button class="ark-button confirm-btn" on:click={closeResults}>
+        <button class="ark-button confirm-btn" onclick={closeResults}>
           确认
         </button>
       </div>
@@ -583,6 +593,28 @@
     background: rgba(26, 26, 26, 0.8);
     transition: all 0.3s ease;
     animation: cardAppear 0.5s ease backwards;
+  }
+
+  .operator-image-container {
+    width: 100%;
+    aspect-ratio: 1;
+    overflow: hidden;
+    border-radius: 8px;
+    background: rgba(0, 152, 220, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .operator-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+  }
+
+  .operator-card:hover .operator-image {
+    transform: scale(1.1);
   }
 
   .operator-card:nth-child(1) { animation-delay: 0.05s; }

@@ -2,6 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
   import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
+  import { selectRandomBoss } from '$lib/utils/operator';
 
   let minutes = 25;
   let seconds = 0;
@@ -10,17 +11,38 @@
   let interval: number | null = null;
   let isDragging = false;
   let dragOffset = { x: 0, y: 0 };
+  let currentBossName = '';
+  let dailyGoal = 4; // 默认每日目标
+  let workSessionsCount = 0;
 
   const appWindow = getCurrentWebviewWindow();
 
   onMount(() => {
     // 加载保存的状态
     loadTimerState();
+    loadSettings();
   });
 
   onDestroy(() => {
     if (interval) clearInterval(interval);
   });
+
+  async function loadSettings() {
+    try {
+      const state = await invoke('load_app_state');
+      if (state) {
+        const data = JSON.parse(state as string);
+        if (data.settings) {
+          dailyGoal = data.settings.dailyGoal || 4;
+        }
+        if (data.workSessionsCount !== undefined) {
+          workSessionsCount = data.workSessionsCount;
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load settings:', e);
+    }
+  }
 
   async function loadTimerState() {
     try {
@@ -49,9 +71,18 @@
     }
   }
 
+  function isBossRound(): boolean {
+    return mode === 'work' && workSessionsCount + 1 >= dailyGoal;
+  }
+
   function startTimer() {
     if (isRunning) return;
     isRunning = true;
+    
+    // 如果是Boss回合，选择一个随机Boss名称
+    if (isBossRound()) {
+      currentBossName = selectRandomBoss();
+    }
     
     interval = setInterval(() => {
       if (seconds === 0) {
@@ -60,6 +91,7 @@
           stopTimer();
           playSound();
           if (mode === 'work') {
+            workSessionsCount++;
             mode = 'break';
             minutes = 5;
           } else {
@@ -137,9 +169,18 @@
   <div class="ornament-corner ornament-bottom-right"></div>
 
   <!-- 拖拽区域 -->
-  <div class="drag-handle" on:mousedown={handleMouseDown}>
+  <div class="drag-handle" on:mousedown={handleMouseDown} role="button" tabindex="0">
     <span class="ark-badge {mode === 'work' ? '' : 'gold'}">{modeText}模式</span>
   </div>
+
+  <!-- Boss 回合显示 -->
+  {#if isBossRound() && mode === 'work'}
+    <div class="boss-name ark-badge gold">
+      Boss 回合：{currentBossName || "开启"}
+    </div>
+  {:else}
+    <div class="round-type">普通回合</div>
+  {/if}
 
   <!-- 计时显示 -->
   <div class="timer-display ark-title">
@@ -186,6 +227,32 @@
     padding: 4px 0;
     width: 100%;
     text-align: center;
+  }
+
+  .boss-name {
+    font-size: 14px;
+    font-weight: bold;
+    padding: 4px 12px;
+    text-align: center;
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  .round-type {
+    font-size: 12px;
+    color: var(--ark-text-secondary);
+    text-align: center;
+    padding: 4px 0;
+  }
+
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+      text-shadow: 0 0 10px var(--ark-gold);
+    }
+    50% {
+      opacity: 0.8;
+      text-shadow: 0 0 20px var(--ark-gold);
+    }
   }
 
   .timer-display {
