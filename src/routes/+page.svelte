@@ -990,7 +990,11 @@ ${todoList}`;
           <button onclick={startTimer}>开始</button>
           <button onclick={pauseTimer}>暂停</button>
           <button onclick={resetTimer}>重置</button>
-          <button onclick={skipSession}>跳过</button>
+          {#if timerCountMode === "countup"}
+            <button onclick={endSession}>完成</button>
+          {:else}
+            <button onclick={skipSession}>跳过</button>
+          {/if}
         </div>
       </div>
 
