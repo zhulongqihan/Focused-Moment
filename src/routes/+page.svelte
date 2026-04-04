@@ -375,6 +375,10 @@
     
     const challengePassed = selectedChallenge ? !challengeBroken && completed : false;
     
+    // 先停止计时器，避免继续计时
+    timerRunning = false;
+    clearTick();
+    
     sessions = [
       {
         id: nowId("session"),
@@ -391,6 +395,9 @@
     ];
 
     if (timerMode === "work" && completed) {
+      // 显示处理中的提示
+      currentTip = "正在结算奖励...";
+      
       // 旧的宠物系统（保留用于向后兼容）
       const gain = 20;
       petXp += gain;
@@ -415,26 +422,31 @@
           challengeCompleted: challengePassed,
         });
 
-        // 显示奖励信息
-        currentTip = rewardResult.message;
-        
         // 重新加载货币余额
         await loadCurrencyBalance();
+        
+        // 显示奖励信息
+        currentTip = rewardResult.message;
       } catch (error) {
         console.error("Failed to apply session rewards:", error);
-        currentTip = "作战完成，干员经验值增加。";
+        currentTip = `奖励发放失败：${error}`;
       }
 
       playNotificationSound();
       checkAchievements();
     } else if (!completed) {
       currentTip = "作战中断，未获得奖励。";
+    } else {
+      // 休息模式完成
+      currentTip = "休息完成！";
     }
 
-    timerRunning = false;
     timerStartedAt = null;
-    clearTick();
-    timerMode = timerMode === "work" ? "break" : "work";
+    
+    // 正向计时模式下不自动切换模式，倒计时模式才切换
+    if (timerCountMode === "countdown") {
+      timerMode = timerMode === "work" ? "break" : "work";
+    }
     
     // 重置时间
     if (timerCountMode === "countdown") {
@@ -523,7 +535,12 @@
       const actualMinutes = Math.floor(timerSecondsLeft / 60);
       if (actualMinutes > 0) {
         currentTip = `正在结算 ${actualMinutes} 分钟的专注奖励...`;
-        await finishSession(true);
+        try {
+          await finishSession(true);
+        } catch (error) {
+          console.error("Failed to finish session:", error);
+          currentTip = `结算失败：${error}`;
+        }
       } else {
         currentTip = "专注时长太短，至少需要1分钟";
       }
@@ -1267,7 +1284,7 @@ ${todoList}`;
         <div class="info-grid">
           <div class="info-item">
             <span>版本</span>
-            <strong>v0.11.5</strong>
+            <strong>v0.11.8</strong>
           </div>
           <div class="info-item">
             <span>数据存储</span>
