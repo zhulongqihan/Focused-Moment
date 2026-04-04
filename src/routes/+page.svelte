@@ -126,6 +126,10 @@
   let lastActiveDate = $state<string | null>(null);
   let currentBossName = $state<string>("");
 
+  // 货币余额
+  let orundum = $state(0);
+  let lmd = $state(0);
+
   let todoInput = $state("");
   let todoPriority = $state<"low" | "medium" | "high">("medium");
   let todoTags = $state("");
@@ -211,6 +215,8 @@
         hydrated = true;
         // 加载干员数据
         await loadMyOperators();
+        // 加载货币余额
+        await loadCurrencyBalance();
         return;
       }
     } catch {
@@ -221,6 +227,7 @@
     if (!raw) {
       hydrated = true;
       await loadMyOperators();
+      await loadCurrencyBalance();
       return;
     }
 
@@ -230,6 +237,7 @@
       hydrated = true;
       await saveState();
       await loadMyOperators();
+      await loadCurrencyBalance();
     } catch {
       localStorage.removeItem(STORAGE_KEY);
       hydrated = true;
@@ -409,6 +417,9 @@
 
         // 显示奖励信息
         currentTip = rewardResult.message;
+        
+        // 重新加载货币余额
+        await loadCurrencyBalance();
       } catch (error) {
         console.error("Failed to apply session rewards:", error);
         currentTip = "作战完成，干员经验值增加。";
@@ -496,8 +507,8 @@
   async function endSession() {
     // 正向计时模式下，手动结束会话
     if (timerCountMode === "countup") {
-      // 必须先启动计时器
-      if (timerSecondsLeft === 0) {
+      // 必须先启动计时器（检查是否曾经启动过）
+      if (!timerStartedAt) {
         currentTip = '请先点击"开始"按钮开始计时';
         return;
       }
@@ -849,6 +860,19 @@ ${todoList}`;
     }
   }
 
+  // 加载货币余额
+  async function loadCurrencyBalance() {
+    try {
+      const resources = await invoke<any>("get_resources");
+      orundum = resources.currency.orundum;
+      lmd = resources.resources.lmd;
+    } catch (error) {
+      console.error("Failed to load currency balance:", error);
+      orundum = 0;
+      lmd = 0;
+    }
+  }
+
   // 处理干员选择
   function handleOperatorSelect() {
     selectedOperator = myOperators.find(op => op.id === selectedOperatorId) || null;
@@ -931,9 +955,23 @@ ${todoList}`;
       <h1>罗德岛作战记录 <span class="rhodes-emblem">◆</span></h1>
       <p class="subtitle">本地存储模式已启用。你的数据不会上传云端。</p>
     </div>
-    <div class="goal-chip">
-      <span>今日进度</span>
-      <strong>{todayWorkSessionsCount()} / {settings.dailyGoal}</strong>
+    <div class="header-stats">
+      <div class="currency-display">
+        <div class="currency-item">
+          <span class="currency-icon">💎</span>
+          <span class="currency-value">{orundum}</span>
+          <span class="currency-label">合成玉</span>
+        </div>
+        <div class="currency-item">
+          <span class="currency-icon">💰</span>
+          <span class="currency-value">{lmd}</span>
+          <span class="currency-label">龙门币</span>
+        </div>
+      </div>
+      <div class="goal-chip">
+        <span>今日进度</span>
+        <strong>{todayWorkSessionsCount()} / {settings.dailyGoal}</strong>
+      </div>
     </div>
   </header>
 
@@ -1547,6 +1585,44 @@ ${todoList}`;
     padding: 16px;
     backdrop-filter: blur(8px);
     position: relative;
+  }
+
+  .header-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-end;
+  }
+
+  .currency-display {
+    display: flex;
+    gap: 12px;
+  }
+
+  .currency-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.8);
+    padding: 6px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(0, 152, 220, 0.2);
+  }
+
+  .currency-icon {
+    font-size: 16px;
+  }
+
+  .currency-value {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 16px;
+    font-weight: 600;
+    color: #1e1a16;
+  }
+
+  .currency-label {
+    font-size: 11px;
+    color: #725444;
   }
 
   .eyebrow {
