@@ -1,6 +1,6 @@
 {
   "name": "focused-moment",
-  "version": "0.10.0",
+  "version": "0.11.5",
   "description": "Local-first focus desktop app with pomodoro, todos, analytics, and creative focus mechanics.",
   "type": "module",
   "scripts": {

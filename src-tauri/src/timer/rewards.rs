@@ -36,29 +36,29 @@ pub struct SessionRewardResult {
  * # Arguments
  * * `mode` - 会话模式（工作/休息）
  * * `completed` - 是否完成
- * * `is_boss` - 是否为Boss番茄钟
+ * * `duration_minutes` - 实际专注时长（分钟）
  * * `challenge_completed` - 是否完成挑战
  * 
  * # Returns
  * * `SessionRewardResult` - 奖励结果
  * 
- * # 奖励规则
- * - 只有完成的工作会话才有奖励（需求 8.1, 8.2, 8.6）
- * - 普通番茄钟：100 合成玉、300 龙门币、50 经验值（需求 8.4）
- * - Boss 番茄钟：200 合成玉、500 龙门币、100 经验值（需求 8.3）
- * - 挑战完成额外奖励：+50 合成玉、+200 龙门币（需求 8.5）
+ * # 奖励规则（重构后更平衡）
+ * - 只有完成的工作会话才有奖励
+ * - 基础奖励按时长计算：每分钟 4 合成玉、10 龙门币、2 经验值
+ * - 挑战完成额外奖励：+30 合成玉、+100 龙门币
+ * - 移除Boss战机制，所有番茄钟奖励一致
  */
 pub fn calculate_session_rewards(
     mode: SessionMode,
     completed: bool,
-    is_boss: bool,
+    duration_minutes: u32,
     challenge_completed: bool,
 ) -> SessionRewardResult {
     let mut earned_currency = Currency::default();
     let mut earned_resources = Resources::default();
     let mut message = String::new();
     
-    // 只有完成的工作会话才有奖励（需求 8.1, 8.2, 8.6）
+    // 只有完成的工作会话才有奖励
     if mode != SessionMode::Work || !completed {
         return SessionRewardResult {
             earned_currency,
@@ -67,35 +67,30 @@ pub fn calculate_session_rewards(
         };
     }
     
-    // 基础奖励
-    if is_boss {
-        // Boss 番茄钟奖励（需求 8.3）
-        earned_currency.orundum = 200;
-        earned_resources.lmd = 500;
-        earned_resources.exp = 100;
-        message.push_str("Boss番茄钟完成！获得：200合成玉、500龙门币、100经验值");
-    } else {
-        // 普通番茄钟奖励（需求 8.4）
-        earned_currency.orundum = 100;
-        earned_resources.lmd = 300;
-        earned_resources.exp = 50;
-        message.push_str("番茄钟完成！获得：100合成玉、300龙门币、50经验值");
-    }
+    // 基础奖励：按时长计算（每分钟 4 合成玉、10 龙门币、2 经验值）
+    let base_orundum = duration_minutes * 4;
+    let base_lmd = duration_minutes * 10;
+    let base_exp = duration_minutes * 2;
     
-    // 挑战完成额外奖励（需求 8.5）
+    earned_currency.orundum = base_orundum;
+    earned_resources.lmd = base_lmd;
+    earned_resources.exp = base_exp;
+    
+    message.push_str(&format!(
+        "专注{}分钟完成！获得：{}合成玉、{}龙门币、{}经验值",
+        duration_minutes, base_orundum, base_lmd, base_exp
+    ));
+    
+    // 挑战完成额外奖励
     if challenge_completed {
-        earned_currency.orundum += 50;
-        earned_resources.lmd += 200;
-        message.push_str("，挑战完成额外奖励：+50合成玉、+200龙门币");
+        earned_currency.orundum += 30;
+        earned_resources.lmd += 100;
+        message.push_str("，作战委托完成额外奖励：+30合成玉、+100龙门币");
     }
     
     // 添加少量芯片作为奖励（用于精英化）
-    let chip_type = if is_boss {
-        "elite_chip_6"
-    } else {
-        "elite_chip_5"
-    };
-    earned_resources.chips.insert(chip_type.to_string(), 1);
+    let chip_amount = if duration_minutes >= 25 { 2 } else { 1 };
+    earned_resources.chips.insert("elite_chip_5".to_string(), chip_amount);
     
     SessionRewardResult {
         earned_currency,
@@ -113,7 +108,7 @@ pub fn calculate_session_rewards(
  * * `conn` - 数据库连接
  * * `mode` - 会话模式
  * * `completed` - 是否完成
- * * `is_boss` - 是否为Boss番茄钟
+ * * `duration_minutes` - 实际专注时长（分钟）
  * * `challenge_completed` - 是否完成挑战
  * 
  * # Returns
@@ -123,11 +118,11 @@ pub fn apply_session_rewards(
     conn: &Connection,
     mode: SessionMode,
     completed: bool,
-    is_boss: bool,
+    duration_minutes: u32,
     challenge_completed: bool,
 ) -> Result<SessionRewardResult, String> {
     // 计算奖励
-    let reward = calculate_session_rewards(mode, completed, is_boss, challenge_completed);
+    let reward = calculate_session_rewards(mode, completed, duration_minutes, challenge_completed);
     
     // 如果没有奖励，直接返回
     if reward.earned_currency.orundum == 0 && reward.earned_resources.lmd == 0 {
@@ -166,39 +161,38 @@ mod tests {
 
     #[test]
     fn test_normal_work_session_rewards() {
-        let reward = calculate_session_rewards(SessionMode::Work, true, false, false);
+        // 25分钟番茄钟
+        let reward = calculate_session_rewards(SessionMode::Work, true, 25, false);
         
-        assert_eq!(reward.earned_currency.orundum, 100);
-        assert_eq!(reward.earned_resources.lmd, 300);
-        assert_eq!(reward.earned_resources.exp, 50);
-        assert!(reward.message.contains("100合成玉"));
-        assert!(reward.message.contains("300龙门币"));
+        assert_eq!(reward.earned_currency.orundum, 100); // 25 * 4
+        assert_eq!(reward.earned_resources.lmd, 250);    // 25 * 10
+        assert_eq!(reward.earned_resources.exp, 50);     // 25 * 2
+        assert!(reward.message.contains("25分钟"));
     }
 
     #[test]
-    fn test_boss_work_session_rewards() {
-        let reward = calculate_session_rewards(SessionMode::Work, true, true, false);
+    fn test_short_session_rewards() {
+        // 15分钟短番茄钟
+        let reward = calculate_session_rewards(SessionMode::Work, true, 15, false);
         
-        assert_eq!(reward.earned_currency.orundum, 200);
-        assert_eq!(reward.earned_resources.lmd, 500);
-        assert_eq!(reward.earned_resources.exp, 100);
-        assert!(reward.message.contains("Boss"));
-        assert!(reward.message.contains("200合成玉"));
+        assert_eq!(reward.earned_currency.orundum, 60);  // 15 * 4
+        assert_eq!(reward.earned_resources.lmd, 150);    // 15 * 10
+        assert_eq!(reward.earned_resources.exp, 30);     // 15 * 2
     }
 
     #[test]
     fn test_challenge_completed_bonus() {
-        let reward = calculate_session_rewards(SessionMode::Work, true, false, true);
+        let reward = calculate_session_rewards(SessionMode::Work, true, 25, true);
         
         // 基础奖励 + 挑战奖励
-        assert_eq!(reward.earned_currency.orundum, 150); // 100 + 50
-        assert_eq!(reward.earned_resources.lmd, 500);    // 300 + 200
-        assert!(reward.message.contains("挑战完成"));
+        assert_eq!(reward.earned_currency.orundum, 130); // 100 + 30
+        assert_eq!(reward.earned_resources.lmd, 350);    // 250 + 100
+        assert!(reward.message.contains("作战委托"));
     }
 
     #[test]
     fn test_break_session_no_rewards() {
-        let reward = calculate_session_rewards(SessionMode::Break, true, false, false);
+        let reward = calculate_session_rewards(SessionMode::Break, true, 25, false);
         
         assert_eq!(reward.earned_currency.orundum, 0);
         assert_eq!(reward.earned_resources.lmd, 0);
@@ -207,7 +201,7 @@ mod tests {
 
     #[test]
     fn test_incomplete_session_no_rewards() {
-        let reward = calculate_session_rewards(SessionMode::Work, false, false, false);
+        let reward = calculate_session_rewards(SessionMode::Work, false, 25, false);
         
         assert_eq!(reward.earned_currency.orundum, 0);
         assert_eq!(reward.earned_resources.lmd, 0);
@@ -218,8 +212,8 @@ mod tests {
     fn test_apply_rewards_to_database() {
         let conn = create_test_db();
         
-        // 应用奖励
-        let result = apply_session_rewards(&conn, SessionMode::Work, true, false, false).unwrap();
+        // 应用奖励（25分钟）
+        let result = apply_session_rewards(&conn, SessionMode::Work, true, 25, false).unwrap();
         
         assert_eq!(result.earned_currency.orundum, 100);
         
@@ -228,7 +222,7 @@ mod tests {
         assert_eq!(currency.orundum, 100);
         
         let resources = load_resources(&conn).unwrap();
-        assert_eq!(resources.lmd, 300);
+        assert_eq!(resources.lmd, 250);
         assert_eq!(resources.exp, 50);
     }
 
@@ -237,26 +231,27 @@ mod tests {
         let conn = create_test_db();
         
         // 完成多个会话
-        apply_session_rewards(&conn, SessionMode::Work, true, false, false).unwrap();
-        apply_session_rewards(&conn, SessionMode::Work, true, false, false).unwrap();
-        apply_session_rewards(&conn, SessionMode::Work, true, true, false).unwrap();
+        apply_session_rewards(&conn, SessionMode::Work, true, 25, false).unwrap();
+        apply_session_rewards(&conn, SessionMode::Work, true, 25, false).unwrap();
+        apply_session_rewards(&conn, SessionMode::Work, true, 30, false).unwrap();
         
         // 验证累积奖励
         let currency = load_currency(&conn).unwrap();
-        assert_eq!(currency.orundum, 400); // 100 + 100 + 200
+        assert_eq!(currency.orundum, 320); // 100 + 100 + 120
         
         let resources = load_resources(&conn).unwrap();
-        assert_eq!(resources.lmd, 1100); // 300 + 300 + 500
-        assert_eq!(resources.exp, 200);  // 50 + 50 + 100
+        assert_eq!(resources.lmd, 800); // 250 + 250 + 300
+        assert_eq!(resources.exp, 160);  // 50 + 50 + 60
     }
 
     #[test]
-    fn test_boss_and_challenge_combined() {
-        let reward = calculate_session_rewards(SessionMode::Work, true, true, true);
+    fn test_long_session_rewards() {
+        // 50分钟长番茄钟
+        let reward = calculate_session_rewards(SessionMode::Work, true, 50, true);
         
-        // Boss奖励 + 挑战奖励
-        assert_eq!(reward.earned_currency.orundum, 250); // 200 + 50
-        assert_eq!(reward.earned_resources.lmd, 700);    // 500 + 200
+        // 基础奖励 + 挑战奖励
+        assert_eq!(reward.earned_currency.orundum, 230); // 200 + 30
+        assert_eq!(reward.earned_resources.lmd, 600);    // 500 + 100
         assert_eq!(reward.earned_resources.exp, 100);
     }
 }

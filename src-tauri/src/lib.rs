@@ -315,6 +315,14 @@ fn get_currency(app: AppHandle) -> Result<Currency, String> {
         .map_err(|e| format!("Failed to load currency: {}", e))
 }
 
+/// Get current resources
+#[tauri::command]
+fn get_resources(app: AppHandle) -> Result<Resources, String> {
+    let conn = open_db(&app)?;
+    gacha::database::load_resources(&conn)
+        .map_err(|e| format!("Failed to load resources: {}", e))
+}
+
 /// Update currency (for testing/admin purposes)
 #[tauri::command]
 fn update_currency_balance(app: AppHandle, currency: Currency) -> Result<(), String> {
@@ -363,7 +371,7 @@ fn elite_operator_promotion(app: AppHandle, operator_id: String) -> Result<Upgra
 fn complete_focus_session(
     app: AppHandle,
     mode: String,
-    is_boss: bool,
+    duration_minutes: u32,
     challenge_completed: bool,
 ) -> Result<timer::SessionRewardResult, String> {
     let conn = open_db(&app)?;
@@ -374,7 +382,7 @@ fn complete_focus_session(
         timer::SessionMode::Break
     };
     
-    timer::apply_session_rewards(&conn, session_mode, true, is_boss, challenge_completed)
+    timer::apply_session_rewards(&conn, session_mode, true, duration_minutes, challenge_completed)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -428,6 +436,7 @@ pub fn run() {
             perform_ten_gacha_pull,
             get_gacha_state,
             get_currency,
+            get_resources,
             update_currency_balance,
             get_resources_balance,
             add_resources_amount,

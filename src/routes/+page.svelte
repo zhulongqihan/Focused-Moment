@@ -351,22 +351,31 @@
   }
 
   async function finishSession(completed: boolean) {
-    if (timerStartedAt === null) {
-      return;
+    // 计算实际专注时长（分钟）
+    let actualMinutes: number;
+    
+    if (timerCountMode === "countdown") {
+      // 倒计时模式：使用设置中的时长
+      actualMinutes = timerMode === "work" ? settings.workMinutes : settings.breakMinutes;
+    } else {
+      // 正向计时模式：使用实际计时的时长
+      actualMinutes = Math.floor(timerSecondsLeft / 60);
     }
-
-    const bossRound = isBossRound();
+    
+    // 确保有开始时间（如果没有，使用当前时间减去实际时长）
+    const startTime = timerStartedAt ?? (Date.now() - actualMinutes * 60 * 1000);
+    
     const challengePassed = selectedChallenge ? !challengeBroken && completed : false;
     
     sessions = [
       {
         id: nowId("session"),
-        startAt: timerStartedAt,
+        startAt: startTime,
         endAt: Date.now(),
-        minutes: timerMode === "work" ? settings.workMinutes : settings.breakMinutes,
+        minutes: actualMinutes,
         mode: timerMode,
         completed,
-        isBoss: bossRound,
+        isBoss: false, // 移除Boss机制
         challengeId: selectedChallenge?.id,
         challengePassed: selectedChallenge ? challengePassed : undefined,
       },
@@ -375,7 +384,7 @@
 
     if (timerMode === "work" && completed) {
       // 旧的宠物系统（保留用于向后兼容）
-      const gain = bossRound ? 35 : 20;
+      const gain = 20;
       petXp += gain;
       if (selectedChallenge && !challengeBroken) {
         petXp += 20;
@@ -386,10 +395,6 @@
         petLevel += 1;
       }
 
-      if (bossRound) {
-        bossPoints += 1;
-      }
-
       // 新的奖励系统：调用后端计算并发放奖励
       try {
         const rewardResult = await invoke<{
@@ -398,7 +403,7 @@
           message: string;
         }>("complete_focus_session", {
           mode: timerMode,
-          isBoss: bossRound,
+          durationMinutes: actualMinutes,
           challengeCompleted: challengePassed,
         });
 
@@ -406,23 +411,27 @@
         currentTip = rewardResult.message;
       } catch (error) {
         console.error("Failed to apply session rewards:", error);
-        // 如果奖励系统失败，显示传统提示
-        if (bossRound) {
-          currentTip = "Boss 作战完成，罗德岛战术评价：优秀！";
-        } else {
-          currentTip = "作战成功，干员经验值增加。";
-        }
+        currentTip = "作战完成，干员经验值增加。";
       }
 
       playNotificationSound();
       checkAchievements();
+    } else if (!completed) {
+      currentTip = "作战中断，未获得奖励。";
     }
 
     timerRunning = false;
     timerStartedAt = null;
     clearTick();
     timerMode = timerMode === "work" ? "break" : "work";
-    timerSecondsLeft = (timerMode === "work" ? settings.breakMinutes : settings.workMinutes) * 60;
+    
+    // 重置时间
+    if (timerCountMode === "countdown") {
+      timerSecondsLeft = (timerMode === "work" ? settings.workMinutes : settings.breakMinutes) * 60;
+    } else {
+      timerSecondsLeft = 0;
+    }
+    
     selectedChallenge = null;
     challengeBroken = false;
     scheduleSave();
@@ -436,11 +445,6 @@
       return;
     }
 
-    // 如果是Boss回合，选择一个随机Boss名称
-    if (isBossRound()) {
-      currentBossName = selectRandomBoss();
-    }
-
     timerRunning = true;
     timerStartedAt = Date.now();
     clearTick();
@@ -450,7 +454,7 @@
         // 倒计时模式
         timerSecondsLeft -= 1;
         if (timerSecondsLeft <= 0) {
-          finishSession(true);
+          void finishSession(true);
         }
       } else {
         // 正向计时模式
@@ -464,7 +468,7 @@
       return;
     }
     timerRunning = false;
-    challengeBroken = true;
+    // 暂停不应该导致委托失败，只有跳过/重置才会
     clearTick();
     scheduleSave();
   }
@@ -480,12 +484,42 @@
     } else {
       timerSecondsLeft = 0;
     }
+    currentTip = "计时器已重置，委托失败。";
     scheduleSave();
   }
 
   function skipSession() {
     challengeBroken = true;
-    finishSession(false);
+    void finishSession(false);
+  }
+
+  async function endSession() {
+    // 正向计时模式下，手动结束会话
+    if (timerCountMode === "countup") {
+      // 必须先启动计时器
+      if (timerSecondsLeft === 0) {
+        currentTip = '请先点击"开始"按钮开始计时';
+        return;
+      }
+      
+      // 如果计时器正在运行，先停止它
+      if (timerRunning) {
+        timerRunning = false;
+        clearTick();
+      }
+      
+      // 计算实际时长（秒转分钟）
+      const actualMinutes = Math.floor(timerSecondsLeft / 60);
+      if (actualMinutes > 0) {
+        currentTip = `正在结算 ${actualMinutes} 分钟的专注奖励...`;
+        await finishSession(true);
+      } else {
+        currentTip = "专注时长太短，至少需要1分钟";
+      }
+    } else {
+      // 倒计时模式下，结束等同于跳过
+      skipSession();
+    }
   }
 
   async function saveApiKey() {
@@ -1191,7 +1225,7 @@ ${todoList}`;
         <div class="info-grid">
           <div class="info-item">
             <span>版本</span>
-            <strong>v0.9.0</strong>
+            <strong>v0.11.5</strong>
           </div>
           <div class="info-item">
             <span>数据存储</span>
