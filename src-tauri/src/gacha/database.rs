@@ -167,6 +167,9 @@ pub fn save_operator(conn: &Connection, operator: &Operator) -> SqliteResult<()>
         )))
     })?;
 
+    let class_json = serde_json::to_string(&operator.class)
+        .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+
     conn.execute(
         "INSERT INTO operators (id, name, rarity, class, level, elite, experience, potential, obtained_at, last_upgraded_at)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
@@ -183,7 +186,7 @@ pub fn save_operator(conn: &Connection, operator: &Operator) -> SqliteResult<()>
             operator.id,
             operator.name,
             operator.rarity,
-            serde_json::to_string(&operator.class).unwrap(),
+            class_json,
             operator.level,
             operator.elite,
             operator.experience,

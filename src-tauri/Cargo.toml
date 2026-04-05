@@ -1,6 +1,6 @@
 [package]
 name = "focused-moment"
-version = "0.1.0"
+version = "0.11.9"
 description = "Focused Moment - A local-first focus desktop app"
 authors = ["Focused Moment Contributors"]
 edition = "2021"

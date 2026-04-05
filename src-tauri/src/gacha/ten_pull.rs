@@ -56,7 +56,7 @@ pub fn perform_ten_gacha(conn: &Connection) -> Result<GachaResult, String> {
         let rarity = calculate_gacha_rarity(pity_counter);
         
         // 从干员池中随机选择干员
-        let operator = select_random_operator(rarity);
+        let operator = select_random_operator(rarity)?;
         
         // 检查是否获得 5★ 或 6★
         if rarity >= 5 {
@@ -77,8 +77,9 @@ pub fn perform_ten_gacha(conn: &Connection) -> Result<GachaResult, String> {
     if !has_five_star_or_above {
         // 将最后一个干员替换为随机 5★ 干员
         let last_index = operators.len() - 1;
-        let five_star_operator = select_random_operator(5);
+        let five_star_operator = select_random_operator(5)?;
         operators[last_index] = five_star_operator;
+        pity_counter = 0;
     }
     
     // 扣除合成玉
@@ -132,21 +133,21 @@ pub fn perform_ten_gacha(conn: &Connection) -> Result<GachaResult, String> {
  * # 注意
  * 当前实现使用简化的干员池，未来可以从配置文件或数据库加载
  */
-fn select_random_operator(rarity: u8) -> Operator {
+fn select_random_operator(rarity: u8) -> Result<Operator, String> {
     use rand::seq::SliceRandom;
     use rand::thread_rng;
     
     let now = chrono::Utc::now().timestamp();
     
     // 简化的干员池（未来可以从配置文件或数据库加载）
-    let operator_pool = get_operator_pool(rarity);
+    let operator_pool = get_operator_pool(rarity)?;
     
     let mut rng = thread_rng();
     let selected = operator_pool.choose(&mut rng)
-        .expect("干员池不应为空");
+        .ok_or_else(|| format!("干员池为空，无法选择稀有度 {} 的干员", rarity))?;
     
     // 创建新的干员实例
-    Operator {
+    Ok(Operator {
         id: Uuid::new_v4().to_string(),
         name: selected.0.to_string(),
         rarity,
@@ -157,7 +158,7 @@ fn select_random_operator(rarity: u8) -> Operator {
         potential: 1,
         obtained_at: now,
         last_upgraded_at: now,
-    }
+    })
 }
 
 /**
@@ -169,8 +170,8 @@ fn select_random_operator(rarity: u8) -> Operator {
  * # 返回值
  * - 干员池：(名称, 职业) 的数组
  */
-fn get_operator_pool(rarity: u8) -> Vec<(&'static str, OperatorClass)> {
-    match rarity {
+fn get_operator_pool(rarity: u8) -> Result<Vec<(&'static str, OperatorClass)>, String> {
+    let pool = match rarity {
         6 => vec![
             ("银灰", OperatorClass::Guard),
             ("艾雅法拉", OperatorClass::Caster),
@@ -219,8 +220,14 @@ fn get_operator_pool(rarity: u8) -> Vec<(&'static str, OperatorClass)> {
             ("史都华德", OperatorClass::Medic),
             ("阿消", OperatorClass::Medic),
         ],
-        _ => panic!("无效的稀有度: {}", rarity),
+        _ => return Err(format!("无效的稀有度: {}", rarity)),
+    };
+
+    if pool.is_empty() {
+        return Err(format!("稀有度 {} 的干员池为空", rarity));
     }
+
+    Ok(pool)
 }
 
 #[cfg(test)]

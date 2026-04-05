@@ -1,12 +1,15 @@
 {
   "name": "focused-moment",
-  "version": "0.11.8",
+  "version": "0.11.9",
   "description": "Local-first focus desktop app with pomodoro, todos, analytics, and creative focus mechanics.",
   "type": "module",
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
     "preview": "vite preview",
+    "version:sync": "node scripts/sync-versions.mjs",
+    "verify:versions": "node scripts/verify-versions.mjs",
+    "clean:exe": "node scripts/cleanup-exe.mjs",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:desktop": "set \"PATH=%USERPROFILE%\\.cargo\\bin;%PATH%\" && set \"CARGO=%USERPROFILE%\\.cargo\\bin\\cargo.exe\" && cargo check -j 1 --manifest-path src-tauri/Cargo.toml",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",

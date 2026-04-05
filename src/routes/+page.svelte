@@ -59,6 +59,8 @@
   };
 
   const STORAGE_KEY = "focused_moment_v1";
+  const APP_VERSION = import.meta.env.VITE_APP_VERSION ?? "0.0.0";
+
   const CHALLENGES: Challenge[] = [
     { id: "c1", title: "【资源采集】专注期间不切到其它窗口", reward: "+100 合成玉" },
     { id: "c2", title: "【紧急委托】本轮不允许暂停", reward: "+150 合成玉" },
@@ -1284,7 +1286,7 @@ ${todoList}`;
         <div class="info-grid">
           <div class="info-item">
             <span>版本</span>
-            <strong>v0.11.8</strong>
+            <strong>v{APP_VERSION}</strong>
           </div>
           <div class="info-item">
             <span>数据存储</span>

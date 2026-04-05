@@ -7,7 +7,49 @@ on:
   workflow_dispatch:
 
 jobs:
+  validate:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.extract.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate tag format
+        run: |
+          if [[ ! "${{ github.ref_name }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid tag format: ${{ github.ref_name }}"
+            exit 1
+          fi
+
+      - name: Extract version from tag
+        id: extract
+        run: |
+          echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install deps for validation
+        run: npm ci
+
+      - name: Sync versions from Cargo.toml
+        run: npm run version:sync
+
+      - name: Verify versions
+        run: npm run verify:versions
+
+      - name: Ensure tag version matches project version
+        run: |
+          if [[ "${{ steps.extract.outputs.version }}" != "$(node -p "require('./package.json').version")" ]]; then
+            echo "Tag version does not match project version"
+            exit 1
+          fi
+
   build-windows:
+    needs: validate
     runs-on: windows-latest
     permissions:
       contents: write
@@ -27,13 +69,44 @@ jobs:
       - name: Install frontend deps
         run: npm ci
 
+      - name: Sync and verify versions
+        run: |
+          npm run version:sync
+          npm run verify:versions
+
+      - name: Clean old build artifacts
+        shell: pwsh
+        run: |
+          if (Test-Path "build") {
+            Remove-Item -Recurse -Force "build"
+          }
+          if (Test-Path "src-tauri/target/release/bundle") {
+            Remove-Item -Recurse -Force "src-tauri/target/release/bundle"
+          }
+
       - name: Build and release Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CARGO_BUILD_JOBS: 1
+          CARGO_INCREMENTAL: 0
         with:
           tagName: ${{ github.ref_name }}
           releaseName: Focused Moment ${{ github.ref_name }}
-          releaseBody: Automated release for Focused Moment.
+          releaseBody: |
+            Automated release for Focused Moment ${{ github.ref_name }}.
+
+            Changelog: https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md
           releaseDraft: false
           prerelease: false
+
+      - name: Verify exe artifacts
+        shell: pwsh
+        run: |
+          $exeFiles = Get-ChildItem "src-tauri/target/release/bundle" -Recurse -Filter "*.exe" -ErrorAction SilentlyContinue
+          if (-not $exeFiles -or $exeFiles.Count -eq 0) {
+            throw "No executable artifact was generated."
+          }
+          foreach ($file in $exeFiles) {
+            Write-Host "EXE artifact: $($file.FullName) ($($file.Length) bytes)"
+          }
