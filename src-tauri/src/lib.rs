@@ -373,6 +373,7 @@ fn complete_focus_session(
     mode: String,
     duration_minutes: u32,
     challenge_completed: bool,
+    timer_kind: String,
 ) -> Result<timer::SessionRewardResult, String> {
     let conn = open_db(&app)?;
     
@@ -381,8 +382,14 @@ fn complete_focus_session(
     } else {
         timer::SessionMode::Break
     };
+
+    let timer_kind = if timer_kind == "countup" {
+        timer::TimerKind::Countup
+    } else {
+        timer::TimerKind::Pomodoro
+    };
     
-    timer::apply_session_rewards(&conn, session_mode, true, duration_minutes, challenge_completed)
+    timer::apply_session_rewards(&conn, session_mode, timer_kind, true, duration_minutes, challenge_completed)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

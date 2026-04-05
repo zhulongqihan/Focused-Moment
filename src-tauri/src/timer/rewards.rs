@@ -19,6 +19,15 @@ pub enum SessionMode {
 }
 
 /**
+ * 计时器类型
+ */
+#[derive(Debug, Clone, PartialEq)]
+pub enum TimerKind {
+    Pomodoro,
+    Countup,
+}
+
+/**
  * 会话奖励结果
  */
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -50,6 +59,7 @@ pub struct SessionRewardResult {
  */
 pub fn calculate_session_rewards(
     mode: SessionMode,
+    timer_kind: TimerKind,
     completed: bool,
     duration_minutes: u32,
     challenge_completed: bool,
@@ -67,27 +77,37 @@ pub fn calculate_session_rewards(
         };
     }
     
-    // 基础奖励：按时长计算（每分钟 4 合成玉、10 龙门币、2 经验值）
-    let base_orundum = duration_minutes * 4;
-    let base_lmd = duration_minutes * 10;
-    let base_exp = duration_minutes * 2;
-    
-    earned_currency.orundum = base_orundum;
-    earned_resources.lmd = base_lmd;
-    earned_resources.exp = base_exp;
-    
-    message.push_str(&format!(
-        "专注{}分钟完成！获得：{}合成玉、{}龙门币、{}经验值",
-        duration_minutes, base_orundum, base_lmd, base_exp
-    ));
-    
-    // 挑战完成额外奖励
-    if challenge_completed {
-        earned_currency.orundum += 30;
-        earned_resources.lmd += 100;
-        message.push_str("，作战委托完成额外奖励：+30合成玉、+100龙门币");
+    match timer_kind {
+        TimerKind::Pomodoro => {
+            // 番茄钟规则：固定完成奖励（通用番茄钟规则）
+            earned_currency.orundum = 100;
+            earned_resources.lmd = 250;
+            earned_resources.exp = 50;
+            message.push_str("番茄钟完成！获得：100合成玉、250龙门币、50经验值");
+
+            if challenge_completed {
+                earned_currency.orundum += 30;
+                earned_resources.lmd += 100;
+                message.push_str("，作战委托完成额外奖励：+30合成玉、+100龙门币");
+            }
+        }
+        TimerKind::Countup => {
+            // 正向计时规则：按实际时长线性奖励
+            let effective_minutes = duration_minutes.max(1);
+            let base_orundum = effective_minutes * 4;
+            let base_lmd = effective_minutes * 10;
+            let base_exp = effective_minutes * 2;
+
+            earned_currency.orundum = base_orundum;
+            earned_resources.lmd = base_lmd;
+            earned_resources.exp = base_exp;
+            message.push_str(&format!(
+                "正向计时完成（{}分钟）！获得：{}合成玉、{}龙门币、{}经验值",
+                effective_minutes, base_orundum, base_lmd, base_exp
+            ));
+        }
     }
-    
+
     // 添加少量芯片作为奖励（用于精英化）
     let chip_amount = if duration_minutes >= 25 { 2 } else { 1 };
     earned_resources.chips.insert("elite_chip_5".to_string(), chip_amount);
@@ -117,12 +137,13 @@ pub fn calculate_session_rewards(
 pub fn apply_session_rewards(
     conn: &Connection,
     mode: SessionMode,
+    timer_kind: TimerKind,
     completed: bool,
     duration_minutes: u32,
     challenge_completed: bool,
 ) -> Result<SessionRewardResult, String> {
     // 计算奖励
-    let reward = calculate_session_rewards(mode, completed, duration_minutes, challenge_completed);
+    let reward = calculate_session_rewards(mode, timer_kind, completed, duration_minutes, challenge_completed);
     
     // 如果没有奖励，直接返回
     if reward.earned_currency.orundum == 0 && reward.earned_resources.lmd == 0 {
@@ -162,27 +183,27 @@ mod tests {
     #[test]
     fn test_normal_work_session_rewards() {
         // 25分钟番茄钟
-        let reward = calculate_session_rewards(SessionMode::Work, true, 25, false);
+        let reward = calculate_session_rewards(SessionMode::Work, TimerKind::Pomodoro, true, 25, false);
         
-        assert_eq!(reward.earned_currency.orundum, 100); // 25 * 4
-        assert_eq!(reward.earned_resources.lmd, 250);    // 25 * 10
-        assert_eq!(reward.earned_resources.exp, 50);     // 25 * 2
-        assert!(reward.message.contains("25分钟"));
+        assert_eq!(reward.earned_currency.orundum, 100);
+        assert_eq!(reward.earned_resources.lmd, 250);
+        assert_eq!(reward.earned_resources.exp, 50);
+        assert!(reward.message.contains("番茄钟完成"));
     }
 
     #[test]
     fn test_short_session_rewards() {
-        // 15分钟短番茄钟
-        let reward = calculate_session_rewards(SessionMode::Work, true, 15, false);
+        // 15分钟正向计时
+        let reward = calculate_session_rewards(SessionMode::Work, TimerKind::Countup, true, 15, false);
         
-        assert_eq!(reward.earned_currency.orundum, 60);  // 15 * 4
-        assert_eq!(reward.earned_resources.lmd, 150);    // 15 * 10
-        assert_eq!(reward.earned_resources.exp, 30);     // 15 * 2
+        assert_eq!(reward.earned_currency.orundum, 60);
+        assert_eq!(reward.earned_resources.lmd, 150);
+        assert_eq!(reward.earned_resources.exp, 30);
     }
 
     #[test]
     fn test_challenge_completed_bonus() {
-        let reward = calculate_session_rewards(SessionMode::Work, true, 25, true);
+        let reward = calculate_session_rewards(SessionMode::Work, TimerKind::Pomodoro, true, 25, true);
         
         // 基础奖励 + 挑战奖励
         assert_eq!(reward.earned_currency.orundum, 130); // 100 + 30
@@ -192,7 +213,7 @@ mod tests {
 
     #[test]
     fn test_break_session_no_rewards() {
-        let reward = calculate_session_rewards(SessionMode::Break, true, 25, false);
+        let reward = calculate_session_rewards(SessionMode::Break, TimerKind::Pomodoro, true, 25, false);
         
         assert_eq!(reward.earned_currency.orundum, 0);
         assert_eq!(reward.earned_resources.lmd, 0);
@@ -201,7 +222,7 @@ mod tests {
 
     #[test]
     fn test_incomplete_session_no_rewards() {
-        let reward = calculate_session_rewards(SessionMode::Work, false, 25, false);
+        let reward = calculate_session_rewards(SessionMode::Work, TimerKind::Pomodoro, false, 25, false);
         
         assert_eq!(reward.earned_currency.orundum, 0);
         assert_eq!(reward.earned_resources.lmd, 0);
@@ -213,7 +234,7 @@ mod tests {
         let conn = create_test_db();
         
         // 应用奖励（25分钟）
-        let result = apply_session_rewards(&conn, SessionMode::Work, true, 25, false).unwrap();
+        let result = apply_session_rewards(&conn, SessionMode::Work, TimerKind::Pomodoro, true, 25, false).unwrap();
         
         assert_eq!(result.earned_currency.orundum, 100);
         
@@ -231,9 +252,9 @@ mod tests {
         let conn = create_test_db();
         
         // 完成多个会话
-        apply_session_rewards(&conn, SessionMode::Work, true, 25, false).unwrap();
-        apply_session_rewards(&conn, SessionMode::Work, true, 25, false).unwrap();
-        apply_session_rewards(&conn, SessionMode::Work, true, 30, false).unwrap();
+        apply_session_rewards(&conn, SessionMode::Work, TimerKind::Pomodoro, true, 25, false).unwrap();
+        apply_session_rewards(&conn, SessionMode::Work, TimerKind::Pomodoro, true, 25, false).unwrap();
+        apply_session_rewards(&conn, SessionMode::Work, TimerKind::Countup, true, 30, false).unwrap();
         
         // 验证累积奖励
         let currency = load_currency(&conn).unwrap();
@@ -246,12 +267,11 @@ mod tests {
 
     #[test]
     fn test_long_session_rewards() {
-        // 50分钟长番茄钟
-        let reward = calculate_session_rewards(SessionMode::Work, true, 50, true);
+        // 50分钟正向计时
+        let reward = calculate_session_rewards(SessionMode::Work, TimerKind::Countup, true, 50, true);
         
-        // 基础奖励 + 挑战奖励
-        assert_eq!(reward.earned_currency.orundum, 230); // 200 + 30
-        assert_eq!(reward.earned_resources.lmd, 600);    // 500 + 100
+        assert_eq!(reward.earned_currency.orundum, 200);
+        assert_eq!(reward.earned_resources.lmd, 500);
         assert_eq!(reward.earned_resources.exp, 100);
     }
 }
