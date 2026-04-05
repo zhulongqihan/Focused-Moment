@@ -79,7 +79,7 @@
     // 必须先启动过
     if (!startedAt) {
       if (onTipChange) {
-        onTipChange("请先点击"开始"按钮");
+        onTipChange("请先点击「开始」按钮");
       }
       return;
     }

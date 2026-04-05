@@ -8,8 +8,7 @@
   let orundum = $state(0);
   let lmd = $state(0);
   
-  let pomodoroRef: any;
-  let countupRef: any;
+
   
   async function loadCurrencyBalance() {
     try {
@@ -70,7 +69,7 @@
   }
   
   $effect(() => {
-    loadCurrencyBalance();
+    void loadCurrencyBalance();
   });
 </script>
 
@@ -112,14 +111,12 @@
   <div class="timer-container">
     {#if activeMode === "pomodoro"}
       <PomodoroTimer 
-        bind:this={pomodoroRef}
         workMinutes={25}
         onComplete={handlePomodoroComplete}
         onTipChange={handleTipChange}
       />
     {:else}
       <CountupTimer 
-        bind:this={countupRef}
         onComplete={handleCountupComplete}
         onTipChange={handleTipChange}
       />
