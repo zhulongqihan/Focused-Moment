@@ -1,18 +1,18 @@
 # Focused Moment
 
-Focused Moment is a lightweight Windows desktop productivity assistant that combines
-precision timing, task tracking, and local analytics into a calm, low-noise workspace.
+Focused Moment 是一个面向 Windows 的轻量桌面效率助手，目标是把精准计时、
+任务追踪与本地数据复盘整合进一个安静、低干扰的工作空间。
 
-## Current version
+## 当前版本
 
-`v0.1` establishes the desktop shell:
+`v0.2` 已完成：
 
-- Tauri 2 desktop host with a SolidJS frontend
-- custom frameless main window shell
-- modular UI placeholders for timer, tasks, analytics, and reserved extension lanes
-- local-only `docs/` workflow for per-version notes and user feedback
+- Tauri 2 桌面宿主与 SolidJS 前端基础架构
+- 自定义无边框主窗口壳层
+- Rust 驱动的正向计时核心
+- 本地专用 `docs/` 版本文档与反馈记录流程
 
-## Stack
+## 技术栈
 
 - Tauri 2
 - Rust
@@ -20,45 +20,45 @@ precision timing, task tracking, and local analytics into a calm, low-noise work
 - TypeScript
 - Vite
 
-## Development
+## 开发命令
 
-Install dependencies:
+安装依赖：
 
 ```bash
 pnpm install
 ```
 
-Start the desktop app in development mode:
+启动桌面开发环境：
 
 ```bash
 pnpm tauri dev
 ```
 
-Build the frontend only:
+仅构建前端：
 
 ```bash
 pnpm build
 ```
 
-Type-check the frontend:
+检查前端类型：
 
 ```bash
 pnpm check
 ```
 
-## Version workflow
+## 版本流程
 
-- Work only on `main`
-- Deliver one version at a time
-- Wait for explicit version acceptance before moving forward
-- After each accepted version:
-  - update local `docs/`
-  - commit locally
-  - push to `origin/main` over SSH
+- 只在 `main` 分支上开发
+- 每次只交付一个版本
+- 必须等当前版本验收通过后再进入下一版
+- 每个版本通过后：
+  - 更新本地 `docs/`
+  - 本地提交
+  - 通过 SSH 推送到 `origin/main`
 
-## Local docs
+## 本地文档
 
-The `docs/` directory is intentionally local-only and ignored by Git.
+`docs/` 目录只保留在本地，并已被 Git 忽略。
 
 - `docs/vX.X/plan.md`
 - `docs/vX.X/test.md`

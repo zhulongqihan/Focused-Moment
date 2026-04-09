@@ -1,6 +1,6 @@
 [package]
 name = "focused-moment"
-version = "0.1.0"
+version = "0.2.0"
 description = "Focused Moment desktop foundation."
 authors = ["zhulongqihan"]
 edition = "2021"
@@ -12,6 +12,7 @@ edition = "2021"
 # to make the lib name unique and wouldn't conflict with the bin name.
 # This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
 name = "focused_moment_lib"
+path = "src/runtime.rs"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
@@ -21,4 +22,3 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-
