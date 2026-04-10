@@ -1,8 +1,12 @@
+mod storage;
+
 use std::cmp::Reverse;
 use std::sync::Mutex;
 use std::time::{Duration, Instant, SystemTime};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+
+use storage::{PersistedState, PersistenceStore};
 
 const POMODORO_FOCUS_MS: u64 = 25 * 60 * 1000;
 const POMODORO_BREAK_MS: u64 = 5 * 60 * 1000;
@@ -43,16 +47,16 @@ struct TimerSnapshot {
     can_complete_session: bool,
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct FocusRecord {
     id: u64,
     title: String,
     duration_ms: u64,
     duration_label: String,
-    mode_key: &'static str,
-    mode_label: &'static str,
-    phase_label: &'static str,
+    mode_key: String,
+    mode_label: String,
+    phase_label: String,
     linked_todo_id: Option<u64>,
     linked_todo_title: Option<String>,
 }
@@ -64,7 +68,7 @@ struct CompletionPayload {
     records: Vec<FocusRecord>,
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct TodoItem {
     id: u64,
@@ -95,13 +99,13 @@ struct RunAnchor {
     wall_clock: SystemTime,
 }
 
-#[derive(Default)]
 struct TimerEngineState {
     timer: Mutex<TimerEngine>,
     focus_records: Mutex<Vec<FocusRecord>>,
     next_record_id: Mutex<u64>,
     todo_items: Mutex<Vec<TodoItem>>,
     next_todo_id: Mutex<u64>,
+    persistence: Option<PersistenceStore>,
 }
 
 #[derive(Default)]
@@ -119,6 +123,84 @@ struct CompletedSession {
     mode_key: &'static str,
     mode_label: &'static str,
     phase_label: &'static str,
+}
+
+impl TimerEngineState {
+    fn new() -> Self {
+        let persistence = PersistenceStore::new()
+            .map_err(|error| {
+                eprintln!("failed to prepare persistence store: {error}");
+                error
+            })
+            .ok();
+
+        let persisted = persistence
+            .as_ref()
+            .and_then(|store| {
+                store
+                    .load()
+                    .map_err(|error| {
+                        eprintln!("failed to load persisted state: {error}");
+                        error
+                    })
+                    .ok()
+            })
+            .unwrap_or_default();
+
+        let PersistedState {
+            mut focus_records,
+            next_record_id,
+            mut todo_items,
+            next_todo_id,
+        } = persisted;
+
+        sort_focus_records(&mut focus_records);
+        sort_todo_items(&mut todo_items);
+
+        Self {
+            timer: Mutex::new(TimerEngine::default()),
+            next_record_id: Mutex::new(next_record_id.max(next_focus_record_id(&focus_records))),
+            focus_records: Mutex::new(focus_records),
+            next_todo_id: Mutex::new(next_todo_id.max(next_todo_id_value(&todo_items))),
+            todo_items: Mutex::new(todo_items),
+            persistence,
+        }
+    }
+
+    fn persist(&self) -> Result<(), String> {
+        let Some(store) = &self.persistence else {
+            return Ok(());
+        };
+
+        let persisted = PersistedState {
+            focus_records: self
+                .focus_records
+                .lock()
+                .map_err(|_| {
+                    "\u{8bb0}\u{5f55}\u{5217}\u{8868}\u{72b6}\u{6001}\u{9501}\u{5b9a}\u{5931}\u{8d25}"
+                        .to_string()
+                })?
+                .clone(),
+            next_record_id: *self.next_record_id.lock().map_err(|_| {
+                "\u{8bb0}\u{5f55}\u{7f16}\u{53f7}\u{72b6}\u{6001}\u{9501}\u{5b9a}\u{5931}\u{8d25}"
+                    .to_string()
+            })?,
+            todo_items: self
+                .todo_items
+                .lock()
+                .map_err(|_| {
+                    "\u{4efb}\u{52a1}\u{5217}\u{8868}\u{72b6}\u{6001}\u{9501}\u{5b9a}\u{5931}\u{8d25}"
+                        .to_string()
+                })?
+                .clone(),
+            next_todo_id: *self.next_todo_id.lock().map_err(|_| {
+                "\u{4efb}\u{52a1}\u{7f16}\u{53f7}\u{72b6}\u{6001}\u{9501}\u{5b9a}\u{5931}\u{8d25}"
+                    .to_string()
+            })?,
+        };
+
+        store.save(&persisted)
+    }
 }
 
 impl TimerEngine {
@@ -461,6 +543,26 @@ fn importance_rank(value: &str) -> u8 {
     }
 }
 
+fn next_focus_record_id(records: &[FocusRecord]) -> u64 {
+    records
+        .iter()
+        .map(|record| record.id)
+        .max()
+        .map_or(0, |id| id + 1)
+}
+
+fn next_todo_id_value(items: &[TodoItem]) -> u64 {
+    items
+        .iter()
+        .map(|item| item.id)
+        .max()
+        .map_or(0, |id| id + 1)
+}
+
+fn sort_focus_records(records: &mut [FocusRecord]) {
+    records.sort_by(|left, right| Reverse(left.id).cmp(&Reverse(right.id)));
+}
+
 fn sort_todo_items(items: &mut [TodoItem]) {
     items.sort_by(|left, right| {
         left.is_completed
@@ -490,9 +592,9 @@ fn with_todo_items<T>(
 fn bootstrap_shell() -> ShellSnapshot {
     ShellSnapshot {
         product_name: "Focused Moment",
-        version: "0.4.2",
-        milestone: "v0.4.2 \u{72ec}\u{7acb}\u{4e13}\u{6ce8}\u{4e8b}\u{4ef6}",
-        slogan: "\u{4e13}\u{6ce8}\u{53ef}\u{4ee5}\u{72ec}\u{7acb}\u{8bb0}\u{5f55}\u{ff0c}\u{4e5f}\u{53ef}\u{4ee5}\u{548c}\u{5177}\u{4f53}\u{4efb}\u{52a1}\u{5173}\u{8054}\u{ff0c}\u{8ba9}\u{8ba1}\u{5212}\u{4e0e}\u{884c}\u{52a8}\u{5f00}\u{59cb}\u{5bf9}\u{4e0a}\u{3002}",
+        version: "0.5.0",
+        milestone: "v0.5.0 \u{672c}\u{5730}\u{6301}\u{4e45}\u{5316}",
+        slogan: "\u{4efb}\u{52a1}\u{4e0e}\u{4e13}\u{6ce8}\u{8bb0}\u{5f55}\u{73b0}\u{5728}\u{5df2}\u{80fd}\u{4fdd}\u{7559}\u{5728}\u{672c}\u{5730}\u{ff0c}\u{91cd}\u{542f}\u{5e94}\u{7528}\u{540e}\u{4f9d}\u{7136}\u{53ef}\u{4ee5}\u{7eed}\u{4e0a}\u{4e4b}\u{524d}\u{7684}\u{8fdb}\u{5ea6}\u{3002}",
         surfaces: vec![
             ShellPanel {
                 id: "timer",
@@ -504,16 +606,16 @@ fn bootstrap_shell() -> ShellSnapshot {
             ShellPanel {
                 id: "tasks",
                 title: "\u{4efb}\u{52a1}\u{9762}\u{677f}",
-                phase: "v0.4.0-v0.4.2",
-                status: "\u{5df2}\u{8fde}\u{901a}",
-                summary: "\u{4efb}\u{52a1}\u{4e0d}\u{53ea}\u{80fd}\u{5355}\u{72ec}\u{7ba1}\u{7406}\u{ff0c}\u{73b0}\u{5728}\u{4e5f}\u{80fd}\u{5728}\u{8bb0}\u{5f55}\u{4e13}\u{6ce8}\u{65f6}\u{53ef}\u{9009}\u{62e9}\u{5173}\u{8054}\u{5230}\u{5bf9}\u{5e94}\u{4efb}\u{52a1}\u{3002}",
+                phase: "v0.4.0-v0.5.0",
+                status: "\u{5df2}\u{6301}\u{4e45}\u{5316}",
+                summary: "\u{4efb}\u{52a1}\u{4e0d}\u{4ec5}\u{80fd}\u{5173}\u{8054}\u{4e13}\u{6ce8}\u{8bb0}\u{5f55}\u{ff0c}\u{8fd8}\u{4f1a}\u{88ab}\u{4fdd}\u{5b58}\u{5230}\u{672c}\u{5730}\u{ff0c}\u{4e0b}\u{6b21}\u{6253}\u{5f00}\u{5e94}\u{7528}\u{65f6}\u{4ecd}\u{7136}\u{5b58}\u{5728}\u{3002}",
             },
             ShellPanel {
                 id: "analytics",
                 title: "\u{6570}\u{636e}\u{590d}\u{76d8}",
-                phase: "v0.7-v0.8",
+                phase: "v0.6.0-v0.7.0",
                 status: "\u{5f85}\u{5f00}\u{53d1}",
-                summary: "\u{540e}\u{7eed}\u{63d0}\u{4f9b}\u{672c}\u{5730}\u{4f18}\u{5148}\u{7684}\u{6bcf}\u{65e5}\u{65f6}\u{957f}\u{805a}\u{5408}\u{4e0e}\u{6781}\u{7b80}\u{8d8b}\u{52bf}\u{7edf}\u{8ba1}\u{5c55}\u{793a}\u{3002}",
+                summary: "\u{540e}\u{7eed}\u{4f1a}\u{5728}\u{5df2}\u{6709}\u{672c}\u{5730}\u{6570}\u{636e}\u{57fa}\u{7840}\u{4e0a}\u{63d0}\u{4f9b}\u{805a}\u{5408}\u{548c}\u{7edf}\u{8ba1}\u{5c55}\u{793a}\u{3002}",
             },
         ],
         reserved_extensions: vec![
@@ -603,7 +705,7 @@ fn create_todo_item(
         next_id
     };
 
-    with_todo_items(&state, |items| {
+    let items = with_todo_items(&state, |items| {
         items.insert(
             0,
             TodoItem {
@@ -617,7 +719,10 @@ fn create_todo_item(
         );
         sort_todo_items(items);
         Ok(items.clone())
-    })
+    })?;
+
+    state.persist()?;
+    Ok(items)
 }
 
 #[tauri::command]
@@ -634,7 +739,7 @@ fn update_todo_item(
     let normalized_time = normalize_scheduled_time(&scheduled_time)?;
     let normalized_importance = normalize_importance_key(&importance_key)?;
 
-    with_todo_items(&state, |items| {
+    let items = with_todo_items(&state, |items| {
         let item = items.iter_mut().find(|item| item.id == id).ok_or_else(|| {
             "\u{672a}\u{627e}\u{5230}\u{8981}\u{7f16}\u{8f91}\u{7684}\u{4efb}\u{52a1}".to_string()
         })?;
@@ -645,7 +750,10 @@ fn update_todo_item(
         item.importance_key = normalized_importance;
         sort_todo_items(items);
         Ok(items.clone())
-    })
+    })?;
+
+    state.persist()?;
+    Ok(items)
 }
 
 #[tauri::command]
@@ -653,7 +761,7 @@ fn toggle_todo_item(
     state: tauri::State<'_, TimerEngineState>,
     id: u64,
 ) -> Result<Vec<TodoItem>, String> {
-    with_todo_items(&state, |items| {
+    let items = with_todo_items(&state, |items| {
         let item = items.iter_mut().find(|item| item.id == id).ok_or_else(|| {
             "\u{672a}\u{627e}\u{5230}\u{8981}\u{66f4}\u{65b0}\u{7684}\u{4efb}\u{52a1}".to_string()
         })?;
@@ -661,7 +769,10 @@ fn toggle_todo_item(
         item.is_completed = !item.is_completed;
         sort_todo_items(items);
         Ok(items.clone())
-    })
+    })?;
+
+    state.persist()?;
+    Ok(items)
 }
 
 #[tauri::command]
@@ -669,7 +780,7 @@ fn delete_todo_item(
     state: tauri::State<'_, TimerEngineState>,
     id: u64,
 ) -> Result<Vec<TodoItem>, String> {
-    with_todo_items(&state, |items| {
+    let items = with_todo_items(&state, |items| {
         let before_len = items.len();
         items.retain(|item| item.id != id);
         if items.len() == before_len {
@@ -681,7 +792,10 @@ fn delete_todo_item(
 
         sort_todo_items(items);
         Ok(items.clone())
-    })
+    })?;
+
+    state.persist()?;
+    Ok(items)
 }
 
 #[tauri::command]
@@ -755,9 +869,9 @@ fn complete_focus_session(
         },
         duration_ms: completed_session.duration_ms,
         duration_label: format_duration_ms(completed_session.duration_ms),
-        mode_key: completed_session.mode_key,
-        mode_label: completed_session.mode_label,
-        phase_label: completed_session.phase_label,
+        mode_key: completed_session.mode_key.to_string(),
+        mode_label: completed_session.mode_label.to_string(),
+        phase_label: completed_session.phase_label.to_string(),
         linked_todo_id,
         linked_todo_title,
     };
@@ -769,8 +883,11 @@ fn complete_focus_session(
         })?;
 
         records.insert(0, record);
+        sort_focus_records(&mut records);
         records.clone()
     };
+
+    state.persist()?;
 
     let timer_snapshot = with_timer_engine(&state, |engine| Ok(engine.snapshot()))?;
 
@@ -804,7 +921,7 @@ fn close_main_window(window: tauri::Window) -> Result<(), String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .manage(TimerEngineState::default())
+        .manage(TimerEngineState::new())
         .invoke_handler(tauri::generate_handler![
             bootstrap_shell,
             get_timer_snapshot,
