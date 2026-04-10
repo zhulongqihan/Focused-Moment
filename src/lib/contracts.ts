@@ -38,3 +38,10 @@ export interface CompletionPayload {
   timerSnapshot: TimerSnapshot;
   records: FocusRecord[];
 }
+
+export interface TodoItem {
+  id: number;
+  title: string;
+  isCompleted: boolean;
+  createdAtLabel: string;
+}

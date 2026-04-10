@@ -1,3 +1,4 @@
+use std::cmp::Reverse;
 use std::sync::Mutex;
 use std::time::{Duration, Instant, SystemTime};
 
@@ -57,6 +58,15 @@ struct CompletionPayload {
     records: Vec<FocusRecord>,
 }
 
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TodoItem {
+    id: u64,
+    title: String,
+    is_completed: bool,
+    created_at_label: String,
+}
+
 #[derive(Clone, Copy, Default, Eq, PartialEq)]
 enum TimerMode {
     #[default]
@@ -82,6 +92,8 @@ struct TimerEngineState {
     timer: Mutex<TimerEngine>,
     focus_records: Mutex<Vec<FocusRecord>>,
     next_record_id: Mutex<u64>,
+    todo_items: Mutex<Vec<TodoItem>>,
+    next_todo_id: Mutex<u64>,
 }
 
 #[derive(Default)]
@@ -311,13 +323,38 @@ fn parse_mode(mode: &str) -> Result<TimerMode, String> {
     }
 }
 
+fn normalize_todo_title(title: &str) -> Result<String, String> {
+    let normalized = title.trim();
+    if normalized.is_empty() {
+        Err("\u{4efb}\u{52a1}\u{540d}\u{79f0}\u{4e0d}\u{80fd}\u{4e3a}\u{7a7a}".to_string())
+    } else {
+        Ok(normalized.to_string())
+    }
+}
+
+fn sort_todo_items(items: &mut [TodoItem]) {
+    items.sort_by_key(|item| (item.is_completed, Reverse(item.id)));
+}
+
+fn with_todo_items<T>(
+    state: &tauri::State<'_, TimerEngineState>,
+    f: impl FnOnce(&mut Vec<TodoItem>) -> Result<T, String>,
+) -> Result<T, String> {
+    let mut items = state.todo_items.lock().map_err(|_| {
+        "\u{4efb}\u{52a1}\u{5217}\u{8868}\u{72b6}\u{6001}\u{9501}\u{5b9a}\u{5931}\u{8d25}"
+            .to_string()
+    })?;
+
+    f(&mut items)
+}
+
 #[tauri::command]
 fn bootstrap_shell() -> ShellSnapshot {
     ShellSnapshot {
         product_name: "Focused Moment",
-        version: "0.3.0",
-        milestone: "v0.3 \u{756a}\u{8304}\u{949f}\u{4e0e}\u{7cbe}\u{5ea6}\u{6821}\u{6b63}",
-        slogan: "\u{756a}\u{8304}\u{8282}\u{594f}\u{548c}\u{771f}\u{5b9e}\u{65f6}\u{95f4}\u{540c}\u{6b65}\u{ff0c}\u{524d}\u{53f0}\u{3001}\u{540e}\u{53f0}\u{548c}\u{4f11}\u{7720}\u{6062}\u{590d}\u{90fd}\u{80fd}\u{8ddf}\u{4e0a}\u{3002}",
+        version: "0.4.0",
+        milestone: "v0.4.0 \u{4efb}\u{52a1}\u{6e05}\u{5355}\u{57fa}\u{7840}\u{7248}",
+        slogan: "\u{5728}\u{7cbe}\u{51c6}\u{8ba1}\u{65f6}\u{4e4b}\u{5916}\u{ff0c}\u{4e5f}\u{8ba9}\u{6bcf}\u{4e00}\u{9879}\u{4efb}\u{52a1}\u{80fd}\u{88ab}\u{6e05}\u{6670}\u{5730}\u{6536}\u{62e2}\u{3001}\u{5b8c}\u{6210}\u{548c}\u{7ef4}\u{62a4}\u{3002}",
         surfaces: vec![
             ShellPanel {
                 id: "timer",
@@ -329,9 +366,9 @@ fn bootstrap_shell() -> ShellSnapshot {
             ShellPanel {
                 id: "tasks",
                 title: "\u{4efb}\u{52a1}\u{9762}\u{677f}",
-                phase: "v0.4-v0.6",
-                status: "\u{5f85}\u{5f00}\u{53d1}",
-                summary: "\u{540e}\u{7eed}\u{4f1a}\u{9010}\u{6b65}\u{63a5}\u{5165}\u{4efb}\u{52a1}\u{65b0}\u{589e}\u{3001}\u{7f16}\u{8f91}\u{3001}\u{5b8c}\u{6210}\u{72b6}\u{6001}\u{4ee5}\u{53ca}\u{53ef}\u{5251}\u{79bb}\u{60ac}\u{6d6e}\u{7a97}\u{3002}",
+                phase: "v0.4.0",
+                status: "\u{5df2}\u{63a5}\u{5165}",
+                summary: "\u{5f53}\u{524d}\u{5df2}\u{652f}\u{6301}\u{4efb}\u{52a1}\u{65b0}\u{589e}\u{3001}\u{7f16}\u{8f91}\u{3001}\u{52fe}\u{9009}\u{5b8c}\u{6210}\u{4e0e}\u{5220}\u{9664}\u{ff0c}\u{540e}\u{7eed}\u{518d}\u{63a5}\u{5165}\u{60ac}\u{6d6e}\u{7a97}\u{5f62}\u{6001}\u{3002}",
             },
             ShellPanel {
                 id: "analytics",
@@ -394,6 +431,101 @@ fn get_focus_records(
     })?;
 
     Ok(records.clone())
+}
+
+#[tauri::command]
+fn get_todo_items(state: tauri::State<'_, TimerEngineState>) -> Result<Vec<TodoItem>, String> {
+    with_todo_items(&state, |items| {
+        let mut cloned_items = items.clone();
+        sort_todo_items(&mut cloned_items);
+        Ok(cloned_items)
+    })
+}
+
+#[tauri::command]
+fn create_todo_item(
+    state: tauri::State<'_, TimerEngineState>,
+    title: String,
+) -> Result<Vec<TodoItem>, String> {
+    let normalized_title = normalize_todo_title(&title)?;
+
+    let next_id = {
+        let mut id_guard = state.next_todo_id.lock().map_err(|_| {
+            "\u{4efb}\u{52a1}\u{7f16}\u{53f7}\u{72b6}\u{6001}\u{9501}\u{5b9a}\u{5931}\u{8d25}"
+                .to_string()
+        })?;
+        let next_id = *id_guard;
+        *id_guard += 1;
+        next_id
+    };
+
+    with_todo_items(&state, |items| {
+        items.insert(
+            0,
+            TodoItem {
+                id: next_id,
+                title: normalized_title,
+                is_completed: false,
+                created_at_label: "\u{521a}\u{521a}\u{6dfb}\u{52a0}".to_string(),
+            },
+        );
+        sort_todo_items(items);
+        Ok(items.clone())
+    })
+}
+
+#[tauri::command]
+fn update_todo_item(
+    state: tauri::State<'_, TimerEngineState>,
+    id: u64,
+    title: String,
+) -> Result<Vec<TodoItem>, String> {
+    let normalized_title = normalize_todo_title(&title)?;
+
+    with_todo_items(&state, |items| {
+        let item = items.iter_mut().find(|item| item.id == id).ok_or_else(|| {
+            "\u{672a}\u{627e}\u{5230}\u{8981}\u{7f16}\u{8f91}\u{7684}\u{4efb}\u{52a1}".to_string()
+        })?;
+
+        item.title = normalized_title;
+        Ok(items.clone())
+    })
+}
+
+#[tauri::command]
+fn toggle_todo_item(
+    state: tauri::State<'_, TimerEngineState>,
+    id: u64,
+) -> Result<Vec<TodoItem>, String> {
+    with_todo_items(&state, |items| {
+        let item = items.iter_mut().find(|item| item.id == id).ok_or_else(|| {
+            "\u{672a}\u{627e}\u{5230}\u{8981}\u{66f4}\u{65b0}\u{7684}\u{4efb}\u{52a1}".to_string()
+        })?;
+
+        item.is_completed = !item.is_completed;
+        sort_todo_items(items);
+        Ok(items.clone())
+    })
+}
+
+#[tauri::command]
+fn delete_todo_item(
+    state: tauri::State<'_, TimerEngineState>,
+    id: u64,
+) -> Result<Vec<TodoItem>, String> {
+    with_todo_items(&state, |items| {
+        let before_len = items.len();
+        items.retain(|item| item.id != id);
+        if items.len() == before_len {
+            return Err(
+                "\u{672a}\u{627e}\u{5230}\u{8981}\u{5220}\u{9664}\u{7684}\u{4efb}\u{52a1}"
+                    .to_string(),
+            );
+        }
+
+        sort_todo_items(items);
+        Ok(items.clone())
+    })
 }
 
 #[tauri::command]
@@ -497,6 +629,11 @@ pub fn run() {
             get_timer_snapshot,
             switch_timer_mode,
             get_focus_records,
+            get_todo_items,
+            create_todo_item,
+            update_todo_item,
+            toggle_todo_item,
+            delete_todo_item,
             start_timer,
             pause_timer,
             reset_timer,

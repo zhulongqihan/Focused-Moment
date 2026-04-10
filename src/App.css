@@ -544,6 +544,7 @@ body {
   gap: 22px;
   padding: 28px;
   animation: rise-in 520ms ease;
+  align-content: start;
 }
 
 .section-heading {
@@ -561,6 +562,141 @@ body {
 .card-grid {
   display: grid;
   gap: 12px;
+}
+
+.todo-creation {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+}
+
+.todo-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.todo-metric-card {
+  display: grid;
+  gap: 6px;
+  padding: 18px;
+  border: 1px solid rgba(32, 40, 47, 0.06);
+  border-radius: 22px;
+  background: var(--bg-strong);
+  box-shadow: var(--shadow-card);
+}
+
+.todo-metric-card strong {
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.todo-list {
+  display: grid;
+  gap: 12px;
+}
+
+.todo-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: start;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background: var(--panel-strong);
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background-color 180ms ease;
+}
+
+.todo-card:hover {
+  transform: translateY(-1px);
+  border-color: var(--border-strong);
+}
+
+.todo-card--completed {
+  background: rgba(245, 242, 236, 0.9);
+}
+
+.todo-toggle {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(255, 252, 247, 0.88);
+  color: var(--accent-strong);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background-color 180ms ease;
+}
+
+.todo-toggle:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(81, 104, 93, 0.26);
+}
+
+.todo-toggle--completed {
+  background: rgba(81, 104, 93, 0.16);
+  border-color: rgba(81, 104, 93, 0.24);
+}
+
+.todo-card__body {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.todo-card__title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.todo-card__title-row strong {
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.todo-card--completed .todo-card__title-row strong {
+  color: var(--text-soft);
+  text-decoration: line-through;
+}
+
+.todo-card__meta {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.todo-status-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(81, 104, 93, 0.12);
+  color: var(--accent-strong);
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.todo-inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.todo-edit-row {
+  display: grid;
+  gap: 10px;
 }
 
 .detail-card {
@@ -709,5 +845,19 @@ body {
 
   .stack-card {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .todo-creation,
+  .todo-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .todo-metrics {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .todo-card__title-row {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
