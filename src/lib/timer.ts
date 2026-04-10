@@ -9,16 +9,20 @@ export async function getTimerSnapshot() {
   return invoke<TimerSnapshot>("get_timer_snapshot");
 }
 
-export async function startStopwatch() {
-  return invoke<TimerSnapshot>("start_stopwatch");
+export async function startTimer() {
+  return invoke<TimerSnapshot>("start_timer");
 }
 
-export async function pauseStopwatch() {
-  return invoke<TimerSnapshot>("pause_stopwatch");
+export async function pauseTimer() {
+  return invoke<TimerSnapshot>("pause_timer");
 }
 
-export async function resetStopwatch() {
-  return invoke<TimerSnapshot>("reset_stopwatch");
+export async function resetTimer() {
+  return invoke<TimerSnapshot>("reset_timer");
+}
+
+export async function switchTimerMode(mode: "stopwatch" | "pomodoro") {
+  return invoke<TimerSnapshot>("switch_timer_mode", { mode });
 }
 
 export async function getFocusRecords() {

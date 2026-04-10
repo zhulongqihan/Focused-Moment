@@ -1,7 +1,7 @@
 {
   "name": "focused-moment",
-  "version": "0.2.0",
-  "description": "Focused Moment desktop foundation built with Tauri, Rust, and SolidJS.",
+  "version": "0.3.0",
+  "description": "Focused Moment 专注桌面助手，基于 Tauri、Rust 与 SolidJS 构建。",
   "type": "module",
   "scripts": {
     "start": "vite",

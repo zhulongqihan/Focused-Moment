@@ -1,7 +1,10 @@
 use std::sync::Mutex;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 
 use serde::Serialize;
+
+const POMODORO_FOCUS_MS: u64 = 25 * 60 * 1000;
+const POMODORO_BREAK_MS: u64 = 5 * 60 * 1000;
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -27,24 +30,15 @@ struct ShellSnapshot {
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct TimerSnapshot {
+    mode_key: &'static str,
     mode: &'static str,
+    phase_label: &'static str,
     status: &'static str,
     is_running: bool,
     elapsed_ms: u64,
     elapsed_label: String,
-}
-
-#[derive(Default)]
-struct TimerEngineState {
-    stopwatch: Mutex<StopwatchEngine>,
-    focus_records: Mutex<Vec<FocusRecord>>,
-    next_record_id: Mutex<u64>,
-}
-
-#[derive(Default)]
-struct StopwatchEngine {
-    accumulated: Duration,
-    started_at: Option<Instant>,
+    secondary_label: &'static str,
+    can_complete_session: bool,
 }
 
 #[derive(Clone, Serialize)]
@@ -63,86 +57,274 @@ struct CompletionPayload {
     records: Vec<FocusRecord>,
 }
 
-impl StopwatchEngine {
+#[derive(Clone, Copy, Default, Eq, PartialEq)]
+enum TimerMode {
+    #[default]
+    Stopwatch,
+    Pomodoro,
+}
+
+#[derive(Clone, Copy, Default, Eq, PartialEq)]
+enum PomodoroPhase {
+    #[default]
+    Focus,
+    Break,
+}
+
+#[derive(Clone, Copy)]
+struct RunAnchor {
+    monotonic: Instant,
+    wall_clock: SystemTime,
+}
+
+#[derive(Default)]
+struct TimerEngineState {
+    timer: Mutex<TimerEngine>,
+    focus_records: Mutex<Vec<FocusRecord>>,
+    next_record_id: Mutex<u64>,
+}
+
+#[derive(Default)]
+struct TimerEngine {
+    mode: TimerMode,
+    running_anchor: Option<RunAnchor>,
+    stopwatch_elapsed_ms: u64,
+    pomodoro_elapsed_ms: u64,
+    pomodoro_phase: PomodoroPhase,
+}
+
+impl TimerEngine {
     fn start(&mut self) {
-        if self.started_at.is_none() {
-            self.started_at = Some(Instant::now());
+        if self.running_anchor.is_none() {
+            self.running_anchor = Some(Self::new_anchor());
         }
     }
 
     fn pause(&mut self) {
-        if let Some(started_at) = self.started_at.take() {
-            self.accumulated += started_at.elapsed();
-        }
+        self.sync_running_time();
+        self.running_anchor = None;
     }
 
     fn reset(&mut self) {
-        self.accumulated = Duration::ZERO;
-        self.started_at = None;
+        self.running_anchor = None;
+
+        match self.mode {
+            TimerMode::Stopwatch => self.stopwatch_elapsed_ms = 0,
+            TimerMode::Pomodoro => {
+                self.pomodoro_elapsed_ms = 0;
+                self.pomodoro_phase = PomodoroPhase::Focus;
+            }
+        }
     }
 
-    fn snapshot(&self) -> TimerSnapshot {
-        let elapsed = self.elapsed();
-        let is_running = self.started_at.is_some();
-        let status = if is_running {
+    fn switch_mode(&mut self, mode: TimerMode) {
+        if self.mode == mode {
+            return;
+        }
+
+        self.mode = mode;
+        self.running_anchor = None;
+
+        match self.mode {
+            TimerMode::Stopwatch => self.stopwatch_elapsed_ms = 0,
+            TimerMode::Pomodoro => {
+                self.pomodoro_elapsed_ms = 0;
+                self.pomodoro_phase = PomodoroPhase::Focus;
+            }
+        }
+    }
+
+    fn complete_stopwatch_session(&mut self) -> Result<u64, String> {
+        if self.mode != TimerMode::Stopwatch {
+            return Err("\u{53ea}\u{6709}\u{6b63}\u{5411}\u{8ba1}\u{65f6}\u{6a21}\u{5f0f}\u{53ef}\u{4ee5}\u{5b8c}\u{6210}\u{5e76}\u{8bb0}\u{5f55}".to_string());
+        }
+
+        self.sync_running_time();
+        let elapsed_ms = self.stopwatch_elapsed_ms;
+
+        if elapsed_ms == 0 {
+            return Err("\u{5f53}\u{524d}\u{4e8b}\u{52a1}\u{8fd8}\u{6ca1}\u{6709}\u{7d2f}\u{8ba1}\u{65f6}\u{95f4}".to_string());
+        }
+
+        self.stopwatch_elapsed_ms = 0;
+        self.running_anchor = None;
+
+        Ok(elapsed_ms)
+    }
+
+    fn snapshot(&mut self) -> TimerSnapshot {
+        self.sync_running_time();
+
+        match self.mode {
+            TimerMode::Stopwatch => self.stopwatch_snapshot(),
+            TimerMode::Pomodoro => self.pomodoro_snapshot(),
+        }
+    }
+
+    fn stopwatch_snapshot(&self) -> TimerSnapshot {
+        let elapsed_ms = self.stopwatch_elapsed_ms;
+        let status = if self.running_anchor.is_some() {
             "\u{8ba1}\u{65f6}\u{4e2d}"
-        } else if elapsed.is_zero() {
+        } else if elapsed_ms == 0 {
             "\u{672a}\u{5f00}\u{59cb}"
         } else {
             "\u{5df2}\u{6682}\u{505c}"
         };
 
         TimerSnapshot {
+            mode_key: "stopwatch",
             mode: "\u{6b63}\u{5411}\u{8ba1}\u{65f6}",
+            phase_label: "\u{6b63}\u{5411}\u{8ba1}\u{65f6}",
             status,
-            is_running,
-            elapsed_ms: elapsed.as_millis() as u64,
-            elapsed_label: format_duration(elapsed),
+            is_running: self.running_anchor.is_some(),
+            elapsed_ms,
+            elapsed_label: format_duration_ms(elapsed_ms),
+            secondary_label: "\u{5df2}\u{7d2f}\u{8ba1}\u{4e13}\u{6ce8}\u{65f6}\u{957f}",
+            can_complete_session: true,
         }
     }
 
-    fn elapsed(&self) -> Duration {
-        match self.started_at {
-            Some(started_at) => self.accumulated + started_at.elapsed(),
-            None => self.accumulated,
+    fn pomodoro_snapshot(&self) -> TimerSnapshot {
+        let duration_ms = self.current_pomodoro_duration_ms();
+        let elapsed_ms = self.pomodoro_elapsed_ms.min(duration_ms);
+        let remaining_ms = duration_ms.saturating_sub(elapsed_ms);
+        let status = if self.running_anchor.is_some() {
+            match self.pomodoro_phase {
+                PomodoroPhase::Focus => "\u{4e13}\u{6ce8}\u{4e2d}",
+                PomodoroPhase::Break => "\u{4f11}\u{606f}\u{4e2d}",
+            }
+        } else if elapsed_ms == 0 && self.pomodoro_phase == PomodoroPhase::Focus {
+            "\u{672a}\u{5f00}\u{59cb}"
+        } else {
+            "\u{5df2}\u{6682}\u{505c}"
+        };
+
+        let phase_label = match self.pomodoro_phase {
+            PomodoroPhase::Focus => "\u{756a}\u{8304}\u{4e13}\u{6ce8}",
+            PomodoroPhase::Break => "\u{77ed}\u{4f11}\u{606f}",
+        };
+
+        let secondary_label = match self.pomodoro_phase {
+            PomodoroPhase::Focus => "\u{672c}\u{8f6e}\u{5269}\u{4f59}\u{65f6}\u{95f4}",
+            PomodoroPhase::Break => "\u{4f11}\u{606f}\u{5269}\u{4f59}\u{65f6}\u{95f4}",
+        };
+
+        TimerSnapshot {
+            mode_key: "pomodoro",
+            mode: "\u{756a}\u{8304}\u{949f}",
+            phase_label,
+            status,
+            is_running: self.running_anchor.is_some(),
+            elapsed_ms,
+            elapsed_label: format_duration_ms(remaining_ms),
+            secondary_label,
+            can_complete_session: false,
         }
     }
+
+    fn current_pomodoro_duration_ms(&self) -> u64 {
+        match self.pomodoro_phase {
+            PomodoroPhase::Focus => POMODORO_FOCUS_MS,
+            PomodoroPhase::Break => POMODORO_BREAK_MS,
+        }
+    }
+
+    fn sync_running_time(&mut self) {
+        let Some(anchor) = self.running_anchor else {
+            return;
+        };
+
+        let delta_ms = elapsed_since_anchor_ms(anchor);
+        if delta_ms == 0 {
+            return;
+        }
+
+        match self.mode {
+            TimerMode::Stopwatch => {
+                self.stopwatch_elapsed_ms = self.stopwatch_elapsed_ms.saturating_add(delta_ms);
+            }
+            TimerMode::Pomodoro => {
+                let mut total_elapsed = self.pomodoro_elapsed_ms.saturating_add(delta_ms);
+                loop {
+                    let phase_duration = self.current_pomodoro_duration_ms();
+                    if total_elapsed < phase_duration {
+                        break;
+                    }
+
+                    total_elapsed -= phase_duration;
+                    self.pomodoro_phase = match self.pomodoro_phase {
+                        PomodoroPhase::Focus => PomodoroPhase::Break,
+                        PomodoroPhase::Break => PomodoroPhase::Focus,
+                    };
+                }
+
+                self.pomodoro_elapsed_ms = total_elapsed;
+            }
+        }
+
+        self.running_anchor = Some(Self::new_anchor());
+    }
+
+    fn new_anchor() -> RunAnchor {
+        RunAnchor {
+            monotonic: Instant::now(),
+            wall_clock: SystemTime::now(),
+        }
+    }
+}
+
+fn elapsed_since_anchor_ms(anchor: RunAnchor) -> u64 {
+    let monotonic_ms = anchor.monotonic.elapsed().as_millis() as u64;
+    let wall_ms = SystemTime::now()
+        .duration_since(anchor.wall_clock)
+        .unwrap_or(Duration::ZERO)
+        .as_millis() as u64;
+
+    monotonic_ms.max(wall_ms)
 }
 
 fn with_timer_engine<T>(
     state: &tauri::State<'_, TimerEngineState>,
-    f: impl FnOnce(&mut StopwatchEngine) -> T,
+    f: impl FnOnce(&mut TimerEngine) -> Result<T, String>,
 ) -> Result<T, String> {
-    let mut engine = state.stopwatch.lock().map_err(|_| {
+    let mut engine = state.timer.lock().map_err(|_| {
         "\u{8ba1}\u{65f6}\u{5f15}\u{64ce}\u{72b6}\u{6001}\u{9501}\u{5b9a}\u{5931}\u{8d25}"
             .to_string()
     })?;
 
-    Ok(f(&mut engine))
+    f(&mut engine)
 }
 
-fn format_duration(duration: Duration) -> String {
-    let total_seconds = duration.as_secs();
+fn format_duration_ms(total_ms: u64) -> String {
+    let total_seconds = total_ms / 1000;
     let hours = total_seconds / 3600;
     let minutes = (total_seconds % 3600) / 60;
     let seconds = total_seconds % 60;
     format!("{hours:02}:{minutes:02}:{seconds:02}")
 }
 
+fn parse_mode(mode: &str) -> Result<TimerMode, String> {
+    match mode {
+        "stopwatch" => Ok(TimerMode::Stopwatch),
+        "pomodoro" => Ok(TimerMode::Pomodoro),
+        _ => Err("\u{4e0d}\u{652f}\u{6301}\u{7684}\u{8ba1}\u{65f6}\u{6a21}\u{5f0f}".to_string()),
+    }
+}
+
 #[tauri::command]
 fn bootstrap_shell() -> ShellSnapshot {
     ShellSnapshot {
         product_name: "Focused Moment",
-        version: "0.2.0",
-        milestone: "v0.2 \u{6b63}\u{5411}\u{8ba1}\u{65f6}",
-        slogan: "\u{7cbe}\u{51c6}\u{8ba1}\u{65f6}\u{ff0c}\u{5b89}\u{9759}\u{4e13}\u{6ce8}\u{ff0c}\u{4ece}\u{8fd9}\u{4e00}\u{523b}\u{5f00}\u{59cb}\u{3002}",
+        version: "0.3.0",
+        milestone: "v0.3 \u{756a}\u{8304}\u{949f}\u{4e0e}\u{7cbe}\u{5ea6}\u{6821}\u{6b63}",
+        slogan: "\u{756a}\u{8304}\u{8282}\u{594f}\u{548c}\u{771f}\u{5b9e}\u{65f6}\u{95f4}\u{540c}\u{6b65}\u{ff0c}\u{524d}\u{53f0}\u{3001}\u{540e}\u{53f0}\u{548c}\u{4f11}\u{7720}\u{6062}\u{590d}\u{90fd}\u{80fd}\u{8ddf}\u{4e0a}\u{3002}",
         surfaces: vec![
             ShellPanel {
                 id: "timer",
                 title: "\u{65f6}\u{95f4}\u{5f15}\u{64ce}",
                 phase: "v0.2-v0.3",
-                status: "\u{8fdb}\u{884c}\u{4e2d}",
-                summary: "\u{5f53}\u{524d}\u{5df2}\u{63a5}\u{5165} Rust \u{9a71}\u{52a8}\u{7684}\u{6b63}\u{5411}\u{8ba1}\u{65f6}\u{ff0c}\u{4e0b}\u{4e00}\u{7248}\u{7ee7}\u{7eed}\u{8865}\u{4e0a}\u{756a}\u{8304}\u{949f}\u{4e0e}\u{540e}\u{53f0}\u{7cbe}\u{5ea6}\u{6821}\u{6b63}\u{3002}",
+                status: "\u{5df2}\u{5b8c}\u{6210}",
+                summary: "\u{5df2}\u{652f}\u{6301}\u{6b63}\u{5411}\u{8ba1}\u{65f6}\u{3001}\u{756a}\u{8304}\u{949f}\u{4ee5}\u{53ca}\u{540e}\u{53f0}/\u{4f11}\u{7720}\u{6062}\u{590d}\u{540e}\u{7684}\u{771f}\u{5b9e}\u{65f6}\u{95f4}\u{6821}\u{6b63}\u{3002}",
             },
             ShellPanel {
                 id: "tasks",
@@ -187,7 +369,19 @@ fn bootstrap_shell() -> ShellSnapshot {
 
 #[tauri::command]
 fn get_timer_snapshot(state: tauri::State<'_, TimerEngineState>) -> Result<TimerSnapshot, String> {
-    with_timer_engine(&state, |engine| engine.snapshot())
+    with_timer_engine(&state, |engine| Ok(engine.snapshot()))
+}
+
+#[tauri::command]
+fn switch_timer_mode(
+    state: tauri::State<'_, TimerEngineState>,
+    mode: String,
+) -> Result<TimerSnapshot, String> {
+    let next_mode = parse_mode(&mode)?;
+    with_timer_engine(&state, |engine| {
+        engine.switch_mode(next_mode);
+        Ok(engine.snapshot())
+    })
 }
 
 #[tauri::command]
@@ -203,26 +397,26 @@ fn get_focus_records(
 }
 
 #[tauri::command]
-fn start_stopwatch(state: tauri::State<'_, TimerEngineState>) -> Result<TimerSnapshot, String> {
+fn start_timer(state: tauri::State<'_, TimerEngineState>) -> Result<TimerSnapshot, String> {
     with_timer_engine(&state, |engine| {
         engine.start();
-        engine.snapshot()
+        Ok(engine.snapshot())
     })
 }
 
 #[tauri::command]
-fn pause_stopwatch(state: tauri::State<'_, TimerEngineState>) -> Result<TimerSnapshot, String> {
+fn pause_timer(state: tauri::State<'_, TimerEngineState>) -> Result<TimerSnapshot, String> {
     with_timer_engine(&state, |engine| {
         engine.pause();
-        engine.snapshot()
+        Ok(engine.snapshot())
     })
 }
 
 #[tauri::command]
-fn reset_stopwatch(state: tauri::State<'_, TimerEngineState>) -> Result<TimerSnapshot, String> {
+fn reset_timer(state: tauri::State<'_, TimerEngineState>) -> Result<TimerSnapshot, String> {
     with_timer_engine(&state, |engine| {
         engine.reset();
-        engine.snapshot()
+        Ok(engine.snapshot())
     })
 }
 
@@ -231,22 +425,7 @@ fn complete_stopwatch_session(
     state: tauri::State<'_, TimerEngineState>,
     title: String,
 ) -> Result<CompletionPayload, String> {
-    let elapsed = {
-        let mut engine = state.stopwatch.lock().map_err(|_| {
-            "\u{8ba1}\u{65f6}\u{5f15}\u{64ce}\u{72b6}\u{6001}\u{9501}\u{5b9a}\u{5931}\u{8d25}"
-                .to_string()
-        })?;
-
-        engine.pause();
-        let elapsed = engine.elapsed();
-
-        if elapsed.is_zero() {
-            return Err("\u{5f53}\u{524d}\u{4e8b}\u{52a1}\u{8fd8}\u{6ca1}\u{6709}\u{7d2f}\u{8ba1}\u{65f6}\u{95f4}".to_string());
-        }
-
-        engine.reset();
-        elapsed
-    };
+    let elapsed_ms = with_timer_engine(&state, |engine| engine.complete_stopwatch_session())?;
 
     let next_id = {
         let mut id_guard = state.next_record_id.lock().map_err(|_| {
@@ -266,8 +445,8 @@ fn complete_stopwatch_session(
         } else {
             normalized_title.to_string()
         },
-        duration_ms: elapsed.as_millis() as u64,
-        duration_label: format_duration(elapsed),
+        duration_ms: elapsed_ms,
+        duration_label: format_duration_ms(elapsed_ms),
     };
 
     let records = {
@@ -280,13 +459,7 @@ fn complete_stopwatch_session(
         records.clone()
     };
 
-    let timer_snapshot = {
-        let engine = state.stopwatch.lock().map_err(|_| {
-            "\u{8ba1}\u{65f6}\u{5f15}\u{64ce}\u{72b6}\u{6001}\u{9501}\u{5b9a}\u{5931}\u{8d25}"
-                .to_string()
-        })?;
-        engine.snapshot()
-    };
+    let timer_snapshot = with_timer_engine(&state, |engine| Ok(engine.snapshot()))?;
 
     Ok(CompletionPayload {
         timer_snapshot,
@@ -322,10 +495,11 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             bootstrap_shell,
             get_timer_snapshot,
+            switch_timer_mode,
             get_focus_records,
-            start_stopwatch,
-            pause_stopwatch,
-            reset_stopwatch,
+            start_timer,
+            pause_timer,
+            reset_timer,
             complete_stopwatch_session,
             minimize_main_window,
             toggle_maximize_main_window,

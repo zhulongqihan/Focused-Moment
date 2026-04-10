@@ -16,11 +16,15 @@ export interface ShellSnapshot {
 }
 
 export interface TimerSnapshot {
+  modeKey: "stopwatch" | "pomodoro";
   mode: string;
+  phaseLabel: string;
   status: string;
   isRunning: boolean;
   elapsedMs: number;
   elapsedLabel: string;
+  secondaryLabel: string;
+  canCompleteSession: boolean;
 }
 
 export interface FocusRecord {

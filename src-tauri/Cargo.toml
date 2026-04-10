@@ -1,7 +1,7 @@
 [package]
 name = "focused-moment"
-version = "0.2.0"
-description = "Focused Moment desktop foundation."
+version = "0.3.0"
+description = "Focused Moment 专注桌面助手。"
 authors = ["zhulongqihan"]
 edition = "2021"
 
