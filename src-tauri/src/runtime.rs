@@ -64,7 +64,9 @@ struct TodoItem {
     id: u64,
     title: String,
     is_completed: bool,
-    created_at_label: String,
+    scheduled_date: String,
+    scheduled_time: String,
+    importance_key: String,
 }
 
 #[derive(Clone, Copy, Default, Eq, PartialEq)]
@@ -332,8 +334,74 @@ fn normalize_todo_title(title: &str) -> Result<String, String> {
     }
 }
 
+fn normalize_scheduled_date(value: &str) -> Result<String, String> {
+    let normalized = value.trim();
+    let is_valid = normalized.len() == 10
+        && normalized
+            .chars()
+            .enumerate()
+            .all(|(index, ch)| match index {
+                4 | 7 => ch == '-',
+                _ => ch.is_ascii_digit(),
+            });
+
+    if is_valid {
+        Ok(normalized.to_string())
+    } else {
+        Err("\u{8bf7}\u{9009}\u{62e9}\u{6709}\u{6548}\u{7684}\u{65e5}\u{671f}".to_string())
+    }
+}
+
+fn normalize_scheduled_time(value: &str) -> Result<String, String> {
+    let normalized = value.trim();
+    let is_valid = normalized.len() == 5
+        && normalized
+            .chars()
+            .enumerate()
+            .all(|(index, ch)| match index {
+                2 => ch == ':',
+                _ => ch.is_ascii_digit(),
+            });
+
+    if is_valid {
+        Ok(normalized.to_string())
+    } else {
+        Err(
+            "\u{8bf7}\u{9009}\u{62e9}\u{6709}\u{6548}\u{7684}\u{5f00}\u{59cb}\u{65f6}\u{95f4}"
+                .to_string(),
+        )
+    }
+}
+
+fn normalize_importance_key(value: &str) -> Result<String, String> {
+    match value.trim() {
+        "low" => Ok("low".to_string()),
+        "medium" => Ok("medium".to_string()),
+        "high" => Ok("high".to_string()),
+        _ => Err("\u{4e0d}\u{652f}\u{6301}\u{7684}\u{91cd}\u{8981}\u{7a0b}\u{5ea6}".to_string()),
+    }
+}
+
+fn importance_rank(value: &str) -> u8 {
+    match value {
+        "high" => 0,
+        "medium" => 1,
+        "low" => 2,
+        _ => 3,
+    }
+}
+
 fn sort_todo_items(items: &mut [TodoItem]) {
-    items.sort_by_key(|item| (item.is_completed, Reverse(item.id)));
+    items.sort_by(|left, right| {
+        left.is_completed
+            .cmp(&right.is_completed)
+            .then_with(|| left.scheduled_date.cmp(&right.scheduled_date))
+            .then_with(|| left.scheduled_time.cmp(&right.scheduled_time))
+            .then_with(|| {
+                importance_rank(&left.importance_key).cmp(&importance_rank(&right.importance_key))
+            })
+            .then_with(|| Reverse(left.id).cmp(&Reverse(right.id)))
+    });
 }
 
 fn with_todo_items<T>(
@@ -352,9 +420,9 @@ fn with_todo_items<T>(
 fn bootstrap_shell() -> ShellSnapshot {
     ShellSnapshot {
         product_name: "Focused Moment",
-        version: "0.4.0",
-        milestone: "v0.4.0 \u{4efb}\u{52a1}\u{6e05}\u{5355}\u{57fa}\u{7840}\u{7248}",
-        slogan: "\u{5728}\u{7cbe}\u{51c6}\u{8ba1}\u{65f6}\u{4e4b}\u{5916}\u{ff0c}\u{4e5f}\u{8ba9}\u{6bcf}\u{4e00}\u{9879}\u{4efb}\u{52a1}\u{80fd}\u{88ab}\u{6e05}\u{6670}\u{5730}\u{6536}\u{62e2}\u{3001}\u{5b8c}\u{6210}\u{548c}\u{7ef4}\u{62a4}\u{3002}",
+        version: "0.4.1",
+        milestone: "v0.4.1 \u{4efb}\u{52a1}\u{5c5e}\u{6027}\u{6269}\u{5c55}",
+        slogan: "\u{4efb}\u{52a1}\u{4e0d}\u{53ea}\u{662f}\u{4e00}\u{884c}\u{6807}\u{9898}\u{ff0c}\u{800c}\u{662f}\u{5e26}\u{6709}\u{65e5}\u{671f}\u{3001}\u{5f00}\u{59cb}\u{65f6}\u{95f4}\u{548c}\u{91cd}\u{8981}\u{7a0b}\u{5ea6}\u{7684}\u{660e}\u{786e}\u{5b89}\u{6392}\u{3002}",
         surfaces: vec![
             ShellPanel {
                 id: "timer",
@@ -366,9 +434,9 @@ fn bootstrap_shell() -> ShellSnapshot {
             ShellPanel {
                 id: "tasks",
                 title: "\u{4efb}\u{52a1}\u{9762}\u{677f}",
-                phase: "v0.4.0",
-                status: "\u{5df2}\u{63a5}\u{5165}",
-                summary: "\u{5f53}\u{524d}\u{5df2}\u{652f}\u{6301}\u{4efb}\u{52a1}\u{65b0}\u{589e}\u{3001}\u{7f16}\u{8f91}\u{3001}\u{52fe}\u{9009}\u{5b8c}\u{6210}\u{4e0e}\u{5220}\u{9664}\u{ff0c}\u{540e}\u{7eed}\u{518d}\u{63a5}\u{5165}\u{60ac}\u{6d6e}\u{7a97}\u{5f62}\u{6001}\u{3002}",
+                phase: "v0.4.0-v0.4.1",
+                status: "\u{5df2}\u{589e}\u{5f3a}",
+                summary: "\u{4efb}\u{52a1}\u{73b0}\u{5728}\u{5df2}\u{652f}\u{6301}\u{65e5}\u{671f}\u{3001}\u{5f00}\u{59cb}\u{65f6}\u{95f4}\u{548c}\u{91cd}\u{8981}\u{7a0b}\u{5ea6}\u{ff0c}\u{540e}\u{7eed}\u{518d}\u{7ee7}\u{7eed}\u{63a5}\u{5165}\u{4e13}\u{6ce8}\u{4f1a}\u{8bdd}\u{5173}\u{8054}\u{3002}",
             },
             ShellPanel {
                 id: "analytics",
@@ -446,8 +514,14 @@ fn get_todo_items(state: tauri::State<'_, TimerEngineState>) -> Result<Vec<TodoI
 fn create_todo_item(
     state: tauri::State<'_, TimerEngineState>,
     title: String,
+    scheduled_date: String,
+    scheduled_time: String,
+    importance_key: String,
 ) -> Result<Vec<TodoItem>, String> {
     let normalized_title = normalize_todo_title(&title)?;
+    let normalized_date = normalize_scheduled_date(&scheduled_date)?;
+    let normalized_time = normalize_scheduled_time(&scheduled_time)?;
+    let normalized_importance = normalize_importance_key(&importance_key)?;
 
     let next_id = {
         let mut id_guard = state.next_todo_id.lock().map_err(|_| {
@@ -466,7 +540,9 @@ fn create_todo_item(
                 id: next_id,
                 title: normalized_title,
                 is_completed: false,
-                created_at_label: "\u{521a}\u{521a}\u{6dfb}\u{52a0}".to_string(),
+                scheduled_date: normalized_date,
+                scheduled_time: normalized_time,
+                importance_key: normalized_importance,
             },
         );
         sort_todo_items(items);
@@ -479,8 +555,14 @@ fn update_todo_item(
     state: tauri::State<'_, TimerEngineState>,
     id: u64,
     title: String,
+    scheduled_date: String,
+    scheduled_time: String,
+    importance_key: String,
 ) -> Result<Vec<TodoItem>, String> {
     let normalized_title = normalize_todo_title(&title)?;
+    let normalized_date = normalize_scheduled_date(&scheduled_date)?;
+    let normalized_time = normalize_scheduled_time(&scheduled_time)?;
+    let normalized_importance = normalize_importance_key(&importance_key)?;
 
     with_todo_items(&state, |items| {
         let item = items.iter_mut().find(|item| item.id == id).ok_or_else(|| {
@@ -488,6 +570,10 @@ fn update_todo_item(
         })?;
 
         item.title = normalized_title;
+        item.scheduled_date = normalized_date;
+        item.scheduled_time = normalized_time;
+        item.importance_key = normalized_importance;
+        sort_todo_items(items);
         Ok(items.clone())
     })
 }

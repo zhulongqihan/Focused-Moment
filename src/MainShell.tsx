@@ -4,6 +4,8 @@ import type {
   FocusRecord,
   ShellSnapshot,
   TimerSnapshot,
+  TodoDraft,
+  TodoImportance,
   TodoItem,
 } from "./lib/contracts";
 import {
@@ -29,13 +31,50 @@ import {
 } from "./lib/window-controls";
 import "./App.css";
 
+const importanceOptions = [
+  { key: "high", label: "高优先级" },
+  { key: "medium", label: "中优先级" },
+  { key: "low", label: "低优先级" },
+] as const;
+
+function getLocalDateValue() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = `${now.getMonth() + 1}`.padStart(2, "0");
+  const day = `${now.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getLocalTimeValue() {
+  const now = new Date();
+  const hours = `${now.getHours()}`.padStart(2, "0");
+  const minutes = `${now.getMinutes()}`.padStart(2, "0");
+  return `${hours}:${minutes}`;
+}
+
+function createDefaultTodoDraft(title = ""): TodoDraft {
+  return {
+    title,
+    scheduledDate: getLocalDateValue(),
+    scheduledTime: getLocalTimeValue(),
+    importanceKey: "medium",
+  };
+}
+
+function getImportanceLabel(importanceKey: TodoImportance) {
+  return (
+    importanceOptions.find((option) => option.key === importanceKey)?.label ??
+    "未设置"
+  );
+}
+
 const copy = {
   versionEyebrow: "\u4e13\u6ce8\u684c\u9762\u52a9\u624b",
-  heroVersion: "v0.4.0 \u4efb\u52a1\u6e05\u5355\u57fa\u7840\u7248",
+  heroVersion: "v0.4.1 \u4efb\u52a1\u5c5e\u6027\u6269\u5c55",
   heroSummary:
-    "\u8fd9\u4e00\u7248\u628a\u4efb\u52a1\u6e05\u5355\u63a5\u8fdb\u4e86 Rust \u72b6\u6001\u5c42\uff0c\u73b0\u5728\u53ef\u4ee5\u76f4\u63a5\u5728\u5e94\u7528\u5185\u65b0\u589e\u3001\u7f16\u8f91\u3001\u5b8c\u6210\u548c\u5220\u9664\u4efb\u52a1\u3002",
-  loading: "\u6b63\u5728\u8f7d\u5165 v0.4.0 \u65f6\u95f4\u4e0e\u4efb\u52a1\u9762\u677f...",
-  ready: "\u4efb\u52a1\u6e05\u5355\u57fa\u7840\u80fd\u529b\u5df2\u63a5\u5165 Rust \u5f15\u64ce\u3002",
+    "\u8fd9\u4e00\u7248\u628a\u4efb\u52a1\u7684\u65e5\u671f\u3001\u5f00\u59cb\u65f6\u95f4\u548c\u91cd\u8981\u7a0b\u5ea6\u63a5\u8fdb\u4e86 Rust \u72b6\u6001\u5c42\uff0c\u8ba9\u4efb\u52a1\u4ece\u201c\u4e00\u884c\u6807\u9898\u201d\u53d8\u6210\u201c\u53ef\u5b89\u6392\u7684\u4e8b\u9879\u201d\u3002",
+  loading: "\u6b63\u5728\u8f7d\u5165 v0.4.1 \u4efb\u52a1\u5c5e\u6027\u9762\u677f...",
+  ready: "\u4efb\u52a1\u7684\u65e5\u671f\u3001\u65f6\u95f4\u4e0e\u91cd\u8981\u7a0b\u5ea6\u5df2\u63a5\u5165 Rust \u5f15\u64ce\u3002",
   fallback: "\u5e94\u7528\u5df2\u4f7f\u7528\u56de\u9000\u6570\u636e\u542f\u52a8\u3002",
   shellFallback:
     "\u8f7d\u5165\u684c\u9762\u58f3\u5c42\u6570\u636e\u5931\u8d25\u3002",
@@ -78,10 +117,12 @@ const copy = {
   todoEyebrow: "\u4efb\u52a1\u9762\u677f",
   todoTitle: "\u4eca\u5929\u8981\u63a8\u8fdb\u7684\u4e8b\u60c5",
   todoSummary:
-    "\u8fd9\u4e00\u7248\u5148\u628a\u4efb\u52a1\u7684\u65b0\u589e\u3001\u7f16\u8f91\u3001\u5b8c\u6210\u4e0e\u5220\u9664\u8fde\u8d77\u6765\uff0c\u540e\u7eed\u518d\u628a\u5b83\u4e0e\u4e13\u6ce8\u4f1a\u8bdd\u548c\u60ac\u6d6e\u7a97\u7ed1\u5b9a\u8d77\u6765\u3002",
+    "\u73b0\u5728\u6bcf\u4e2a\u4efb\u52a1\u90fd\u53ef\u4ee5\u5e26\u4e0a\u65e5\u671f\u3001\u5f00\u59cb\u65f6\u95f4\u548c\u91cd\u8981\u7a0b\u5ea6\uff0c\u540e\u7eed\u518d\u628a\u5b83\u4e0e\u4e13\u6ce8\u4f1a\u8bdd\u548c\u72ec\u7acb\u4e8b\u4ef6\u8fde\u8d77\u6765\u3002",
   todoPlaceholder: "\u65b0\u589e\u4e00\u4e2a\u4efb\u52a1\uff0c\u4f8b\u5982\uff1a\u8865\u5b8c\u5468\u62a5\u521d\u7a3f",
+  todoDateLabel: "\u65e5\u671f",
+  todoTimeLabel: "\u5f00\u59cb\u65f6\u95f4",
+  todoImportanceLabel: "\u91cd\u8981\u7a0b\u5ea6",
   todoCreate: "\u6dfb\u52a0\u4efb\u52a1",
-  todoEditing: "\u6b63\u5728\u7f16\u8f91",
   todoEmpty: "\u8fd8\u6ca1\u6709\u4efb\u52a1\uff0c\u5148\u6dfb\u52a0\u4e00\u9879\u4eca\u5929\u60f3\u63a8\u8fdb\u7684\u4e8b\u60c5\u5427\u3002",
   todoPendingCount: "\u5f85\u63a8\u8fdb",
   todoCompletedCount: "\u5df2\u5b8c\u6210",
@@ -91,11 +132,13 @@ const copy = {
   todoCancel: "\u53d6\u6d88",
   todoStatusDone: "\u5df2\u5b8c\u6210",
   todoStatusPending: "\u8fdb\u884c\u4e2d",
-  todoCreatedPrefix: "\u72b6\u6001",
+  todoDateValueLabel: "\u65e5\u671f",
+  todoTimeValueLabel: "\u5f00\u59cb",
+  todoImportanceValueLabel: "\u91cd\u8981",
   roadmapEyebrow: "\u7248\u672c\u8def\u7ebf",
   roadmapTitle: "\u540e\u9762\u4f1a\u63a5\u4e0a\u7684\u6a21\u5757",
   roadmapSummary:
-    "\u73b0\u5728\u4e3b\u754c\u9762\u5df2\u7ecf\u6709\u65f6\u95f4\u5f15\u64ce\u548c\u4efb\u52a1\u9762\u677f\uff0c\u540e\u7eed\u4f1a\u7ee7\u7eed\u63a5\u5165\u6570\u636e\u590d\u76d8\u3001\u60ac\u6d6e\u7a97\u548c\u6269\u5c55\u80fd\u529b\u3002",
+    "\u73b0\u5728\u4e3b\u754c\u9762\u5df2\u7ecf\u6709\u65f6\u95f4\u5f15\u64ce\u548c\u5e26\u5c5e\u6027\u7684\u4efb\u52a1\u9762\u677f\uff0c\u4e0b\u4e00\u6b65\u4f1a\u7ee7\u7eed\u63a5\u5165\u4efb\u52a1\u5916\u4e13\u6ce8\u4e8b\u4ef6\u548c\u4efb\u52a1\u5173\u8054\u80fd\u529b\u3002",
   reservedEyebrow: "\u6269\u5c55\u9884\u7559",
   reservedTitle: "\u4e3a\u4e86\u540e\u7eed\u529f\u80fd\u4fdd\u7559\u7684\u63a5\u53e3\u65b9\u5411",
   reservedSummary:
@@ -106,10 +149,10 @@ const copy = {
 
 const emptySnapshot: ShellSnapshot = {
   productName: "Focused Moment",
-  version: "0.4.0",
-  milestone: "v0.4.0 \u4efb\u52a1\u6e05\u5355\u57fa\u7840\u7248",
+  version: "0.4.1",
+  milestone: "v0.4.1 \u4efb\u52a1\u5c5e\u6027\u6269\u5c55",
   slogan:
-    "\u5728\u7cbe\u51c6\u8ba1\u65f6\u4e4b\u5916\uff0c\u4e5f\u8ba9\u6bcf\u4e00\u9879\u4efb\u52a1\u80fd\u88ab\u6e05\u6670\u5730\u6536\u62e2\u3001\u5b8c\u6210\u548c\u7ef4\u62a4\u3002",
+    "\u4efb\u52a1\u4e0d\u53ea\u662f\u4e00\u884c\u6807\u9898\uff0c\u800c\u662f\u5e26\u6709\u65e5\u671f\u3001\u5f00\u59cb\u65f6\u95f4\u548c\u91cd\u8981\u7a0b\u5ea6\u7684\u660e\u786e\u5b89\u6392\u3002",
   surfaces: [],
   reservedExtensions: [],
 };
@@ -133,9 +176,11 @@ function MainShell() {
   const [currentTaskTitle, setCurrentTaskTitle] = createSignal("");
   const [records, setRecords] = createSignal<FocusRecord[]>([]);
   const [todoItems, setTodoItems] = createSignal<TodoItem[]>([]);
-  const [todoDraft, setTodoDraft] = createSignal("");
+  const [todoDraft, setTodoDraft] =
+    createSignal<TodoDraft>(createDefaultTodoDraft());
   const [editingTodoId, setEditingTodoId] = createSignal<number | null>(null);
-  const [editingTodoTitle, setEditingTodoTitle] = createSignal("");
+  const [editingTodoDraft, setEditingTodoDraft] =
+    createSignal<TodoDraft>(createDefaultTodoDraft());
   const [statusText, setStatusText] = createSignal<string>(copy.loading);
   const [bootError, setBootError] = createSignal<string | null>(null);
   const [timerBusy, setTimerBusy] = createSignal(false);
@@ -150,6 +195,14 @@ function MainShell() {
     todoItems().filter((item) => !item.isCompleted).length;
   const completedTodoCount = () =>
     todoItems().filter((item) => item.isCompleted).length;
+
+  function patchTodoDraft(patch: Partial<TodoDraft>) {
+    setTodoDraft((current) => ({ ...current, ...patch }));
+  }
+
+  function patchEditingTodoDraft(patch: Partial<TodoDraft>) {
+    setEditingTodoDraft((current) => ({ ...current, ...patch }));
+  }
 
   async function refreshTimerSnapshot() {
     const nextTimerSnapshot = await getTimerSnapshot();
@@ -197,14 +250,20 @@ function MainShell() {
   }
 
   async function handleCreateTodo() {
-    const normalizedDraft = todoDraft().trim();
-    if (!normalizedDraft) {
+    const draft = todoDraft();
+    const normalizedTitle = draft.title.trim();
+    if (!normalizedTitle) {
       return;
     }
 
-    await runTodoAction(() => createTodoItem(normalizedDraft));
-    setTodoDraft("");
-    setStatusText(`\u5df2\u6dfb\u52a0\u4efb\u52a1\uff1a${normalizedDraft}`);
+    await runTodoAction(() =>
+      createTodoItem({
+        ...draft,
+        title: normalizedTitle,
+      })
+    );
+    patchTodoDraft({ title: "" });
+    setStatusText(`\u5df2\u6dfb\u52a0\u4efb\u52a1\uff1a${normalizedTitle}`);
   }
 
   async function handleToggleTodo(id: number) {
@@ -216,29 +275,40 @@ function MainShell() {
 
     if (editingTodoId() === id) {
       setEditingTodoId(null);
-      setEditingTodoTitle("");
+      setEditingTodoDraft(createDefaultTodoDraft());
     }
   }
 
   function beginTodoEditing(item: TodoItem) {
     setEditingTodoId(item.id);
-    setEditingTodoTitle(item.title);
+    setEditingTodoDraft({
+      title: item.title,
+      scheduledDate: item.scheduledDate,
+      scheduledTime: item.scheduledTime,
+      importanceKey: item.importanceKey,
+    });
   }
 
   function cancelTodoEditing() {
     setEditingTodoId(null);
-    setEditingTodoTitle("");
+    setEditingTodoDraft(createDefaultTodoDraft());
   }
 
   async function handleSaveTodo(id: number) {
-    const normalizedTitle = editingTodoTitle().trim();
+    const draft = editingTodoDraft();
+    const normalizedTitle = draft.title.trim();
     if (!normalizedTitle) {
       return;
     }
 
-    await runTodoAction(() => updateTodoItem(id, normalizedTitle));
+    await runTodoAction(() =>
+      updateTodoItem(id, {
+        ...draft,
+        title: normalizedTitle,
+      })
+    );
     setEditingTodoId(null);
-    setEditingTodoTitle("");
+    setEditingTodoDraft(createDefaultTodoDraft());
     setStatusText(`\u5df2\u66f4\u65b0\u4efb\u52a1\uff1a${normalizedTitle}`);
   }
 
@@ -522,10 +592,12 @@ function MainShell() {
             <input
               class="task-input"
               type="text"
-              value={todoDraft()}
+              value={todoDraft().title}
               placeholder={copy.todoPlaceholder}
               disabled={todoBusy()}
-              onInput={(event) => setTodoDraft(event.currentTarget.value)}
+              onInput={(event) =>
+                patchTodoDraft({ title: event.currentTarget.value })
+              }
               onKeyDown={(event) => {
                 if (event.key === "Enter") {
                   event.preventDefault();
@@ -533,10 +605,55 @@ function MainShell() {
                 }
               }}
             />
+            <div class="todo-form-grid">
+              <label class="todo-form-field">
+                <span>{copy.todoDateLabel}</span>
+                <input
+                  class="task-input"
+                  type="date"
+                  value={todoDraft().scheduledDate}
+                  disabled={todoBusy()}
+                  onInput={(event) =>
+                    patchTodoDraft({ scheduledDate: event.currentTarget.value })
+                  }
+                />
+              </label>
+              <label class="todo-form-field">
+                <span>{copy.todoTimeLabel}</span>
+                <input
+                  class="task-input"
+                  type="time"
+                  value={todoDraft().scheduledTime}
+                  disabled={todoBusy()}
+                  onInput={(event) =>
+                    patchTodoDraft({ scheduledTime: event.currentTarget.value })
+                  }
+                />
+              </label>
+              <label class="todo-form-field">
+                <span>{copy.todoImportanceLabel}</span>
+                <select
+                  class="task-input task-select"
+                  value={todoDraft().importanceKey}
+                  disabled={todoBusy()}
+                  onChange={(event) =>
+                    patchTodoDraft({
+                      importanceKey: event.currentTarget.value as TodoImportance,
+                    })
+                  }
+                >
+                  <For each={importanceOptions}>
+                    {(option) => (
+                      <option value={option.key}>{option.label}</option>
+                    )}
+                  </For>
+                </select>
+              </label>
+            </div>
             <button
               type="button"
               class="action-button action-button--primary"
-              disabled={todoBusy() || !todoDraft().trim()}
+              disabled={todoBusy() || !todoDraft().title.trim()}
               onClick={() => void handleCreateTodo()}
             >
               {copy.todoCreate}
@@ -581,10 +698,12 @@ function MainShell() {
                         <input
                           class="task-input"
                           type="text"
-                          value={editingTodoTitle()}
+                          value={editingTodoDraft().title}
                           disabled={todoBusy()}
                           onInput={(event) =>
-                            setEditingTodoTitle(event.currentTarget.value)
+                            patchEditingTodoDraft({
+                              title: event.currentTarget.value,
+                            })
                           }
                           onKeyDown={(event) => {
                             if (event.key === "Enter") {
@@ -593,11 +712,66 @@ function MainShell() {
                             }
                           }}
                         />
+                        <div class="todo-form-grid">
+                          <label class="todo-form-field">
+                            <span>{copy.todoDateLabel}</span>
+                            <input
+                              class="task-input"
+                              type="date"
+                              value={editingTodoDraft().scheduledDate}
+                              disabled={todoBusy()}
+                              onInput={(event) =>
+                                patchEditingTodoDraft({
+                                  scheduledDate: event.currentTarget.value,
+                                })
+                              }
+                            />
+                          </label>
+                          <label class="todo-form-field">
+                            <span>{copy.todoTimeLabel}</span>
+                            <input
+                              class="task-input"
+                              type="time"
+                              value={editingTodoDraft().scheduledTime}
+                              disabled={todoBusy()}
+                              onInput={(event) =>
+                                patchEditingTodoDraft({
+                                  scheduledTime: event.currentTarget.value,
+                                })
+                              }
+                            />
+                          </label>
+                          <label class="todo-form-field">
+                            <span>{copy.todoImportanceLabel}</span>
+                            <select
+                              class="task-input task-select"
+                              value={editingTodoDraft().importanceKey}
+                              disabled={todoBusy()}
+                              onChange={(event) =>
+                                patchEditingTodoDraft({
+                                  importanceKey:
+                                    event.currentTarget
+                                      .value as TodoImportance,
+                                })
+                              }
+                            >
+                              <For each={importanceOptions}>
+                                {(option) => (
+                                  <option value={option.key}>
+                                    {option.label}
+                                  </option>
+                                )}
+                              </For>
+                            </select>
+                          </label>
+                        </div>
                         <div class="todo-inline-actions">
                           <button
                             type="button"
                             class="action-button action-button--success"
-                            disabled={todoBusy() || !editingTodoTitle().trim()}
+                            disabled={
+                              todoBusy() || !editingTodoDraft().title.trim()
+                            }
                             onClick={() => void handleSaveTodo(item.id)}
                           >
                             {copy.todoSave}
@@ -622,10 +796,30 @@ function MainShell() {
                               : copy.todoStatusPending}
                           </span>
                         </div>
-                        <p class="todo-card__meta">
-                          {copy.todoCreatedPrefix}
-                          {`\uff1a${item.createdAtLabel}`}
-                        </p>
+                        <div class="todo-attribute-row">
+                          <span class="todo-attribute">
+                            {copy.todoDateValueLabel}
+                            {`\uff1a${item.scheduledDate}`}
+                          </span>
+                          <span class="todo-attribute">
+                            {copy.todoTimeValueLabel}
+                            {`\uff1a${item.scheduledTime}`}
+                          </span>
+                          <span
+                            classList={{
+                              "todo-attribute": true,
+                              "todo-attribute--high":
+                                item.importanceKey === "high",
+                              "todo-attribute--medium":
+                                item.importanceKey === "medium",
+                              "todo-attribute--low":
+                                item.importanceKey === "low",
+                            }}
+                          >
+                            {copy.todoImportanceValueLabel}
+                            {`\uff1a${getImportanceLabel(item.importanceKey)}`}
+                          </span>
+                        </div>
                       </>
                     )}
                   </div>

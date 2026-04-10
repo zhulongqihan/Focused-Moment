@@ -566,7 +566,35 @@ body {
 
 .todo-creation {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+}
+
+.todo-form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.todo-form-field {
+  display: grid;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+.todo-form-field span {
+  color: var(--text-soft);
+}
+
+.task-select {
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+
+.todo-creation .action-button {
+  justify-self: start;
+  min-width: 140px;
   gap: 12px;
 }
 
@@ -674,6 +702,38 @@ body {
   margin: 0;
   color: var(--text-muted);
   font-size: 0.9rem;
+}
+
+.todo-attribute-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.todo-attribute {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(81, 104, 93, 0.08);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.todo-attribute--high {
+  background: rgba(132, 76, 76, 0.12);
+  color: #7a4343;
+}
+
+.todo-attribute--medium {
+  background: rgba(154, 119, 63, 0.12);
+  color: #8a6731;
+}
+
+.todo-attribute--low {
+  background: rgba(81, 104, 93, 0.12);
+  color: var(--accent-strong);
 }
 
 .todo-status-pill {
@@ -849,6 +909,10 @@ body {
 
   .todo-creation,
   .todo-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .todo-form-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 

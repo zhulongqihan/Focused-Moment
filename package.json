@@ -1,6 +1,6 @@
 {
   "name": "focused-moment",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Focused Moment 专注桌面助手，基于 Tauri、Rust 与 SolidJS 构建。",
   "type": "module",
   "scripts": {

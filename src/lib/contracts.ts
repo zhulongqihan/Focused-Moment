@@ -39,9 +39,20 @@ export interface CompletionPayload {
   records: FocusRecord[];
 }
 
+export type TodoImportance = "low" | "medium" | "high";
+
 export interface TodoItem {
   id: number;
   title: string;
   isCompleted: boolean;
-  createdAtLabel: string;
+  scheduledDate: string;
+  scheduledTime: string;
+  importanceKey: TodoImportance;
+}
+
+export interface TodoDraft {
+  title: string;
+  scheduledDate: string;
+  scheduledTime: string;
+  importanceKey: TodoImportance;
 }
