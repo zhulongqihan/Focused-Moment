@@ -32,6 +32,7 @@ struct ShellSnapshot {
 #[serde(rename_all = "camelCase")]
 struct TimerSnapshot {
     mode_key: &'static str,
+    phase_key: &'static str,
     mode: &'static str,
     phase_label: &'static str,
     status: &'static str,
@@ -49,6 +50,11 @@ struct FocusRecord {
     title: String,
     duration_ms: u64,
     duration_label: String,
+    mode_key: &'static str,
+    mode_label: &'static str,
+    phase_label: &'static str,
+    linked_todo_id: Option<u64>,
+    linked_todo_title: Option<String>,
 }
 
 #[derive(Clone, Serialize)]
@@ -105,6 +111,14 @@ struct TimerEngine {
     stopwatch_elapsed_ms: u64,
     pomodoro_elapsed_ms: u64,
     pomodoro_phase: PomodoroPhase,
+    pending_pomodoro_record_ms: Option<u64>,
+}
+
+struct CompletedSession {
+    duration_ms: u64,
+    mode_key: &'static str,
+    mode_label: &'static str,
+    phase_label: &'static str,
 }
 
 impl TimerEngine {
@@ -121,12 +135,14 @@ impl TimerEngine {
 
     fn reset(&mut self) {
         self.running_anchor = None;
+        self.pending_pomodoro_record_ms = None;
 
         match self.mode {
             TimerMode::Stopwatch => self.stopwatch_elapsed_ms = 0,
             TimerMode::Pomodoro => {
                 self.pomodoro_elapsed_ms = 0;
                 self.pomodoro_phase = PomodoroPhase::Focus;
+                self.pending_pomodoro_record_ms = None;
             }
         }
     }
@@ -138,32 +154,75 @@ impl TimerEngine {
 
         self.mode = mode;
         self.running_anchor = None;
+        self.pending_pomodoro_record_ms = None;
 
         match self.mode {
             TimerMode::Stopwatch => self.stopwatch_elapsed_ms = 0,
             TimerMode::Pomodoro => {
                 self.pomodoro_elapsed_ms = 0;
                 self.pomodoro_phase = PomodoroPhase::Focus;
+                self.pending_pomodoro_record_ms = None;
             }
         }
     }
 
-    fn complete_stopwatch_session(&mut self) -> Result<u64, String> {
-        if self.mode != TimerMode::Stopwatch {
-            return Err("\u{53ea}\u{6709}\u{6b63}\u{5411}\u{8ba1}\u{65f6}\u{6a21}\u{5f0f}\u{53ef}\u{4ee5}\u{5b8c}\u{6210}\u{5e76}\u{8bb0}\u{5f55}".to_string());
-        }
-
+    fn complete_focus_session(&mut self) -> Result<CompletedSession, String> {
         self.sync_running_time();
-        let elapsed_ms = self.stopwatch_elapsed_ms;
 
-        if elapsed_ms == 0 {
-            return Err("\u{5f53}\u{524d}\u{4e8b}\u{52a1}\u{8fd8}\u{6ca1}\u{6709}\u{7d2f}\u{8ba1}\u{65f6}\u{95f4}".to_string());
+        match self.mode {
+            TimerMode::Stopwatch => {
+                let elapsed_ms = self.stopwatch_elapsed_ms;
+                if elapsed_ms == 0 {
+                    return Err("\u{5f53}\u{524d}\u{4e8b}\u{52a1}\u{8fd8}\u{6ca1}\u{6709}\u{7d2f}\u{8ba1}\u{65f6}\u{95f4}".to_string());
+                }
+
+                self.stopwatch_elapsed_ms = 0;
+                self.running_anchor = None;
+
+                Ok(CompletedSession {
+                    duration_ms: elapsed_ms,
+                    mode_key: "stopwatch",
+                    mode_label: "\u{6b63}\u{5411}\u{8ba1}\u{65f6}",
+                    phase_label: "\u{6b63}\u{5411}\u{8ba1}\u{65f6}",
+                })
+            }
+            TimerMode::Pomodoro => {
+                if let Some(elapsed_ms) = self.pending_pomodoro_record_ms.take() {
+                    return Ok(CompletedSession {
+                        duration_ms: elapsed_ms,
+                        mode_key: "pomodoro",
+                        mode_label: "\u{756a}\u{8304}\u{949f}",
+                        phase_label: "\u{756a}\u{8304}\u{4e13}\u{6ce8}",
+                    });
+                }
+
+                if self.pomodoro_phase != PomodoroPhase::Focus {
+                    return Err(
+                        "\u{5f53}\u{524d}\u{5904}\u{4e8e}\u{4f11}\u{606f}\u{9636}\u{6bb5}\u{ff0c}\u{6ca1}\u{6709}\u{53ef}\u{8bb0}\u{5f55}\u{7684}\u{4e13}\u{6ce8}\u{8f6e}\u{6b21}"
+                            .to_string(),
+                    );
+                }
+
+                let elapsed_ms = self.pomodoro_elapsed_ms;
+                if elapsed_ms == 0 {
+                    return Err(
+                        "\u{5f53}\u{524d}\u{756a}\u{8304}\u{4e13}\u{6ce8}\u{8fd8}\u{6ca1}\u{6709}\u{7d2f}\u{8ba1}\u{65f6}\u{95f4}"
+                            .to_string(),
+                    );
+                }
+
+                self.pomodoro_elapsed_ms = 0;
+                self.pomodoro_phase = PomodoroPhase::Break;
+                self.running_anchor = None;
+
+                Ok(CompletedSession {
+                    duration_ms: elapsed_ms,
+                    mode_key: "pomodoro",
+                    mode_label: "\u{756a}\u{8304}\u{949f}",
+                    phase_label: "\u{756a}\u{8304}\u{4e13}\u{6ce8}",
+                })
+            }
         }
-
-        self.stopwatch_elapsed_ms = 0;
-        self.running_anchor = None;
-
-        Ok(elapsed_ms)
     }
 
     fn snapshot(&mut self) -> TimerSnapshot {
@@ -187,6 +246,7 @@ impl TimerEngine {
 
         TimerSnapshot {
             mode_key: "stopwatch",
+            phase_key: "stopwatch",
             mode: "\u{6b63}\u{5411}\u{8ba1}\u{65f6}",
             phase_label: "\u{6b63}\u{5411}\u{8ba1}\u{65f6}",
             status,
@@ -225,6 +285,10 @@ impl TimerEngine {
 
         TimerSnapshot {
             mode_key: "pomodoro",
+            phase_key: match self.pomodoro_phase {
+                PomodoroPhase::Focus => "focus",
+                PomodoroPhase::Break => "break",
+            },
             mode: "\u{756a}\u{8304}\u{949f}",
             phase_label,
             status,
@@ -232,7 +296,8 @@ impl TimerEngine {
             elapsed_ms,
             elapsed_label: format_duration_ms(remaining_ms),
             secondary_label,
-            can_complete_session: false,
+            can_complete_session: self.pending_pomodoro_record_ms.is_some()
+                || self.pomodoro_phase == PomodoroPhase::Focus,
         }
     }
 
@@ -266,6 +331,11 @@ impl TimerEngine {
                     }
 
                     total_elapsed -= phase_duration;
+                    if self.pomodoro_phase == PomodoroPhase::Focus
+                        && self.pending_pomodoro_record_ms.is_none()
+                    {
+                        self.pending_pomodoro_record_ms = Some(phase_duration);
+                    }
                     self.pomodoro_phase = match self.pomodoro_phase {
                         PomodoroPhase::Focus => PomodoroPhase::Break,
                         PomodoroPhase::Break => PomodoroPhase::Focus,
@@ -420,9 +490,9 @@ fn with_todo_items<T>(
 fn bootstrap_shell() -> ShellSnapshot {
     ShellSnapshot {
         product_name: "Focused Moment",
-        version: "0.4.1",
-        milestone: "v0.4.1 \u{4efb}\u{52a1}\u{5c5e}\u{6027}\u{6269}\u{5c55}",
-        slogan: "\u{4efb}\u{52a1}\u{4e0d}\u{53ea}\u{662f}\u{4e00}\u{884c}\u{6807}\u{9898}\u{ff0c}\u{800c}\u{662f}\u{5e26}\u{6709}\u{65e5}\u{671f}\u{3001}\u{5f00}\u{59cb}\u{65f6}\u{95f4}\u{548c}\u{91cd}\u{8981}\u{7a0b}\u{5ea6}\u{7684}\u{660e}\u{786e}\u{5b89}\u{6392}\u{3002}",
+        version: "0.4.2",
+        milestone: "v0.4.2 \u{72ec}\u{7acb}\u{4e13}\u{6ce8}\u{4e8b}\u{4ef6}",
+        slogan: "\u{4e13}\u{6ce8}\u{53ef}\u{4ee5}\u{72ec}\u{7acb}\u{8bb0}\u{5f55}\u{ff0c}\u{4e5f}\u{53ef}\u{4ee5}\u{548c}\u{5177}\u{4f53}\u{4efb}\u{52a1}\u{5173}\u{8054}\u{ff0c}\u{8ba9}\u{8ba1}\u{5212}\u{4e0e}\u{884c}\u{52a8}\u{5f00}\u{59cb}\u{5bf9}\u{4e0a}\u{3002}",
         surfaces: vec![
             ShellPanel {
                 id: "timer",
@@ -434,9 +504,9 @@ fn bootstrap_shell() -> ShellSnapshot {
             ShellPanel {
                 id: "tasks",
                 title: "\u{4efb}\u{52a1}\u{9762}\u{677f}",
-                phase: "v0.4.0-v0.4.1",
-                status: "\u{5df2}\u{589e}\u{5f3a}",
-                summary: "\u{4efb}\u{52a1}\u{73b0}\u{5728}\u{5df2}\u{652f}\u{6301}\u{65e5}\u{671f}\u{3001}\u{5f00}\u{59cb}\u{65f6}\u{95f4}\u{548c}\u{91cd}\u{8981}\u{7a0b}\u{5ea6}\u{ff0c}\u{540e}\u{7eed}\u{518d}\u{7ee7}\u{7eed}\u{63a5}\u{5165}\u{4e13}\u{6ce8}\u{4f1a}\u{8bdd}\u{5173}\u{8054}\u{3002}",
+                phase: "v0.4.0-v0.4.2",
+                status: "\u{5df2}\u{8fde}\u{901a}",
+                summary: "\u{4efb}\u{52a1}\u{4e0d}\u{53ea}\u{80fd}\u{5355}\u{72ec}\u{7ba1}\u{7406}\u{ff0c}\u{73b0}\u{5728}\u{4e5f}\u{80fd}\u{5728}\u{8bb0}\u{5f55}\u{4e13}\u{6ce8}\u{65f6}\u{53ef}\u{9009}\u{62e9}\u{5173}\u{8054}\u{5230}\u{5bf9}\u{5e94}\u{4efb}\u{52a1}\u{3002}",
             },
             ShellPanel {
                 id: "analytics",
@@ -639,11 +709,29 @@ fn reset_timer(state: tauri::State<'_, TimerEngineState>) -> Result<TimerSnapsho
 }
 
 #[tauri::command]
-fn complete_stopwatch_session(
+fn complete_focus_session(
     state: tauri::State<'_, TimerEngineState>,
     title: String,
+    linked_todo_id: Option<u64>,
 ) -> Result<CompletionPayload, String> {
-    let elapsed_ms = with_timer_engine(&state, |engine| engine.complete_stopwatch_session())?;
+    let completed_session = with_timer_engine(&state, |engine| engine.complete_focus_session())?;
+
+    let linked_todo_title = match linked_todo_id {
+        Some(id) => {
+            let items = state.todo_items.lock().map_err(|_| {
+                "\u{4efb}\u{52a1}\u{5217}\u{8868}\u{72b6}\u{6001}\u{9501}\u{5b9a}\u{5931}\u{8d25}"
+                    .to_string()
+            })?;
+
+            let item = items.iter().find(|item| item.id == id).ok_or_else(|| {
+                "\u{672a}\u{627e}\u{5230}\u{8981}\u{5173}\u{8054}\u{7684}\u{4efb}\u{52a1}"
+                    .to_string()
+            })?;
+
+            Some(item.title.clone())
+        }
+        None => None,
+    };
 
     let next_id = {
         let mut id_guard = state.next_record_id.lock().map_err(|_| {
@@ -659,12 +747,19 @@ fn complete_stopwatch_session(
     let record = FocusRecord {
         id: next_id,
         title: if normalized_title.is_empty() {
-            "\u{672a}\u{547d}\u{540d}\u{4e8b}\u{52a1}".to_string()
+            linked_todo_title
+                .clone()
+                .unwrap_or_else(|| "\u{672a}\u{547d}\u{540d}\u{4e8b}\u{52a1}".to_string())
         } else {
             normalized_title.to_string()
         },
-        duration_ms: elapsed_ms,
-        duration_label: format_duration_ms(elapsed_ms),
+        duration_ms: completed_session.duration_ms,
+        duration_label: format_duration_ms(completed_session.duration_ms),
+        mode_key: completed_session.mode_key,
+        mode_label: completed_session.mode_label,
+        phase_label: completed_session.phase_label,
+        linked_todo_id,
+        linked_todo_title,
     };
 
     let records = {
@@ -723,7 +818,7 @@ pub fn run() {
             start_timer,
             pause_timer,
             reset_timer,
-            complete_stopwatch_session,
+            complete_focus_session,
             minimize_main_window,
             toggle_maximize_main_window,
             close_main_window

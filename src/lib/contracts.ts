@@ -17,6 +17,7 @@ export interface ShellSnapshot {
 
 export interface TimerSnapshot {
   modeKey: "stopwatch" | "pomodoro";
+  phaseKey: "stopwatch" | "focus" | "break";
   mode: string;
   phaseLabel: string;
   status: string;
@@ -32,6 +33,11 @@ export interface FocusRecord {
   title: string;
   durationMs: number;
   durationLabel: string;
+  modeKey: "stopwatch" | "pomodoro";
+  modeLabel: string;
+  phaseLabel: string;
+  linkedTodoId: number | null;
+  linkedTodoTitle: string | null;
 }
 
 export interface CompletionPayload {

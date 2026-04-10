@@ -16,7 +16,7 @@ import {
   updateTodoItem,
 } from "./lib/tasks";
 import {
-  completeStopwatchSession,
+  completeFocusSession,
   getFocusRecords,
   getTimerSnapshot,
   pauseTimer,
@@ -32,9 +32,9 @@ import {
 import "./App.css";
 
 const importanceOptions = [
-  { key: "high", label: "高优先级" },
-  { key: "medium", label: "中优先级" },
-  { key: "low", label: "低优先级" },
+  { key: "high", label: "\u9ad8\u4f18\u5148\u7ea7" },
+  { key: "medium", label: "\u4e2d\u4f18\u5148\u7ea7" },
+  { key: "low", label: "\u4f4e\u4f18\u5148\u7ea7" },
 ] as const;
 
 function getLocalDateValue() {
@@ -64,20 +64,19 @@ function createDefaultTodoDraft(title = ""): TodoDraft {
 function getImportanceLabel(importanceKey: TodoImportance) {
   return (
     importanceOptions.find((option) => option.key === importanceKey)?.label ??
-    "未设置"
+    "\u672a\u8bbe\u7f6e"
   );
 }
 
 const copy = {
   versionEyebrow: "\u4e13\u6ce8\u684c\u9762\u52a9\u624b",
-  heroVersion: "v0.4.1 \u4efb\u52a1\u5c5e\u6027\u6269\u5c55",
+  heroVersion: "v0.4.2 \u4e13\u6ce8\u4e8b\u4ef6\u5173\u8054",
   heroSummary:
-    "\u8fd9\u4e00\u7248\u628a\u4efb\u52a1\u7684\u65e5\u671f\u3001\u5f00\u59cb\u65f6\u95f4\u548c\u91cd\u8981\u7a0b\u5ea6\u63a5\u8fdb\u4e86 Rust \u72b6\u6001\u5c42\uff0c\u8ba9\u4efb\u52a1\u4ece\u201c\u4e00\u884c\u6807\u9898\u201d\u53d8\u6210\u201c\u53ef\u5b89\u6392\u7684\u4e8b\u9879\u201d\u3002",
-  loading: "\u6b63\u5728\u8f7d\u5165 v0.4.1 \u4efb\u52a1\u5c5e\u6027\u9762\u677f...",
-  ready: "\u4efb\u52a1\u7684\u65e5\u671f\u3001\u65f6\u95f4\u4e0e\u91cd\u8981\u7a0b\u5ea6\u5df2\u63a5\u5165 Rust \u5f15\u64ce\u3002",
+    "\u8fd9\u4e00\u7248\u628a\u201c\u5b8c\u6210\u4e00\u6b21\u4e13\u6ce8\u201d\u6b63\u5f0f\u6c89\u6dc0\u6210\u4e8b\u4ef6\u8bb0\u5f55\u3002\u5b83\u53ef\u4ee5\u72ec\u7acb\u5b58\u5728\uff0c\u4e5f\u53ef\u4ee5\u5728\u8bb0\u5f55\u65f6\u5173\u8054\u5230\u67d0\u4e2a\u4efb\u52a1\uff0c\u8ba9\u8ba1\u5212\u548c\u5b9e\u9645\u6295\u5165\u5f00\u59cb\u5bf9\u5e94\u8d77\u6765\u3002",
+  loading: "\u6b63\u5728\u8f7d\u5165 v0.4.2 \u4e13\u6ce8\u4e8b\u4ef6\u9762\u677f...",
+  ready: "\u72ec\u7acb\u4e13\u6ce8\u4e8b\u4ef6\u4e0e\u4efb\u52a1\u5173\u8054\u80fd\u529b\u5df2\u63a5\u5165 Rust \u5f15\u64ce\u3002",
   fallback: "\u5e94\u7528\u5df2\u4f7f\u7528\u56de\u9000\u6570\u636e\u542f\u52a8\u3002",
-  shellFallback:
-    "\u8f7d\u5165\u684c\u9762\u58f3\u5c42\u6570\u636e\u5931\u8d25\u3002",
+  shellFallback: "\u8f7d\u5165\u684c\u9762\u58f3\u5c42\u6570\u636e\u5931\u8d25\u3002",
   minimize: "\u6700\u5c0f\u5316",
   maximize: "\u6700\u5927\u5316",
   close: "\u5173\u95ed",
@@ -86,38 +85,43 @@ const copy = {
   pomodoroMode: "\u756a\u8304\u949f",
   modeEyebrow: "\u5f53\u524d\u6a21\u5f0f",
   currentTaskEyebrow: "\u5f53\u524d\u4e8b\u52a1",
-  currentTaskTitle: "\u505a\u5b8c\u4e00\u4ef6\uff0c\u5c31\u7ed3\u7b97\u4e00\u4ef6",
+  currentTaskTitle: "\u8fd9\u4e00\u6b21\u4e13\u6ce8\uff0c\u51c6\u5907\u8bb0\u6210\u4ec0\u4e48",
   currentTaskHint:
-    "\u8f93\u5165\u6b63\u5728\u5904\u7406\u7684\u4e8b\u52a1\u540d\u79f0\uff0c\u5b8c\u6210\u540e\u76f4\u63a5\u8bb0\u5f55\u5e76\u8fdb\u5165\u4e0b\u4e00\u9879\u3002",
+    "\u4f60\u53ef\u4ee5\u76f4\u63a5\u8f93\u5165\u4e00\u4e2a\u72ec\u7acb\u4e8b\u52a1\u540d\u79f0\uff0c\u5b8c\u6210\u540e\u4f1a\u5355\u72ec\u8bb0\u6210\u4e00\u6761\u4e13\u6ce8\u4e8b\u4ef6\u3002",
   pomodoroTaskHint:
-    "\u756a\u8304\u949f\u6a21\u5f0f\u4e0b\u4e5f\u53ef\u4ee5\u586b\u5199\u5f53\u524d\u4e13\u6ce8\u5185\u5bb9\uff0c\u7528\u6765\u6807\u8bb0\u8fd9\u4e00\u8f6e\u4f60\u6b63\u5728\u505a\u4ec0\u4e48\u3002",
+    "\u756a\u8304\u949f\u4e0b\u4e5f\u53ef\u4ee5\u586b\u5199\u5f53\u524d\u4e13\u6ce8\u5185\u5bb9\uff1b\u5230\u70b9\u540e\u6216\u63d0\u524d\u7ed3\u675f\u65f6\uff0c\u90fd\u53ef\u4ee5\u628a\u8fd9\u4e00\u8f6e\u8bb0\u6210\u72ec\u7acb\u4e8b\u4ef6\u6216\u5173\u8054\u4efb\u52a1\u3002",
   taskPlaceholder: "\u4f8b\u5982\uff1a\u6574\u7406\u4eca\u65e5\u65b9\u6848\u521d\u7a3f",
+  linkTodoLabel: "\u5173\u8054\u4efb\u52a1",
+  linkTodoHint: "\u4e0d\u9009\u62e9\u4efb\u52a1\u65f6\uff0c\u8fd9\u6761\u8bb0\u5f55\u4f1a\u4f5c\u4e3a\u72ec\u7acb\u4e13\u6ce8\u4e8b\u4ef6\u4fdd\u5b58\u3002",
+  linkTodoEmpty: "\u4e0d\u5173\u8054\u4efb\u52a1\uff0c\u5355\u72ec\u8bb0\u5f55",
+  linkTodoPrefix: "\u5f53\u524d\u5c06\u5173\u8054\u5230\u4efb\u52a1\uff1a",
   currentFocusLabel: "\u5f53\u524d\u4e13\u6ce8\u5185\u5bb9",
   start: "\u5f00\u59cb\u8ba1\u65f6",
   pause: "\u6682\u505c",
   reset: "\u91cd\u7f6e",
   complete: "\u5b8c\u6210\u5e76\u8bb0\u5f55",
+  completePomodoro: "\u5b8c\u6210\u672c\u8f6e\u5e76\u8bb0\u5f55",
+  completePomodoroPending: "\u8bb0\u5f55\u4e0a\u4e00\u8f6e\u4e13\u6ce8",
   pomodoroHint:
-    "\u756a\u8304\u949f\u6a21\u5f0f\u4f1a\u81ea\u52a8\u5728 25 \u5206\u949f\u4e13\u6ce8\u548c 5 \u5206\u949f\u4f11\u606f\u4e4b\u95f4\u5207\u6362\u3002",
+    "\u756a\u8304\u949f\u4f1a\u5728 25 \u5206\u949f\u4e13\u6ce8\u548c 5 \u5206\u949f\u77ed\u4f11\u606f\u4e4b\u95f4\u5207\u6362\u3002\u8fdb\u5165\u4f11\u606f\u9636\u6bb5\u540e\uff0c\u4ecd\u53ef\u8865\u8bb0\u521a\u7ed3\u675f\u7684\u4e0a\u4e00\u8f6e\u4e13\u6ce8\u3002",
   engineOwner: "\u5f15\u64ce\u5f52\u5c5e",
-  engineOwnerNote:
-    "\u65f6\u95f4\u7d2f\u8ba1\u4e0d\u4f9d\u8d56\u524d\u7aef\u5b9a\u65f6\u5668",
+  engineOwnerNote: "\u65f6\u95f4\u7d2f\u8ba1\u4e0d\u4f9d\u8d56\u524d\u7aef\u5b9a\u65f6\u5668",
   currentStatus: "\u5f53\u524d\u72b6\u6001",
-  currentStatusNote:
-    "\u652f\u6301\u5f00\u59cb\u3001\u6682\u505c\u3001\u5b8c\u6210\u8bb0\u5f55",
+  currentStatusNote: "\u652f\u6301\u5f00\u59cb\u3001\u6682\u505c\u3001\u91cd\u7f6e\u4e0e\u5b8c\u6210\u8bb0\u5f55",
   runtimeTarget: "\u8fd0\u884c\u76ee\u6807",
   runtimeTargetNote: "\u4f4e\u5360\u7528\u684c\u9762\u5e38\u9a7b\u5f62\u6001",
   timingCorrection: "\u6821\u6b63\u65b9\u5f0f",
-  timingCorrectionNote:
-    "\u5df2\u8003\u8651\u540e\u53f0\u8fd0\u884c\u548c\u7cfb\u7edf\u4f11\u7720\u540e\u7684\u65f6\u95f4\u5dee\u503c",
-  recordsEyebrow: "\u5df2\u5b8c\u6210\u8bb0\u5f55",
-  recordsTitle: "\u672c\u6b21\u8fd0\u884c\u5185\u5df2\u7ed3\u7b97\u7684\u4e8b\u52a1",
-  recordsEmpty: "\u8fd8\u6ca1\u6709\u5b8c\u6210\u8bb0\u5f55\uff0c\u5b8c\u6210\u4e00\u4ef6\u4e8b\u540e\u4f1a\u51fa\u73b0\u5728\u8fd9\u91cc\u3002",
+  timingCorrectionNote: "\u5df2\u8003\u8651\u540e\u53f0\u8fd0\u884c\u548c\u7cfb\u7edf\u4f11\u7720\u540e\u7684\u65f6\u95f4\u5dee\u503c",
+  recordsEyebrow: "\u4e13\u6ce8\u8bb0\u5f55",
+  recordsTitle: "\u672c\u6b21\u8fd0\u884c\u5185\u5df2\u6c89\u6dc0\u7684\u4e13\u6ce8\u4e8b\u4ef6",
+  recordsEmpty: "\u8fd8\u6ca1\u6709\u8bb0\u5f55\uff0c\u5b8c\u6210\u4e00\u8f6e\u4e13\u6ce8\u540e\u4f1a\u51fa\u73b0\u5728\u8fd9\u91cc\u3002",
   unnamedTask: "\u672a\u547d\u540d\u4e8b\u52a1",
+  recordIndependent: "\u72ec\u7acb\u4e8b\u4ef6",
+  recordLinkedPrefix: "\u5173\u8054\u4efb\u52a1\uff1a",
   todoEyebrow: "\u4efb\u52a1\u9762\u677f",
   todoTitle: "\u4eca\u5929\u8981\u63a8\u8fdb\u7684\u4e8b\u60c5",
   todoSummary:
-    "\u73b0\u5728\u6bcf\u4e2a\u4efb\u52a1\u90fd\u53ef\u4ee5\u5e26\u4e0a\u65e5\u671f\u3001\u5f00\u59cb\u65f6\u95f4\u548c\u91cd\u8981\u7a0b\u5ea6\uff0c\u540e\u7eed\u518d\u628a\u5b83\u4e0e\u4e13\u6ce8\u4f1a\u8bdd\u548c\u72ec\u7acb\u4e8b\u4ef6\u8fde\u8d77\u6765\u3002",
+    "\u4efb\u52a1\u73b0\u5728\u4e0d\u53ea\u662f\u6392\u671f\u9879\uff0c\u4e5f\u53ef\u4ee5\u5728\u8bb0\u5f55\u4e13\u6ce8\u65f6\u4f5c\u4e3a\u5173\u8054\u5bf9\u8c61\u88ab\u9009\u4e2d\uff0c\u65b9\u4fbf\u540e\u7eed\u7ee7\u7eed\u505a\u6c89\u6dc0\u548c\u590d\u76d8\u3002",
   todoPlaceholder: "\u65b0\u589e\u4e00\u4e2a\u4efb\u52a1\uff0c\u4f8b\u5982\uff1a\u8865\u5b8c\u5468\u62a5\u521d\u7a3f",
   todoDateLabel: "\u65e5\u671f",
   todoTimeLabel: "\u5f00\u59cb\u65f6\u95f4",
@@ -138,27 +142,29 @@ const copy = {
   roadmapEyebrow: "\u7248\u672c\u8def\u7ebf",
   roadmapTitle: "\u540e\u9762\u4f1a\u63a5\u4e0a\u7684\u6a21\u5757",
   roadmapSummary:
-    "\u73b0\u5728\u4e3b\u754c\u9762\u5df2\u7ecf\u6709\u65f6\u95f4\u5f15\u64ce\u548c\u5e26\u5c5e\u6027\u7684\u4efb\u52a1\u9762\u677f\uff0c\u4e0b\u4e00\u6b65\u4f1a\u7ee7\u7eed\u63a5\u5165\u4efb\u52a1\u5916\u4e13\u6ce8\u4e8b\u4ef6\u548c\u4efb\u52a1\u5173\u8054\u80fd\u529b\u3002",
+    "\u73b0\u5728\u4e3b\u754c\u9762\u5df2\u7ecf\u80fd\u628a\u8ba1\u65f6\u3001\u756a\u8304\u949f\u3001\u4efb\u52a1\u5c5e\u6027\u548c\u4e13\u6ce8\u4e8b\u4ef6\u5173\u8054\u8d77\u6765\uff0c\u4e0b\u4e00\u9636\u6bb5\u5c31\u53ef\u4ee5\u8fdb\u5165\u672c\u5730\u6301\u4e45\u5316\u4e0e\u6570\u636e\u6c89\u6dc0\u3002",
   reservedEyebrow: "\u6269\u5c55\u9884\u7559",
   reservedTitle: "\u4e3a\u4e86\u540e\u7eed\u529f\u80fd\u4fdd\u7559\u7684\u63a5\u53e3\u65b9\u5411",
   reservedSummary:
     "\u8fd9\u4e9b\u80fd\u529b\u4e0d\u4f1a\u8fdb\u5165\u5f53\u524d MVP\uff0c\u4f46\u5e95\u5c42\u7ed3\u6784\u5df2\u7ecf\u9884\u7559\u4e86\u7a7a\u95f4\uff0c\u540e\u9762\u53ef\u4ee5\u7ee7\u7eed\u53e0\u52a0\u800c\u4e0d\u9700\u8981\u63a8\u7ffb\u91cd\u505a\u3002",
   fallbackPrefix: "\u8f7d\u5165\u56de\u9000\u4fe1\u606f\uff1a",
   windows: "Windows",
+  defaultError: "\u64cd\u4f5c\u6ca1\u6709\u6210\u529f\uff0c\u8bf7\u91cd\u8bd5\u3002",
 } as const;
 
 const emptySnapshot: ShellSnapshot = {
   productName: "Focused Moment",
-  version: "0.4.1",
-  milestone: "v0.4.1 \u4efb\u52a1\u5c5e\u6027\u6269\u5c55",
+  version: "0.4.2",
+  milestone: "v0.4.2 \u4e13\u6ce8\u4e8b\u4ef6\u5173\u8054",
   slogan:
-    "\u4efb\u52a1\u4e0d\u53ea\u662f\u4e00\u884c\u6807\u9898\uff0c\u800c\u662f\u5e26\u6709\u65e5\u671f\u3001\u5f00\u59cb\u65f6\u95f4\u548c\u91cd\u8981\u7a0b\u5ea6\u7684\u660e\u786e\u5b89\u6392\u3002",
+    "\u4e13\u6ce8\u53ef\u4ee5\u72ec\u7acb\u8bb0\u5f55\uff0c\u4e5f\u53ef\u4ee5\u548c\u5177\u4f53\u4efb\u52a1\u5173\u8054\uff0c\u8ba9\u8ba1\u5212\u4e0e\u884c\u52a8\u5f00\u59cb\u5bf9\u4e0a\u3002",
   surfaces: [],
   reservedExtensions: [],
 };
 
 const emptyTimerSnapshot: TimerSnapshot = {
   modeKey: "stopwatch",
+  phaseKey: "stopwatch",
   mode: "\u6b63\u5411\u8ba1\u65f6",
   phaseLabel: "\u6b63\u5411\u8ba1\u65f6",
   status: "\u672a\u5f00\u59cb",
@@ -174,6 +180,7 @@ function MainShell() {
   const [timerSnapshot, setTimerSnapshot] =
     createSignal<TimerSnapshot>(emptyTimerSnapshot);
   const [currentTaskTitle, setCurrentTaskTitle] = createSignal("");
+  const [linkedTodoId, setLinkedTodoId] = createSignal<number | null>(null);
   const [records, setRecords] = createSignal<FocusRecord[]>([]);
   const [todoItems, setTodoItems] = createSignal<TodoItem[]>([]);
   const [todoDraft, setTodoDraft] =
@@ -195,6 +202,32 @@ function MainShell() {
     todoItems().filter((item) => !item.isCompleted).length;
   const completedTodoCount = () =>
     todoItems().filter((item) => item.isCompleted).length;
+  const linkedTodoItem = () =>
+    todoItems().find((item) => item.id === linkedTodoId()) ?? null;
+  const linkedTodoValue = () =>
+    linkedTodoId() === null ? "" : String(linkedTodoId());
+  const taskLinkSummary = () =>
+    linkedTodoItem()
+      ? `${copy.linkTodoPrefix}${linkedTodoItem()?.title ?? ""}`
+      : copy.linkTodoHint;
+  const completionLabel = () => {
+    if (timerSnapshot().modeKey !== "pomodoro") {
+      return copy.complete;
+    }
+
+    return timerSnapshot().phaseKey === "break"
+      ? copy.completePomodoroPending
+      : copy.completePomodoro;
+  };
+  const completionTitle = () =>
+    currentTaskTitle().trim() || linkedTodoItem()?.title || copy.unnamedTask;
+  const canCompleteAction = () =>
+    timerSnapshot().canCompleteSession &&
+    !(
+      timerSnapshot().phaseKey !== "break" &&
+      timerSnapshot().elapsedMs === 0 &&
+      !timerSnapshot().isRunning
+    );
 
   function patchTodoDraft(patch: Partial<TodoDraft>) {
     setTodoDraft((current) => ({ ...current, ...patch }));
@@ -202,6 +235,18 @@ function MainShell() {
 
   function patchEditingTodoDraft(patch: Partial<TodoDraft>) {
     setEditingTodoDraft((current) => ({ ...current, ...patch }));
+  }
+
+  function getErrorMessage(error: unknown) {
+    if (error instanceof Error && error.message) {
+      return error.message;
+    }
+
+    if (typeof error === "string" && error.trim()) {
+      return error;
+    }
+
+    return copy.defaultError;
   }
 
   async function refreshTimerSnapshot() {
@@ -229,6 +274,8 @@ function MainShell() {
     try {
       const nextTimerSnapshot = await action();
       setTimerSnapshot(nextTimerSnapshot);
+    } catch (error) {
+      setStatusText(getErrorMessage(error));
     } finally {
       setTimerBusy(false);
     }
@@ -244,6 +291,8 @@ function MainShell() {
     try {
       const nextTodoItems = await action();
       setTodoItems(nextTodoItems);
+    } catch (error) {
+      setStatusText(getErrorMessage(error));
     } finally {
       setTodoBusy(false);
     }
@@ -276,6 +325,10 @@ function MainShell() {
     if (editingTodoId() === id) {
       setEditingTodoId(null);
       setEditingTodoDraft(createDefaultTodoDraft());
+    }
+
+    if (linkedTodoId() === id) {
+      setLinkedTodoId(null);
     }
   }
 
@@ -320,15 +373,17 @@ function MainShell() {
     setTimerBusy(true);
 
     try {
-      const payload = await completeStopwatchSession(currentTaskTitle());
+      const payload = await completeFocusSession(
+        currentTaskTitle(),
+        linkedTodoId()
+      );
       setTimerSnapshot(payload.timerSnapshot);
       setRecords(payload.records);
-      setStatusText(
-        `\u5df2\u8bb0\u5f55\uff1a${
-          currentTaskTitle().trim() || copy.unnamedTask
-        }`
-      );
+      setStatusText(`\u5df2\u8bb0\u5f55\uff1a${completionTitle()}`);
       setCurrentTaskTitle("");
+      setLinkedTodoId(null);
+    } catch (error) {
+      setStatusText(getErrorMessage(error));
     } finally {
       setTimerBusy(false);
     }
@@ -447,15 +502,46 @@ function MainShell() {
                 <h2>{copy.currentTaskTitle}</h2>
                 <p>{taskHintText()}</p>
               </div>
-              <label class="task-entry__field">
-                <input
-                  class="task-input"
-                  type="text"
-                  value={currentTaskTitle()}
-                  placeholder={copy.taskPlaceholder}
-                  onInput={(event) => setCurrentTaskTitle(event.currentTarget.value)}
-                />
-              </label>
+
+              <div class="task-entry__controls">
+                <label class="task-entry__field">
+                  <input
+                    class="task-input"
+                    type="text"
+                    value={currentTaskTitle()}
+                    placeholder={copy.taskPlaceholder}
+                    onInput={(event) =>
+                      setCurrentTaskTitle(event.currentTarget.value)
+                    }
+                  />
+                </label>
+
+                <label class="todo-form-field task-entry__field task-entry__field--compact">
+                  <span>{copy.linkTodoLabel}</span>
+                  <select
+                    class="task-input task-select"
+                    value={linkedTodoValue()}
+                    onChange={(event) =>
+                      setLinkedTodoId(
+                        event.currentTarget.value
+                          ? Number(event.currentTarget.value)
+                          : null
+                      )
+                    }
+                  >
+                    <option value="">{copy.linkTodoEmpty}</option>
+                    <For each={todoItems()}>
+                      {(item) => (
+                        <option value={item.id}>
+                          {`${item.title} - ${item.scheduledDate} ${item.scheduledTime}`}
+                        </option>
+                      )}
+                    </For>
+                  </select>
+                </label>
+              </div>
+
+              <p class="task-link-hint">{taskLinkSummary()}</p>
             </div>
 
             <div class="timer-panel__header">
@@ -519,13 +605,12 @@ function MainShell() {
                 class="action-button action-button--success"
                 disabled={
                   timerBusy() ||
-                  !timerSnapshot().canCompleteSession ||
-                  timerSnapshot().elapsedMs === 0 ||
+                  !canCompleteAction() ||
                   !timerReady()
                 }
                 onClick={() => void handleCompleteSession()}
               >
-                {copy.complete}
+                {completionLabel()}
               </button>
             </div>
 
@@ -565,7 +650,22 @@ function MainShell() {
                   {(record) => (
                     <article class="record-card">
                       <div class="record-card__main">
-                        <strong>{record.title}</strong>
+                        <div class="record-card__copy">
+                          <strong>{record.title}</strong>
+                          <div class="record-card__meta">
+                            <span class="record-pill">{record.phaseLabel}</span>
+                            <span
+                              classList={{
+                                "record-pill": true,
+                                "record-pill--muted": !record.linkedTodoTitle,
+                              }}
+                            >
+                              {record.linkedTodoTitle
+                                ? `${copy.recordLinkedPrefix}${record.linkedTodoTitle}`
+                                : copy.recordIndependent}
+                            </span>
+                          </div>
+                        </div>
                         <span>{record.durationLabel}</span>
                       </div>
                     </article>

@@ -29,6 +29,12 @@ export async function getFocusRecords() {
   return invoke<FocusRecord[]>("get_focus_records");
 }
 
-export async function completeStopwatchSession(title: string) {
-  return invoke<CompletionPayload>("complete_stopwatch_session", { title });
+export async function completeFocusSession(
+  title: string,
+  linkedTodoId: number | null
+) {
+  return invoke<CompletionPayload>("complete_focus_session", {
+    title,
+    linkedTodoId,
+  });
 }

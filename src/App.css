@@ -338,6 +338,23 @@ body {
   display: block;
 }
 
+.task-entry__controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(260px, 0.9fr);
+  gap: 12px;
+  align-items: end;
+}
+
+.task-entry__field--compact {
+  min-width: 0;
+}
+
+.task-link-hint {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 0.9rem;
+}
+
 .task-input {
   width: 100%;
   box-sizing: border-box;
@@ -528,6 +545,12 @@ body {
   align-items: center;
 }
 
+.record-card__copy {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
 .record-card__main strong {
   font-size: 0.98rem;
   font-weight: 600;
@@ -536,6 +559,28 @@ body {
 .record-card__main span {
   color: var(--accent-strong);
   font-variant-numeric: tabular-nums;
+}
+
+.record-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.record-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(81, 104, 93, 0.1);
+  color: var(--accent-strong);
+  font-size: 0.78rem;
+}
+
+.record-pill--muted {
+  background: rgba(24, 33, 39, 0.06);
+  color: var(--text-muted);
 }
 
 .section-panel {
@@ -912,6 +957,7 @@ body {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .task-entry__controls,
   .todo-form-grid {
     grid-template-columns: minmax(0, 1fr);
   }
