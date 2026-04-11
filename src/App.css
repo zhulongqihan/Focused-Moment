@@ -542,7 +542,8 @@ body {
 
 .timer-secondary,
 .timer-focus-copy,
-.timer-mode-hint {
+.timer-mode-hint,
+.tray-copy {
   margin: 0;
   color: var(--text-muted);
 }

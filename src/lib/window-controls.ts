@@ -13,6 +13,10 @@ export async function closeMainWindow() {
   await invoke("close_main_window");
 }
 
+export async function showMainWindowFromTray() {
+  await invoke("show_main_window_from_tray");
+}
+
 export async function startDraggingMainWindow() {
   try {
     await getCurrentWindow().startDragging();

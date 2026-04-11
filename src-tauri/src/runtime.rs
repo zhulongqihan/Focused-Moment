@@ -8,9 +8,14 @@ use std::time::{Duration, Instant, SystemTime};
 use chrono::Local;
 use serde::{Deserialize, Serialize};
 use storage::{PersistedState, PersistenceStore};
+use tauri::menu::{MenuBuilder, MenuItemBuilder};
+use tauri::tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};
+use tauri::{AppHandle, Manager, Window, WindowEvent};
 
 const POMODORO_FOCUS_MS: u64 = 25 * 60 * 1000;
 const POMODORO_BREAK_MS: u64 = 5 * 60 * 1000;
+const TRAY_SHOW_ID: &str = "tray_show_main";
+const TRAY_QUIT_ID: &str = "tray_quit_app";
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -31,6 +36,31 @@ struct ShellSnapshot {
     slogan: &'static str,
     surfaces: Vec<ShellPanel>,
     reserved_extensions: Vec<ShellPanel>,
+}
+
+struct AppLifecycleState {
+    is_quitting: Mutex<bool>,
+}
+
+impl AppLifecycleState {
+    fn new() -> Self {
+        Self {
+            is_quitting: Mutex::new(false),
+        }
+    }
+
+    fn mark_quitting(&self) {
+        if let Ok(mut flag) = self.is_quitting.lock() {
+            *flag = true;
+        }
+    }
+
+    fn is_quitting(&self) -> bool {
+        self.is_quitting
+            .lock()
+            .map(|flag| *flag)
+            .unwrap_or(false)
+    }
 }
 
 #[derive(Clone, Serialize)]
@@ -764,9 +794,9 @@ fn with_todo_items<T>(
 fn bootstrap_shell() -> ShellSnapshot {
     ShellSnapshot {
         product_name: "Focused Moment",
-        version: "0.8.2",
-        milestone: "v0.8.2 \u{62d6}\u{52a8}\u{4e0e}\u{56fe}\u{8868}\u{4f18}\u{5316}\u{7248}",
-        slogan: "\u{4e13}\u{6ce8}\u{3001}\u{5f85}\u{529e}\u{548c}\u{6570}\u{636e}\u{4e2d}\u{5fc3}\u{73b0}\u{5728}\u{5df2}\u{7ecf}\u{80fd}\u{5728}\u{540c}\u{4e00}\u{4e3b}\u{754c}\u{9762}\u{4e2d}\u{4ee5}\u{66f4}\u{76f4}\u{89c2}\u{7684}\u{8d8b}\u{52bf}\u{65b9}\u{5f0f}\u{5c55}\u{793a}\u{51fa}\u{6765}\u{3002}",
+        version: "0.9.0",
+        milestone: "v0.9.0 \u{6258}\u{76d8}\u{4e0e}\u{540e}\u{53f0}\u{5e38}\u{9a7b}\u{7248}",
+        slogan: "\u{4e13}\u{6ce8}\u{3001}\u{5f85}\u{529e}\u{548c}\u{6570}\u{636e}\u{590d}\u{76d8}\u{73b0}\u{5728}\u{5df2}\u{7ecf}\u{80fd}\u{4ee5}\u{6258}\u{76d8}\u{5e38}\u{9a7b}\u{7684}\u{5f62}\u{5f0f}\u{5728}\u{684c}\u{9762}\u{7ee7}\u{7eed}\u{8fd0}\u{884c}\u{3002}",
         surfaces: vec![
             ShellPanel {
                 id: "timer",
@@ -785,9 +815,16 @@ fn bootstrap_shell() -> ShellSnapshot {
             ShellPanel {
                 id: "analytics",
                 title: "\u{6570}\u{636e}\u{590d}\u{76d8}",
-                phase: "v0.7.0-v0.8.0",
+                phase: "v0.7.0-v0.8.2",
                 status: "\u{5df2}\u{63a5}\u{5165}",
                 summary: "\u{672c}\u{7248}\u{5df2}\u{5728}\u{672c}\u{5730}\u{6570}\u{636e}\u{57fa}\u{7840}\u{4e0a}\u{63d0}\u{4f9b}\u{6309}\u{65e5}\u{805a}\u{5408}\u{3001}\u{603b}\u{89c8}\u{6307}\u{6807}\u{3001}\u{8d8b}\u{52bf}\u{56fe}\u{8868}\u{4e0e}\u{6700}\u{8fd1}\u{590d}\u{76d8}\u{89c6}\u{56fe}\u{3002}",
+            },
+            ShellPanel {
+                id: "tray",
+                title: "\u{540e}\u{53f0}\u{5e38}\u{9a7b}",
+                phase: "v0.9.0",
+                status: "\u{5df2}\u{63a5}\u{5165}",
+                summary: "\u{5173}\u{95ed}\u{4e3b}\u{7a97}\u{53e3}\u{540e}\u{4f1a}\u{9690}\u{85cf}\u{5230}\u{7cfb}\u{7edf}\u{6258}\u{76d8}\u{ff0c}\u{53ef}\u{4ee5}\u{4ece}\u{6258}\u{76d8}\u{91cd}\u{65b0}\u{6253}\u{5f00}\u{6216}\u{9000}\u{51fa}\u{5e94}\u{7528}\u{3002}",
             },
         ],
         reserved_extensions: vec![
@@ -1094,6 +1131,74 @@ fn complete_focus_session(
     })
 }
 
+fn show_main_window(app: &AppHandle) -> Result<(), String> {
+    let window = app
+        .get_webview_window("main")
+        .ok_or_else(|| "找不到主窗口".to_string())?;
+
+    if window.is_minimized().map_err(|error| error.to_string())? {
+        window.unminimize().map_err(|error| error.to_string())?;
+    }
+
+    window.show().map_err(|error| error.to_string())?;
+    window.set_focus().map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+fn hide_main_window(window: &Window) -> Result<(), String> {
+    window.hide().map_err(|error| error.to_string())
+}
+
+fn build_system_tray(app: &AppHandle) -> Result<(), String> {
+    let show_item = MenuItemBuilder::with_id(TRAY_SHOW_ID, "显示主界面")
+        .build(app)
+        .map_err(|error| error.to_string())?;
+    let quit_item = MenuItemBuilder::with_id(TRAY_QUIT_ID, "退出应用")
+        .build(app)
+        .map_err(|error| error.to_string())?;
+
+    let menu = MenuBuilder::new(app)
+        .item(&show_item)
+        .separator()
+        .item(&quit_item)
+        .build()
+        .map_err(|error| error.to_string())?;
+
+    let mut tray_builder = TrayIconBuilder::with_id("focused-moment-tray")
+        .menu(&menu)
+        .tooltip("Focused Moment")
+        .show_menu_on_left_click(false)
+        .on_menu_event(|app, event| match event.id.as_ref() {
+            TRAY_SHOW_ID => {
+                let _ = show_main_window(app);
+            }
+            TRAY_QUIT_ID => {
+                if let Some(state) = app.try_state::<AppLifecycleState>() {
+                    state.mark_quitting();
+                }
+                app.exit(0);
+            }
+            _ => {}
+        })
+        .on_tray_icon_event(|tray: &TrayIcon<_>, event| {
+            if let TrayIconEvent::Click {
+                button: MouseButton::Left,
+                button_state: MouseButtonState::Up,
+                ..
+            } = event
+            {
+                let _ = show_main_window(tray.app_handle());
+            }
+        });
+
+    if let Some(icon) = app.default_window_icon() {
+        tray_builder = tray_builder.icon(icon.clone());
+    }
+
+    let _ = tray_builder.build(app).map_err(|error| error.to_string())?;
+    Ok(())
+}
+
 #[tauri::command]
 fn minimize_main_window(window: tauri::Window) -> Result<(), String> {
     window.minimize().map_err(|error| error.to_string())
@@ -1112,7 +1217,12 @@ fn toggle_maximize_main_window(window: tauri::Window) -> Result<bool, String> {
 
 #[tauri::command]
 fn close_main_window(window: tauri::Window) -> Result<(), String> {
-    window.close().map_err(|error| error.to_string())
+    hide_main_window(&window)
+}
+
+#[tauri::command]
+fn show_main_window_from_tray(app: tauri::AppHandle) -> Result<(), String> {
+    show_main_window(&app)
 }
 
 #[tauri::command]
@@ -1124,6 +1234,25 @@ fn start_dragging_main_window(window: tauri::Window) -> Result<(), String> {
 pub fn run() {
     tauri::Builder::default()
         .manage(TimerEngineState::new())
+        .manage(AppLifecycleState::new())
+        .setup(|app| {
+            build_system_tray(&app.handle())?;
+            Ok(())
+        })
+        .on_window_event(|window, event| {
+            if window.label() != "main" {
+                return;
+            }
+
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                if let Some(state) = window.app_handle().try_state::<AppLifecycleState>() {
+                    if !state.is_quitting() {
+                        api.prevent_close();
+                        let _ = hide_main_window(window);
+                    }
+                }
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             bootstrap_shell,
             get_timer_snapshot,
@@ -1143,6 +1272,7 @@ pub fn run() {
             minimize_main_window,
             toggle_maximize_main_window,
             close_main_window,
+            show_main_window_from_tray,
             start_dragging_main_window
         ])
         .run(tauri::generate_context!())
