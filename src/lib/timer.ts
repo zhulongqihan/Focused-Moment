@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
+  AnalyticsSnapshot,
   CompletionPayload,
   FocusRecord,
   TimerSnapshot,
@@ -27,6 +28,14 @@ export async function switchTimerMode(mode: "stopwatch" | "pomodoro") {
 
 export async function getFocusRecords() {
   return invoke<FocusRecord[]>("get_focus_records");
+}
+
+export async function getAnalyticsSnapshot() {
+  return invoke<AnalyticsSnapshot>("get_analytics_snapshot");
+}
+
+export async function clearAppData() {
+  return invoke("clear_app_data");
 }
 
 export async function completeFocusSession(

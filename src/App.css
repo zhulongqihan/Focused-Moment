@@ -683,6 +683,15 @@ body {
   gap: 12px;
 }
 
+.section-heading__actions {
+  display: grid;
+  gap: 12px;
+}
+
+.section-heading__actions .action-button {
+  justify-self: start;
+}
+
 .section-heading__side .action-button {
   justify-self: start;
 }

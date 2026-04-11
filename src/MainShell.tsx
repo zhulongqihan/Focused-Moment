@@ -1,6 +1,8 @@
 ﻿import { invoke } from "@tauri-apps/api/core";
 import { For, Show, createEffect, createSignal, onCleanup, onMount } from "solid-js";
 import type {
+  AnalyticsSnapshot,
+  DailyInsight,
   FocusRecord,
   ShellSnapshot,
   TimerSnapshot,
@@ -16,7 +18,9 @@ import {
   updateTodoItem,
 } from "./lib/tasks";
 import {
+  clearAppData,
   completeFocusSession,
+  getAnalyticsSnapshot,
   getFocusRecords,
   getTimerSnapshot,
   pauseTimer,
@@ -93,24 +97,13 @@ function getImportanceLabel(importanceKey: TodoImportance) {
   );
 }
 
-function formatDurationMs(totalMs: number) {
-  const totalSeconds = Math.floor(totalMs / 1000);
-  const hours = `${Math.floor(totalSeconds / 3600)}`.padStart(2, "0");
-  const minutes = `${Math.floor((totalSeconds % 3600) / 60)}`.padStart(
-    2,
-    "0"
-  );
-  const seconds = `${totalSeconds % 60}`.padStart(2, "0");
-  return `${hours}:${minutes}:${seconds}`;
-}
-
 const copy = {
   versionEyebrow: "\u4e13\u6ce8\u684c\u9762\u52a9\u624b",
-  heroVersion: "v0.6.0 \u4e3b\u754c\u9762\u5206\u533a",
+  heroVersion: "v0.7.0 \u6570\u636e\u4e2d\u5fc3\u57fa\u7840\u7248",
   heroSummary:
-    "\u8fd9\u4e00\u7248\u4e0d\u518d\u4f9d\u8d56\u60ac\u6d6e\u7a97\uff0c\u800c\u662f\u628a\u4e3b\u754c\u9762\u5207\u6210\u51e0\u4e2a\u7a33\u5b9a\u7684\u5de5\u4f5c\u533a\uff1a\u8ba1\u65f6\u3001\u5f85\u529e\u3001\u6570\u636e\u590d\u76d8\u548c\u6269\u5c55\u9884\u7559\u3002",
-  loading: "\u6b63\u5728\u8f7d\u5165 v0.6.0 \u4e3b\u754c\u9762\u5206\u533a...",
-  ready: "\u4e3b\u754c\u9762\u5206\u533a\u5df2\u63a5\u5165\uff0c\u4f60\u53ef\u4ee5\u5728\u4e0d\u540c\u5de5\u4f5c\u533a\u4e4b\u95f4\u7a33\u5b9a\u5207\u6362\u3002",
+    "\u8fd9\u4e00\u7248\u628a\u4e13\u6ce8\u8bb0\u5f55\u548c\u4efb\u52a1\u72b6\u6001\u805a\u5408\u5230\u6570\u636e\u4e2d\u5fc3\u91cc\uff0c\u4f60\u73b0\u5728\u53ef\u4ee5\u76f4\u63a5\u5728\u4e3b\u754c\u9762\u91cc\u770b\u5230\u603b\u89c8\u548c\u6309\u65e5\u590d\u76d8\u3002",
+  loading: "\u6b63\u5728\u8f7d\u5165 v0.7.0 \u6570\u636e\u4e2d\u5fc3\u57fa\u7840\u7248...",
+  ready: "\u6570\u636e\u4e2d\u5fc3\u57fa\u7840\u7248\u5df2\u63a5\u5165\uff0c\u4f60\u73b0\u5728\u53ef\u4ee5\u5728\u4e3b\u754c\u9762\u4e2d\u76f4\u63a5\u67e5\u770b\u805a\u5408\u7edf\u8ba1\u3002",
   fallback: "\u5e94\u7528\u5df2\u4f7f\u7528\u56de\u9000\u6570\u636e\u542f\u52a8\u3002",
   shellFallback: "\u8f7d\u5165\u684c\u9762\u58f3\u5c42\u6570\u636e\u5931\u8d25\u3002",
   minimize: "\u6700\u5c0f\u5316",
@@ -180,9 +173,34 @@ const copy = {
   switcherSummary:
     "\u5728\u8fd9\u91cc\u5207\u6362\u4f60\u5f53\u524d\u8981\u4e13\u6ce8\u7684\u754c\u9762\uff1a\u8ba1\u65f6\u3001\u5f85\u529e\u3001\u6570\u636e\u590d\u76d8\u6216\u540e\u7eed\u6269\u5c55\u3002",
   insightEyebrow: "\u6570\u636e\u590d\u76d8",
-  insightTitle: "\u4e3a\u4e0b\u4e00\u9636\u6bb5\u7edf\u8ba1\u4e2d\u5fc3\u51c6\u5907\u7684\u57fa\u7840\u89c6\u56fe",
+  insightTitle: "\u6570\u636e\u4e2d\u5fc3\u57fa\u7840\u7248\u5df2\u63a5\u5165",
   insightSummary:
-    "\u8fd9\u4e00\u9875\u5148\u628a\u73b0\u6709\u7684\u672c\u5730\u6570\u636e\u6309\u6700\u76f4\u89c2\u7684\u65b9\u5f0f\u5c55\u793a\u51fa\u6765\uff0c\u540e\u7eed\u4f1a\u5728\u6b64\u57fa\u7840\u4e0a\u63a5\u5165\u56fe\u8868\u548c\u8de8\u5929\u7edf\u8ba1\u3002",
+    "\u8fd9\u4e00\u7248\u4f1a\u628a\u672c\u5730\u4e13\u6ce8\u8bb0\u5f55\u548c\u4efb\u52a1\u72b6\u6001\u805a\u5408\u6210\u53ef\u76f4\u89c2\u7684\u603b\u89c8\u6307\u6807\u4e0e\u6309\u65e5\u590d\u76d8\uff0c\u4e3a\u4e0b\u4e00\u7248\u56fe\u8868\u7edf\u8ba1\u6253\u5e95\u3002",
+  insightTotalFocus: "\u603b\u4e13\u6ce8\u65f6\u957f",
+  insightTotalFocusNote: "\u6240\u6709\u5df2\u4fdd\u5b58\u4e13\u6ce8\u8bb0\u5f55\u7684\u7d2f\u79ef\u65f6\u957f",
+  insightSessions: "\u4e13\u6ce8\u6b21\u6570",
+  insightSessionsNote: "\u5df2\u6c89\u6dc0\u5230\u672c\u5730\u7684\u4e13\u6ce8\u4e8b\u4ef6\u603b\u6570",
+  insightActiveDays: "\u6d3b\u8dc3\u5929\u6570",
+  insightActiveDaysNote: "\u5df2\u7ecf\u53d1\u751f\u8fc7\u4e13\u6ce8\u8bb0\u5f55\u7684\u81ea\u7136\u65e5\u6570\u91cf",
+  insightAverageDaily: "\u65e5\u5747\u4e13\u6ce8",
+  insightAverageDailyNote: "\u6309\u6709\u8bb0\u5f55\u7684\u5929\u6570\u8ba1\u7b97\u5f97\u5230\u7684\u65e5\u5747\u65f6\u957f",
+  insightToday: "\u4eca\u65e5\u4e13\u6ce8",
+  insightTodayNote: "\u4eca\u5929\u7d2f\u8ba1\u7684\u4e13\u6ce8\u65f6\u957f\u4e0e\u6b21\u6570",
+  insightTaskProgress: "\u4efb\u52a1\u8fdb\u5ea6",
+  insightTaskProgressNote: "\u5f53\u524d\u5f85\u529e\u4e0e\u5df2\u5b8c\u6210\u4efb\u52a1\u7684\u6570\u91cf\u5206\u5e03",
+  insightRelation: "\u5173\u8054\u60c5\u51b5",
+  insightRelationNote: "\u4e13\u6ce8\u4e8b\u4ef6\u4e2d\u6709\u591a\u5c11\u662f\u7ed1\u5b9a\u4efb\u52a1\u7684",
+  insightDailyEyebrow: "\u6309\u65e5\u590d\u76d8",
+  insightDailyTitle: "\u6700\u8fd1\u7684\u4e13\u6ce8\u6c89\u6dc0\u8282\u594f",
+  insightDailyEmpty: "\u8fd8\u6ca1\u6709\u5f62\u6210\u6309\u65e5\u805a\u5408\u6570\u636e\uff0c\u5b8c\u6210\u51e0\u8f6e\u4e13\u6ce8\u540e\u518d\u56de\u6765\u770b\u3002",
+  insightDailySessions: "\u6b21\u4e13\u6ce8",
+  insightDailyLinked: "\u5173\u8054\u4efb\u52a1",
+  insightDailyIndependent: "\u72ec\u7acb\u4e8b\u4ef6",
+  recordCompletedAt: "\u8bb0\u5f55\u65f6\u95f4",
+  clearData: "\u6e05\u7a7a\u672c\u5730\u6570\u636e",
+  clearDataConfirm:
+    "\u8fd9\u4f1a\u6e05\u7a7a\u672c\u5730\u7684\u4efb\u52a1\u3001\u4e13\u6ce8\u8bb0\u5f55\u548c\u7edf\u8ba1\u7ed3\u679c\uff0c\u786e\u5b9a\u7ee7\u7eed\u5417\uff1f",
+  clearDataDone: "\u5df2\u6e05\u7a7a\u672c\u5730\u6570\u636e",
   labEyebrow: "\u6269\u5c55\u9884\u7559",
   labTitle: "\u540e\u7eed\u529f\u80fd\u5c06\u5728\u8fd9\u91cc\u7ee7\u7eed\u5c55\u5f00",
   labSummary:
@@ -202,10 +220,10 @@ const copy = {
 
 const emptySnapshot: ShellSnapshot = {
   productName: "Focused Moment",
-  version: "0.6.0",
-  milestone: "v0.6.0 \u4e3b\u754c\u9762\u5206\u533a",
+  version: "0.7.0",
+  milestone: "v0.7.0 \u6570\u636e\u4e2d\u5fc3\u57fa\u7840\u7248",
   slogan:
-    "\u4e13\u6ce8\u3001\u5f85\u529e\u548c\u540e\u7eed\u529f\u80fd\u73b0\u5728\u4f1a\u5728\u540c\u4e00\u4e3b\u754c\u9762\u7684\u4e0d\u540c\u5de5\u4f5c\u533a\u91cc\u5c55\u5f00\u3002",
+    "\u4e13\u6ce8\u3001\u5f85\u529e\u548c\u6570\u636e\u590d\u76d8\u73b0\u5728\u5df2\u7ecf\u80fd\u5728\u540c\u4e00\u4e3b\u754c\u9762\u4e2d\u7a33\u5b9a\u534f\u540c\u5de5\u4f5c\u3002",
   surfaces: [],
   reservedExtensions: [],
 };
@@ -223,6 +241,21 @@ const emptyTimerSnapshot: TimerSnapshot = {
   canCompleteSession: true,
 };
 
+const emptyAnalyticsSnapshot: AnalyticsSnapshot = {
+  totalFocusDurationMs: 0,
+  totalFocusDurationLabel: "00:00:00",
+  sessionCount: 0,
+  linkedSessionCount: 0,
+  independentSessionCount: 0,
+  pendingTodoCount: 0,
+  completedTodoCount: 0,
+  activeDays: 0,
+  averageDailyDurationLabel: "00:00:00",
+  todayFocusDurationLabel: "00:00:00",
+  todaySessionCount: 0,
+  dailyBreakdown: [],
+};
+
 function MainShell() {
   const [snapshot, setSnapshot] = createSignal<ShellSnapshot>(emptySnapshot);
   const [timerSnapshot, setTimerSnapshot] =
@@ -230,6 +263,8 @@ function MainShell() {
   const [currentTaskTitle, setCurrentTaskTitle] = createSignal("");
   const [linkedTodoId, setLinkedTodoId] = createSignal<number | null>(null);
   const [records, setRecords] = createSignal<FocusRecord[]>([]);
+  const [analyticsSnapshot, setAnalyticsSnapshot] =
+    createSignal<AnalyticsSnapshot>(emptyAnalyticsSnapshot);
   const [todoItems, setTodoItems] = createSignal<TodoItem[]>([]);
   const [todoDraft, setTodoDraft] =
     createSignal<TodoDraft>(createDefaultTodoDraft());
@@ -277,6 +312,7 @@ function MainShell() {
       timerSnapshot().elapsedMs === 0 &&
       !timerSnapshot().isRunning
     );
+  const latestDailyBreakdown = () => analyticsSnapshot().dailyBreakdown.slice(0, 7);
 
   createEffect(() => {
     const activeLinkedTodoId = linkedTodoId();
@@ -318,6 +354,11 @@ function MainShell() {
     setRecords(nextRecords);
   }
 
+  async function refreshAnalyticsSummary() {
+    const nextAnalyticsSnapshot = await getAnalyticsSnapshot();
+    setAnalyticsSnapshot(nextAnalyticsSnapshot);
+  }
+
   async function refreshTodoItems() {
     const nextTodoItems = await getTodoItems();
     setTodoItems(nextTodoItems);
@@ -350,6 +391,7 @@ function MainShell() {
     try {
       const nextTodoItems = await action();
       setTodoItems(nextTodoItems);
+      await refreshAnalyticsSummary();
     } catch (error) {
       setStatusText(getErrorMessage(error));
     } finally {
@@ -438,12 +480,46 @@ function MainShell() {
       );
       setTimerSnapshot(payload.timerSnapshot);
       setRecords(payload.records);
+      await refreshAnalyticsSummary();
       setStatusText(`\u5df2\u8bb0\u5f55\uff1a${completionTitle()}`);
       setCurrentTaskTitle("");
       setLinkedTodoId(null);
     } catch (error) {
       setStatusText(getErrorMessage(error));
     } finally {
+      setTimerBusy(false);
+    }
+  }
+
+  async function handleClearAppData() {
+    if (todoBusy() || timerBusy()) {
+      return;
+    }
+
+    const shouldClear = window.confirm(copy.clearDataConfirm);
+    if (!shouldClear) {
+      return;
+    }
+
+    setTodoBusy(true);
+    setTimerBusy(true);
+
+    try {
+      await clearAppData();
+      setCurrentTaskTitle("");
+      setLinkedTodoId(null);
+      setEditingTodoId(null);
+      setEditingTodoDraft(createDefaultTodoDraft());
+      setTodoDraft(createDefaultTodoDraft());
+      await refreshTimerSnapshot();
+      await refreshFocusRecords();
+      await refreshTodoItems();
+      await refreshAnalyticsSummary();
+      setStatusText(copy.clearDataDone);
+    } catch (error) {
+      setStatusText(getErrorMessage(error));
+    } finally {
+      setTodoBusy(false);
       setTimerBusy(false);
     }
   }
@@ -455,6 +531,7 @@ function MainShell() {
       await refreshTimerSnapshot();
       await refreshFocusRecords();
       await refreshTodoItems();
+      await refreshAnalyticsSummary();
       setStatusText(copy.ready);
     } catch (error) {
       const message =
@@ -750,6 +827,11 @@ function MainShell() {
                                 ? `${copy.recordLinkedPrefix}${record.linkedTodoTitle}`
                                 : copy.recordIndependent}
                             </span>
+                            {record.completedAt && (
+                              <span class="record-pill record-pill--muted">
+                                {`${copy.recordCompletedAt}\uff1a${record.completedDate} ${record.completedTime}`}
+                              </span>
+                            )}
                           </div>
                         </div>
                         <span>{record.durationLabel}</span>
@@ -1050,48 +1132,66 @@ function MainShell() {
                 <span class="eyebrow">{copy.insightEyebrow}</span>
                 <h2>{copy.insightTitle}</h2>
               </div>
-              <p>{copy.insightSummary}</p>
+              <div class="section-heading__actions">
+                <p>{copy.insightSummary}</p>
+                <button
+                  type="button"
+                  class="action-button"
+                  disabled={todoBusy() || timerBusy()}
+                  onClick={() => void handleClearAppData()}
+                >
+                  {copy.clearData}
+                </button>
+              </div>
             </div>
 
             <div class="metric-grid">
               <article class="metric-card">
-                <span class="metric-label">{"\u4e13\u6ce8\u8bb0\u5f55"}</span>
-                <strong>{records().length}</strong>
+                <span class="metric-label">{copy.insightTotalFocus}</span>
+                <strong>{analyticsSnapshot().totalFocusDurationLabel}</strong>
+                <span class="metric-footnote">{copy.insightTotalFocusNote}</span>
+              </article>
+              <article class="metric-card">
+                <span class="metric-label">{copy.insightSessions}</span>
+                <strong>{analyticsSnapshot().sessionCount}</strong>
+                <span class="metric-footnote">{copy.insightSessionsNote}</span>
+              </article>
+              <article class="metric-card">
+                <span class="metric-label">{copy.insightActiveDays}</span>
+                <strong>{analyticsSnapshot().activeDays}</strong>
+                <span class="metric-footnote">{copy.insightActiveDaysNote}</span>
+              </article>
+              <article class="metric-card">
+                <span class="metric-label">{copy.insightAverageDaily}</span>
+                <strong>{analyticsSnapshot().averageDailyDurationLabel}</strong>
+                <span class="metric-footnote">{copy.insightAverageDailyNote}</span>
+              </article>
+            </div>
+
+            <div class="metric-grid">
+              <article class="metric-card">
+                <span class="metric-label">{copy.insightToday}</span>
+                <strong>{analyticsSnapshot().todayFocusDurationLabel}</strong>
                 <span class="metric-footnote">
-                  {
-                    "\u5f53\u524d\u672c\u5730\u5df2\u4fdd\u5b58\u7684\u4e13\u6ce8\u4e8b\u4ef6\u6570\u91cf"
-                  }
+                  {`${copy.insightTodayNote}\uff1a${analyticsSnapshot().todaySessionCount}${copy.insightDailySessions}`}
                 </span>
               </article>
               <article class="metric-card">
-                <span class="metric-label">{"\u7d2f\u8ba1\u4e13\u6ce8"}</span>
+                <span class="metric-label">{copy.insightTaskProgress}</span>
                 <strong>
-                  {formatDurationMs(
-                    records().reduce((total, record) => total + record.durationMs, 0)
-                  )}
+                  {`${analyticsSnapshot().pendingTodoCount} / ${analyticsSnapshot().completedTodoCount}`}
                 </strong>
                 <span class="metric-footnote">
-                  {
-                    "\u57fa\u4e8e\u73b0\u6709\u8bb0\u5f55\u7d2f\u52a0\u5f97\u5230\u7684\u603b\u65f6\u957f"
-                  }
+                  {`${copy.insightTaskProgressNote}\uff1a\u5f85\u529e ${analyticsSnapshot().pendingTodoCount}\uff0c\u5df2\u5b8c\u6210 ${analyticsSnapshot().completedTodoCount}`}
                 </span>
               </article>
               <article class="metric-card">
-                <span class="metric-label">{"\u5f85\u529e\u603b\u6570"}</span>
-                <strong>{todoItems().length}</strong>
+                <span class="metric-label">{copy.insightRelation}</span>
+                <strong>
+                  {`${analyticsSnapshot().linkedSessionCount} / ${analyticsSnapshot().independentSessionCount}`}
+                </strong>
                 <span class="metric-footnote">
-                  {
-                    "\u5f53\u524d\u672c\u5730\u4efb\u52a1\u5217\u8868\u4e2d\u7684\u5168\u90e8\u4efb\u52a1"
-                  }
-                </span>
-              </article>
-              <article class="metric-card">
-                <span class="metric-label">{"\u5df2\u5b8c\u6210\u4efb\u52a1"}</span>
-                <strong>{completedTodoCount()}</strong>
-                <span class="metric-footnote">
-                  {
-                    "\u540e\u7eed\u56fe\u8868\u4f1a\u5728\u8fd9\u4e2a\u57fa\u7840\u4e0a\u7ee7\u7eed\u5c55\u5f00"
-                  }
+                  {`${copy.insightRelationNote}\uff1a${copy.insightDailyLinked} ${analyticsSnapshot().linkedSessionCount}\uff0c${copy.insightDailyIndependent} ${analyticsSnapshot().independentSessionCount}`}
                 </span>
               </article>
             </div>
@@ -1099,46 +1199,38 @@ function MainShell() {
             <section class="records-panel">
               <div class="records-panel__header">
                 <div>
-                  <span class="eyebrow">{"\u6700\u8fd1\u8bb0\u5f55"}</span>
-                  <h3>
-                    {"\u5148\u7528\u5361\u7247\u65b9\u5f0f\u67e5\u770b\u5df2\u6709\u6570\u636e"}
-                  </h3>
+                  <span class="eyebrow">{copy.insightDailyEyebrow}</span>
+                  <h3>{copy.insightDailyTitle}</h3>
                 </div>
               </div>
 
               <div class="records-list">
-                <For each={records().slice(0, 6)}>
-                  {(record) => (
+                <For each={latestDailyBreakdown()}>
+                  {(day: DailyInsight) => (
                     <article class="record-card">
                       <div class="record-card__main">
                         <div class="record-card__copy">
-                          <strong>{record.title}</strong>
+                          <strong>{day.date}</strong>
                           <div class="record-card__meta">
-                            <span class="record-pill">{record.phaseLabel}</span>
-                            <span
-                              classList={{
-                                "record-pill": true,
-                                "record-pill--muted": !record.linkedTodoTitle,
-                              }}
-                            >
-                              {record.linkedTodoTitle
-                                ? `${copy.recordLinkedPrefix}${record.linkedTodoTitle}`
-                                : copy.recordIndependent}
+                            <span class="record-pill">
+                              {`${day.sessionCount}${copy.insightDailySessions}`}
+                            </span>
+                            <span class="record-pill record-pill--muted">
+                              {`${copy.insightDailyLinked}\uff1a${day.linkedSessionCount}`}
+                            </span>
+                            <span class="record-pill record-pill--muted">
+                              {`${copy.insightDailyIndependent}\uff1a${day.independentSessionCount}`}
                             </span>
                           </div>
                         </div>
-                        <span>{record.durationLabel}</span>
+                        <span>{day.totalDurationLabel}</span>
                       </div>
                     </article>
                   )}
                 </For>
 
-                {records().length === 0 && (
-                  <p class="records-empty">
-                    {
-                      "\u5148\u5b8c\u6210\u51e0\u8f6e\u4e13\u6ce8\uff0c\u518d\u56de\u6765\u67e5\u770b\u66f4\u5b8c\u6574\u7684\u6570\u636e\u590d\u76d8\u3002"
-                    }
-                  </p>
+                {latestDailyBreakdown().length === 0 && (
+                  <p class="records-empty">{copy.insightDailyEmpty}</p>
                 )}
               </div>
             </section>

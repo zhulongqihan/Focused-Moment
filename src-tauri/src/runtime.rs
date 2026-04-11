@@ -1,9 +1,11 @@
 ﻿mod storage;
 
 use std::cmp::Reverse;
+use std::collections::BTreeMap;
 use std::sync::Mutex;
 use std::time::{Duration, Instant, SystemTime};
 
+use chrono::Local;
 use serde::{Deserialize, Serialize};
 use storage::{PersistedState, PersistenceStore};
 
@@ -58,6 +60,12 @@ struct FocusRecord {
     phase_label: String,
     linked_todo_id: Option<u64>,
     linked_todo_title: Option<String>,
+    #[serde(default)]
+    completed_at: String,
+    #[serde(default)]
+    completed_date: String,
+    #[serde(default)]
+    completed_time: String,
 }
 
 #[derive(Clone, Serialize)]
@@ -65,6 +73,34 @@ struct FocusRecord {
 struct CompletionPayload {
     timer_snapshot: TimerSnapshot,
     records: Vec<FocusRecord>,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DailyInsight {
+    date: String,
+    total_duration_ms: u64,
+    total_duration_label: String,
+    session_count: usize,
+    linked_session_count: usize,
+    independent_session_count: usize,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AnalyticsSnapshot {
+    total_focus_duration_ms: u64,
+    total_focus_duration_label: String,
+    session_count: usize,
+    linked_session_count: usize,
+    independent_session_count: usize,
+    pending_todo_count: usize,
+    completed_todo_count: usize,
+    active_days: usize,
+    average_daily_duration_label: String,
+    today_focus_duration_label: String,
+    today_session_count: usize,
+    daily_breakdown: Vec<DailyInsight>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -199,6 +235,51 @@ impl TimerEngineState {
         };
 
         store.save(&persisted)
+    }
+
+    fn clear_all(&self) -> Result<(), String> {
+        {
+            let mut timer = self.timer.lock().map_err(|_| {
+                "\u{8ba1}\u{65f6}\u{5f15}\u{64ce}\u{72b6}\u{6001}\u{9501}\u{5b9a}\u{5931}\u{8d25}"
+                    .to_string()
+            })?;
+            timer.reset();
+            timer.mode = TimerMode::Stopwatch;
+        }
+
+        {
+            let mut records = self.focus_records.lock().map_err(|_| {
+                "\u{8bb0}\u{5f55}\u{5217}\u{8868}\u{72b6}\u{6001}\u{9501}\u{5b9a}\u{5931}\u{8d25}"
+                    .to_string()
+            })?;
+            records.clear();
+        }
+
+        {
+            let mut next_record_id = self.next_record_id.lock().map_err(|_| {
+                "\u{8bb0}\u{5f55}\u{7f16}\u{53f7}\u{72b6}\u{6001}\u{9501}\u{5b9a}\u{5931}\u{8d25}"
+                    .to_string()
+            })?;
+            *next_record_id = 0;
+        }
+
+        {
+            let mut items = self.todo_items.lock().map_err(|_| {
+                "\u{4efb}\u{52a1}\u{5217}\u{8868}\u{72b6}\u{6001}\u{9501}\u{5b9a}\u{5931}\u{8d25}"
+                    .to_string()
+            })?;
+            items.clear();
+        }
+
+        {
+            let mut next_todo_id = self.next_todo_id.lock().map_err(|_| {
+                "\u{4efb}\u{52a1}\u{7f16}\u{53f7}\u{72b6}\u{6001}\u{9501}\u{5b9a}\u{5931}\u{8d25}"
+                    .to_string()
+            })?;
+            *next_todo_id = 0;
+        }
+
+        self.persist()
     }
 }
 
@@ -575,6 +656,98 @@ fn sort_todo_items(items: &mut [TodoItem]) {
     });
 }
 
+fn current_local_markers() -> (String, String, String) {
+    let now = Local::now();
+    (
+        now.format("%Y-%m-%d %H:%M:%S").to_string(),
+        now.format("%Y-%m-%d").to_string(),
+        now.format("%H:%M").to_string(),
+    )
+}
+
+fn analytics_snapshot(records: &[FocusRecord], todo_items: &[TodoItem]) -> AnalyticsSnapshot {
+    let today = Local::now().format("%Y-%m-%d").to_string();
+    let total_focus_duration_ms = records.iter().map(|record| record.duration_ms).sum::<u64>();
+    let session_count = records.len();
+    let linked_session_count = records
+        .iter()
+        .filter(|record| record.linked_todo_id.is_some())
+        .count();
+    let independent_session_count = session_count.saturating_sub(linked_session_count);
+    let pending_todo_count = todo_items.iter().filter(|item| !item.is_completed).count();
+    let completed_todo_count = todo_items.iter().filter(|item| item.is_completed).count();
+
+    let mut grouped = BTreeMap::<String, Vec<&FocusRecord>>::new();
+    for record in records {
+        let date_key = if record.completed_date.trim().is_empty() {
+            "未记录日期".to_string()
+        } else {
+            record.completed_date.clone()
+        };
+
+        grouped.entry(date_key).or_default().push(record);
+    }
+
+    let mut daily_breakdown = grouped
+        .into_iter()
+        .map(|(date, day_records)| {
+            let total_duration_ms = day_records.iter().map(|record| record.duration_ms).sum::<u64>();
+            let session_count = day_records.len();
+            let linked_session_count = day_records
+                .iter()
+                .filter(|record| record.linked_todo_id.is_some())
+                .count();
+            let independent_session_count = session_count.saturating_sub(linked_session_count);
+
+            DailyInsight {
+                date,
+                total_duration_ms,
+                total_duration_label: format_duration_ms(total_duration_ms),
+                session_count,
+                linked_session_count,
+                independent_session_count,
+            }
+        })
+        .collect::<Vec<_>>();
+
+    daily_breakdown.sort_by(|left, right| right.date.cmp(&left.date));
+
+    let active_days = daily_breakdown.len();
+    let average_daily_duration_ms = if active_days == 0 {
+        0
+    } else {
+        total_focus_duration_ms / active_days as u64
+    };
+
+    let today_summary = daily_breakdown
+        .iter()
+        .find(|day| day.date == today)
+        .cloned()
+        .unwrap_or(DailyInsight {
+            date: today,
+            total_duration_ms: 0,
+            total_duration_label: format_duration_ms(0),
+            session_count: 0,
+            linked_session_count: 0,
+            independent_session_count: 0,
+        });
+
+    AnalyticsSnapshot {
+        total_focus_duration_ms,
+        total_focus_duration_label: format_duration_ms(total_focus_duration_ms),
+        session_count,
+        linked_session_count,
+        independent_session_count,
+        pending_todo_count,
+        completed_todo_count,
+        active_days,
+        average_daily_duration_label: format_duration_ms(average_daily_duration_ms),
+        today_focus_duration_label: today_summary.total_duration_label,
+        today_session_count: today_summary.session_count,
+        daily_breakdown,
+    }
+}
+
 fn with_todo_items<T>(
     state: &tauri::State<'_, TimerEngineState>,
     f: impl FnOnce(&mut Vec<TodoItem>) -> Result<T, String>,
@@ -591,9 +764,9 @@ fn with_todo_items<T>(
 fn bootstrap_shell() -> ShellSnapshot {
     ShellSnapshot {
         product_name: "Focused Moment",
-        version: "0.6.0",
-        milestone: "v0.6.0 \u{4e3b}\u{754c}\u{9762}\u{5206}\u{533a}",
-        slogan: "\u{4e13}\u{6ce8}\u{3001}\u{5f85}\u{529e}\u{548c}\u{540e}\u{7eed}\u{529f}\u{80fd}\u{73b0}\u{5728}\u{4f1a}\u{5728}\u{540c}\u{4e00}\u{4e3b}\u{754c}\u{9762}\u{7684}\u{4e0d}\u{540c}\u{5de5}\u{4f5c}\u{533a}\u{91cc}\u{5c55}\u{5f00}\u{3002}",
+        version: "0.7.0",
+        milestone: "v0.7.0 \u{6570}\u{636e}\u{4e2d}\u{5fc3}\u{57fa}\u{7840}\u{7248}",
+        slogan: "\u{4e13}\u{6ce8}\u{3001}\u{5f85}\u{529e}\u{548c}\u{6570}\u{636e}\u{590d}\u{76d8}\u{73b0}\u{5728}\u{5df2}\u{7ecf}\u{80fd}\u{5728}\u{540c}\u{4e00}\u{4e3b}\u{754c}\u{9762}\u{4e2d}\u{7a33}\u{5b9a}\u{534f}\u{540c}\u{5de5}\u{4f5c}\u{3002}",
         surfaces: vec![
             ShellPanel {
                 id: "timer",
@@ -612,9 +785,9 @@ fn bootstrap_shell() -> ShellSnapshot {
             ShellPanel {
                 id: "analytics",
                 title: "\u{6570}\u{636e}\u{590d}\u{76d8}",
-                phase: "v0.7.0-v0.8.0",
-                status: "\u{5f85}\u{5f00}\u{53d1}",
-                summary: "\u{540e}\u{7eed}\u{4f1a}\u{5728}\u{5df2}\u{6709}\u{672c}\u{5730}\u{6570}\u{636e}\u{57fa}\u{7840}\u{4e0a}\u{63d0}\u{4f9b}\u{805a}\u{5408}\u{548c}\u{7edf}\u{8ba1}\u{5c55}\u{793a}\u{3002}",
+                phase: "v0.7.0",
+                status: "\u{5df2}\u{63a5}\u{5165}",
+                summary: "\u{672c}\u{7248}\u{5df2}\u{5728}\u{672c}\u{5730}\u{6570}\u{636e}\u{57fa}\u{7840}\u{4e0a}\u{63d0}\u{4f9b}\u{6309}\u{65e5}\u{805a}\u{5408}\u{3001}\u{603b}\u{89c8}\u{6307}\u{6807}\u{4e0e}\u{6700}\u{8fd1}\u{590d}\u{76d8}\u{89c6}\u{56fe}\u{3002}",
             },
         ],
         reserved_extensions: vec![
@@ -670,6 +843,27 @@ fn get_focus_records(
     })?;
 
     Ok(records.clone())
+}
+
+#[tauri::command]
+fn get_analytics_snapshot(
+    state: tauri::State<'_, TimerEngineState>,
+) -> Result<AnalyticsSnapshot, String> {
+    let records = state.focus_records.lock().map_err(|_| {
+        "\u{8bb0}\u{5f55}\u{5217}\u{8868}\u{72b6}\u{6001}\u{9501}\u{5b9a}\u{5931}\u{8d25}"
+            .to_string()
+    })?;
+    let todo_items = state.todo_items.lock().map_err(|_| {
+        "\u{4efb}\u{52a1}\u{5217}\u{8868}\u{72b6}\u{6001}\u{9501}\u{5b9a}\u{5931}\u{8d25}"
+            .to_string()
+    })?;
+
+    Ok(analytics_snapshot(&records, &todo_items))
+}
+
+#[tauri::command]
+fn clear_app_data(state: tauri::State<'_, TimerEngineState>) -> Result<(), String> {
+    state.clear_all()
 }
 
 #[tauri::command]
@@ -828,6 +1022,7 @@ fn complete_focus_session(
     linked_todo_id: Option<u64>,
 ) -> Result<CompletionPayload, String> {
     let completed_session = with_timer_engine(&state, |engine| engine.complete_focus_session())?;
+    let (completed_at, completed_date, completed_time) = current_local_markers();
 
     let linked_todo_title = match linked_todo_id {
         Some(id) => {
@@ -873,6 +1068,9 @@ fn complete_focus_session(
         phase_label: completed_session.phase_label.to_string(),
         linked_todo_id,
         linked_todo_title,
+        completed_at,
+        completed_date,
+        completed_time,
     };
 
     let records = {
@@ -926,6 +1124,8 @@ pub fn run() {
             get_timer_snapshot,
             switch_timer_mode,
             get_focus_records,
+            get_analytics_snapshot,
+            clear_app_data,
             get_todo_items,
             create_todo_item,
             update_todo_item,

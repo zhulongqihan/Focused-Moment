@@ -38,11 +38,38 @@ export interface FocusRecord {
   phaseLabel: string;
   linkedTodoId: number | null;
   linkedTodoTitle: string | null;
+  completedAt: string;
+  completedDate: string;
+  completedTime: string;
 }
 
 export interface CompletionPayload {
   timerSnapshot: TimerSnapshot;
   records: FocusRecord[];
+}
+
+export interface DailyInsight {
+  date: string;
+  totalDurationMs: number;
+  totalDurationLabel: string;
+  sessionCount: number;
+  linkedSessionCount: number;
+  independentSessionCount: number;
+}
+
+export interface AnalyticsSnapshot {
+  totalFocusDurationMs: number;
+  totalFocusDurationLabel: string;
+  sessionCount: number;
+  linkedSessionCount: number;
+  independentSessionCount: number;
+  pendingTodoCount: number;
+  completedTodoCount: number;
+  activeDays: number;
+  averageDailyDurationLabel: string;
+  todayFocusDurationLabel: string;
+  todaySessionCount: number;
+  dailyBreakdown: DailyInsight[];
 }
 
 export type TodoImportance = "low" | "medium" | "high";
