@@ -602,6 +602,10 @@ body {
   gap: 12px;
 }
 
+.developer-metric-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .metric-card {
   display: grid;
   gap: 6px;
@@ -663,6 +667,14 @@ body {
   align-items: center;
 }
 
+.record-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .record-card__copy {
   display: grid;
   gap: 8px;
@@ -714,6 +726,71 @@ body {
 
 .chart-panel__summary {
   max-width: 36rem;
+}
+
+.review-toolbar {
+  gap: 20px;
+}
+
+.review-toolbar__controls {
+  display: grid;
+  gap: 14px;
+}
+
+.review-range-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid rgba(32, 40, 47, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 252, 247, 0.92);
+  color: var(--text-muted);
+  font: inherit;
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background-color 180ms ease,
+    color 180ms ease;
+}
+
+.filter-chip:hover {
+  transform: translateY(-1px);
+  border-color: rgba(81, 104, 93, 0.2);
+}
+
+.filter-chip--active {
+  background: rgba(81, 104, 93, 0.12);
+  color: var(--accent-strong);
+  border-color: rgba(81, 104, 93, 0.18);
+}
+
+.date-range-inputs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.review-toolbar__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.review-toolbar__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .trend-shell {
@@ -957,6 +1034,10 @@ body {
 .card-grid {
   display: grid;
   gap: 12px;
+}
+
+.developer-card-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .todo-creation {
@@ -1480,9 +1561,24 @@ body {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .developer-card-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .trend-highlights,
   .trend-bars {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .date-range-inputs {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .review-toolbar__footer,
+  .record-card__main,
+  .record-card__actions {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .task-entry__controls,

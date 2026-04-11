@@ -20,6 +20,9 @@ import {
 import {
   clearAppData,
   completeFocusSession,
+  deleteFocusRecord,
+  deleteFocusRecords,
+  exportFocusRecordsCsv,
   getAnalyticsSnapshot,
   getFocusRecords,
   getTimerSnapshot,
@@ -38,27 +41,42 @@ import {
 import "./App.css";
 
 type ViewKey = "focus" | "tasks" | "insights" | "lab";
+type ReviewRangeKey = "today" | "7d" | "30d" | "all" | "custom";
+
+type ReviewSummary = {
+  totalFocusDurationMs: number;
+  totalFocusDurationLabel: string;
+  sessionCount: number;
+  linkedSessionCount: number;
+  independentSessionCount: number;
+  activeDays: number;
+  averageDailyDurationLabel: string;
+  stopwatchSessionCount: number;
+  pomodoroSessionCount: number;
+  linkedTaskCount: number;
+  dailyBreakdown: DailyInsight[];
+};
 
 const viewItems = [
   {
     key: "focus",
-    label: "\u4e13\u6ce8\u8ba1\u65f6",
-    summary: "\u756a\u8304\u949f\u4e0e\u6b63\u5411\u8ba1\u65f6",
+    label: "\u5f00\u59cb\u4e13\u6ce8",
+    summary: "\u6b63\u5411\u8ba1\u65f6\u4e0e\u756a\u8304\u949f",
   },
   {
     key: "tasks",
-    label: "\u5f85\u529e\u6e05\u5355",
-    summary: "\u4efb\u52a1\u6392\u671f\u4e0e\u4e8b\u52a1\u7ba1\u7406",
+    label: "\u7ba1\u7406\u5f85\u529e",
+    summary: "\u5b89\u6392\u4eca\u5929\u8981\u505a\u7684\u4e8b",
   },
   {
     key: "insights",
-    label: "\u6570\u636e\u590d\u76d8",
-    summary: "\u672c\u5730\u8bb0\u5f55\u4e0e\u540e\u7eed\u7edf\u8ba1",
+    label: "\u67e5\u770b\u590d\u76d8",
+    summary: "\u770b\u770b\u6700\u8fd1\u7684\u4e13\u6ce8\u53d8\u5316",
   },
   {
     key: "lab",
-    label: "\u6269\u5c55\u9884\u7559",
-    summary: "\u5956\u52b1\u3001\u517b\u6210\u4e0e\u4e3b\u9898\u65b9\u5411",
+    label: "\u5f00\u53d1\u8005\u4fe1\u606f",
+    summary: "\u7248\u672c\u3001\u72b6\u6001\u4e0e\u6269\u5c55\u9884\u7559",
   },
 ] as const;
 
@@ -66,6 +84,14 @@ const importanceOptions = [
   { key: "high", label: "\u9ad8\u4f18\u5148\u7ea7" },
   { key: "medium", label: "\u4e2d\u4f18\u5148\u7ea7" },
   { key: "low", label: "\u4f4e\u4f18\u5148\u7ea7" },
+] as const;
+
+const reviewRangeOptions = [
+  { key: "today", label: "\u4eca\u5929" },
+  { key: "7d", label: "\u8fd1 7 \u5929" },
+  { key: "30d", label: "\u8fd1 30 \u5929" },
+  { key: "all", label: "\u5168\u90e8" },
+  { key: "custom", label: "\u81ea\u5b9a\u4e49" },
 ] as const;
 
 function getLocalDateValue() {
@@ -101,11 +127,12 @@ function getImportanceLabel(importanceKey: TodoImportance) {
 
 const copy = {
   versionEyebrow: "\u4e13\u6ce8\u684c\u9762\u52a9\u624b",
-  heroVersion: "v1.0.1 \u53d1\u5e03\u4fee\u8ba2\u7248",
-  heroSummary:
-    "\u8fd9\u4e00\u7248\u4e3b\u8981\u8865\u9f50\u53d1\u5e03\u540e\u7684\u5c0f\u4fee\u8ba2\uff1a\u7a97\u53e3\u9876\u90e8\u76f4\u63a5\u652f\u6301\u9000\u51fa\u5e94\u7528\uff0c\u6839\u76ee\u5f55\u6784\u5efa\u4ea7\u7269\u4e5f\u53ef\u4ee5\u5355\u72ec\u6267\u884c\u6e05\u7406\u3002",
-  loading: "\u6b63\u5728\u8f7d\u5165 v1.0.1 \u53d1\u5e03\u4fee\u8ba2\u7248...",
-  ready: "\u53d1\u5e03\u540e\u4fee\u8ba2\u5df2\u5c31\u4f4d\uff0c\u73b0\u5728\u4f60\u53ef\u4ee5\u76f4\u63a5\u4ece\u9876\u90e8\u9000\u51fa\u5e94\u7528\uff0c\u4e5f\u53ef\u4ee5\u5355\u72ec\u6267\u884c\u6784\u5efa\u4ea7\u7269\u6e05\u7406\u547d\u4ee4\u3002",
+  focusEyebrow: "\u4e13\u6ce8\u8ba1\u65f6",
+  focusTitle: "\u4eca\u5929\u60f3\u5148\u5b8c\u6210\u54ea\u4ef6\u4e8b\uff1f",
+  focusSummary:
+    "\u9009\u4e00\u4e2a\u4efb\u52a1\uff0c\u7136\u540e\u7528\u6b63\u5411\u8ba1\u65f6\u6216\u756a\u8304\u949f\u628a\u5b83\u5b89\u9759\u5730\u505a\u5b8c\u3002",
+  loading: "\u6b63\u5728\u8f7d\u5165 Focused Moment...",
+  ready: "\u51c6\u5907\u597d\u4e86\uff0c\u4f60\u53ef\u4ee5\u968f\u65f6\u5f00\u59cb\u4e00\u8f6e\u4e13\u6ce8\u3002",
   fallback: "\u5e94\u7528\u5df2\u4f7f\u7528\u56de\u9000\u6570\u636e\u542f\u52a8\u3002",
   shellFallback: "\u8f7d\u5165\u684c\u9762\u58f3\u5c42\u6570\u636e\u5931\u8d25\u3002",
   minimize: "\u6700\u5c0f\u5316",
@@ -115,6 +142,14 @@ const copy = {
   dragHint: "\u6309\u4f4f\u9876\u90e8\u7a7a\u767d\u533a\u53ef\u62d6\u52a8\u7a97\u53e3",
   dragSubhint: "\u53cc\u51fb\u8fd9\u5757\u533a\u57df\u53ef\u5207\u6362\u6700\u5927\u5316",
   trayHint: "\u70b9\u51fb\u201c\u9690\u85cf\u201d\u540e\u4f1a\u9a7b\u7559\u5728\u7cfb\u7edf\u6258\u76d8\uff0c\u53ef\u4ece\u6258\u76d8\u56fe\u6807\u91cd\u65b0\u6253\u5f00\uff1b\u5982\u9700\u5b8c\u5168\u5173\u95ed\uff0c\u8bf7\u70b9\u51fb\u201c\u9000\u51fa\u201d\u3002",
+  focusTodayLabel: "\u4eca\u65e5\u4e13\u6ce8",
+  focusTodayNote: "\u4eca\u5929\u7d2f\u8ba1\u5b8c\u6210\u7684\u4e13\u6ce8\u65f6\u957f",
+  focusRecordsLabel: "\u5df2\u8bb0\u4e0b",
+  focusRecordsNote: "\u8fd9\u6bb5\u65f6\u95f4\u4fdd\u5b58\u4e0b\u6765\u7684\u4e13\u6ce8\u8bb0\u5f55",
+  focusPendingLabel: "\u5f85\u529e\u4e8b\u9879",
+  focusPendingNote: "\u8fd8\u6ca1\u6709\u5b8c\u6210\u7684\u4efb\u52a1\u6570\u91cf",
+  focusModeLabel: "\u5f53\u524d\u8282\u594f",
+  focusModeNote: "\u4f60\u73b0\u5728\u6b63\u5728\u4f7f\u7528\u7684\u4e13\u6ce8\u65b9\u5f0f",
   modeSwitchEyebrow: "\u8ba1\u65f6\u6a21\u5f0f",
   stopwatchMode: "\u6b63\u5411\u8ba1\u65f6",
   pomodoroMode: "\u756a\u8304\u949f",
@@ -148,15 +183,15 @@ const copy = {
   timingCorrection: "\u6821\u6b63\u65b9\u5f0f",
   timingCorrectionNote: "\u5df2\u8003\u8651\u540e\u53f0\u8fd0\u884c\u548c\u7cfb\u7edf\u4f11\u7720\u540e\u7684\u65f6\u95f4\u5dee\u503c",
   recordsEyebrow: "\u4e13\u6ce8\u8bb0\u5f55",
-  recordsTitle: "\u672c\u6b21\u8fd0\u884c\u5185\u5df2\u6c89\u6dc0\u7684\u4e13\u6ce8\u4e8b\u4ef6",
-  recordsEmpty: "\u8fd8\u6ca1\u6709\u8bb0\u5f55\uff0c\u5b8c\u6210\u4e00\u8f6e\u4e13\u6ce8\u540e\u4f1a\u51fa\u73b0\u5728\u8fd9\u91cc\u3002",
+  recordsTitle: "\u6700\u8fd1\u8bb0\u4e0b\u6765\u7684\u4e13\u6ce8",
+  recordsEmpty: "\u8fd8\u6ca1\u6709\u4e13\u6ce8\u8bb0\u5f55\uff0c\u5b8c\u6210\u7b2c\u4e00\u8f6e\u540e\u5c31\u4f1a\u51fa\u73b0\u5728\u8fd9\u91cc\u3002",
   unnamedTask: "\u672a\u547d\u540d\u4e8b\u52a1",
   recordIndependent: "\u72ec\u7acb\u4e8b\u4ef6",
   recordLinkedPrefix: "\u5173\u8054\u4efb\u52a1\uff1a",
-  todoEyebrow: "\u4efb\u52a1\u9762\u677f",
-  todoTitle: "\u4eca\u5929\u8981\u63a8\u8fdb\u7684\u4e8b\u60c5",
+  todoEyebrow: "\u5f85\u529e\u7ba1\u7406",
+  todoTitle: "\u628a\u4eca\u5929\u8981\u505a\u7684\u4e8b\u6392\u6e05\u695a",
   todoSummary:
-    "\u4efb\u52a1\u73b0\u5728\u4e0d\u53ea\u662f\u6392\u671f\u9879\uff0c\u4e5f\u53ef\u4ee5\u5728\u8bb0\u5f55\u4e13\u6ce8\u65f6\u4f5c\u4e3a\u5173\u8054\u5bf9\u8c61\u88ab\u9009\u4e2d\uff0c\u65b9\u4fbf\u540e\u7eed\u7ee7\u7eed\u505a\u6c89\u6dc0\u548c\u590d\u76d8\u3002",
+    "\u628a\u60f3\u505a\u7684\u4e8b\u3001\u9884\u8ba1\u65f6\u95f4\u548c\u91cd\u8981\u7a0b\u5ea6\u8bb0\u4e0b\u6765\uff0c\u7b49\u5f00\u59cb\u4e13\u6ce8\u65f6\u518d\u76f4\u63a5\u5173\u8054\u5b83\u3002",
   todoPlaceholder: "\u65b0\u589e\u4e00\u4e2a\u4efb\u52a1\uff0c\u4f8b\u5982\uff1a\u8865\u5b8c\u5468\u62a5\u521d\u7a3f",
   todoDateLabel: "\u65e5\u671f",
   todoTimeLabel: "\u5f00\u59cb\u65f6\u95f4",
@@ -174,28 +209,39 @@ const copy = {
   todoDateValueLabel: "\u65e5\u671f",
   todoTimeValueLabel: "\u5f00\u59cb",
   todoImportanceValueLabel: "\u91cd\u8981",
-  switcherEyebrow: "\u5de5\u4f5c\u533a\u5207\u6362",
-  switcherTitle: "\u628a\u529f\u80fd\u653e\u8fdb\u66f4\u7a33\u5b9a\u7684\u4e3b\u754c\u9762\u5206\u533a",
+  switcherEyebrow: "\u529f\u80fd\u5bfc\u822a",
+  switcherTitle: "\u4eca\u5929\u60f3\u5148\u505a\u4ec0\u4e48\uff1f",
   switcherSummary:
-    "\u5728\u8fd9\u91cc\u5207\u6362\u4f60\u5f53\u524d\u8981\u4e13\u6ce8\u7684\u754c\u9762\uff1a\u8ba1\u65f6\u3001\u5f85\u529e\u3001\u6570\u636e\u590d\u76d8\u6216\u540e\u7eed\u6269\u5c55\u3002",
+    "\u5728\u4e13\u6ce8\u3001\u5f85\u529e\u548c\u590d\u76d8\u4e4b\u95f4\u5207\u6362\u3002\u5982\u679c\u4f60\u9700\u8981\u770b\u7248\u672c\u3001\u72b6\u6001\u6216\u5176\u4ed6\u5185\u90e8\u4fe1\u606f\uff0c\u53ef\u4ee5\u53bb\u201c\u5f00\u53d1\u8005\u4fe1\u606f\u201d\u9875\u9762\u3002",
   insightEyebrow: "\u6570\u636e\u590d\u76d8",
-  insightTitle: "\u8d8b\u52bf\u56fe\u8868\u7248\u5df2\u63a5\u5165",
+  insightTitle: "\u770b\u770b\u8fd9\u6bb5\u65f6\u95f4\u7684\u4e13\u6ce8\u8282\u594f",
   insightSummary:
-    "\u8fd9\u4e00\u7248\u5728\u539f\u6709\u603b\u89c8\u6307\u6807\u4e0a\u8865\u4e0a\u4e86\u8f7b\u91cf\u8d8b\u52bf\u56fe\u8868\uff0c\u8ba9\u4f60\u66f4\u5bb9\u6613\u770b\u51fa\u6bcf\u5929\u7684\u4e13\u6ce8\u53d8\u5316\u548c\u8fd1\u671f\u8282\u594f\u3002",
-  insightTotalFocus: "\u603b\u4e13\u6ce8\u65f6\u957f",
-  insightTotalFocusNote: "\u6240\u6709\u5df2\u4fdd\u5b58\u4e13\u6ce8\u8bb0\u5f55\u7684\u7d2f\u79ef\u65f6\u957f",
-  insightSessions: "\u4e13\u6ce8\u6b21\u6570",
-  insightSessionsNote: "\u5df2\u6c89\u6dc0\u5230\u672c\u5730\u7684\u4e13\u6ce8\u4e8b\u4ef6\u603b\u6570",
+    "\u5728\u8fd9\u91cc\u770b\u603b\u65f6\u957f\u3001\u8fdb\u5ea6\u548c\u8fd1\u671f\u53d8\u5316\uff0c\u4f60\u4f1a\u66f4\u5bb9\u6613\u77e5\u9053\u81ea\u5df1\u6700\u8fd1\u7684\u72b6\u6001\u600e\u4e48\u6837\u3002",
+  insightFilterEyebrow: "\u590d\u76d8\u8303\u56f4",
+  insightFilterTitle: "\u5148\u9009\u4e00\u4e2a\u4f60\u60f3\u770b\u7684\u65f6\u95f4\u6bb5",
+  insightFilterSummary:
+    "\u53ef\u4ee5\u5207\u5230\u4eca\u5929\u3001\u8fd1 7 \u5929\u3001\u8fd1 30 \u5929\u6216\u81ea\u5b9a\u4e49\u65f6\u95f4\uff0c\u4e0b\u9762\u7684\u6307\u6807\u3001\u56fe\u8868\u548c\u8bb0\u5f55\u90fd\u4f1a\u8ddf\u7740\u4e00\u8d77\u53d8\u3002",
+  insightCustomStart: "\u5f00\u59cb\u65e5\u671f",
+  insightCustomEnd: "\u7ed3\u675f\u65e5\u671f",
+  insightRangeLabelPrefix: "\u5f53\u524d\u8303\u56f4",
+  insightTotalFocus: "\u8303\u56f4\u5185\u4e13\u6ce8\u65f6\u957f",
+  insightTotalFocusNote: "\u5f53\u524d\u7b5b\u9009\u8303\u56f4\u5185\u6240\u6709\u4e13\u6ce8\u8bb0\u5f55\u7684\u7d2f\u79ef\u65f6\u957f",
+  insightSessions: "\u8303\u56f4\u5185\u4e13\u6ce8\u6b21\u6570",
+  insightSessionsNote: "\u5f53\u524d\u8303\u56f4\u5185\u5df2\u7ecf\u8bb0\u4e0b\u6765\u7684\u4e13\u6ce8\u4e8b\u4ef6\u6570\u91cf",
   insightActiveDays: "\u6d3b\u8dc3\u5929\u6570",
-  insightActiveDaysNote: "\u5df2\u7ecf\u53d1\u751f\u8fc7\u4e13\u6ce8\u8bb0\u5f55\u7684\u81ea\u7136\u65e5\u6570\u91cf",
+  insightActiveDaysNote: "\u5f53\u524d\u8303\u56f4\u5185\u51fa\u73b0\u8fc7\u4e13\u6ce8\u8bb0\u5f55\u7684\u81ea\u7136\u65e5\u6570",
   insightAverageDaily: "\u65e5\u5747\u4e13\u6ce8",
-  insightAverageDailyNote: "\u6309\u6709\u8bb0\u5f55\u7684\u5929\u6570\u8ba1\u7b97\u5f97\u5230\u7684\u65e5\u5747\u65f6\u957f",
-  insightToday: "\u4eca\u65e5\u4e13\u6ce8",
-  insightTodayNote: "\u4eca\u5929\u7d2f\u8ba1\u7684\u4e13\u6ce8\u65f6\u957f\u4e0e\u6b21\u6570",
-  insightTaskProgress: "\u4efb\u52a1\u8fdb\u5ea6",
-  insightTaskProgressNote: "\u5f53\u524d\u5f85\u529e\u4e0e\u5df2\u5b8c\u6210\u4efb\u52a1\u7684\u6570\u91cf\u5206\u5e03",
+  insightAverageDailyNote: "\u6309\u6709\u8bb0\u5f55\u7684\u5929\u6570\u8ba1\u7b97\u5f97\u5230\u7684\u8303\u56f4\u5185\u65e5\u5747\u65f6\u957f",
+  insightStopwatch: "\u6b63\u5411\u8ba1\u65f6",
+  insightStopwatchNote: "\u5f53\u524d\u8303\u56f4\u5185\u6709\u591a\u5c11\u8f6e\u662f\u4ee5\u6b63\u5411\u8ba1\u65f6\u5b8c\u6210\u7684",
+  insightPomodoro: "\u756a\u8304\u949f",
+  insightPomodoroNote: "\u5f53\u524d\u8303\u56f4\u5185\u6709\u591a\u5c11\u8f6e\u662f\u4ee5\u756a\u8304\u949f\u5b8c\u6210\u7684",
+  insightTaskProgress: "\u5f53\u524d\u5f85\u529e",
+  insightTaskProgressNote: "\u8fd9\u662f\u4f60\u73b0\u5728\u5f85\u63a8\u8fdb\u548c\u5df2\u5b8c\u6210\u7684\u4efb\u52a1\u6570\u91cf",
   insightRelation: "\u5173\u8054\u60c5\u51b5",
-  insightRelationNote: "\u4e13\u6ce8\u4e8b\u4ef6\u4e2d\u6709\u591a\u5c11\u662f\u7ed1\u5b9a\u4efb\u52a1\u7684",
+  insightRelationNote: "\u5f53\u524d\u8303\u56f4\u5185\u6709\u591a\u5c11\u8f6e\u4e13\u6ce8\u662f\u4e0e\u4efb\u52a1\u5173\u8054\u7684",
+  insightLinkedTasks: "\u5173\u8054\u4efb\u52a1\u6570",
+  insightLinkedTasksNote: "\u5f53\u524d\u8303\u56f4\u5185\u88ab\u4e13\u6ce8\u8bb0\u5f55\u5173\u8054\u5230\u7684\u4efb\u52a1\u6570\u91cf",
   insightDailyEyebrow: "\u6309\u65e5\u590d\u76d8",
   insightDailyTitle: "\u6700\u8fd1\u7684\u4e13\u6ce8\u6c89\u6dc0\u8282\u594f",
   insightDailyEmpty: "\u8fd8\u6ca1\u6709\u5f62\u6210\u6309\u65e5\u805a\u5408\u6570\u636e\uff0c\u5b8c\u6210\u51e0\u8f6e\u4e13\u6ce8\u540e\u518d\u56de\u6765\u770b\u3002",
@@ -212,22 +258,38 @@ const copy = {
   insightTrendSessions: "\u7a97\u53e3\u5185\u4e13\u6ce8\u6b21\u6570",
   insightTrendSingleDay: "\u5f53\u524d\u53ea\u6709 1 \u5929\u6570\u636e\uff0c\u5148\u7528\u805a\u7126\u5361\u7247\u5e2e\u4f60\u770b\u6e05\u8fd9\u4e00\u5929\u7684\u8282\u594f\u3002",
   recordCompletedAt: "\u8bb0\u5f55\u65f6\u95f4",
+  insightRecordsEyebrow: "\u8be6\u7ec6\u8bb0\u5f55",
+  insightRecordsTitle: "\u5f53\u524d\u8303\u56f4\u5185\u7684\u6bcf\u4e00\u6761\u4e13\u6ce8",
+  insightRecordsEmpty: "\u5f53\u524d\u8303\u56f4\u91cc\u8fd8\u6ca1\u6709\u4e13\u6ce8\u8bb0\u5f55\u3002",
+  recordDelete: "\u5220\u9664\u8fd9\u6761",
+  exportCsv: "\u5bfc\u51fa\u5f53\u524d\u8303\u56f4 CSV",
+  exportDonePrefix: "CSV \u5df2\u5bfc\u51fa\u5230",
+  clearRange: "\u6e05\u7406\u5f53\u524d\u8303\u56f4",
+  clearRangeConfirm:
+    "\u8fd9\u4f1a\u5220\u6389\u5f53\u524d\u7b5b\u9009\u8303\u56f4\u5185\u7684\u4e13\u6ce8\u8bb0\u5f55\uff0c\u4f46\u4e0d\u4f1a\u78b0\u5f85\u529e\u4efb\u52a1\uff0c\u786e\u5b9a\u7ee7\u7eed\u5417\uff1f",
+  clearRangeDone: "\u5df2\u6e05\u7406\u5f53\u524d\u8303\u56f4\u7684\u4e13\u6ce8\u8bb0\u5f55",
   clearData: "\u6e05\u7a7a\u672c\u5730\u6570\u636e",
   clearDataConfirm:
     "\u8fd9\u4f1a\u6e05\u7a7a\u672c\u5730\u7684\u4efb\u52a1\u3001\u4e13\u6ce8\u8bb0\u5f55\u548c\u7edf\u8ba1\u7ed3\u679c\uff0c\u786e\u5b9a\u7ee7\u7eed\u5417\uff1f",
   clearDataDone: "\u5df2\u6e05\u7a7a\u672c\u5730\u6570\u636e",
-  labEyebrow: "\u6269\u5c55\u9884\u7559",
-  labTitle: "\u540e\u7eed\u529f\u80fd\u5c06\u5728\u8fd9\u91cc\u7ee7\u7eed\u5c55\u5f00",
-  labSummary:
-    "\u5f53\u524d MVP \u5148\u805a\u7126\u8ba1\u65f6\u548c\u5f85\u529e\uff0c\u4f46\u5e95\u5c42\u5df2\u7ecf\u4e3a\u5956\u52b1\u7cfb\u7edf\u3001\u6210\u957f\u4f53\u7cfb\u4e0e\u4e3b\u9898\u6269\u5c55\u9884\u7559\u4e86\u63a5\u53e3\u4f4d\u7f6e\u3002",
-  roadmapEyebrow: "\u7248\u672c\u8def\u7ebf",
-  roadmapTitle: "\u540e\u9762\u4f1a\u63a5\u4e0a\u7684\u6a21\u5757",
-  roadmapSummary:
-    "\u73b0\u5728\u4e3b\u754c\u9762\u5df2\u7ecf\u80fd\u5728\u4e0d\u540c\u5de5\u4f5c\u533a\u4e4b\u95f4\u7a33\u5b9a\u5207\u6362\uff0c\u4e0b\u4e00\u6b65\u4f1a\u7ee7\u7eed\u8865\u4e0a\u66f4\u5b8c\u6574\u7684\u6570\u636e\u590d\u76d8\u548c\u540e\u53f0\u5e38\u9a7b\u4f53\u9a8c\u3002",
-  reservedEyebrow: "\u6269\u5c55\u9884\u7559",
-  reservedTitle: "\u4e3a\u4e86\u540e\u7eed\u529f\u80fd\u4fdd\u7559\u7684\u63a5\u53e3\u65b9\u5411",
-  reservedSummary:
-    "\u8fd9\u4e9b\u80fd\u529b\u4e0d\u4f1a\u8fdb\u5165\u5f53\u524d MVP\uff0c\u4f46\u5e95\u5c42\u7ed3\u6784\u5df2\u7ecf\u9884\u7559\u4e86\u7a7a\u95f4\uff0c\u540e\u9762\u53ef\u4ee5\u7ee7\u7eed\u53e0\u52a0\u800c\u4e0d\u9700\u8981\u63a8\u7ffb\u91cd\u505a\u3002",
+  developerEyebrow: "\u5f00\u53d1\u8005\u4fe1\u606f",
+  developerTitle: "\u8fd9\u4e9b\u5185\u90e8\u4fe1\u606f\u90fd\u6536\u5728\u8fd9\u91cc",
+  developerSummary:
+    "\u7248\u672c\u53f7\u3001\u8fd0\u884c\u72b6\u6001\u3001\u65f6\u95f4\u6821\u6b63\u65b9\u5f0f\u3001\u672a\u6765\u6269\u5c55\u9884\u7559\u7b49\u5185\u5bb9\u90fd\u79fb\u5230\u4e86\u8fd9\u4e2a\u9875\u9762\uff0c\u65e5\u5e38\u4f7f\u7528\u65f6\u53ef\u4ee5\u76f4\u63a5\u5ffd\u7565\u5b83\u3002",
+  developerVersionLabel: "\u5e94\u7528\u7248\u672c",
+  developerVersionNote: "\u5f53\u524d\u6784\u5efa\u6240\u5bf9\u5e94\u7684\u7248\u672c\u53f7",
+  developerMilestoneLabel: "\u5f53\u524d\u9636\u6bb5",
+  developerMilestoneNote: "\u8fd9\u4e00\u7248\u5185\u90e8\u6807\u8bb0\u7684\u7814\u53d1\u9636\u6bb5",
+  developerStatusLabel: "\u8fd0\u884c\u72b6\u6001",
+  developerStatusNote: "\u542f\u52a8\u548c\u4ea4\u4e92\u8fc7\u7a0b\u4e2d\u7684\u6700\u65b0\u72b6\u6001\u6587\u5b57",
+  developerStorageLabel: "\u6570\u636e\u5b58\u50a8",
+  developerStorageNote: "\u6240\u6709\u4efb\u52a1\u548c\u4e13\u6ce8\u8bb0\u5f55\u9ed8\u8ba4\u4fdd\u5b58\u5728\u672c\u5730",
+  developerInfoEyebrow: "\u8fd0\u884c\u4fe1\u606f",
+  developerInfoTitle: "\u4e0e\u8fd9\u4e2a\u7248\u672c\u76f8\u5173\u7684\u5185\u90e8\u8bf4\u660e",
+  developerModulesEyebrow: "\u6a21\u5757\u8def\u7ebf",
+  developerModulesTitle: "\u5df2\u5b8c\u6210\u548c\u9884\u7559\u7684\u80fd\u529b",
+  developerModulesSummary:
+    "\u8fd9\u91cc\u4f1a\u96c6\u4e2d\u663e\u793a\u5df2\u63a5\u5165\u7684\u6a21\u5757\u3001\u5f53\u524d\u7684\u5f00\u53d1\u9636\u6bb5\uff0c\u4ee5\u53ca\u540e\u7eed\u6269\u5c55\u9884\u7559\u3002",
   fallbackPrefix: "\u8f7d\u5165\u56de\u9000\u4fe1\u606f\uff1a",
   windows: "Windows",
   defaultError: "\u64cd\u4f5c\u6ca1\u6709\u6210\u529f\uff0c\u8bf7\u91cd\u8bd5\u3002",
@@ -235,10 +297,10 @@ const copy = {
 
 const emptySnapshot: ShellSnapshot = {
   productName: "Focused Moment",
-  version: "1.0.1",
-  milestone: "v1.0.1 \u53d1\u5e03\u4fee\u8ba2\u7248",
+  version: "1.1.0",
+  milestone: "v1.1.0 \u6570\u636e\u4e2d\u5fc3\u589e\u5f3a\u7248",
   slogan:
-    "\u4e13\u6ce8\u3001\u5f85\u529e\u3001\u6570\u636e\u590d\u76d8\u4e0e\u6258\u76d8\u5e38\u9a7b\u73b0\u5728\u5df2\u7ecf\u80fd\u4ee5\u6b63\u5f0f\u53d1\u5e03\u5f62\u6001\u5728 Windows \u4e0a\u4f7f\u7528\u3002",
+    "\u7528\u66f4\u8f7b\u7684\u65b9\u5f0f\u4e13\u6ce8\u3001\u5b89\u6392\u548c\u590d\u76d8\u6bcf\u4e00\u5929\u3002",
   surfaces: [],
   reservedExtensions: [],
 };
@@ -288,6 +350,121 @@ function formatDurationLabel(durationMs: number) {
   return `${hours}:${minutes}:${seconds}`;
 }
 
+function isIsoDateValue(value: string) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+function addDaysToIsoDate(baseDate: string, offsetDays: number) {
+  const nextDate = new Date(`${baseDate}T00:00:00`);
+  nextDate.setDate(nextDate.getDate() + offsetDays);
+  return nextDate.toISOString().slice(0, 10);
+}
+
+function normalizeCustomRange(startDate: string, endDate: string) {
+  if (!isIsoDateValue(startDate) && !isIsoDateValue(endDate)) {
+    return { startDate: "", endDate: "" };
+  }
+
+  if (!isIsoDateValue(startDate)) {
+    return { startDate: endDate, endDate };
+  }
+
+  if (!isIsoDateValue(endDate)) {
+    return { startDate, endDate: startDate };
+  }
+
+  return startDate <= endDate
+    ? { startDate, endDate }
+    : { startDate: endDate, endDate: startDate };
+}
+
+function buildDailyBreakdown(records: FocusRecord[]): DailyInsight[] {
+  const groups = new Map<
+    string,
+    {
+      totalDurationMs: number;
+      sessionCount: number;
+      linkedSessionCount: number;
+      independentSessionCount: number;
+    }
+  >();
+
+  for (const record of records) {
+    const dateKey =
+      record.completedDate && isIsoDateValue(record.completedDate)
+        ? record.completedDate
+        : "\u672a\u8bb0\u5f55\u65e5\u671f";
+    const current = groups.get(dateKey) ?? {
+      totalDurationMs: 0,
+      sessionCount: 0,
+      linkedSessionCount: 0,
+      independentSessionCount: 0,
+    };
+
+    current.totalDurationMs += record.durationMs;
+    current.sessionCount += 1;
+    if (record.linkedTodoId !== null) {
+      current.linkedSessionCount += 1;
+    } else {
+      current.independentSessionCount += 1;
+    }
+
+    groups.set(dateKey, current);
+  }
+
+  return [...groups.entries()]
+    .map(([date, summary]) => ({
+      date,
+      totalDurationMs: summary.totalDurationMs,
+      totalDurationLabel: formatDurationLabel(summary.totalDurationMs),
+      sessionCount: summary.sessionCount,
+      linkedSessionCount: summary.linkedSessionCount,
+      independentSessionCount: summary.independentSessionCount,
+    }))
+    .sort((left, right) => right.date.localeCompare(left.date));
+}
+
+function buildReviewSummary(records: FocusRecord[]): ReviewSummary {
+  const totalFocusDurationMs = records.reduce(
+    (total, record) => total + record.durationMs,
+    0
+  );
+  const dailyBreakdown = buildDailyBreakdown(records);
+  const linkedSessionCount = records.filter(
+    (record) => record.linkedTodoId !== null
+  ).length;
+  const sessionCount = records.length;
+  const activeDays = dailyBreakdown.filter((day) => isIsoDateValue(day.date)).length;
+  const stopwatchSessionCount = records.filter(
+    (record) => record.modeKey === "stopwatch"
+  ).length;
+  const pomodoroSessionCount = records.filter(
+    (record) => record.modeKey === "pomodoro"
+  ).length;
+  const linkedTaskCount = new Set(
+    records
+      .map((record) => record.linkedTodoId)
+      .filter((id): id is number => id !== null)
+  ).size;
+
+  return {
+    totalFocusDurationMs,
+    totalFocusDurationLabel: formatDurationLabel(totalFocusDurationMs),
+    sessionCount,
+    linkedSessionCount,
+    independentSessionCount: sessionCount - linkedSessionCount,
+    activeDays,
+    averageDailyDurationLabel:
+      activeDays > 0
+        ? formatDurationLabel(totalFocusDurationMs / activeDays)
+        : "00:00:00",
+    stopwatchSessionCount,
+    pomodoroSessionCount,
+    linkedTaskCount,
+    dailyBreakdown,
+  };
+}
+
 function MainShell() {
   const [snapshot, setSnapshot] = createSignal<ShellSnapshot>(emptySnapshot);
   const [timerSnapshot, setTimerSnapshot] =
@@ -308,6 +485,9 @@ function MainShell() {
   const [timerBusy, setTimerBusy] = createSignal(false);
   const [todoBusy, setTodoBusy] = createSignal(false);
   const [activeView, setActiveView] = createSignal<ViewKey>("focus");
+  const [reviewRange, setReviewRange] = createSignal<ReviewRangeKey>("7d");
+  const [customStartDate, setCustomStartDate] = createSignal(getLocalDateValue());
+  const [customEndDate, setCustomEndDate] = createSignal(getLocalDateValue());
 
   const timerReady = () => !bootError();
   const taskHintText = () =>
@@ -318,6 +498,7 @@ function MainShell() {
     todoItems().filter((item) => !item.isCompleted).length;
   const completedTodoCount = () =>
     todoItems().filter((item) => item.isCompleted).length;
+  const storedRecordCount = () => analyticsSnapshot().sessionCount;
   const linkedTodoItem = () =>
     todoItems().find((item) => item.id === linkedTodoId()) ?? null;
   const linkedTodoValue = () =>
@@ -344,7 +525,57 @@ function MainShell() {
       timerSnapshot().elapsedMs === 0 &&
       !timerSnapshot().isRunning
     );
-  const latestDailyBreakdown = () => analyticsSnapshot().dailyBreakdown.slice(0, 7);
+  const normalizedCustomRange = () =>
+    normalizeCustomRange(customStartDate(), customEndDate());
+  const reviewRangeLabel = () => {
+    const option = reviewRangeOptions.find((item) => item.key === reviewRange());
+    if (reviewRange() !== "custom") {
+      return option?.label ?? copy.defaultError;
+    }
+
+    const { startDate, endDate } = normalizedCustomRange();
+    if (!startDate || !endDate) {
+      return option?.label ?? copy.defaultError;
+    }
+
+    return `${formatTrendDateLabel(startDate)} - ${formatTrendDateLabel(endDate)}`;
+  };
+  const filteredInsightRecords = () => {
+    const preset = reviewRange();
+    const today = getLocalDateValue();
+    const { startDate, endDate } = normalizedCustomRange();
+
+    return records().filter((record) => {
+      if (preset === "all") {
+        return true;
+      }
+
+      if (!isIsoDateValue(record.completedDate)) {
+        return false;
+      }
+
+      switch (preset) {
+        case "today":
+          return record.completedDate === today;
+        case "7d":
+          return record.completedDate >= addDaysToIsoDate(today, -6);
+        case "30d":
+          return record.completedDate >= addDaysToIsoDate(today, -29);
+        case "custom":
+          if (!startDate || !endDate) {
+            return false;
+          }
+          return (
+            record.completedDate >= startDate && record.completedDate <= endDate
+          );
+        default:
+          return true;
+      }
+    });
+  };
+  const filteredReviewSummary = () => buildReviewSummary(filteredInsightRecords());
+  const latestDailyBreakdown = () =>
+    filteredReviewSummary().dailyBreakdown.slice(0, 7);
   const orderedTrendDays = () => latestDailyBreakdown().slice().reverse();
   const latestTrendDay = () => {
     const days = orderedTrendDays();
@@ -610,6 +841,83 @@ function MainShell() {
     }
   }
 
+  async function handleDeleteRecord(id: number, title: string) {
+    if (timerBusy()) {
+      return;
+    }
+
+    const shouldDelete = window.confirm(`确定删除这条专注记录吗？\n\n${title}`);
+    if (!shouldDelete) {
+      return;
+    }
+
+    setTimerBusy(true);
+
+    try {
+      const nextRecords = await deleteFocusRecord(id);
+      setRecords(nextRecords);
+      await refreshAnalyticsSummary();
+      setStatusText(`已删除专注记录：${title}`);
+    } catch (error) {
+      setStatusText(getErrorMessage(error));
+    } finally {
+      setTimerBusy(false);
+    }
+  }
+
+  async function handleClearRangeRecords() {
+    if (timerBusy()) {
+      return;
+    }
+
+    const ids = filteredInsightRecords().map((record) => record.id);
+    if (ids.length === 0) {
+      setStatusText(copy.insightRecordsEmpty);
+      return;
+    }
+
+    const shouldClear = window.confirm(copy.clearRangeConfirm);
+    if (!shouldClear) {
+      return;
+    }
+
+    setTimerBusy(true);
+
+    try {
+      const nextRecords = await deleteFocusRecords(ids);
+      setRecords(nextRecords);
+      await refreshAnalyticsSummary();
+      setStatusText(copy.clearRangeDone);
+    } catch (error) {
+      setStatusText(getErrorMessage(error));
+    } finally {
+      setTimerBusy(false);
+    }
+  }
+
+  async function handleExportRangeRecords() {
+    if (timerBusy()) {
+      return;
+    }
+
+    const ids = filteredInsightRecords().map((record) => record.id);
+    if (ids.length === 0) {
+      setStatusText(copy.insightRecordsEmpty);
+      return;
+    }
+
+    setTimerBusy(true);
+
+    try {
+      const exportPath = await exportFocusRecordsCsv(ids);
+      setStatusText(`${copy.exportDonePrefix} ${exportPath}`);
+    } catch (error) {
+      setStatusText(getErrorMessage(error));
+    } finally {
+      setTimerBusy(false);
+    }
+  }
+
   function handleWindowDragRegionPointerDown(event: MouseEvent) {
     const target = event.target as HTMLElement | null;
     if (
@@ -736,240 +1044,236 @@ function MainShell() {
           </div>
         </section>
 
-                <Show when={activeView() === "focus"}>
+        <Show when={activeView() === "focus"}>
           <section class="hero-panel panel">
             <div class="hero-copy timer-hero">
-            <span class="eyebrow">{copy.heroVersion}</span>
-            <h1>{snapshot().productName}</h1>
-            <p class="hero-text">{snapshot().slogan}</p>
-            <p class="hero-subtext">{copy.heroSummary}</p>
-          </div>
-
-          <div class="status-row">
-            <span class="status-pill">{snapshot().milestone}</span>
-            <span class="status-copy">{statusText()}</span>
-          </div>
-          <p class="tray-copy">{copy.trayHint}</p>
-
-          <section class="timer-panel">
-            <div class="mode-switch">
-              <span class="eyebrow">{copy.modeSwitchEyebrow}</span>
-              <div class="mode-switch__actions">
-                <button
-                  type="button"
-                  classList={{
-                    "mode-chip": true,
-                    "mode-chip--active": timerSnapshot().modeKey === "stopwatch",
-                  }}
-                  disabled={timerBusy()}
-                  onClick={() => void runTimerAction(() => switchTimerMode("stopwatch"))}
-                >
-                  {copy.stopwatchMode}
-                </button>
-                <button
-                  type="button"
-                  classList={{
-                    "mode-chip": true,
-                    "mode-chip--active": timerSnapshot().modeKey === "pomodoro",
-                  }}
-                  disabled={timerBusy()}
-                  onClick={() => void runTimerAction(() => switchTimerMode("pomodoro"))}
-                >
-                  {copy.pomodoroMode}
-                </button>
-              </div>
+              <span class="eyebrow">{copy.focusEyebrow}</span>
+              <h1>{copy.focusTitle}</h1>
+              <p class="hero-text">{snapshot().slogan}</p>
+              <p class="hero-subtext">{copy.focusSummary}</p>
             </div>
 
-            <div class="task-entry">
-              <div class="task-entry__copy">
-                <span class="eyebrow">{copy.currentTaskEyebrow}</span>
-                <h2>{copy.currentTaskTitle}</h2>
-                <p>{taskHintText()}</p>
-              </div>
-
-              <div class="task-entry__controls">
-                <label class="task-entry__field">
-                  <input
-                    class="task-input"
-                    type="text"
-                    value={currentTaskTitle()}
-                    placeholder={copy.taskPlaceholder}
-                    onInput={(event) =>
-                      setCurrentTaskTitle(event.currentTarget.value)
-                    }
-                  />
-                </label>
-
-                <label class="todo-form-field task-entry__field task-entry__field--compact">
-                  <span>{copy.linkTodoLabel}</span>
-                  <select
-                    class="task-input task-select"
-                    value={linkedTodoValue()}
-                    onChange={(event) =>
-                      setLinkedTodoId(
-                        event.currentTarget.value
-                          ? Number(event.currentTarget.value)
-                          : null
-                      )
-                    }
-                  >
-                    <option value="">{copy.linkTodoEmpty}</option>
-                    <For each={todoItems()}>
-                      {(item) => (
-                        <option value={item.id}>
-                          {`${item.title} - ${item.scheduledDate} ${item.scheduledTime}`}
-                        </option>
-                      )}
-                    </For>
-                  </select>
-                </label>
-              </div>
-
-              <p class="task-link-hint">{taskLinkSummary()}</p>
-            </div>
-
-            <div class="timer-panel__header">
-              <div>
-                <span class="eyebrow">{copy.modeEyebrow}</span>
-                <h2>{timerSnapshot().phaseLabel}</h2>
-              </div>
-              <span
-                classList={{
-                  "timer-status": true,
-                  "timer-status--running": timerSnapshot().isRunning,
-                }}
-              >
-                {timerSnapshot().status}
-              </span>
-            </div>
-
-            <p class="timer-secondary">{timerSnapshot().secondaryLabel}</p>
-            {currentTaskTitle().trim() && (
-              <p class="timer-focus-copy">
-                {copy.currentFocusLabel}
-                {`\uff1a${currentTaskTitle().trim()}`}
-              </p>
-            )}
-            <div class="timer-display">{timerSnapshot().elapsedLabel}</div>
-            {timerSnapshot().modeKey === "pomodoro" && (
-              <p class="timer-mode-hint">{copy.pomodoroHint}</p>
-            )}
-
-            <div class="timer-actions">
-              <button
-                type="button"
-                class="action-button action-button--primary"
-                disabled={timerBusy() || timerSnapshot().isRunning || !timerReady()}
-                onClick={() => void runTimerAction(startTimer)}
-              >
-                {copy.start}
-              </button>
-              <button
-                type="button"
-                class="action-button"
-                disabled={timerBusy() || !timerSnapshot().isRunning || !timerReady()}
-                onClick={() => void runTimerAction(pauseTimer)}
-              >
-                {copy.pause}
-              </button>
-              <button
-                type="button"
-                class="action-button"
-                disabled={
-                  timerBusy() ||
-                  (timerSnapshot().elapsedMs === 0 && !timerSnapshot().isRunning) ||
-                  !timerReady()
-                }
-                onClick={() => void runTimerAction(resetTimer)}
-              >
-                {copy.reset}
-              </button>
-              <button
-                type="button"
-                class="action-button action-button--success"
-                disabled={
-                  timerBusy() ||
-                  !canCompleteAction() ||
-                  !timerReady()
-                }
-                onClick={() => void handleCompleteSession()}
-              >
-                {completionLabel()}
-              </button>
-            </div>
+            <p class="tray-copy">{copy.trayHint}</p>
 
             <div class="metric-grid">
               <article class="metric-card">
-                <span class="metric-label">{copy.engineOwner}</span>
-                <strong>Rust</strong>
-                <span class="metric-footnote">{copy.engineOwnerNote}</span>
+                <span class="metric-label">{copy.focusTodayLabel}</span>
+                <strong>{analyticsSnapshot().todayFocusDurationLabel}</strong>
+                <span class="metric-footnote">{copy.focusTodayNote}</span>
               </article>
               <article class="metric-card">
-                <span class="metric-label">{copy.currentStatus}</span>
-                <strong>{timerSnapshot().status}</strong>
-                <span class="metric-footnote">{copy.currentStatusNote}</span>
+                <span class="metric-label">{copy.focusRecordsLabel}</span>
+                <strong>{storedRecordCount()}</strong>
+                <span class="metric-footnote">{copy.focusRecordsNote}</span>
               </article>
               <article class="metric-card">
-                <span class="metric-label">{copy.runtimeTarget}</span>
-                <strong>{copy.windows}</strong>
-                <span class="metric-footnote">{copy.runtimeTargetNote}</span>
+                <span class="metric-label">{copy.focusPendingLabel}</span>
+                <strong>{pendingTodoCount()}</strong>
+                <span class="metric-footnote">{copy.focusPendingNote}</span>
               </article>
               <article class="metric-card">
-                <span class="metric-label">{copy.timingCorrection}</span>
-                <strong>Dual Clock</strong>
-                <span class="metric-footnote">{copy.timingCorrectionNote}</span>
+                <span class="metric-label">{copy.focusModeLabel}</span>
+                <strong>{timerSnapshot().mode}</strong>
+                <span class="metric-footnote">{copy.focusModeNote}</span>
               </article>
             </div>
 
-            <section class="records-panel">
-              <div class="records-panel__header">
-                <div>
-                  <span class="eyebrow">{copy.recordsEyebrow}</span>
-                  <h3>{copy.recordsTitle}</h3>
+            <section class="timer-panel">
+              <div class="mode-switch">
+                <span class="eyebrow">{copy.modeSwitchEyebrow}</span>
+                <div class="mode-switch__actions">
+                  <button
+                    type="button"
+                    classList={{
+                      "mode-chip": true,
+                      "mode-chip--active": timerSnapshot().modeKey === "stopwatch",
+                    }}
+                    disabled={timerBusy()}
+                    onClick={() => void runTimerAction(() => switchTimerMode("stopwatch"))}
+                  >
+                    {copy.stopwatchMode}
+                  </button>
+                  <button
+                    type="button"
+                    classList={{
+                      "mode-chip": true,
+                      "mode-chip--active": timerSnapshot().modeKey === "pomodoro",
+                    }}
+                    disabled={timerBusy()}
+                    onClick={() => void runTimerAction(() => switchTimerMode("pomodoro"))}
+                  >
+                    {copy.pomodoroMode}
+                  </button>
                 </div>
               </div>
 
-              <div class="records-list">
-                <For each={records()}>
-                  {(record) => (
-                    <article class="record-card">
-                      <div class="record-card__main">
-                        <div class="record-card__copy">
-                          <strong>{record.title}</strong>
-                          <div class="record-card__meta">
-                            <span class="record-pill">{record.phaseLabel}</span>
-                            <span
-                              classList={{
-                                "record-pill": true,
-                                "record-pill--muted": !record.linkedTodoTitle,
-                              }}
-                            >
-                              {record.linkedTodoTitle
-                                ? `${copy.recordLinkedPrefix}${record.linkedTodoTitle}`
-                                : copy.recordIndependent}
-                            </span>
-                            {record.completedAt && (
-                              <span class="record-pill record-pill--muted">
-                                {`${copy.recordCompletedAt}\uff1a${record.completedDate} ${record.completedTime}`}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <span>{record.durationLabel}</span>
-                      </div>
-                    </article>
-                  )}
-                </For>
-                {records().length === 0 && (
-                  <p class="records-empty">{copy.recordsEmpty}</p>
-                )}
+              <div class="task-entry">
+                <div class="task-entry__copy">
+                  <span class="eyebrow">{copy.currentTaskEyebrow}</span>
+                  <h2>{copy.currentTaskTitle}</h2>
+                  <p>{taskHintText()}</p>
+                </div>
+
+                <div class="task-entry__controls">
+                  <label class="task-entry__field">
+                    <input
+                      class="task-input"
+                      type="text"
+                      value={currentTaskTitle()}
+                      placeholder={copy.taskPlaceholder}
+                      onInput={(event) =>
+                        setCurrentTaskTitle(event.currentTarget.value)
+                      }
+                    />
+                  </label>
+
+                  <label class="todo-form-field task-entry__field task-entry__field--compact">
+                    <span>{copy.linkTodoLabel}</span>
+                    <select
+                      class="task-input task-select"
+                      value={linkedTodoValue()}
+                      onChange={(event) =>
+                        setLinkedTodoId(
+                          event.currentTarget.value
+                            ? Number(event.currentTarget.value)
+                            : null
+                        )
+                      }
+                    >
+                      <option value="">{copy.linkTodoEmpty}</option>
+                      <For each={todoItems()}>
+                        {(item) => (
+                          <option value={item.id}>
+                            {`${item.title} - ${item.scheduledDate} ${item.scheduledTime}`}
+                          </option>
+                        )}
+                      </For>
+                    </select>
+                  </label>
+                </div>
+
+                <p class="task-link-hint">{taskLinkSummary()}</p>
               </div>
+
+              <div class="timer-panel__header">
+                <div>
+                  <span class="eyebrow">{copy.modeEyebrow}</span>
+                  <h2>{timerSnapshot().phaseLabel}</h2>
+                </div>
+                <span
+                  classList={{
+                    "timer-status": true,
+                    "timer-status--running": timerSnapshot().isRunning,
+                  }}
+                >
+                  {timerSnapshot().status}
+                </span>
+              </div>
+
+              <p class="timer-secondary">{timerSnapshot().secondaryLabel}</p>
+              {currentTaskTitle().trim() && (
+                <p class="timer-focus-copy">
+                  {copy.currentFocusLabel}
+                  {`\uff1a${currentTaskTitle().trim()}`}
+                </p>
+              )}
+              <div class="timer-display">{timerSnapshot().elapsedLabel}</div>
+              {timerSnapshot().modeKey === "pomodoro" && (
+                <p class="timer-mode-hint">{copy.pomodoroHint}</p>
+              )}
+
+              <div class="timer-actions">
+                <button
+                  type="button"
+                  class="action-button action-button--primary"
+                  disabled={timerBusy() || timerSnapshot().isRunning || !timerReady()}
+                  onClick={() => void runTimerAction(startTimer)}
+                >
+                  {copy.start}
+                </button>
+                <button
+                  type="button"
+                  class="action-button"
+                  disabled={timerBusy() || !timerSnapshot().isRunning || !timerReady()}
+                  onClick={() => void runTimerAction(pauseTimer)}
+                >
+                  {copy.pause}
+                </button>
+                <button
+                  type="button"
+                  class="action-button"
+                  disabled={
+                    timerBusy() ||
+                    (timerSnapshot().elapsedMs === 0 && !timerSnapshot().isRunning) ||
+                    !timerReady()
+                  }
+                  onClick={() => void runTimerAction(resetTimer)}
+                >
+                  {copy.reset}
+                </button>
+                <button
+                  type="button"
+                  class="action-button action-button--success"
+                  disabled={
+                    timerBusy() ||
+                    !canCompleteAction() ||
+                    !timerReady()
+                  }
+                  onClick={() => void handleCompleteSession()}
+                >
+                  {completionLabel()}
+                </button>
+              </div>
+
+              <section class="records-panel">
+                <div class="records-panel__header">
+                  <div>
+                    <span class="eyebrow">{copy.recordsEyebrow}</span>
+                    <h3>{copy.recordsTitle}</h3>
+                  </div>
+                </div>
+
+                <div class="records-list">
+                  <For each={records()}>
+                    {(record) => (
+                      <article class="record-card">
+                        <div class="record-card__main">
+                          <div class="record-card__copy">
+                            <strong>{record.title}</strong>
+                            <div class="record-card__meta">
+                              <span class="record-pill">{record.phaseLabel}</span>
+                              <span
+                                classList={{
+                                  "record-pill": true,
+                                  "record-pill--muted": !record.linkedTodoTitle,
+                                }}
+                              >
+                                {record.linkedTodoTitle
+                                  ? `${copy.recordLinkedPrefix}${record.linkedTodoTitle}`
+                                  : copy.recordIndependent}
+                              </span>
+                              {record.completedAt && (
+                                <span class="record-pill record-pill--muted">
+                                  {`${copy.recordCompletedAt}\uff1a${record.completedDate} ${record.completedTime}`}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <span>{record.durationLabel}</span>
+                        </div>
+                      </article>
+                    )}
+                  </For>
+                  {records().length === 0 && (
+                    <p class="records-empty">{copy.recordsEmpty}</p>
+                  )}
+                </div>
+              </section>
             </section>
           </section>
-        </section>
         </Show>
 
-                <Show when={activeView() === "tasks"}>
+        <Show when={activeView() === "tasks"}>
           <section class="panel section-panel">
           <div class="section-heading">
             <div>
@@ -1253,66 +1557,145 @@ function MainShell() {
                 <span class="eyebrow">{copy.insightEyebrow}</span>
                 <h2>{copy.insightTitle}</h2>
               </div>
-              <div class="section-heading__actions">
-                <p>{copy.insightSummary}</p>
-                <button
-                  type="button"
-                  class="action-button"
-                  disabled={todoBusy() || timerBusy()}
-                  onClick={() => void handleClearAppData()}
-                >
-                  {copy.clearData}
-                </button>
-              </div>
+              <p>{copy.insightSummary}</p>
             </div>
+
+            <section class="panel chart-panel review-toolbar">
+              <div class="records-panel__header">
+                <div>
+                  <span class="eyebrow">{copy.insightFilterEyebrow}</span>
+                  <h3>{copy.insightFilterTitle}</h3>
+                </div>
+                <p class="chart-panel__summary">{copy.insightFilterSummary}</p>
+              </div>
+
+              <div class="review-toolbar__controls">
+                <div class="review-range-group">
+                  <For each={reviewRangeOptions}>
+                    {(option) => (
+                      <button
+                        type="button"
+                        classList={{
+                          "filter-chip": true,
+                          "filter-chip--active": reviewRange() === option.key,
+                        }}
+                        onClick={() => setReviewRange(option.key)}
+                      >
+                        {option.label}
+                      </button>
+                    )}
+                  </For>
+                </div>
+
+                <Show when={reviewRange() === "custom"}>
+                  <div class="date-range-inputs">
+                    <label class="todo-form-field">
+                      <span>{copy.insightCustomStart}</span>
+                      <input
+                        class="task-input"
+                        type="date"
+                        value={customStartDate()}
+                        onInput={(event) =>
+                          setCustomStartDate(event.currentTarget.value)
+                        }
+                      />
+                    </label>
+                    <label class="todo-form-field">
+                      <span>{copy.insightCustomEnd}</span>
+                      <input
+                        class="task-input"
+                        type="date"
+                        value={customEndDate()}
+                        onInput={(event) =>
+                          setCustomEndDate(event.currentTarget.value)
+                        }
+                      />
+                    </label>
+                  </div>
+                </Show>
+              </div>
+
+              <div class="review-toolbar__footer">
+                <span class="record-pill">{`${copy.insightRangeLabelPrefix}：${reviewRangeLabel()}`}</span>
+                <div class="review-toolbar__actions">
+                  <button
+                    type="button"
+                    class="action-button"
+                    disabled={timerBusy() || filteredInsightRecords().length === 0}
+                    onClick={() => void handleExportRangeRecords()}
+                  >
+                    {copy.exportCsv}
+                  </button>
+                  <button
+                    type="button"
+                    class="action-button"
+                    disabled={timerBusy() || filteredInsightRecords().length === 0}
+                    onClick={() => void handleClearRangeRecords()}
+                  >
+                    {copy.clearRange}
+                  </button>
+                  <button
+                    type="button"
+                    class="action-button"
+                    disabled={todoBusy() || timerBusy()}
+                    onClick={() => void handleClearAppData()}
+                  >
+                    {copy.clearData}
+                  </button>
+                </div>
+              </div>
+            </section>
 
             <div class="metric-grid">
               <article class="metric-card">
                 <span class="metric-label">{copy.insightTotalFocus}</span>
-                <strong>{analyticsSnapshot().totalFocusDurationLabel}</strong>
+                <strong>{filteredReviewSummary().totalFocusDurationLabel}</strong>
                 <span class="metric-footnote">{copy.insightTotalFocusNote}</span>
               </article>
               <article class="metric-card">
                 <span class="metric-label">{copy.insightSessions}</span>
-                <strong>{analyticsSnapshot().sessionCount}</strong>
+                <strong>{filteredReviewSummary().sessionCount}</strong>
                 <span class="metric-footnote">{copy.insightSessionsNote}</span>
               </article>
               <article class="metric-card">
                 <span class="metric-label">{copy.insightActiveDays}</span>
-                <strong>{analyticsSnapshot().activeDays}</strong>
+                <strong>{filteredReviewSummary().activeDays}</strong>
                 <span class="metric-footnote">{copy.insightActiveDaysNote}</span>
               </article>
               <article class="metric-card">
                 <span class="metric-label">{copy.insightAverageDaily}</span>
-                <strong>{analyticsSnapshot().averageDailyDurationLabel}</strong>
+                <strong>{filteredReviewSummary().averageDailyDurationLabel}</strong>
                 <span class="metric-footnote">{copy.insightAverageDailyNote}</span>
               </article>
             </div>
 
             <div class="metric-grid">
               <article class="metric-card">
-                <span class="metric-label">{copy.insightToday}</span>
-                <strong>{analyticsSnapshot().todayFocusDurationLabel}</strong>
-                <span class="metric-footnote">
-                  {`${copy.insightTodayNote}\uff1a${analyticsSnapshot().todaySessionCount}${copy.insightDailySessions}`}
-                </span>
+                <span class="metric-label">{copy.insightStopwatch}</span>
+                <strong>{filteredReviewSummary().stopwatchSessionCount}</strong>
+                <span class="metric-footnote">{copy.insightStopwatchNote}</span>
               </article>
               <article class="metric-card">
-                <span class="metric-label">{copy.insightTaskProgress}</span>
+                <span class="metric-label">{copy.insightPomodoro}</span>
                 <strong>
-                  {`${analyticsSnapshot().pendingTodoCount} / ${analyticsSnapshot().completedTodoCount}`}
+                  {filteredReviewSummary().pomodoroSessionCount}
                 </strong>
-                <span class="metric-footnote">
-                  {`${copy.insightTaskProgressNote}\uff1a\u5f85\u529e ${analyticsSnapshot().pendingTodoCount}\uff0c\u5df2\u5b8c\u6210 ${analyticsSnapshot().completedTodoCount}`}
-                </span>
+                <span class="metric-footnote">{copy.insightPomodoroNote}</span>
+              </article>
+              <article class="metric-card">
+                <span class="metric-label">{copy.insightLinkedTasks}</span>
+                <strong>
+                  {filteredReviewSummary().linkedTaskCount}
+                </strong>
+                <span class="metric-footnote">{copy.insightLinkedTasksNote}</span>
               </article>
               <article class="metric-card">
                 <span class="metric-label">{copy.insightRelation}</span>
                 <strong>
-                  {`${analyticsSnapshot().linkedSessionCount} / ${analyticsSnapshot().independentSessionCount}`}
+                  {`${filteredReviewSummary().linkedSessionCount} / ${filteredReviewSummary().independentSessionCount}`}
                 </strong>
                 <span class="metric-footnote">
-                  {`${copy.insightRelationNote}\uff1a${copy.insightDailyLinked} ${analyticsSnapshot().linkedSessionCount}\uff0c${copy.insightDailyIndependent} ${analyticsSnapshot().independentSessionCount}`}
+                  {`${copy.insightRelationNote}\uff1a${copy.insightDailyLinked} ${filteredReviewSummary().linkedSessionCount}\uff0c${copy.insightDailyIndependent} ${filteredReviewSummary().independentSessionCount}`}
                 </span>
               </article>
             </div>
@@ -1538,15 +1921,78 @@ function MainShell() {
                 )}
               </div>
             </section>
+
+            <section class="records-panel">
+              <div class="records-panel__header">
+                <div>
+                  <span class="eyebrow">{copy.insightRecordsEyebrow}</span>
+                  <h3>{copy.insightRecordsTitle}</h3>
+                </div>
+              </div>
+
+              <div class="records-list">
+                <For each={filteredInsightRecords()}>
+                  {(record) => (
+                    <article class="record-card">
+                      <div class="record-card__main">
+                        <div class="record-card__copy">
+                          <strong>{record.title}</strong>
+                          <div class="record-card__meta">
+                            <span class="record-pill">{record.phaseLabel}</span>
+                            <span class="record-pill record-pill--muted">
+                              {record.modeLabel}
+                            </span>
+                            <span
+                              classList={{
+                                "record-pill": true,
+                                "record-pill--muted": !record.linkedTodoTitle,
+                              }}
+                            >
+                              {record.linkedTodoTitle
+                                ? `${copy.recordLinkedPrefix}${record.linkedTodoTitle}`
+                                : copy.recordIndependent}
+                            </span>
+                            {record.completedAt && (
+                              <span class="record-pill record-pill--muted">
+                                {`${copy.recordCompletedAt}\uff1a${record.completedDate} ${record.completedTime}`}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div class="record-card__actions">
+                          <span>{record.durationLabel}</span>
+                          <button
+                            type="button"
+                            class="action-button"
+                            disabled={timerBusy()}
+                            onClick={() =>
+                              void handleDeleteRecord(record.id, record.title)
+                            }
+                          >
+                            {copy.recordDelete}
+                          </button>
+                        </div>
+                      </div>
+                    </article>
+                  )}
+                </For>
+
+                {filteredInsightRecords().length === 0 && (
+                  <p class="records-empty">{copy.insightRecordsEmpty}</p>
+                )}
+              </div>
+            </section>
           </section>
         </Show>
 
         <Show when={activeView() === "lab"}>
-          <section class="panel split-panel">
-            <div class="split-panel__intro">
-              <span class="eyebrow">{copy.labEyebrow}</span>
-              <h2>{copy.labTitle}</h2>
-              <p>{copy.labSummary}</p>
+          <section class="panel insights-panel developer-panel">
+            <div class="section-heading">
+              <div>
+                <span class="eyebrow">{copy.developerEyebrow}</span>
+                <h2>{copy.developerTitle}</h2>
+              </div>
+              <p>{copy.developerSummary}</p>
               {bootError() && (
                 <p class="error-copy">
                   {copy.fallbackPrefix}
@@ -1555,30 +2001,103 @@ function MainShell() {
               )}
             </div>
 
-            <div class="stack-list">
-              <For each={snapshot().surfaces}>
-                {(module) => (
-                  <article class="stack-card">
-                    <span class="stack-card__phase">{module.phase}</span>
-                    <div>
-                      <h3>{module.title}</h3>
-                      <p>{module.summary}</p>
-                    </div>
-                  </article>
-                )}
-              </For>
-              <For each={snapshot().reservedExtensions}>
-                {(module) => (
-                  <article class="stack-card">
-                    <span class="stack-card__phase">{module.phase}</span>
-                    <div>
-                      <h3>{module.title}</h3>
-                      <p>{module.summary}</p>
-                    </div>
-                  </article>
-                )}
-              </For>
+            <div class="metric-grid developer-metric-grid">
+              <article class="metric-card">
+                <span class="metric-label">{copy.developerVersionLabel}</span>
+                <strong>{snapshot().version}</strong>
+                <span class="metric-footnote">{copy.developerVersionNote}</span>
+              </article>
+              <article class="metric-card">
+                <span class="metric-label">{copy.developerMilestoneLabel}</span>
+                <strong>{snapshot().milestone}</strong>
+                <span class="metric-footnote">{copy.developerMilestoneNote}</span>
+              </article>
+              <article class="metric-card">
+                <span class="metric-label">{copy.developerStatusLabel}</span>
+                <strong>{statusText()}</strong>
+                <span class="metric-footnote">{copy.developerStatusNote}</span>
+              </article>
+              <article class="metric-card">
+                <span class="metric-label">{copy.developerStorageLabel}</span>
+                <strong>Local</strong>
+                <span class="metric-footnote">{copy.developerStorageNote}</span>
+              </article>
             </div>
+
+            <section class="records-panel">
+              <div class="records-panel__header">
+                <div>
+                  <span class="eyebrow">{copy.developerInfoEyebrow}</span>
+                  <h3>{copy.developerInfoTitle}</h3>
+                </div>
+              </div>
+
+              <div class="card-grid developer-card-grid">
+                <article class="detail-card">
+                  <div class="detail-card__meta">
+                    <span>{copy.engineOwner}</span>
+                    <span>Rust</span>
+                  </div>
+                  <h3>{copy.engineOwnerNote}</h3>
+                </article>
+                <article class="detail-card">
+                  <div class="detail-card__meta">
+                    <span>{copy.runtimeTarget}</span>
+                    <span>{copy.windows}</span>
+                  </div>
+                  <h3>{copy.runtimeTargetNote}</h3>
+                </article>
+                <article class="detail-card">
+                  <div class="detail-card__meta">
+                    <span>{copy.timingCorrection}</span>
+                    <span>Dual Clock</span>
+                  </div>
+                  <h3>{copy.timingCorrectionNote}</h3>
+                </article>
+                <article class="detail-card">
+                  <div class="detail-card__meta">
+                    <span>{copy.currentStatus}</span>
+                    <span>{timerSnapshot().status}</span>
+                  </div>
+                  <h3>{copy.currentStatusNote}</h3>
+                </article>
+              </div>
+            </section>
+
+            <section class="records-panel">
+              <div class="records-panel__header">
+                <div>
+                  <span class="eyebrow">{copy.developerModulesEyebrow}</span>
+                  <h3>{copy.developerModulesTitle}</h3>
+                </div>
+                <p class="chart-panel__summary">{copy.developerModulesSummary}</p>
+              </div>
+
+              <div class="stack-list">
+                <For each={snapshot().surfaces}>
+                  {(module) => (
+                    <article class="stack-card">
+                      <span class="stack-card__phase">{module.phase}</span>
+                      <div>
+                        <h3>{module.title}</h3>
+                        <p>{module.summary}</p>
+                      </div>
+                    </article>
+                  )}
+                </For>
+                <For each={snapshot().reservedExtensions}>
+                  {(module) => (
+                    <article class="stack-card">
+                      <span class="stack-card__phase">{module.phase}</span>
+                      <div>
+                        <h3>{module.title}</h3>
+                        <p>{module.summary}</p>
+                      </div>
+                    </article>
+                  )}
+                </For>
+              </div>
+            </section>
           </section>
         </Show>
       </main>

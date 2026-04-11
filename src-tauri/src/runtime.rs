@@ -1,7 +1,10 @@
-﻿mod storage;
+mod storage;
 
 use std::cmp::Reverse;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
+use std::env;
+use std::fs;
+use std::path::PathBuf;
 use std::sync::Mutex;
 use std::time::{Duration, Instant, SystemTime};
 
@@ -56,10 +59,7 @@ impl AppLifecycleState {
     }
 
     fn is_quitting(&self) -> bool {
-        self.is_quitting
-            .lock()
-            .map(|flag| *flag)
-            .unwrap_or(false)
+        self.is_quitting.lock().map(|flag| *flag).unwrap_or(false)
     }
 }
 
@@ -721,7 +721,10 @@ fn analytics_snapshot(records: &[FocusRecord], todo_items: &[TodoItem]) -> Analy
     let mut daily_breakdown = grouped
         .into_iter()
         .map(|(date, day_records)| {
-            let total_duration_ms = day_records.iter().map(|record| record.duration_ms).sum::<u64>();
+            let total_duration_ms = day_records
+                .iter()
+                .map(|record| record.duration_ms)
+                .sum::<u64>();
             let session_count = day_records.len();
             let linked_session_count = day_records
                 .iter()
@@ -790,13 +793,45 @@ fn with_todo_items<T>(
     f(&mut items)
 }
 
+fn with_focus_records<T>(
+    state: &tauri::State<'_, TimerEngineState>,
+    f: impl FnOnce(&mut Vec<FocusRecord>) -> Result<T, String>,
+) -> Result<T, String> {
+    let mut records = state
+        .focus_records
+        .lock()
+        .map_err(|_| "记录列表状态锁定失败".to_string())?;
+
+    f(&mut records)
+}
+
+fn csv_escape(value: &str) -> String {
+    if value.contains(',') || value.contains('"') || value.contains('\n') || value.contains('\r') {
+        format!("\"{}\"", value.replace('"', "\"\""))
+    } else {
+        value.to_string()
+    }
+}
+
+fn resolve_export_directory() -> Result<PathBuf, String> {
+    let base_dir = env::var_os("USERPROFILE")
+        .map(PathBuf::from)
+        .map(|path| path.join("Documents"))
+        .filter(|path| path.exists())
+        .unwrap_or(env::current_dir().map_err(|error| error.to_string())?);
+
+    let export_dir = base_dir.join("Focused Moment Exports");
+    fs::create_dir_all(&export_dir).map_err(|error| error.to_string())?;
+    Ok(export_dir)
+}
+
 #[tauri::command]
 fn bootstrap_shell() -> ShellSnapshot {
     ShellSnapshot {
         product_name: "Focused Moment",
-        version: "1.0.1",
-        milestone: "v1.0.1 \u{53d1}\u{5e03}\u{4fee}\u{8ba2}\u{7248}",
-        slogan: "\u{4e13}\u{6ce8}\u{3001}\u{5f85}\u{529e}\u{3001}\u{6570}\u{636e}\u{590d}\u{76d8}\u{4e0e}\u{6258}\u{76d8}\u{5e38}\u{9a7b}\u{73b0}\u{5728}\u{5df2}\u{7ecf}\u{80fd}\u{4ee5}\u{6b63}\u{5f0f}\u{53d1}\u{5e03}\u{5f62}\u{6001}\u{5728} Windows \u{4e0a}\u{4f7f}\u{7528}\u{3002}",
+        version: "1.1.0",
+        milestone: "v1.1.0 \u{6570}\u{636e}\u{4e2d}\u{5fc3}\u{589e}\u{5f3a}\u{7248}",
+        slogan: "\u{7528}\u{66f4}\u{8f7b}\u{7684}\u{65b9}\u{5f0f}\u{4e13}\u{6ce8}\u{3001}\u{5b89}\u{6392}\u{548c}\u{590d}\u{76d8}\u{6bcf}\u{4e00}\u{5929}\u{3002}",
         surfaces: vec![
             ShellPanel {
                 id: "timer",
@@ -815,9 +850,9 @@ fn bootstrap_shell() -> ShellSnapshot {
             ShellPanel {
                 id: "analytics",
                 title: "\u{6570}\u{636e}\u{590d}\u{76d8}",
-                phase: "v0.7.0-v1.0.0",
+                phase: "v0.7.0-v1.1.0",
                 status: "\u{5df2}\u{63a5}\u{5165}",
-                summary: "\u{672c}\u{7248}\u{5df2}\u{5728}\u{672c}\u{5730}\u{6570}\u{636e}\u{57fa}\u{7840}\u{4e0a}\u{63d0}\u{4f9b}\u{6309}\u{65e5}\u{805a}\u{5408}\u{3001}\u{603b}\u{89c8}\u{6307}\u{6807}\u{3001}\u{8d8b}\u{52bf}\u{56fe}\u{8868}\u{4e0e}\u{6700}\u{8fd1}\u{590d}\u{76d8}\u{89c6}\u{56fe}\u{3002}",
+                summary: "\u{5df2}\u{652f}\u{6301}\u{65f6}\u{95f4}\u{8303}\u{56f4}\u{7b5b}\u{9009}\u{3001}\u{5355}\u{6761}\u{5220}\u{9664}\u{3001}\u{8303}\u{56f4}\u{6e05}\u{7406}\u{4e0e} CSV \u{5bfc}\u{51fa}\u{ff0c}\u{590d}\u{76d8}\u{9875}\u{7684}\u{65e5}\u{5e38}\u{53ef}\u{7528}\u{6027}\u{66f4}\u{5b8c}\u{6574}\u{4e86}\u{3002}",
             },
             ShellPanel {
                 id: "tray",
@@ -883,6 +918,51 @@ fn get_focus_records(
 }
 
 #[tauri::command]
+fn delete_focus_record(
+    state: tauri::State<'_, TimerEngineState>,
+    id: u64,
+) -> Result<Vec<FocusRecord>, String> {
+    let records = with_focus_records(&state, |records| {
+        let before_len = records.len();
+        records.retain(|record| record.id != id);
+        if records.len() == before_len {
+            return Err("未找到要删除的专注记录".to_string());
+        }
+
+        sort_focus_records(records);
+        Ok(records.clone())
+    })?;
+
+    state.persist()?;
+    Ok(records)
+}
+
+#[tauri::command]
+fn delete_focus_records(
+    state: tauri::State<'_, TimerEngineState>,
+    ids: Vec<u64>,
+) -> Result<Vec<FocusRecord>, String> {
+    if ids.is_empty() {
+        return Err("当前范围内没有可清理的专注记录".to_string());
+    }
+
+    let id_set = ids.into_iter().collect::<HashSet<_>>();
+    let records = with_focus_records(&state, |records| {
+        let before_len = records.len();
+        records.retain(|record| !id_set.contains(&record.id));
+        if records.len() == before_len {
+            return Err("没有找到可清理的专注记录".to_string());
+        }
+
+        sort_focus_records(records);
+        Ok(records.clone())
+    })?;
+
+    state.persist()?;
+    Ok(records)
+}
+
+#[tauri::command]
 fn get_analytics_snapshot(
     state: tauri::State<'_, TimerEngineState>,
 ) -> Result<AnalyticsSnapshot, String> {
@@ -901,6 +981,55 @@ fn get_analytics_snapshot(
 #[tauri::command]
 fn clear_app_data(state: tauri::State<'_, TimerEngineState>) -> Result<(), String> {
     state.clear_all()
+}
+
+#[tauri::command]
+fn export_focus_records_csv(
+    state: tauri::State<'_, TimerEngineState>,
+    ids: Vec<u64>,
+) -> Result<String, String> {
+    if ids.is_empty() {
+        return Err("当前范围内没有可导出的专注记录".to_string());
+    }
+
+    let id_set = ids.into_iter().collect::<HashSet<_>>();
+    let records = state
+        .focus_records
+        .lock()
+        .map_err(|_| "记录列表状态锁定失败".to_string())?;
+
+    let export_records = records
+        .iter()
+        .filter(|record| id_set.contains(&record.id))
+        .cloned()
+        .collect::<Vec<_>>();
+
+    if export_records.is_empty() {
+        return Err("当前范围内没有可导出的专注记录".to_string());
+    }
+
+    let timestamp = Local::now().format("%Y%m%d-%H%M%S").to_string();
+    let export_dir = resolve_export_directory()?;
+    let export_path = export_dir.join(format!("focused-moment-records-{timestamp}.csv"));
+
+    let mut csv_output =
+        String::from("\u{feff}记录日期,记录时间,事务名称,模式,阶段,时长,关联任务\n");
+    for record in export_records {
+        let line = format!(
+            "{},{},{},{},{},{},{}\n",
+            csv_escape(&record.completed_date),
+            csv_escape(&record.completed_time),
+            csv_escape(&record.title),
+            csv_escape(&record.mode_label),
+            csv_escape(&record.phase_label),
+            csv_escape(&record.duration_label),
+            csv_escape(record.linked_todo_title.as_deref().unwrap_or("")),
+        );
+        csv_output.push_str(&line);
+    }
+
+    fs::write(&export_path, csv_output).map_err(|error| error.to_string())?;
+    Ok(export_path.display().to_string())
 }
 
 #[tauri::command]
@@ -1267,8 +1396,11 @@ pub fn run() {
             get_timer_snapshot,
             switch_timer_mode,
             get_focus_records,
+            delete_focus_record,
+            delete_focus_records,
             get_analytics_snapshot,
             clear_app_data,
+            export_focus_records_csv,
             get_todo_items,
             create_todo_item,
             update_todo_item,
@@ -1288,4 +1420,3 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
-

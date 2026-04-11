@@ -34,6 +34,18 @@ export async function getAnalyticsSnapshot() {
   return invoke<AnalyticsSnapshot>("get_analytics_snapshot");
 }
 
+export async function deleteFocusRecord(id: number) {
+  return invoke<FocusRecord[]>("delete_focus_record", { id });
+}
+
+export async function deleteFocusRecords(ids: number[]) {
+  return invoke<FocusRecord[]>("delete_focus_records", { ids });
+}
+
+export async function exportFocusRecordsCsv(ids: number[]) {
+  return invoke<string>("export_focus_records_csv", { ids });
+}
+
 export async function clearAppData() {
   return invoke("clear_app_data");
 }
