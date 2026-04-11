@@ -1,5 +1,5 @@
-import { invoke } from "@tauri-apps/api/core";
-import { For, createSignal, onCleanup, onMount } from "solid-js";
+﻿import { invoke } from "@tauri-apps/api/core";
+import { For, Show, createEffect, createSignal, onCleanup, onMount } from "solid-js";
 import type {
   FocusRecord,
   ShellSnapshot,
@@ -30,6 +30,31 @@ import {
   toggleMaximizeMainWindow,
 } from "./lib/window-controls";
 import "./App.css";
+
+type ViewKey = "focus" | "tasks" | "insights" | "lab";
+
+const viewItems = [
+  {
+    key: "focus",
+    label: "\u4e13\u6ce8\u8ba1\u65f6",
+    summary: "\u756a\u8304\u949f\u4e0e\u6b63\u5411\u8ba1\u65f6",
+  },
+  {
+    key: "tasks",
+    label: "\u5f85\u529e\u6e05\u5355",
+    summary: "\u4efb\u52a1\u6392\u671f\u4e0e\u4e8b\u52a1\u7ba1\u7406",
+  },
+  {
+    key: "insights",
+    label: "\u6570\u636e\u590d\u76d8",
+    summary: "\u672c\u5730\u8bb0\u5f55\u4e0e\u540e\u7eed\u7edf\u8ba1",
+  },
+  {
+    key: "lab",
+    label: "\u6269\u5c55\u9884\u7559",
+    summary: "\u5956\u52b1\u3001\u517b\u6210\u4e0e\u4e3b\u9898\u65b9\u5411",
+  },
+] as const;
 
 const importanceOptions = [
   { key: "high", label: "\u9ad8\u4f18\u5148\u7ea7" },
@@ -68,13 +93,24 @@ function getImportanceLabel(importanceKey: TodoImportance) {
   );
 }
 
+function formatDurationMs(totalMs: number) {
+  const totalSeconds = Math.floor(totalMs / 1000);
+  const hours = `${Math.floor(totalSeconds / 3600)}`.padStart(2, "0");
+  const minutes = `${Math.floor((totalSeconds % 3600) / 60)}`.padStart(
+    2,
+    "0"
+  );
+  const seconds = `${totalSeconds % 60}`.padStart(2, "0");
+  return `${hours}:${minutes}:${seconds}`;
+}
+
 const copy = {
   versionEyebrow: "\u4e13\u6ce8\u684c\u9762\u52a9\u624b",
-  heroVersion: "v0.5.0 \u672c\u5730\u6301\u4e45\u5316",
+  heroVersion: "v0.6.0 \u4e3b\u754c\u9762\u5206\u533a",
   heroSummary:
-    "\u8fd9\u4e00\u7248\u628a\u4efb\u52a1\u548c\u4e13\u6ce8\u8bb0\u5f55\u63a5\u5165\u4e86\u672c\u5730\u5b58\u50a8\u3002\u4f60\u91cd\u542f\u5e94\u7528\u4e4b\u540e\uff0c\u4e4b\u524d\u7684\u4efb\u52a1\u548c\u5df2\u8bb0\u5f55\u7684\u4e13\u6ce8\u4e8b\u4ef6\u4ecd\u7136\u4f1a\u4fdd\u7559\u3002",
-  loading: "\u6b63\u5728\u8f7d\u5165 v0.5.0 \u672c\u5730\u6570\u636e...",
-  ready: "\u672c\u5730\u6301\u4e45\u5316\u5df2\u63a5\u5165\uff0c\u4efb\u52a1\u4e0e\u4e13\u6ce8\u8bb0\u5f55\u4f1a\u88ab\u4fdd\u7559\u3002",
+    "\u8fd9\u4e00\u7248\u4e0d\u518d\u4f9d\u8d56\u60ac\u6d6e\u7a97\uff0c\u800c\u662f\u628a\u4e3b\u754c\u9762\u5207\u6210\u51e0\u4e2a\u7a33\u5b9a\u7684\u5de5\u4f5c\u533a\uff1a\u8ba1\u65f6\u3001\u5f85\u529e\u3001\u6570\u636e\u590d\u76d8\u548c\u6269\u5c55\u9884\u7559\u3002",
+  loading: "\u6b63\u5728\u8f7d\u5165 v0.6.0 \u4e3b\u754c\u9762\u5206\u533a...",
+  ready: "\u4e3b\u754c\u9762\u5206\u533a\u5df2\u63a5\u5165\uff0c\u4f60\u53ef\u4ee5\u5728\u4e0d\u540c\u5de5\u4f5c\u533a\u4e4b\u95f4\u7a33\u5b9a\u5207\u6362\u3002",
   fallback: "\u5e94\u7528\u5df2\u4f7f\u7528\u56de\u9000\u6570\u636e\u542f\u52a8\u3002",
   shellFallback: "\u8f7d\u5165\u684c\u9762\u58f3\u5c42\u6570\u636e\u5931\u8d25\u3002",
   minimize: "\u6700\u5c0f\u5316",
@@ -139,10 +175,22 @@ const copy = {
   todoDateValueLabel: "\u65e5\u671f",
   todoTimeValueLabel: "\u5f00\u59cb",
   todoImportanceValueLabel: "\u91cd\u8981",
+  switcherEyebrow: "\u5de5\u4f5c\u533a\u5207\u6362",
+  switcherTitle: "\u628a\u529f\u80fd\u653e\u8fdb\u66f4\u7a33\u5b9a\u7684\u4e3b\u754c\u9762\u5206\u533a",
+  switcherSummary:
+    "\u5728\u8fd9\u91cc\u5207\u6362\u4f60\u5f53\u524d\u8981\u4e13\u6ce8\u7684\u754c\u9762\uff1a\u8ba1\u65f6\u3001\u5f85\u529e\u3001\u6570\u636e\u590d\u76d8\u6216\u540e\u7eed\u6269\u5c55\u3002",
+  insightEyebrow: "\u6570\u636e\u590d\u76d8",
+  insightTitle: "\u4e3a\u4e0b\u4e00\u9636\u6bb5\u7edf\u8ba1\u4e2d\u5fc3\u51c6\u5907\u7684\u57fa\u7840\u89c6\u56fe",
+  insightSummary:
+    "\u8fd9\u4e00\u9875\u5148\u628a\u73b0\u6709\u7684\u672c\u5730\u6570\u636e\u6309\u6700\u76f4\u89c2\u7684\u65b9\u5f0f\u5c55\u793a\u51fa\u6765\uff0c\u540e\u7eed\u4f1a\u5728\u6b64\u57fa\u7840\u4e0a\u63a5\u5165\u56fe\u8868\u548c\u8de8\u5929\u7edf\u8ba1\u3002",
+  labEyebrow: "\u6269\u5c55\u9884\u7559",
+  labTitle: "\u540e\u7eed\u529f\u80fd\u5c06\u5728\u8fd9\u91cc\u7ee7\u7eed\u5c55\u5f00",
+  labSummary:
+    "\u5f53\u524d MVP \u5148\u805a\u7126\u8ba1\u65f6\u548c\u5f85\u529e\uff0c\u4f46\u5e95\u5c42\u5df2\u7ecf\u4e3a\u5956\u52b1\u7cfb\u7edf\u3001\u6210\u957f\u4f53\u7cfb\u4e0e\u4e3b\u9898\u6269\u5c55\u9884\u7559\u4e86\u63a5\u53e3\u4f4d\u7f6e\u3002",
   roadmapEyebrow: "\u7248\u672c\u8def\u7ebf",
   roadmapTitle: "\u540e\u9762\u4f1a\u63a5\u4e0a\u7684\u6a21\u5757",
   roadmapSummary:
-    "\u73b0\u5728\u4e3b\u754c\u9762\u5df2\u7ecf\u80fd\u5728\u91cd\u542f\u540e\u4fdd\u7559\u4efb\u52a1\u548c\u4e13\u6ce8\u8bb0\u5f55\uff0c\u4e0b\u4e00\u6b65\u4f1a\u8fdb\u5165\u60ac\u6d6e\u4efb\u52a1\u7a97\u4e0e\u66f4\u8f7b\u91cf\u7684\u5e38\u9a7b\u4f53\u9a8c\u3002",
+    "\u73b0\u5728\u4e3b\u754c\u9762\u5df2\u7ecf\u80fd\u5728\u4e0d\u540c\u5de5\u4f5c\u533a\u4e4b\u95f4\u7a33\u5b9a\u5207\u6362\uff0c\u4e0b\u4e00\u6b65\u4f1a\u7ee7\u7eed\u8865\u4e0a\u66f4\u5b8c\u6574\u7684\u6570\u636e\u590d\u76d8\u548c\u540e\u53f0\u5e38\u9a7b\u4f53\u9a8c\u3002",
   reservedEyebrow: "\u6269\u5c55\u9884\u7559",
   reservedTitle: "\u4e3a\u4e86\u540e\u7eed\u529f\u80fd\u4fdd\u7559\u7684\u63a5\u53e3\u65b9\u5411",
   reservedSummary:
@@ -154,10 +202,10 @@ const copy = {
 
 const emptySnapshot: ShellSnapshot = {
   productName: "Focused Moment",
-  version: "0.5.0",
-  milestone: "v0.5.0 \u672c\u5730\u6301\u4e45\u5316",
+  version: "0.6.0",
+  milestone: "v0.6.0 \u4e3b\u754c\u9762\u5206\u533a",
   slogan:
-    "\u4efb\u52a1\u4e0e\u4e13\u6ce8\u8bb0\u5f55\u4f1a\u7559\u5728\u672c\u5730\uff0c\u91cd\u65b0\u6253\u5f00\u5e94\u7528\u4e5f\u80fd\u7ee7\u7eed\u63a5\u4e0a\u3002",
+    "\u4e13\u6ce8\u3001\u5f85\u529e\u548c\u540e\u7eed\u529f\u80fd\u73b0\u5728\u4f1a\u5728\u540c\u4e00\u4e3b\u754c\u9762\u7684\u4e0d\u540c\u5de5\u4f5c\u533a\u91cc\u5c55\u5f00\u3002",
   surfaces: [],
   reservedExtensions: [],
 };
@@ -192,6 +240,7 @@ function MainShell() {
   const [bootError, setBootError] = createSignal<string | null>(null);
   const [timerBusy, setTimerBusy] = createSignal(false);
   const [todoBusy, setTodoBusy] = createSignal(false);
+  const [activeView, setActiveView] = createSignal<ViewKey>("focus");
 
   const timerReady = () => !bootError();
   const taskHintText = () =>
@@ -228,6 +277,16 @@ function MainShell() {
       timerSnapshot().elapsedMs === 0 &&
       !timerSnapshot().isRunning
     );
+
+  createEffect(() => {
+    const activeLinkedTodoId = linkedTodoId();
+    if (
+      activeLinkedTodoId !== null &&
+      !todoItems().some((item) => item.id === activeLinkedTodoId)
+    ) {
+      setLinkedTodoId(null);
+    }
+  });
 
   function patchTodoDraft(patch: Partial<TodoDraft>) {
     setTodoDraft((current) => ({ ...current, ...patch }));
@@ -453,9 +512,36 @@ function MainShell() {
         </div>
       </header>
 
-      <main class="workspace">
-        <section class="hero-panel panel">
-          <div class="hero-copy timer-hero">
+      <main class="workspace workspace--single">
+        <section class="panel view-switcher">
+          <div class="view-switcher__copy">
+            <span class="eyebrow">{copy.switcherEyebrow}</span>
+            <h2>{copy.switcherTitle}</h2>
+            <p>{copy.switcherSummary}</p>
+          </div>
+
+          <div class="view-switcher__actions">
+            <For each={viewItems}>
+              {(item) => (
+                <button
+                  type="button"
+                  classList={{
+                    "view-chip": true,
+                    "view-chip--active": activeView() === item.key,
+                  }}
+                  onClick={() => setActiveView(item.key)}
+                >
+                  <strong>{item.label}</strong>
+                  <span>{item.summary}</span>
+                </button>
+              )}
+            </For>
+          </div>
+        </section>
+
+                <Show when={activeView() === "focus"}>
+          <section class="hero-panel panel">
+            <div class="hero-copy timer-hero">
             <span class="eyebrow">{copy.heroVersion}</span>
             <h1>{snapshot().productName}</h1>
             <p class="hero-text">{snapshot().slogan}</p>
@@ -678,8 +764,10 @@ function MainShell() {
             </section>
           </section>
         </section>
+        </Show>
 
-        <section class="panel section-panel">
+                <Show when={activeView() === "tasks"}>
+          <section class="panel section-panel">
           <div class="section-heading">
             <div>
               <span class="eyebrow">{copy.todoEyebrow}</span>
@@ -953,48 +1041,154 @@ function MainShell() {
             )}
           </div>
         </section>
+        </Show>
 
-        <section class="panel split-panel">
-          <div class="split-panel__intro">
-            <span class="eyebrow">{copy.roadmapEyebrow}</span>
-            <h2>{copy.roadmapTitle}</h2>
-            <p>{copy.roadmapSummary}</p>
-            {bootError() && (
-              <p class="error-copy">
-                {copy.fallbackPrefix}
-                {bootError()}
-              </p>
-            )}
-          </div>
+        <Show when={activeView() === "insights"}>
+          <section class="panel insights-panel">
+            <div class="section-heading">
+              <div>
+                <span class="eyebrow">{copy.insightEyebrow}</span>
+                <h2>{copy.insightTitle}</h2>
+              </div>
+              <p>{copy.insightSummary}</p>
+            </div>
 
-          <div class="stack-list">
-            <For each={snapshot().surfaces}>
-              {(module) => (
-                <article class="stack-card">
-                  <span class="stack-card__phase">{module.phase}</span>
-                  <div>
-                    <h3>{module.title}</h3>
-                    <p>{module.summary}</p>
-                  </div>
-                </article>
+            <div class="metric-grid">
+              <article class="metric-card">
+                <span class="metric-label">{"\u4e13\u6ce8\u8bb0\u5f55"}</span>
+                <strong>{records().length}</strong>
+                <span class="metric-footnote">
+                  {
+                    "\u5f53\u524d\u672c\u5730\u5df2\u4fdd\u5b58\u7684\u4e13\u6ce8\u4e8b\u4ef6\u6570\u91cf"
+                  }
+                </span>
+              </article>
+              <article class="metric-card">
+                <span class="metric-label">{"\u7d2f\u8ba1\u4e13\u6ce8"}</span>
+                <strong>
+                  {formatDurationMs(
+                    records().reduce((total, record) => total + record.durationMs, 0)
+                  )}
+                </strong>
+                <span class="metric-footnote">
+                  {
+                    "\u57fa\u4e8e\u73b0\u6709\u8bb0\u5f55\u7d2f\u52a0\u5f97\u5230\u7684\u603b\u65f6\u957f"
+                  }
+                </span>
+              </article>
+              <article class="metric-card">
+                <span class="metric-label">{"\u5f85\u529e\u603b\u6570"}</span>
+                <strong>{todoItems().length}</strong>
+                <span class="metric-footnote">
+                  {
+                    "\u5f53\u524d\u672c\u5730\u4efb\u52a1\u5217\u8868\u4e2d\u7684\u5168\u90e8\u4efb\u52a1"
+                  }
+                </span>
+              </article>
+              <article class="metric-card">
+                <span class="metric-label">{"\u5df2\u5b8c\u6210\u4efb\u52a1"}</span>
+                <strong>{completedTodoCount()}</strong>
+                <span class="metric-footnote">
+                  {
+                    "\u540e\u7eed\u56fe\u8868\u4f1a\u5728\u8fd9\u4e2a\u57fa\u7840\u4e0a\u7ee7\u7eed\u5c55\u5f00"
+                  }
+                </span>
+              </article>
+            </div>
+
+            <section class="records-panel">
+              <div class="records-panel__header">
+                <div>
+                  <span class="eyebrow">{"\u6700\u8fd1\u8bb0\u5f55"}</span>
+                  <h3>
+                    {"\u5148\u7528\u5361\u7247\u65b9\u5f0f\u67e5\u770b\u5df2\u6709\u6570\u636e"}
+                  </h3>
+                </div>
+              </div>
+
+              <div class="records-list">
+                <For each={records().slice(0, 6)}>
+                  {(record) => (
+                    <article class="record-card">
+                      <div class="record-card__main">
+                        <div class="record-card__copy">
+                          <strong>{record.title}</strong>
+                          <div class="record-card__meta">
+                            <span class="record-pill">{record.phaseLabel}</span>
+                            <span
+                              classList={{
+                                "record-pill": true,
+                                "record-pill--muted": !record.linkedTodoTitle,
+                              }}
+                            >
+                              {record.linkedTodoTitle
+                                ? `${copy.recordLinkedPrefix}${record.linkedTodoTitle}`
+                                : copy.recordIndependent}
+                            </span>
+                          </div>
+                        </div>
+                        <span>{record.durationLabel}</span>
+                      </div>
+                    </article>
+                  )}
+                </For>
+
+                {records().length === 0 && (
+                  <p class="records-empty">
+                    {
+                      "\u5148\u5b8c\u6210\u51e0\u8f6e\u4e13\u6ce8\uff0c\u518d\u56de\u6765\u67e5\u770b\u66f4\u5b8c\u6574\u7684\u6570\u636e\u590d\u76d8\u3002"
+                    }
+                  </p>
+                )}
+              </div>
+            </section>
+          </section>
+        </Show>
+
+        <Show when={activeView() === "lab"}>
+          <section class="panel split-panel">
+            <div class="split-panel__intro">
+              <span class="eyebrow">{copy.labEyebrow}</span>
+              <h2>{copy.labTitle}</h2>
+              <p>{copy.labSummary}</p>
+              {bootError() && (
+                <p class="error-copy">
+                  {copy.fallbackPrefix}
+                  {bootError()}
+                </p>
               )}
-            </For>
-            <For each={snapshot().reservedExtensions}>
-              {(module) => (
-                <article class="stack-card">
-                  <span class="stack-card__phase">{module.phase}</span>
-                  <div>
-                    <h3>{module.title}</h3>
-                    <p>{module.summary}</p>
-                  </div>
-                </article>
-              )}
-            </For>
-          </div>
-        </section>
+            </div>
+
+            <div class="stack-list">
+              <For each={snapshot().surfaces}>
+                {(module) => (
+                  <article class="stack-card">
+                    <span class="stack-card__phase">{module.phase}</span>
+                    <div>
+                      <h3>{module.title}</h3>
+                      <p>{module.summary}</p>
+                    </div>
+                  </article>
+                )}
+              </For>
+              <For each={snapshot().reservedExtensions}>
+                {(module) => (
+                  <article class="stack-card">
+                    <span class="stack-card__phase">{module.phase}</span>
+                    <div>
+                      <h3>{module.title}</h3>
+                      <p>{module.summary}</p>
+                    </div>
+                  </article>
+                )}
+              </For>
+            </div>
+          </section>
+        </Show>
       </main>
     </div>
   );
 }
 
 export default MainShell;
+

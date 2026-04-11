@@ -1,11 +1,10 @@
-mod storage;
+﻿mod storage;
 
 use std::cmp::Reverse;
 use std::sync::Mutex;
 use std::time::{Duration, Instant, SystemTime};
 
 use serde::{Deserialize, Serialize};
-
 use storage::{PersistedState, PersistenceStore};
 
 const POMODORO_FOCUS_MS: u64 = 25 * 60 * 1000;
@@ -592,9 +591,9 @@ fn with_todo_items<T>(
 fn bootstrap_shell() -> ShellSnapshot {
     ShellSnapshot {
         product_name: "Focused Moment",
-        version: "0.5.0",
-        milestone: "v0.5.0 \u{672c}\u{5730}\u{6301}\u{4e45}\u{5316}",
-        slogan: "\u{4efb}\u{52a1}\u{4e0e}\u{4e13}\u{6ce8}\u{8bb0}\u{5f55}\u{73b0}\u{5728}\u{5df2}\u{80fd}\u{4fdd}\u{7559}\u{5728}\u{672c}\u{5730}\u{ff0c}\u{91cd}\u{542f}\u{5e94}\u{7528}\u{540e}\u{4f9d}\u{7136}\u{53ef}\u{4ee5}\u{7eed}\u{4e0a}\u{4e4b}\u{524d}\u{7684}\u{8fdb}\u{5ea6}\u{3002}",
+        version: "0.6.0",
+        milestone: "v0.6.0 \u{4e3b}\u{754c}\u{9762}\u{5206}\u{533a}",
+        slogan: "\u{4e13}\u{6ce8}\u{3001}\u{5f85}\u{529e}\u{548c}\u{540e}\u{7eed}\u{529f}\u{80fd}\u{73b0}\u{5728}\u{4f1a}\u{5728}\u{540c}\u{4e00}\u{4e3b}\u{754c}\u{9762}\u{7684}\u{4e0d}\u{540c}\u{5de5}\u{4f5c}\u{533a}\u{91cc}\u{5c55}\u{5f00}\u{3002}",
         surfaces: vec![
             ShellPanel {
                 id: "timer",
@@ -606,14 +605,14 @@ fn bootstrap_shell() -> ShellSnapshot {
             ShellPanel {
                 id: "tasks",
                 title: "\u{4efb}\u{52a1}\u{9762}\u{677f}",
-                phase: "v0.4.0-v0.5.0",
-                status: "\u{5df2}\u{6301}\u{4e45}\u{5316}",
-                summary: "\u{4efb}\u{52a1}\u{4e0d}\u{4ec5}\u{80fd}\u{5173}\u{8054}\u{4e13}\u{6ce8}\u{8bb0}\u{5f55}\u{ff0c}\u{8fd8}\u{4f1a}\u{88ab}\u{4fdd}\u{5b58}\u{5230}\u{672c}\u{5730}\u{ff0c}\u{4e0b}\u{6b21}\u{6253}\u{5f00}\u{5e94}\u{7528}\u{65f6}\u{4ecd}\u{7136}\u{5b58}\u{5728}\u{3002}",
+                phase: "v0.4.0-v0.6.0",
+                status: "\u{5df2}\u{5206}\u{533a}",
+                summary: "\u{4efb}\u{52a1}\u{73b0}\u{5728}\u{4f5c}\u{4e3a}\u{4e3b}\u{754c}\u{9762}\u{4e2d}\u{7684}\u{72ec}\u{7acb}\u{5de5}\u{4f5c}\u{533a}\u{5b58}\u{5728}\u{ff0c}\u{65b9}\u{4fbf}\u{96c6}\u{4e2d}\u{7ba1}\u{7406}\u{4efb}\u{52a1}\u{4e0e}\u{6392}\u{671f}\u{3002}",
             },
             ShellPanel {
                 id: "analytics",
                 title: "\u{6570}\u{636e}\u{590d}\u{76d8}",
-                phase: "v0.6.0-v0.7.0",
+                phase: "v0.7.0-v0.8.0",
                 status: "\u{5f85}\u{5f00}\u{53d1}",
                 summary: "\u{540e}\u{7eed}\u{4f1a}\u{5728}\u{5df2}\u{6709}\u{672c}\u{5730}\u{6570}\u{636e}\u{57fa}\u{7840}\u{4e0a}\u{63d0}\u{4f9b}\u{805a}\u{5408}\u{548c}\u{7edf}\u{8ba1}\u{5c55}\u{793a}\u{3002}",
             },
@@ -943,3 +942,4 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
+

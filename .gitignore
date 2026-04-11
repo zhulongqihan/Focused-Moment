@@ -4,3 +4,5 @@ src-tauri/target
 docs/
 .vscode/
 *.log
+/*.exe
+/*.msi

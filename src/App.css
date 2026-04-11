@@ -185,6 +185,17 @@ body {
   align-content: start;
 }
 
+.workspace--single {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: none;
+}
+
+.workspace--single .hero-panel,
+.workspace--single .section-panel,
+.workspace--single .split-panel {
+  grid-area: auto;
+}
+
 .workspace::-webkit-scrollbar {
   width: 10px;
 }
@@ -207,6 +218,76 @@ body {
   box-shadow: var(--shadow-soft);
   backdrop-filter: blur(26px);
   -webkit-backdrop-filter: blur(26px);
+}
+
+.view-switcher,
+.insights-panel {
+  display: grid;
+  gap: 22px;
+  padding: 28px;
+  animation: rise-in 420ms ease;
+}
+
+.view-switcher__copy {
+  display: grid;
+  gap: 10px;
+}
+
+.view-switcher__copy h2 {
+  margin: 0;
+  font-size: clamp(1.6rem, 2vw, 2.2rem);
+  letter-spacing: -0.04em;
+}
+
+.view-switcher__copy p {
+  margin: 0;
+  color: var(--text-muted);
+  max-width: 44rem;
+}
+
+.view-switcher__actions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.view-chip {
+  display: grid;
+  gap: 6px;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 16px 18px;
+  background: rgba(255, 252, 247, 0.84);
+  color: var(--text-main);
+  font: inherit;
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.view-chip strong {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.view-chip span {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+.view-chip:hover {
+  transform: translateY(-1px);
+  border-color: var(--border-strong);
+}
+
+.view-chip--active {
+  border-color: rgba(81, 104, 93, 0.26);
+  background: rgba(81, 104, 93, 0.12);
+  box-shadow: var(--shadow-card);
 }
 
 .hero-panel {
@@ -597,6 +678,15 @@ body {
   gap: 10px;
 }
 
+.section-heading__side {
+  display: grid;
+  gap: 12px;
+}
+
+.section-heading__side .action-button {
+  justify-self: start;
+}
+
 .section-heading h2,
 .split-panel__intro h2 {
   margin: 10px 0 0;
@@ -793,6 +883,12 @@ body {
   white-space: nowrap;
 }
 
+.todo-widget-hint {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 0.92rem;
+}
+
 .todo-inline-actions {
   display: flex;
   flex-wrap: wrap;
@@ -891,6 +987,162 @@ body {
   font-size: 0.9rem;
 }
 
+.widget-shell {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 14px;
+  color: var(--text-main);
+  background:
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.86), transparent 28%),
+    linear-gradient(180deg, #f2ede4 0%, #e5dfd4 100%);
+}
+
+.widget-header,
+.widget-panel {
+  position: relative;
+}
+
+.widget-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 12px;
+  padding: 16px 18px;
+  border: 1px solid rgba(32, 40, 47, 0.08);
+  border-radius: 24px;
+  background: rgba(255, 252, 247, 0.92);
+  box-shadow: 0 16px 32px rgba(53, 44, 31, 0.08);
+}
+
+.widget-header__copy {
+  display: grid;
+  gap: 6px;
+}
+
+.widget-header__copy strong {
+  font-size: 1.16rem;
+  font-weight: 600;
+}
+
+.widget-header__copy p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+.widget-close,
+.widget-link {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--accent-strong);
+  font: inherit;
+  cursor: pointer;
+}
+
+.widget-close {
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(255, 252, 247, 0.72);
+  border: 1px solid var(--border);
+}
+
+.widget-panel {
+  display: grid;
+  gap: 12px;
+  max-height: calc(100vh - 118px);
+  overflow-y: auto;
+  padding: 18px;
+  border: 1px solid rgba(32, 40, 47, 0.08);
+  border-radius: 28px;
+  background: rgba(255, 252, 247, 0.9);
+  box-shadow: 0 16px 32px rgba(53, 44, 31, 0.08);
+}
+
+.widget-panel::-webkit-scrollbar {
+  width: 8px;
+}
+
+.widget-panel::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(81, 104, 93, 0.24);
+}
+
+.widget-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.widget-metric {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid rgba(32, 40, 47, 0.06);
+  border-radius: 18px;
+  background: rgba(255, 252, 247, 0.76);
+}
+
+.widget-metric strong {
+  font-size: 1.32rem;
+}
+
+.widget-creation,
+.widget-list {
+  display: grid;
+  gap: 10px;
+}
+
+.widget-creation__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.widget-create {
+  justify-self: start;
+}
+
+.widget-todo-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 14px;
+  border: 1px solid rgba(32, 40, 47, 0.08);
+  border-radius: 18px;
+  background: rgba(255, 252, 247, 0.8);
+}
+
+.widget-todo-card--completed {
+  opacity: 0.72;
+}
+
+.widget-todo-card__body {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.widget-todo-card__body strong {
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+
+.widget-todo-card--completed .widget-todo-card__body strong {
+  text-decoration: line-through;
+  color: var(--text-soft);
+}
+
+.widget-todo-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: var(--text-soft);
+  font-size: 0.78rem;
+}
+
 @keyframes rise-in {
   from {
     opacity: 0;
@@ -912,6 +1164,10 @@ body {
       "roadmap";
   }
 
+  .view-switcher__actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .split-panel {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -925,7 +1181,9 @@ body {
   .window-chrome,
   .hero-panel,
   .section-panel,
-  .split-panel {
+  .split-panel,
+  .view-switcher,
+  .insights-panel {
     border-radius: 24px;
   }
 
@@ -952,6 +1210,7 @@ body {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .view-switcher__actions,
   .todo-creation,
   .todo-card {
     grid-template-columns: minmax(0, 1fr);
@@ -962,12 +1221,18 @@ body {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .todo-metrics {
+  .widget-creation__grid,
+  .todo-metrics,
+  .widget-metrics {
     grid-template-columns: minmax(0, 1fr);
   }
 
   .todo-card__title-row {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .widget-todo-card {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
