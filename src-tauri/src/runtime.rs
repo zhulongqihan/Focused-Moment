@@ -794,8 +794,8 @@ fn with_todo_items<T>(
 fn bootstrap_shell() -> ShellSnapshot {
     ShellSnapshot {
         product_name: "Focused Moment",
-        version: "1.0.0",
-        milestone: "v1.0.0 \u{53d1}\u{5e03}\u{6536}\u{5c3e}\u{7248}",
+        version: "1.0.1",
+        milestone: "v1.0.1 \u{53d1}\u{5e03}\u{4fee}\u{8ba2}\u{7248}",
         slogan: "\u{4e13}\u{6ce8}\u{3001}\u{5f85}\u{529e}\u{3001}\u{6570}\u{636e}\u{590d}\u{76d8}\u{4e0e}\u{6258}\u{76d8}\u{5e38}\u{9a7b}\u{73b0}\u{5728}\u{5df2}\u{7ecf}\u{80fd}\u{4ee5}\u{6b63}\u{5f0f}\u{53d1}\u{5e03}\u{5f62}\u{6001}\u{5728} Windows \u{4e0a}\u{4f7f}\u{7528}\u{3002}",
         surfaces: vec![
             ShellPanel {
@@ -1221,6 +1221,15 @@ fn close_main_window(window: tauri::Window) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn quit_application(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(state) = app.try_state::<AppLifecycleState>() {
+        state.mark_quitting();
+    }
+    app.exit(0);
+    Ok(())
+}
+
+#[tauri::command]
 fn show_main_window_from_tray(app: tauri::AppHandle) -> Result<(), String> {
     show_main_window(&app)
 }
@@ -1272,6 +1281,7 @@ pub fn run() {
             minimize_main_window,
             toggle_maximize_main_window,
             close_main_window,
+            quit_application,
             show_main_window_from_tray,
             start_dragging_main_window
         ])

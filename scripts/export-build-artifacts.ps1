@@ -38,10 +38,11 @@ foreach ($pattern in $cleanupPatterns) {
       $_.FullName -ne $versionedSetup
     } |
     ForEach-Object {
+      $artifact = $_
       try {
-        Remove-Item -LiteralPath $_.FullName -Force
+        Remove-Item -LiteralPath $artifact.FullName -Force
       } catch {
-        Write-Warning "Unable to remove old artifact $($_.FullName). It may be open."
+        Write-Warning "Unable to remove old artifact $($artifact.FullName). It may be open."
       }
     }
 }
