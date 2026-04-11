@@ -1,12 +1,18 @@
-﻿$ErrorActionPreference = "Stop"
+param(
+  [ValidateSet("debug", "release")]
+  [string]$Profile = "debug"
+)
+
+$ErrorActionPreference = "Stop"
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
-$debugExe = Join-Path $projectRoot "src-tauri\target\debug\focused-moment.exe"
-$setupDir = Join-Path $projectRoot "src-tauri\target\debug\bundle\nsis"
+$targetDir = Join-Path $projectRoot ("src-tauri\target\{0}" -f $Profile)
+$appExe = Join-Path $targetDir "focused-moment.exe"
+$setupDir = Join-Path $targetDir "bundle\nsis"
 $packageJson = Join-Path $projectRoot "package.json"
 
-if (-not (Test-Path -LiteralPath $debugExe)) {
-  throw "Debug exe not found: $debugExe. Run 'pnpm tauri build --debug' first."
+if (-not (Test-Path -LiteralPath $appExe)) {
+  throw "Application exe not found: $appExe. Run the matching Tauri build first."
 }
 
 $package = Get-Content -Raw $packageJson | ConvertFrom-Json
@@ -16,29 +22,48 @@ $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $rootExe = Join-Path $projectRoot "Focused Moment.exe"
 $versionedExe = Join-Path $projectRoot ("Focused Moment v{0}.exe" -f $version)
 $timestampedExe = Join-Path $projectRoot ("Focused Moment v{0}-{1}.exe" -f $version, $timestamp)
+$rootSetup = Join-Path $projectRoot "Focused Moment Setup.exe"
+$versionedSetup = Join-Path $projectRoot ("Focused Moment Setup v{0}.exe" -f $version)
+$timestampedSetup = Join-Path $projectRoot ("Focused Moment Setup v{0}-{1}.exe" -f $version, $timestamp)
+
+$cleanupPatterns = @(
+  "Focused Moment v*.exe",
+  "Focused Moment Setup v*.exe"
+)
+
+foreach ($pattern in $cleanupPatterns) {
+  Get-ChildItem -LiteralPath $projectRoot -Filter $pattern -File -ErrorAction SilentlyContinue |
+    Where-Object {
+      $_.FullName -ne $versionedExe -and
+      $_.FullName -ne $versionedSetup
+    } |
+    ForEach-Object {
+      try {
+        Remove-Item -LiteralPath $_.FullName -Force
+      } catch {
+        Write-Warning "Unable to remove old artifact $($_.FullName). It may be open."
+      }
+    }
+}
 
 try {
-  Copy-Item -LiteralPath $debugExe -Destination $versionedExe -Force
+  Copy-Item -LiteralPath $appExe -Destination $versionedExe -Force
 } catch {
-  Copy-Item -LiteralPath $debugExe -Destination $timestampedExe -Force
+  Copy-Item -LiteralPath $appExe -Destination $timestampedExe -Force
   Write-Warning "Unable to overwrite $versionedExe. It may be open. Exported $timestampedExe instead."
 }
 
 try {
-  Copy-Item -LiteralPath $debugExe -Destination $rootExe -Force
+  Copy-Item -LiteralPath $appExe -Destination $rootExe -Force
 } catch {
   Write-Warning "Unable to overwrite $rootExe. It may be open."
 }
 
-$latestSetup = Get-ChildItem -LiteralPath $setupDir -Filter "*.exe" -ErrorAction SilentlyContinue |
+$latestSetup = Get-ChildItem -LiteralPath $setupDir -Filter "*.exe" -File -ErrorAction SilentlyContinue |
   Sort-Object LastWriteTime -Descending |
   Select-Object -First 1
 
 if ($null -ne $latestSetup) {
-  $rootSetup = Join-Path $projectRoot "Focused Moment Setup.exe"
-  $versionedSetup = Join-Path $projectRoot ("Focused Moment Setup v{0}.exe" -f $version)
-  $timestampedSetup = Join-Path $projectRoot ("Focused Moment Setup v{0}-{1}.exe" -f $version, $timestamp)
-
   try {
     Copy-Item -LiteralPath $latestSetup.FullName -Destination $versionedSetup -Force
   } catch {
@@ -53,7 +78,7 @@ if ($null -ne $latestSetup) {
   }
 }
 
-Write-Host "Exported artifacts:"
+Write-Host ("Exported artifacts for profile: {0}" -f $Profile)
 Write-Host " - $rootExe"
 Write-Host " - $versionedExe"
 if (Test-Path -LiteralPath $timestampedExe) {

@@ -1,6 +1,6 @@
 {
   "name": "focused-moment",
-  "version": "0.9.0",
+  "version": "1.0.0",
   "description": "Focused Moment focused desktop assistant built with Tauri, Rust, and SolidJS.",
   "type": "module",
   "scripts": {
@@ -10,8 +10,11 @@
     "serve": "vite preview",
     "check": "tsc --noEmit",
     "tauri": "tauri",
-    "export:exe": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -ExecutionPolicy Bypass -File scripts/export-debug-exe.ps1",
-    "package:debug": "pnpm tauri build --debug && pnpm export:exe"
+    "export:debug": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -ExecutionPolicy Bypass -File scripts/export-build-artifacts.ps1 -Profile debug",
+    "export:release": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -ExecutionPolicy Bypass -File scripts/export-build-artifacts.ps1 -Profile release",
+    "export:exe": "pnpm export:release",
+    "package:debug": "pnpm tauri build --debug && pnpm export:debug",
+    "package:release": "pnpm tauri build && pnpm export:release"
   },
   "license": "MIT",
   "dependencies": {

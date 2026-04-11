@@ -794,9 +794,9 @@ fn with_todo_items<T>(
 fn bootstrap_shell() -> ShellSnapshot {
     ShellSnapshot {
         product_name: "Focused Moment",
-        version: "0.9.0",
-        milestone: "v0.9.0 \u{6258}\u{76d8}\u{4e0e}\u{540e}\u{53f0}\u{5e38}\u{9a7b}\u{7248}",
-        slogan: "\u{4e13}\u{6ce8}\u{3001}\u{5f85}\u{529e}\u{548c}\u{6570}\u{636e}\u{590d}\u{76d8}\u{73b0}\u{5728}\u{5df2}\u{7ecf}\u{80fd}\u{4ee5}\u{6258}\u{76d8}\u{5e38}\u{9a7b}\u{7684}\u{5f62}\u{5f0f}\u{5728}\u{684c}\u{9762}\u{7ee7}\u{7eed}\u{8fd0}\u{884c}\u{3002}",
+        version: "1.0.0",
+        milestone: "v1.0.0 \u{53d1}\u{5e03}\u{6536}\u{5c3e}\u{7248}",
+        slogan: "\u{4e13}\u{6ce8}\u{3001}\u{5f85}\u{529e}\u{3001}\u{6570}\u{636e}\u{590d}\u{76d8}\u{4e0e}\u{6258}\u{76d8}\u{5e38}\u{9a7b}\u{73b0}\u{5728}\u{5df2}\u{7ecf}\u{80fd}\u{4ee5}\u{6b63}\u{5f0f}\u{53d1}\u{5e03}\u{5f62}\u{6001}\u{5728} Windows \u{4e0a}\u{4f7f}\u{7528}\u{3002}",
         surfaces: vec![
             ShellPanel {
                 id: "timer",
@@ -815,14 +815,14 @@ fn bootstrap_shell() -> ShellSnapshot {
             ShellPanel {
                 id: "analytics",
                 title: "\u{6570}\u{636e}\u{590d}\u{76d8}",
-                phase: "v0.7.0-v0.8.2",
+                phase: "v0.7.0-v1.0.0",
                 status: "\u{5df2}\u{63a5}\u{5165}",
                 summary: "\u{672c}\u{7248}\u{5df2}\u{5728}\u{672c}\u{5730}\u{6570}\u{636e}\u{57fa}\u{7840}\u{4e0a}\u{63d0}\u{4f9b}\u{6309}\u{65e5}\u{805a}\u{5408}\u{3001}\u{603b}\u{89c8}\u{6307}\u{6807}\u{3001}\u{8d8b}\u{52bf}\u{56fe}\u{8868}\u{4e0e}\u{6700}\u{8fd1}\u{590d}\u{76d8}\u{89c6}\u{56fe}\u{3002}",
             },
             ShellPanel {
                 id: "tray",
                 title: "\u{540e}\u{53f0}\u{5e38}\u{9a7b}",
-                phase: "v0.9.0",
+                phase: "v0.9.0-v1.0.0",
                 status: "\u{5df2}\u{63a5}\u{5165}",
                 summary: "\u{5173}\u{95ed}\u{4e3b}\u{7a97}\u{53e3}\u{540e}\u{4f1a}\u{9690}\u{85cf}\u{5230}\u{7cfb}\u{7edf}\u{6258}\u{76d8}\u{ff0c}\u{53ef}\u{4ee5}\u{4ece}\u{6258}\u{76d8}\u{91cd}\u{65b0}\u{6253}\u{5f00}\u{6216}\u{9000}\u{51fa}\u{5e94}\u{7528}\u{3002}",
             },
