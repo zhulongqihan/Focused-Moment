@@ -84,6 +84,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 16px;
   margin-bottom: 16px;
   padding: 14px 16px;
   border: 1px solid var(--border);
@@ -99,6 +100,7 @@ body {
   align-items: center;
   gap: 12px;
   user-select: none;
+  flex-shrink: 0;
 }
 
 .brand-mark {
@@ -142,6 +144,40 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
+}
+
+.window-drag-region {
+  flex: 1;
+  min-width: 180px;
+  min-height: 56px;
+  display: grid;
+  place-items: center;
+  gap: 2px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(255, 252, 247, 0.48), rgba(232, 238, 233, 0.36));
+  border: 1px solid rgba(81, 104, 93, 0.08);
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  app-region: drag;
+  -webkit-app-region: drag;
+}
+
+.window-drag-region:active {
+  cursor: grabbing;
+}
+
+.window-drag-hint {
+  text-align: center;
+  color: var(--text-soft);
+  font-size: 0.82rem;
+}
+
+.window-drag-subhint {
+  text-align: center;
+  color: rgba(94, 100, 95, 0.72);
+  font-size: 0.72rem;
 }
 
 .window-button {
@@ -661,6 +697,220 @@ body {
 
 .record-pill--muted {
   background: rgba(24, 33, 39, 0.06);
+  color: var(--text-muted);
+}
+
+.chart-panel {
+  display: grid;
+  gap: 18px;
+  padding: 18px;
+  border: 1px solid rgba(32, 40, 47, 0.06);
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, rgba(255, 252, 247, 0.9), rgba(248, 244, 238, 0.76)),
+    radial-gradient(circle at top right, rgba(210, 224, 216, 0.36), transparent 28%);
+}
+
+.chart-panel__summary {
+  max-width: 36rem;
+}
+
+.trend-shell {
+  display: grid;
+  gap: 18px;
+}
+
+.trend-highlights {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.trend-highlight-card {
+  display: grid;
+  gap: 8px;
+  padding: 18px;
+  border-radius: 22px;
+  border: 1px solid rgba(32, 40, 47, 0.06);
+  background: rgba(255, 252, 247, 0.82);
+  box-shadow: var(--shadow-card);
+}
+
+.trend-highlight-card--accent {
+  background:
+    linear-gradient(145deg, rgba(81, 104, 93, 0.16), rgba(255, 252, 247, 0.92)),
+    rgba(255, 252, 247, 0.86);
+}
+
+.trend-highlight-card__label {
+  color: var(--text-soft);
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.trend-highlight-card strong {
+  font-size: 1.48rem;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+}
+
+.trend-highlight-card p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.trend-chart-card,
+.trend-single-day {
+  position: relative;
+  overflow: hidden;
+  border-radius: 28px;
+  border: 1px solid rgba(32, 40, 47, 0.06);
+  background:
+    linear-gradient(180deg, rgba(255, 253, 249, 0.98), rgba(245, 240, 232, 0.9)),
+    radial-gradient(circle at top left, rgba(210, 224, 216, 0.26), transparent 32%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.trend-chart-card {
+  padding: 18px 18px 10px;
+}
+
+.trend-chart__svg {
+  width: 100%;
+  height: 196px;
+  overflow: visible;
+}
+
+.trend-chart__axis,
+.trend-chart__guide {
+  stroke: rgba(81, 104, 93, 0.16);
+  stroke-width: 1;
+}
+
+.trend-chart__guide--horizontal {
+  stroke-dasharray: 6 8;
+}
+
+.trend-chart__area {
+  fill: url(#trend-area-gradient);
+  stroke: none;
+}
+
+.trend-chart__line {
+  fill: none;
+  stroke: #43594e;
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 12px 18px rgba(67, 89, 78, 0.18));
+}
+
+.trend-chart__dot {
+  fill: rgba(255, 251, 245, 0.96);
+  stroke: #43594e;
+  stroke-width: 3;
+}
+
+.trend-chart__label {
+  fill: var(--text-soft);
+  font-size: 0.78rem;
+}
+
+.trend-bars {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.trend-bar {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 20px;
+  border: 1px solid rgba(32, 40, 47, 0.06);
+  background: rgba(255, 252, 247, 0.84);
+}
+
+.trend-bar__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+.trend-bar__copy {
+  display: grid;
+  gap: 2px;
+}
+
+.trend-bar__meta strong {
+  color: var(--text-main);
+  font-size: 0.92rem;
+}
+
+.trend-bar__track {
+  width: 100%;
+  height: 12px;
+  border-radius: 999px;
+  background: rgba(81, 104, 93, 0.08);
+  overflow: hidden;
+}
+
+.trend-bar__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(67, 89, 78, 0.98), rgba(155, 178, 167, 0.9));
+}
+
+.trend-single-day {
+  min-height: 220px;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.trend-single-day__halo {
+  position: absolute;
+  width: 240px;
+  height: 240px;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle, rgba(81, 104, 93, 0.22) 0%, rgba(81, 104, 93, 0.08) 42%, transparent 72%);
+  filter: blur(2px);
+}
+
+.trend-single-day__content {
+  position: relative;
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  text-align: center;
+  z-index: 1;
+}
+
+.trend-single-day__date {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: rgba(81, 104, 93, 0.12);
+  color: var(--accent-strong);
+  font-size: 0.84rem;
+}
+
+.trend-single-day__content strong {
+  font-size: clamp(2.4rem, 5vw, 3.6rem);
+  letter-spacing: -0.06em;
+  line-height: 0.94;
+}
+
+.trend-single-day__content p {
+  margin: 0;
+  max-width: 24rem;
   color: var(--text-muted);
 }
 
@@ -1206,6 +1456,10 @@ body {
     justify-content: flex-end;
   }
 
+  .window-drag-region {
+    min-height: 48px;
+  }
+
   .metric-grid {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -1222,6 +1476,11 @@ body {
   .view-switcher__actions,
   .todo-creation,
   .todo-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .trend-highlights,
+  .trend-bars {
     grid-template-columns: minmax(0, 1fr);
   }
 

@@ -31,6 +31,7 @@ import {
 import {
   closeMainWindow,
   minimizeMainWindow,
+  startDraggingMainWindow,
   toggleMaximizeMainWindow,
 } from "./lib/window-controls";
 import "./App.css";
@@ -99,16 +100,18 @@ function getImportanceLabel(importanceKey: TodoImportance) {
 
 const copy = {
   versionEyebrow: "\u4e13\u6ce8\u684c\u9762\u52a9\u624b",
-  heroVersion: "v0.7.0 \u6570\u636e\u4e2d\u5fc3\u57fa\u7840\u7248",
+  heroVersion: "v0.8.2 \u62d6\u52a8\u4e0e\u56fe\u8868\u4f18\u5316\u7248",
   heroSummary:
-    "\u8fd9\u4e00\u7248\u628a\u4e13\u6ce8\u8bb0\u5f55\u548c\u4efb\u52a1\u72b6\u6001\u805a\u5408\u5230\u6570\u636e\u4e2d\u5fc3\u91cc\uff0c\u4f60\u73b0\u5728\u53ef\u4ee5\u76f4\u63a5\u5728\u4e3b\u754c\u9762\u91cc\u770b\u5230\u603b\u89c8\u548c\u6309\u65e5\u590d\u76d8\u3002",
-  loading: "\u6b63\u5728\u8f7d\u5165 v0.7.0 \u6570\u636e\u4e2d\u5fc3\u57fa\u7840\u7248...",
-  ready: "\u6570\u636e\u4e2d\u5fc3\u57fa\u7840\u7248\u5df2\u63a5\u5165\uff0c\u4f60\u73b0\u5728\u53ef\u4ee5\u5728\u4e3b\u754c\u9762\u4e2d\u76f4\u63a5\u67e5\u770b\u805a\u5408\u7edf\u8ba1\u3002",
+    "\u8fd9\u4e00\u7248\u7ee7\u7eed\u6253\u78e8\u6570\u636e\u4e2d\u5fc3\uff0c\u540c\u65f6\u628a\u65e0\u8fb9\u6846\u7a97\u53e3\u7684\u62d6\u52a8\u4ea4\u4e92\u6536\u6574\u5f97\u66f4\u7a33\u5b9a\uff0c\u56fe\u8868\u4e5f\u4f1a\u66f4\u50cf\u4e00\u4e2a\u771f\u6b63\u7684\u4ea7\u54c1\u754c\u9762\u3002",
+  loading: "\u6b63\u5728\u8f7d\u5165 v0.8.2 \u62d6\u52a8\u4e0e\u56fe\u8868\u4f18\u5316\u7248...",
+  ready: "\u7a97\u53e3\u62d6\u52a8\u4e0e\u8d8b\u52bf\u56fe\u8868\u90fd\u5df2\u8fdb\u5165\u7ec6\u5316\u7248\uff0c\u4f60\u73b0\u5728\u53ef\u4ee5\u5728\u6570\u636e\u4e2d\u5fc3\u91cc\u770b\u5230\u66f4\u5b8c\u6574\u7684\u8fd1\u671f\u8282\u594f\u3002",
   fallback: "\u5e94\u7528\u5df2\u4f7f\u7528\u56de\u9000\u6570\u636e\u542f\u52a8\u3002",
   shellFallback: "\u8f7d\u5165\u684c\u9762\u58f3\u5c42\u6570\u636e\u5931\u8d25\u3002",
   minimize: "\u6700\u5c0f\u5316",
   maximize: "\u6700\u5927\u5316",
   close: "\u5173\u95ed",
+  dragHint: "\u6309\u4f4f\u9876\u90e8\u7a7a\u767d\u533a\u53ef\u62d6\u52a8\u7a97\u53e3",
+  dragSubhint: "\u53cc\u51fb\u8fd9\u5757\u533a\u57df\u53ef\u5207\u6362\u6700\u5927\u5316",
   modeSwitchEyebrow: "\u8ba1\u65f6\u6a21\u5f0f",
   stopwatchMode: "\u6b63\u5411\u8ba1\u65f6",
   pomodoroMode: "\u756a\u8304\u949f",
@@ -173,9 +176,9 @@ const copy = {
   switcherSummary:
     "\u5728\u8fd9\u91cc\u5207\u6362\u4f60\u5f53\u524d\u8981\u4e13\u6ce8\u7684\u754c\u9762\uff1a\u8ba1\u65f6\u3001\u5f85\u529e\u3001\u6570\u636e\u590d\u76d8\u6216\u540e\u7eed\u6269\u5c55\u3002",
   insightEyebrow: "\u6570\u636e\u590d\u76d8",
-  insightTitle: "\u6570\u636e\u4e2d\u5fc3\u57fa\u7840\u7248\u5df2\u63a5\u5165",
+  insightTitle: "\u8d8b\u52bf\u56fe\u8868\u7248\u5df2\u63a5\u5165",
   insightSummary:
-    "\u8fd9\u4e00\u7248\u4f1a\u628a\u672c\u5730\u4e13\u6ce8\u8bb0\u5f55\u548c\u4efb\u52a1\u72b6\u6001\u805a\u5408\u6210\u53ef\u76f4\u89c2\u7684\u603b\u89c8\u6307\u6807\u4e0e\u6309\u65e5\u590d\u76d8\uff0c\u4e3a\u4e0b\u4e00\u7248\u56fe\u8868\u7edf\u8ba1\u6253\u5e95\u3002",
+    "\u8fd9\u4e00\u7248\u5728\u539f\u6709\u603b\u89c8\u6307\u6807\u4e0a\u8865\u4e0a\u4e86\u8f7b\u91cf\u8d8b\u52bf\u56fe\u8868\uff0c\u8ba9\u4f60\u66f4\u5bb9\u6613\u770b\u51fa\u6bcf\u5929\u7684\u4e13\u6ce8\u53d8\u5316\u548c\u8fd1\u671f\u8282\u594f\u3002",
   insightTotalFocus: "\u603b\u4e13\u6ce8\u65f6\u957f",
   insightTotalFocusNote: "\u6240\u6709\u5df2\u4fdd\u5b58\u4e13\u6ce8\u8bb0\u5f55\u7684\u7d2f\u79ef\u65f6\u957f",
   insightSessions: "\u4e13\u6ce8\u6b21\u6570",
@@ -196,6 +199,15 @@ const copy = {
   insightDailySessions: "\u6b21\u4e13\u6ce8",
   insightDailyLinked: "\u5173\u8054\u4efb\u52a1",
   insightDailyIndependent: "\u72ec\u7acb\u4e8b\u4ef6",
+  insightTrendEyebrow: "\u8d8b\u52bf\u56fe\u8868",
+  insightTrendTitle: "\u6700\u8fd1\u51e0\u5929\u7684\u4e13\u6ce8\u8d8b\u52bf",
+  insightTrendSummary:
+    "\u4e0a\u65b9\u5148\u770b\u8fd1\u671f\u8282\u594f\u4e0e\u5cf0\u503c\uff0c\u4e0b\u65b9\u518d\u7528\u66f4\u67d4\u548c\u7684\u8d8b\u52bf\u7ebf\u548c\u6bd4\u8f83\u6761\u5feb\u901f\u5bf9\u6bd4\u6bcf\u4e00\u5929\u7684\u6c89\u6dc0\u5dee\u5f02\u3002",
+  insightTrendEmpty: "\u6682\u65f6\u8fd8\u6ca1\u6709\u8db3\u591f\u7684\u6309\u65e5\u6570\u636e\u6765\u7ed8\u5236\u8d8b\u52bf\u56fe\u8868\u3002",
+  insightTrendPeak: "\u8fd1\u671f\u5cf0\u503c",
+  insightTrendLatest: "\u6700\u65b0\u8bb0\u5f55",
+  insightTrendSessions: "\u7a97\u53e3\u5185\u4e13\u6ce8\u6b21\u6570",
+  insightTrendSingleDay: "\u5f53\u524d\u53ea\u6709 1 \u5929\u6570\u636e\uff0c\u5148\u7528\u805a\u7126\u5361\u7247\u5e2e\u4f60\u770b\u6e05\u8fd9\u4e00\u5929\u7684\u8282\u594f\u3002",
   recordCompletedAt: "\u8bb0\u5f55\u65f6\u95f4",
   clearData: "\u6e05\u7a7a\u672c\u5730\u6570\u636e",
   clearDataConfirm:
@@ -220,10 +232,10 @@ const copy = {
 
 const emptySnapshot: ShellSnapshot = {
   productName: "Focused Moment",
-  version: "0.7.0",
-  milestone: "v0.7.0 \u6570\u636e\u4e2d\u5fc3\u57fa\u7840\u7248",
+  version: "0.8.2",
+  milestone: "v0.8.2 \u62d6\u52a8\u4e0e\u56fe\u8868\u4f18\u5316\u7248",
   slogan:
-    "\u4e13\u6ce8\u3001\u5f85\u529e\u548c\u6570\u636e\u590d\u76d8\u73b0\u5728\u5df2\u7ecf\u80fd\u5728\u540c\u4e00\u4e3b\u754c\u9762\u4e2d\u7a33\u5b9a\u534f\u540c\u5de5\u4f5c\u3002",
+    "\u4e13\u6ce8\u3001\u5f85\u529e\u548c\u6570\u636e\u4e2d\u5fc3\u73b0\u5728\u5df2\u7ecf\u80fd\u5728\u540c\u4e00\u4e3b\u754c\u9762\u4e2d\u4ee5\u66f4\u76f4\u89c2\u7684\u8d8b\u52bf\u65b9\u5f0f\u5c55\u793a\u51fa\u6765\u3002",
   surfaces: [],
   reservedExtensions: [],
 };
@@ -255,6 +267,23 @@ const emptyAnalyticsSnapshot: AnalyticsSnapshot = {
   todaySessionCount: 0,
   dailyBreakdown: [],
 };
+
+function formatTrendDateLabel(date: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  if (!match) {
+    return date;
+  }
+
+  return `${match[2]}/${match[3]}`;
+}
+
+function formatDurationLabel(durationMs: number) {
+  const totalSeconds = Math.max(0, Math.floor(durationMs / 1000));
+  const hours = `${Math.floor(totalSeconds / 3600)}`.padStart(2, "0");
+  const minutes = `${Math.floor((totalSeconds % 3600) / 60)}`.padStart(2, "0");
+  const seconds = `${totalSeconds % 60}`.padStart(2, "0");
+  return `${hours}:${minutes}:${seconds}`;
+}
 
 function MainShell() {
   const [snapshot, setSnapshot] = createSignal<ShellSnapshot>(emptySnapshot);
@@ -313,6 +342,60 @@ function MainShell() {
       !timerSnapshot().isRunning
     );
   const latestDailyBreakdown = () => analyticsSnapshot().dailyBreakdown.slice(0, 7);
+  const orderedTrendDays = () => latestDailyBreakdown().slice().reverse();
+  const latestTrendDay = () => {
+    const days = orderedTrendDays();
+    return days.length > 0 ? days[days.length - 1] : null;
+  };
+  const peakTrendDay = () => {
+    const days = orderedTrendDays();
+    if (days.length === 0) {
+      return null;
+    }
+
+    return days.reduce((peak, current) =>
+      current.totalDurationMs > peak.totalDurationMs ? current : peak
+    );
+  };
+  const trendSessionTotal = () =>
+    orderedTrendDays().reduce((total, day) => total + day.sessionCount, 0);
+  const trendAverageDurationLabel = () => {
+    const days = orderedTrendDays();
+    if (days.length === 0) {
+      return "00:00:00";
+    }
+
+    const totalDurationMs = days.reduce(
+      (total, day) => total + day.totalDurationMs,
+      0
+    );
+    return formatDurationLabel(totalDurationMs / days.length);
+  };
+  const trendMaxDurationMs = () =>
+    Math.max(1, ...orderedTrendDays().map((day) => day.totalDurationMs));
+  const trendPointX = (index: number, total: number) =>
+    total <= 1 ? 296 : 42 + (index * 508) / (total - 1);
+  const trendPointY = (value: number, max: number) => 164 - (value / max) * 116;
+  const trendLinePoints = () => {
+    const days = orderedTrendDays();
+    const max = trendMaxDurationMs();
+    return days
+      .map((day, index) =>
+        `${trendPointX(index, days.length)},${trendPointY(day.totalDurationMs, max)}`
+      )
+      .join(" ");
+  };
+  const trendAreaPoints = () => {
+    const days = orderedTrendDays();
+    if (days.length === 0) {
+      return "";
+    }
+
+    const line = trendLinePoints();
+    const firstX = trendPointX(0, days.length);
+    const lastX = trendPointX(days.length - 1, days.length);
+      return `${firstX},164 ${line} ${lastX},164`;
+    };
 
   createEffect(() => {
     const activeLinkedTodoId = linkedTodoId();
@@ -524,6 +607,23 @@ function MainShell() {
     }
   }
 
+  function handleWindowDragRegionPointerDown(event: MouseEvent) {
+    const target = event.target as HTMLElement | null;
+    if (
+      !target ||
+      target.closest("button") ||
+      target.closest("input") ||
+      target.closest("select") ||
+      target.closest("textarea")
+    ) {
+      return;
+    }
+
+    void startDraggingMainWindow().catch(() => {
+      // Ignore transient drag errors and keep the current interaction.
+    });
+  }
+
   onMount(async () => {
     try {
       const nextSnapshot = await invoke<ShellSnapshot>("bootstrap_shell");
@@ -553,8 +653,8 @@ function MainShell() {
 
   return (
     <div class="shell">
-      <header class="window-chrome" data-tauri-drag-region>
-        <div class="brand-lockup" data-tauri-drag-region>
+      <header class="window-chrome">
+        <div class="brand-lockup">
           <div class="brand-mark">
             <span class="brand-mark__dot" />
           </div>
@@ -562,6 +662,16 @@ function MainShell() {
             <span class="brand-copy__eyebrow">{copy.versionEyebrow}</span>
             <strong>{snapshot().productName}</strong>
           </div>
+        </div>
+
+        <div
+          class="window-drag-region"
+          data-tauri-drag-region
+          onMouseDown={handleWindowDragRegionPointerDown}
+          onDblClick={() => void toggleMaximizeMainWindow()}
+        >
+          <div class="window-drag-hint">{copy.dragHint}</div>
+          <div class="window-drag-subhint">{copy.dragSubhint}</div>
         </div>
 
         <div class="window-actions">
@@ -1195,6 +1305,189 @@ function MainShell() {
                 </span>
               </article>
             </div>
+
+            <section class="panel chart-panel">
+              <div class="records-panel__header">
+                <div>
+                  <span class="eyebrow">{copy.insightTrendEyebrow}</span>
+                  <h3>{copy.insightTrendTitle}</h3>
+                </div>
+                <p class="chart-panel__summary">{copy.insightTrendSummary}</p>
+              </div>
+
+              <Show
+                when={orderedTrendDays().length > 0}
+                fallback={<p class="records-empty">{copy.insightTrendEmpty}</p>}
+              >
+                <div class="trend-shell">
+                  <div class="trend-highlights">
+                    <article class="trend-highlight-card trend-highlight-card--accent">
+                      <span class="trend-highlight-card__label">
+                        {copy.insightTrendPeak}
+                      </span>
+                      <strong>
+                        {peakTrendDay()?.totalDurationLabel ?? "00:00:00"}
+                      </strong>
+                      <p>
+                        {peakTrendDay()
+                          ? `${formatTrendDateLabel(peakTrendDay()!.date)} · ${peakTrendDay()!.sessionCount}${copy.insightDailySessions}`
+                          : copy.insightTrendEmpty}
+                      </p>
+                    </article>
+                    <article class="trend-highlight-card">
+                      <span class="trend-highlight-card__label">
+                        {copy.insightTrendLatest}
+                      </span>
+                      <strong>
+                        {latestTrendDay()?.totalDurationLabel ?? "00:00:00"}
+                      </strong>
+                      <p>
+                        {latestTrendDay()
+                          ? `${formatTrendDateLabel(latestTrendDay()!.date)} · ${copy.insightDailyLinked} ${latestTrendDay()!.linkedSessionCount}`
+                          : copy.insightTrendEmpty}
+                      </p>
+                    </article>
+                    <article class="trend-highlight-card">
+                      <span class="trend-highlight-card__label">
+                        {copy.insightTrendSessions}
+                      </span>
+                      <strong>{trendSessionTotal()}</strong>
+                      <p>{`\u8fd1 ${orderedTrendDays().length} \u5929\u65e5\u5747 ${trendAverageDurationLabel()}`}</p>
+                    </article>
+                  </div>
+
+                  <Show
+                    when={orderedTrendDays().length > 1}
+                    fallback={
+                      <div class="trend-single-day">
+                        <div class="trend-single-day__halo" />
+                        <div class="trend-single-day__content">
+                          <span class="trend-single-day__date">
+                            {latestTrendDay()
+                              ? formatTrendDateLabel(latestTrendDay()!.date)
+                              : "--/--"}
+                          </span>
+                          <strong>
+                            {latestTrendDay()?.totalDurationLabel ?? "00:00:00"}
+                          </strong>
+                          <p>{copy.insightTrendSingleDay}</p>
+                        </div>
+                      </div>
+                    }
+                  >
+                    <div class="trend-chart-card">
+                      <svg
+                        class="trend-chart__svg"
+                        viewBox="0 0 592 196"
+                        preserveAspectRatio="none"
+                        aria-label={copy.insightTrendTitle}
+                      >
+                        <defs>
+                          <linearGradient
+                            id="trend-area-gradient"
+                            x1="0%"
+                            y1="0%"
+                            x2="0%"
+                            y2="100%"
+                          >
+                            <stop
+                              offset="0%"
+                              stop-color="rgba(81, 104, 93, 0.24)"
+                            />
+                            <stop
+                              offset="100%"
+                              stop-color="rgba(81, 104, 93, 0.02)"
+                            />
+                          </linearGradient>
+                        </defs>
+                        <line
+                          x1="42"
+                          y1="48"
+                          x2="550"
+                          y2="48"
+                          class="trend-chart__guide trend-chart__guide--horizontal"
+                        />
+                        <line
+                          x1="42"
+                          y1="106"
+                          x2="550"
+                          y2="106"
+                          class="trend-chart__guide trend-chart__guide--horizontal"
+                        />
+                        <line x1="42" y1="164" x2="550" y2="164" class="trend-chart__axis" />
+                        <polyline
+                          class="trend-chart__area"
+                          points={trendAreaPoints()}
+                        />
+                        <polyline
+                          class="trend-chart__line"
+                          points={trendLinePoints()}
+                        />
+                        <For each={orderedTrendDays()}>
+                          {(day, index) => {
+                            const x = () => trendPointX(index(), orderedTrendDays().length);
+                            const y = () =>
+                              trendPointY(day.totalDurationMs, trendMaxDurationMs());
+                            return (
+                              <>
+                                <line
+                                  x1={x()}
+                                  y1="164"
+                                  x2={x()}
+                                  y2={y()}
+                                  class="trend-chart__guide"
+                                />
+                                <circle
+                                  cx={x()}
+                                  cy={y()}
+                                  r="5"
+                                  class="trend-chart__dot"
+                                />
+                                <text
+                                  x={x()}
+                                  y="186"
+                                  text-anchor="middle"
+                                  class="trend-chart__label"
+                                >
+                                  {formatTrendDateLabel(day.date)}
+                                </text>
+                              </>
+                            );
+                          }}
+                        </For>
+                      </svg>
+                    </div>
+                  </Show>
+
+                  <div class="trend-bars">
+                    <For each={orderedTrendDays()}>
+                      {(day) => (
+                        <article class="trend-bar">
+                          <div class="trend-bar__meta">
+                            <div class="trend-bar__copy">
+                              <strong>{formatTrendDateLabel(day.date)}</strong>
+                              <span>{`${day.sessionCount}${copy.insightDailySessions}`}</span>
+                            </div>
+                            <span>{day.totalDurationLabel}</span>
+                          </div>
+                          <div class="trend-bar__track">
+                            <div
+                              class="trend-bar__fill"
+                              style={{
+                                width: `${Math.max(
+                                  12,
+                                  (day.totalDurationMs / trendMaxDurationMs()) * 100
+                                )}%`,
+                              }}
+                            />
+                          </div>
+                        </article>
+                      )}
+                    </For>
+                  </div>
+                </div>
+              </Show>
+            </section>
 
             <section class="records-panel">
               <div class="records-panel__header">

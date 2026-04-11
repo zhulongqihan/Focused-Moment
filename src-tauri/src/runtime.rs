@@ -764,9 +764,9 @@ fn with_todo_items<T>(
 fn bootstrap_shell() -> ShellSnapshot {
     ShellSnapshot {
         product_name: "Focused Moment",
-        version: "0.7.0",
-        milestone: "v0.7.0 \u{6570}\u{636e}\u{4e2d}\u{5fc3}\u{57fa}\u{7840}\u{7248}",
-        slogan: "\u{4e13}\u{6ce8}\u{3001}\u{5f85}\u{529e}\u{548c}\u{6570}\u{636e}\u{590d}\u{76d8}\u{73b0}\u{5728}\u{5df2}\u{7ecf}\u{80fd}\u{5728}\u{540c}\u{4e00}\u{4e3b}\u{754c}\u{9762}\u{4e2d}\u{7a33}\u{5b9a}\u{534f}\u{540c}\u{5de5}\u{4f5c}\u{3002}",
+        version: "0.8.2",
+        milestone: "v0.8.2 \u{62d6}\u{52a8}\u{4e0e}\u{56fe}\u{8868}\u{4f18}\u{5316}\u{7248}",
+        slogan: "\u{4e13}\u{6ce8}\u{3001}\u{5f85}\u{529e}\u{548c}\u{6570}\u{636e}\u{4e2d}\u{5fc3}\u{73b0}\u{5728}\u{5df2}\u{7ecf}\u{80fd}\u{5728}\u{540c}\u{4e00}\u{4e3b}\u{754c}\u{9762}\u{4e2d}\u{4ee5}\u{66f4}\u{76f4}\u{89c2}\u{7684}\u{8d8b}\u{52bf}\u{65b9}\u{5f0f}\u{5c55}\u{793a}\u{51fa}\u{6765}\u{3002}",
         surfaces: vec![
             ShellPanel {
                 id: "timer",
@@ -785,9 +785,9 @@ fn bootstrap_shell() -> ShellSnapshot {
             ShellPanel {
                 id: "analytics",
                 title: "\u{6570}\u{636e}\u{590d}\u{76d8}",
-                phase: "v0.7.0",
+                phase: "v0.7.0-v0.8.0",
                 status: "\u{5df2}\u{63a5}\u{5165}",
-                summary: "\u{672c}\u{7248}\u{5df2}\u{5728}\u{672c}\u{5730}\u{6570}\u{636e}\u{57fa}\u{7840}\u{4e0a}\u{63d0}\u{4f9b}\u{6309}\u{65e5}\u{805a}\u{5408}\u{3001}\u{603b}\u{89c8}\u{6307}\u{6807}\u{4e0e}\u{6700}\u{8fd1}\u{590d}\u{76d8}\u{89c6}\u{56fe}\u{3002}",
+                summary: "\u{672c}\u{7248}\u{5df2}\u{5728}\u{672c}\u{5730}\u{6570}\u{636e}\u{57fa}\u{7840}\u{4e0a}\u{63d0}\u{4f9b}\u{6309}\u{65e5}\u{805a}\u{5408}\u{3001}\u{603b}\u{89c8}\u{6307}\u{6807}\u{3001}\u{8d8b}\u{52bf}\u{56fe}\u{8868}\u{4e0e}\u{6700}\u{8fd1}\u{590d}\u{76d8}\u{89c6}\u{56fe}\u{3002}",
             },
         ],
         reserved_extensions: vec![
@@ -1115,6 +1115,11 @@ fn close_main_window(window: tauri::Window) -> Result<(), String> {
     window.close().map_err(|error| error.to_string())
 }
 
+#[tauri::command]
+fn start_dragging_main_window(window: tauri::Window) -> Result<(), String> {
+    window.start_dragging().map_err(|error| error.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -1137,7 +1142,8 @@ pub fn run() {
             complete_focus_session,
             minimize_main_window,
             toggle_maximize_main_window,
-            close_main_window
+            close_main_window,
+            start_dragging_main_window
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
