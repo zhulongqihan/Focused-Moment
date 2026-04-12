@@ -829,8 +829,8 @@ fn resolve_export_directory() -> Result<PathBuf, String> {
 fn bootstrap_shell() -> ShellSnapshot {
     ShellSnapshot {
         product_name: "Focused Moment",
-        version: "1.1.1",
-        milestone: "v1.1.1 \u{5355}\u{4f8b}\u{4e0e}\u{7a33}\u{5b9a}\u{6027}\u{4fee}\u{8ba2}\u{7248}",
+        version: "1.2.0",
+        milestone: "v1.2.0 \u{5f85}\u{529e}\u{4f53}\u{9a8c}\u{589e}\u{5f3a}\u{7248}",
         slogan: "\u{7528}\u{66f4}\u{8f7b}\u{7684}\u{65b9}\u{5f0f}\u{4e13}\u{6ce8}\u{3001}\u{5b89}\u{6392}\u{548c}\u{590d}\u{76d8}\u{6bcf}\u{4e00}\u{5929}\u{3002}",
         surfaces: vec![
             ShellPanel {
@@ -843,9 +843,9 @@ fn bootstrap_shell() -> ShellSnapshot {
             ShellPanel {
                 id: "tasks",
                 title: "\u{4efb}\u{52a1}\u{9762}\u{677f}",
-                phase: "v0.4.0-v0.6.0",
-                status: "\u{5df2}\u{5206}\u{533a}",
-                summary: "\u{4efb}\u{52a1}\u{73b0}\u{5728}\u{4f5c}\u{4e3a}\u{4e3b}\u{754c}\u{9762}\u{4e2d}\u{7684}\u{72ec}\u{7acb}\u{5de5}\u{4f5c}\u{533a}\u{5b58}\u{5728}\u{ff0c}\u{65b9}\u{4fbf}\u{96c6}\u{4e2d}\u{7ba1}\u{7406}\u{4efb}\u{52a1}\u{4e0e}\u{6392}\u{671f}\u{3002}",
+                phase: "v0.4.0-v1.2.0",
+                status: "\u{5df2}\u{589e}\u{5f3a}",
+                summary: "\u{4efb}\u{52a1}\u{533a}\u{73b0}\u{5728}\u{652f}\u{6301}\u{641c}\u{7d22}\u{3001}\u{7b5b}\u{9009}\u{4e0e}\u{6392}\u{5e8f}\u{ff0c}\u{66f4}\u{9002}\u{5408}\u{65e5}\u{5e38}\u{7ef4}\u{62a4}\u{548c}\u{5feb}\u{901f}\u{627e}\u{4efb}\u{52a1}\u{3002}",
             },
             ShellPanel {
                 id: "analytics",

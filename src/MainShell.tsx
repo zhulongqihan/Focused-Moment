@@ -42,6 +42,8 @@ import "./App.css";
 
 type ViewKey = "focus" | "tasks" | "insights" | "lab";
 type ReviewRangeKey = "today" | "7d" | "30d" | "all" | "custom";
+type TodoFilterKey = "all" | "pending" | "completed" | "today" | "high";
+type TodoSortKey = "smart" | "schedule" | "importance" | "newest" | "title";
 
 type ReviewSummary = {
   totalFocusDurationMs: number;
@@ -94,6 +96,22 @@ const reviewRangeOptions = [
   { key: "custom", label: "\u81ea\u5b9a\u4e49" },
 ] as const;
 
+const todoFilterOptions = [
+  { key: "all", label: "\u5168\u90e8" },
+  { key: "pending", label: "\u8fdb\u884c\u4e2d" },
+  { key: "completed", label: "\u5df2\u5b8c\u6210" },
+  { key: "today", label: "\u4eca\u5929" },
+  { key: "high", label: "\u9ad8\u4f18\u5148\u7ea7" },
+] as const;
+
+const todoSortOptions = [
+  { key: "smart", label: "\u9ed8\u8ba4\u6392\u5e8f" },
+  { key: "schedule", label: "\u6309\u65f6\u95f4\u6392" },
+  { key: "importance", label: "\u6309\u91cd\u8981\u7a0b\u5ea6" },
+  { key: "newest", label: "\u6700\u65b0\u521b\u5efa" },
+  { key: "title", label: "\u6309\u540d\u79f0" },
+] as const;
+
 function getLocalDateValue() {
   const now = new Date();
   const year = now.getFullYear();
@@ -123,6 +141,19 @@ function getImportanceLabel(importanceKey: TodoImportance) {
     importanceOptions.find((option) => option.key === importanceKey)?.label ??
     "\u672a\u8bbe\u7f6e"
   );
+}
+
+function getImportanceRank(importanceKey: TodoImportance) {
+  switch (importanceKey) {
+    case "high":
+      return 0;
+    case "medium":
+      return 1;
+    case "low":
+      return 2;
+    default:
+      return 3;
+  }
 }
 
 const copy = {
@@ -193,6 +224,15 @@ const copy = {
   todoSummary:
     "\u628a\u60f3\u505a\u7684\u4e8b\u3001\u9884\u8ba1\u65f6\u95f4\u548c\u91cd\u8981\u7a0b\u5ea6\u8bb0\u4e0b\u6765\uff0c\u7b49\u5f00\u59cb\u4e13\u6ce8\u65f6\u518d\u76f4\u63a5\u5173\u8054\u5b83\u3002",
   todoPlaceholder: "\u65b0\u589e\u4e00\u4e2a\u4efb\u52a1\uff0c\u4f8b\u5982\uff1a\u8865\u5b8c\u5468\u62a5\u521d\u7a3f",
+  todoSearchPlaceholder: "\u641c\u7d22\u4efb\u52a1\u540d\u79f0\uff0c\u5feb\u901f\u627e\u5230\u8981\u5904\u7406\u7684\u4e8b",
+  todoToolsEyebrow: "\u4efb\u52a1\u5de5\u5177",
+  todoToolsTitle: "\u66f4\u5feb\u627e\u5230\u4f60\u73b0\u5728\u60f3\u5904\u7406\u7684\u4efb\u52a1",
+  todoToolsSummary:
+    "\u53ef\u4ee5\u5148\u641c\u7d22\uff0c\u518d\u6309\u72b6\u6001\u6216\u91cd\u8981\u7a0b\u5ea6\u7b5b\u9009\uff0c\u6700\u540e\u7528\u6392\u5e8f\u628a\u4efb\u52a1\u5217\u8868\u8c03\u6210\u66f4\u987a\u624b\u7684\u89c6\u56fe\u3002",
+  todoFilterLabel: "\u7b5b\u9009",
+  todoSortLabel: "\u6392\u5e8f",
+  todoVisibleCount: "\u5f53\u524d\u53ef\u89c1",
+  todoFilteredEmpty: "\u8fd9\u4e2a\u7b5b\u9009\u7ec4\u5408\u4e0b\u8fd8\u6ca1\u6709\u5339\u914d\u7684\u4efb\u52a1\uff0c\u53ef\u4ee5\u6362\u4e2a\u6761\u4ef6\u8bd5\u8bd5\u3002",
   todoDateLabel: "\u65e5\u671f",
   todoTimeLabel: "\u5f00\u59cb\u65f6\u95f4",
   todoImportanceLabel: "\u91cd\u8981\u7a0b\u5ea6",
@@ -297,8 +337,8 @@ const copy = {
 
 const emptySnapshot: ShellSnapshot = {
   productName: "Focused Moment",
-  version: "1.1.1",
-  milestone: "v1.1.1 \u5355\u4f8b\u4e0e\u7a33\u5b9a\u6027\u4fee\u8ba2\u7248",
+  version: "1.2.0",
+  milestone: "v1.2.0 \u5f85\u529e\u4f53\u9a8c\u589e\u5f3a\u7248",
   slogan:
     "\u7528\u66f4\u8f7b\u7684\u65b9\u5f0f\u4e13\u6ce8\u3001\u5b89\u6392\u548c\u590d\u76d8\u6bcf\u4e00\u5929\u3002",
   surfaces: [],
@@ -488,6 +528,9 @@ function MainShell() {
   const [reviewRange, setReviewRange] = createSignal<ReviewRangeKey>("7d");
   const [customStartDate, setCustomStartDate] = createSignal(getLocalDateValue());
   const [customEndDate, setCustomEndDate] = createSignal(getLocalDateValue());
+  const [todoSearchQuery, setTodoSearchQuery] = createSignal("");
+  const [todoFilter, setTodoFilter] = createSignal<TodoFilterKey>("all");
+  const [todoSort, setTodoSort] = createSignal<TodoSortKey>("smart");
 
   const timerReady = () => !bootError();
   const taskHintText = () =>
@@ -498,6 +541,58 @@ function MainShell() {
     todoItems().filter((item) => !item.isCompleted).length;
   const completedTodoCount = () =>
     todoItems().filter((item) => item.isCompleted).length;
+  const visibleTodoItems = () => {
+    const searchQuery = todoSearchQuery().trim().toLowerCase();
+    const today = getLocalDateValue();
+    const filteredItems = todoItems().filter((item) => {
+      if (
+        searchQuery &&
+        !item.title.toLowerCase().includes(searchQuery)
+      ) {
+        return false;
+      }
+
+      switch (todoFilter()) {
+        case "pending":
+          return !item.isCompleted;
+        case "completed":
+          return item.isCompleted;
+        case "today":
+          return item.scheduledDate === today;
+        case "high":
+          return item.importanceKey === "high";
+        default:
+          return true;
+      }
+    });
+
+    if (todoSort() === "smart") {
+      return filteredItems;
+    }
+
+    return filteredItems.slice().sort((left, right) => {
+      if (todoSort() === "schedule") {
+        return `${left.scheduledDate} ${left.scheduledTime}`.localeCompare(
+          `${right.scheduledDate} ${right.scheduledTime}`
+        );
+      }
+
+      if (todoSort() === "importance") {
+        return (
+          getImportanceRank(left.importanceKey) -
+            getImportanceRank(right.importanceKey) ||
+          Number(left.isCompleted) - Number(right.isCompleted) ||
+          right.id - left.id
+        );
+      }
+
+      if (todoSort() === "newest") {
+        return right.id - left.id;
+      }
+
+      return left.title.localeCompare(right.title, "zh-Hans-CN");
+    });
+  };
   const storedRecordCount = () => analyticsSnapshot().sessionCount;
   const linkedTodoItem = () =>
     todoItems().find((item) => item.id === linkedTodoId()) ?? null;
@@ -1364,10 +1459,71 @@ function MainShell() {
               <span class="metric-label">{copy.todoCompletedCount}</span>
               <strong>{completedTodoCount()}</strong>
             </article>
+            <article class="todo-metric-card">
+              <span class="metric-label">{copy.todoVisibleCount}</span>
+              <strong>{visibleTodoItems().length}</strong>
+            </article>
           </div>
 
+          <section class="records-panel todo-tools-panel">
+            <div class="records-panel__header">
+              <div>
+                <span class="eyebrow">{copy.todoToolsEyebrow}</span>
+                <h3>{copy.todoToolsTitle}</h3>
+              </div>
+              <p class="chart-panel__summary">{copy.todoToolsSummary}</p>
+            </div>
+
+            <div class="todo-tools-panel__controls">
+              <input
+                class="task-input"
+                type="text"
+                value={todoSearchQuery()}
+                placeholder={copy.todoSearchPlaceholder}
+                onInput={(event) => setTodoSearchQuery(event.currentTarget.value)}
+              />
+
+              <div class="todo-filter-field">
+                <span>{copy.todoFilterLabel}</span>
+                <div class="review-range-group">
+                  <For each={todoFilterOptions}>
+                    {(option) => (
+                      <button
+                        type="button"
+                        classList={{
+                          "filter-chip": true,
+                          "filter-chip--active": todoFilter() === option.key,
+                        }}
+                        onClick={() => setTodoFilter(option.key)}
+                      >
+                        {option.label}
+                      </button>
+                    )}
+                  </For>
+                </div>
+              </div>
+
+              <label class="todo-form-field todo-sort-field">
+                <span>{copy.todoSortLabel}</span>
+                <select
+                  class="task-input task-select"
+                  value={todoSort()}
+                  onChange={(event) =>
+                    setTodoSort(event.currentTarget.value as TodoSortKey)
+                  }
+                >
+                  <For each={todoSortOptions}>
+                    {(option) => (
+                      <option value={option.key}>{option.label}</option>
+                    )}
+                  </For>
+                </select>
+              </label>
+            </div>
+          </section>
+
           <div class="todo-list">
-            <For each={todoItems()}>
+            <For each={visibleTodoItems()}>
               {(item) => (
                 <article
                   classList={{
@@ -1545,6 +1701,10 @@ function MainShell() {
 
             {todoItems().length === 0 && (
               <p class="records-empty">{copy.todoEmpty}</p>
+            )}
+
+            {todoItems().length > 0 && visibleTodoItems().length === 0 && (
+              <p class="records-empty">{copy.todoFilteredEmpty}</p>
             )}
           </div>
         </section>
