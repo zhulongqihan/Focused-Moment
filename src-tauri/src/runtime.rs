@@ -829,8 +829,8 @@ fn resolve_export_directory() -> Result<PathBuf, String> {
 fn bootstrap_shell() -> ShellSnapshot {
     ShellSnapshot {
         product_name: "Focused Moment",
-        version: "1.1.0",
-        milestone: "v1.1.0 \u{6570}\u{636e}\u{4e2d}\u{5fc3}\u{589e}\u{5f3a}\u{7248}",
+        version: "1.1.1",
+        milestone: "v1.1.1 \u{5355}\u{4f8b}\u{4e0e}\u{7a33}\u{5b9a}\u{6027}\u{4fee}\u{8ba2}\u{7248}",
         slogan: "\u{7528}\u{66f4}\u{8f7b}\u{7684}\u{65b9}\u{5f0f}\u{4e13}\u{6ce8}\u{3001}\u{5b89}\u{6392}\u{548c}\u{590d}\u{76d8}\u{6bcf}\u{4e00}\u{5929}\u{3002}",
         surfaces: vec![
             ShellPanel {
