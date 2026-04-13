@@ -2,6 +2,7 @@
 import { For, Show, createEffect, createSignal, onCleanup, onMount } from "solid-js";
 import type {
   AnalyticsSnapshot,
+  ContentPackSnapshot,
   DailyInsight,
   FocusRecord,
   RewardLedgerEntry,
@@ -26,11 +27,13 @@ import {
   deleteFocusRecords,
   exportFocusRecordsCsv,
   getAnalyticsSnapshot,
+  getContentPackSnapshot,
   getFocusRecords,
   getRewardSnapshot,
   getTimerSnapshot,
   pauseTimer,
   resetTimer,
+  syncContentPack,
   startTimer,
   switchTimerMode,
 } from "./lib/timer";
@@ -337,7 +340,7 @@ const copy = {
   developerEyebrow: "\u5f00\u53d1\u8005\u4fe1\u606f",
   developerTitle: "\u8fd9\u4e9b\u5185\u90e8\u4fe1\u606f\u90fd\u6536\u5728\u8fd9\u91cc",
   developerSummary:
-    "\u7248\u672c\u53f7\u3001\u8fd0\u884c\u72b6\u6001\u3001\u65f6\u95f4\u6821\u6b63\u65b9\u5f0f\u3001\u672a\u6765\u6269\u5c55\u9884\u7559\u7b49\u5185\u5bb9\u90fd\u79fb\u5230\u4e86\u8fd9\u4e2a\u9875\u9762\uff0c\u65e5\u5e38\u4f7f\u7528\u65f6\u53ef\u4ee5\u76f4\u63a5\u5ffd\u7565\u5b83\u3002",
+    "\u8fd9\u4e2a\u9875\u9762\u53ea\u4fdd\u7559\u5f53\u524d\u7248\u672c\u3001\u5185\u5bb9\u5305\u540c\u6b65\u548c\u6a21\u5757\u8def\u7ebf\uff0c\u5176\u4ed6\u8fc7\u4e8e\u786c\u6838\u7684\u5185\u90e8\u4fe1\u606f\u90fd\u5148\u6536\u8d77\u6765\u4e86\u3002",
   developerVersionLabel: "\u5e94\u7528\u7248\u672c",
   developerVersionNote: "\u5f53\u524d\u6784\u5efa\u6240\u5bf9\u5e94\u7684\u7248\u672c\u53f7",
   developerMilestoneLabel: "\u5f53\u524d\u9636\u6bb5",
@@ -346,12 +349,33 @@ const copy = {
   developerStatusNote: "\u542f\u52a8\u548c\u4ea4\u4e92\u8fc7\u7a0b\u4e2d\u7684\u6700\u65b0\u72b6\u6001\u6587\u5b57",
   developerStorageLabel: "\u6570\u636e\u5b58\u50a8",
   developerStorageNote: "\u6240\u6709\u4efb\u52a1\u3001\u4e13\u6ce8\u8bb0\u5f55\u548c\u5956\u52b1\u6570\u636e\u9ed8\u8ba4\u4fdd\u5b58\u5728\u672c\u5730",
-  developerInfoEyebrow: "\u8fd0\u884c\u4fe1\u606f",
-  developerInfoTitle: "\u4e0e\u8fd9\u4e2a\u7248\u672c\u76f8\u5173\u7684\u5185\u90e8\u8bf4\u660e",
+  developerInfoEyebrow: "\u8fd0\u884c\u6458\u8981",
+  developerInfoTitle: "\u4fdd\u7559\u4e0b\u6765\u7684\u5173\u952e\u8fd0\u884c\u4fe1\u606f",
   developerModulesEyebrow: "\u6a21\u5757\u8def\u7ebf",
   developerModulesTitle: "\u5df2\u5b8c\u6210\u548c\u9884\u7559\u7684\u80fd\u529b",
   developerModulesSummary:
     "\u8fd9\u91cc\u4f1a\u96c6\u4e2d\u663e\u793a\u5df2\u63a5\u5165\u7684\u6a21\u5757\u3001\u5f53\u524d\u7684\u5f00\u53d1\u9636\u6bb5\uff0c\u4ee5\u53ca\u540e\u7eed\u6269\u5c55\u9884\u7559\u3002",
+  contentPackEyebrow: "\u5185\u5bb9\u5305\u540c\u6b65",
+  contentPackTitle: "\u65b9\u821f\u8d44\u6599\u66f4\u65b0\u4e5f\u6709\u4e86\u4e00\u6761\u72ec\u7acb\u94fe\u8def",
+  contentPackSummary:
+    "\u8fd9\u4e00\u7248\u5148\u628a\u5185\u5bb9\u5305\u5feb\u7167\u3001\u672c\u5730\u7f13\u5b58\u548c\u624b\u52a8\u68c0\u67e5\u66f4\u65b0\u63a5\u597d\uff0c\u540e\u7eed\u7684\u5e72\u5458\u76ee\u5f55\u548c\u5361\u6c60\u4f1a\u8d70\u8fd9\u6761\u540c\u6b65\u5c42\u3002",
+  contentPackVersionLabel: "\u5f53\u524d\u5185\u5bb9\u5305",
+  contentPackVersionNote: "\u76ee\u524d\u5df2\u7ecf\u5e94\u7528\u5230\u672c\u5730\u7684\u8d44\u6599\u7248\u672c",
+  contentPackCatalogLabel: "\u5168\u91cf\u76ee\u5f55",
+  contentPackCatalogNote: "\u8fd9\u4efd\u5feb\u7167\u91cc\u603b\u5171\u5305\u542b\u7684\u5e72\u5458\u4e0e\u5f53\u524d\u5361\u6c60\u6570\u91cf",
+  contentPackDeltaLabel: "\u672c\u6b21\u53d8\u5316",
+  contentPackDeltaNote: "\u76f8\u5bf9\u4e0a\u4e00\u4efd\u672c\u5730\u5185\u5bb9\u5305\uff0c\u8fd9\u6b21\u540c\u6b65\u4f1a\u5e26\u6765\u7684\u589e\u91cf",
+  contentPackSourceLabel: "\u8d44\u6599\u6765\u6e90",
+  contentPackSourceNote: "\u8fd9\u4efd\u5185\u5bb9\u5305\u6765\u81ea\u54ea\u6761\u5feb\u7167\u94fe\u8def",
+  contentPackCheckedLabel: "\u4e0a\u6b21\u68c0\u67e5",
+  contentPackCheckedNote: "\u6700\u8fd1\u4e00\u6b21\u70b9\u51fb\u68c0\u67e5\u8d44\u6599\u66f4\u65b0\u7684\u65f6\u95f4",
+  contentPackSyncedLabel: "\u4e0a\u6b21\u540c\u6b65",
+  contentPackSyncedNote: "\u6700\u8fd1\u4e00\u6b21\u771f\u6b63\u628a\u65b0\u5feb\u7167\u5199\u5165\u672c\u5730\u7684\u65f6\u95f4",
+  contentPackUpdateButton: "\u68c0\u67e5\u65b9\u821f\u8d44\u6599\u66f4\u65b0",
+  contentPackRemotePrefix: "\u53ef\u7528\u65b0\u5feb\u7167",
+  contentPackEmptyTime: "\u6682\u65e0",
+  contentPackUpdatedStatus: "\u5185\u5bb9\u5305\u5df2\u66f4\u65b0",
+  contentPackLatestStatus: "\u5f53\u524d\u5df2\u662f\u6700\u65b0\u8d44\u6599",
   fallbackPrefix: "\u8f7d\u5165\u56de\u9000\u4fe1\u606f\uff1a",
   windows: "Windows",
   defaultError: "\u64cd\u4f5c\u6ca1\u6709\u6210\u529f\uff0c\u8bf7\u91cd\u8bd5\u3002",
@@ -359,10 +383,10 @@ const copy = {
 
 const emptySnapshot: ShellSnapshot = {
   productName: "Focused Moment",
-  version: "1.3.2",
-  milestone: "v1.3.2 \u8d27\u5e01\u5e73\u8861\u7248",
+  version: "1.4.2",
+  milestone: "v1.4.2 \u5f00\u53d1\u8005\u9875\u9762\u51cf\u8d1f\u7248",
   slogan:
-    "\u5b8c\u6210\u4e00\u8f6e\u4e13\u6ce8\u540e\uff0c\u4f60\u7684\u79ef\u7d2f\u4e5f\u4f1a\u8ddf\u7740\u5411\u524d\u8d70\u4e00\u5c0f\u6b65\u3002",
+    "\u5f53\u4ea7\u54c1\u57fa\u7ebf\u8d8a\u6765\u8d8a\u7a33\u7684\u65f6\u5019\uff0c\u4e0d\u5fc5\u8981\u7684\u4fe1\u606f\u4e5f\u8be5\u4e00\u8d77\u53d8\u5c11\u3002",
   surfaces: [],
   reservedExtensions: [],
 };
@@ -406,6 +430,24 @@ const emptyRewardSnapshot: RewardSnapshot = {
   currentStreakDays: 0,
   totalRewardCount: 0,
   latestRewards: [],
+};
+
+const emptyContentPackSnapshot: ContentPackSnapshot = {
+  currentVersion: "global-baseline-2026.03.28",
+  currentServer: "Global",
+  currentUpdatedAt: "2026-03-28 10:00",
+  operatorCount: 372,
+  bannerCount: 2,
+  lastCheckedAt: null,
+  lastSyncedAt: null,
+  sourceLabel: "应用内置全量基线",
+  statusLabel: "内容包待检查",
+  statusNote: "点击下方按钮后，会比对远端静态快照与当前本地内容包版本。",
+  updateAvailable: false,
+  remoteVersion: null,
+  remoteUpdatedAt: null,
+  remoteOperatorCount: null,
+  remoteBannerCount: null,
 };
 
 function formatTrendDateLabel(date: string) {
@@ -568,6 +610,8 @@ function MainShell() {
     createSignal<AnalyticsSnapshot>(emptyAnalyticsSnapshot);
   const [rewardSnapshot, setRewardSnapshot] =
     createSignal<RewardSnapshot>(emptyRewardSnapshot);
+  const [contentPackSnapshot, setContentPackSnapshot] =
+    createSignal<ContentPackSnapshot>(emptyContentPackSnapshot);
   const [todoItems, setTodoItems] = createSignal<TodoItem[]>([]);
   const [todoDraft, setTodoDraft] =
     createSignal<TodoDraft>(createDefaultTodoDraft());
@@ -578,6 +622,7 @@ function MainShell() {
   const [bootError, setBootError] = createSignal<string | null>(null);
   const [timerBusy, setTimerBusy] = createSignal(false);
   const [todoBusy, setTodoBusy] = createSignal(false);
+  const [contentPackBusy, setContentPackBusy] = createSignal(false);
   const [activeView, setActiveView] = createSignal<ViewKey>("focus");
   const [reviewRange, setReviewRange] = createSignal<ReviewRangeKey>("7d");
   const [customStartDate, setCustomStartDate] = createSignal(getLocalDateValue());
@@ -830,6 +875,11 @@ function MainShell() {
     setRewardSnapshot(nextRewardSnapshot);
   }
 
+  async function refreshContentPackSummary() {
+    const nextContentPackSnapshot = await getContentPackSnapshot();
+    setContentPackSnapshot(nextContentPackSnapshot);
+  }
+
   async function refreshTodoItems() {
     const nextTodoItems = await getTodoItems();
     setTodoItems(nextTodoItems);
@@ -965,6 +1015,28 @@ function MainShell() {
       setStatusText(getErrorMessage(error));
     } finally {
       setTimerBusy(false);
+    }
+  }
+
+  async function handleSyncContentPack() {
+    if (contentPackBusy()) {
+      return;
+    }
+
+    setContentPackBusy(true);
+
+    try {
+      const nextSnapshot = await syncContentPack();
+      setContentPackSnapshot(nextSnapshot);
+      setStatusText(
+        nextSnapshot.statusLabel === copy.contentPackUpdatedStatus
+          ? `${copy.contentPackUpdatedStatus}：${nextSnapshot.currentVersion}`
+          : copy.contentPackLatestStatus
+      );
+    } catch (error) {
+      setStatusText(getErrorMessage(error));
+    } finally {
+      setContentPackBusy(false);
     }
   }
 
@@ -1107,6 +1179,7 @@ function MainShell() {
       await refreshTodoItems();
       await refreshAnalyticsSummary();
       await refreshRewardSummary();
+      await refreshContentPackSummary();
       setStatusText(copy.ready);
     } catch (error) {
       const message =
@@ -2348,28 +2421,79 @@ function MainShell() {
               )}
             </div>
 
-            <div class="metric-grid developer-metric-grid">
-              <article class="metric-card">
-                <span class="metric-label">{copy.developerVersionLabel}</span>
-                <strong>{snapshot().version}</strong>
-                <span class="metric-footnote">{copy.developerVersionNote}</span>
-              </article>
-              <article class="metric-card">
-                <span class="metric-label">{copy.developerMilestoneLabel}</span>
-                <strong>{snapshot().milestone}</strong>
-                <span class="metric-footnote">{copy.developerMilestoneNote}</span>
-              </article>
-              <article class="metric-card">
-                <span class="metric-label">{copy.developerStatusLabel}</span>
-                <strong>{statusText()}</strong>
-                <span class="metric-footnote">{copy.developerStatusNote}</span>
-              </article>
-              <article class="metric-card">
-                <span class="metric-label">{copy.developerStorageLabel}</span>
-                <strong>Local</strong>
-                <span class="metric-footnote">{copy.developerStorageNote}</span>
-              </article>
-            </div>
+            <section class="records-panel">
+              <div class="records-panel__header">
+                <div>
+                  <span class="eyebrow">{copy.contentPackEyebrow}</span>
+                  <h3>{copy.contentPackTitle}</h3>
+                </div>
+                <p class="chart-panel__summary">{copy.contentPackSummary}</p>
+              </div>
+
+              <div class="metric-grid developer-metric-grid">
+                <article class="metric-card">
+                  <span class="metric-label">{copy.contentPackVersionLabel}</span>
+                  <strong>{contentPackSnapshot().currentVersion}</strong>
+                  <span class="metric-footnote">{copy.contentPackVersionNote}</span>
+                </article>
+                <article class="metric-card">
+                  <span class="metric-label">{copy.contentPackCatalogLabel}</span>
+                  <strong>{`${contentPackSnapshot().operatorCount} 干员 / ${contentPackSnapshot().bannerCount} 卡池`}</strong>
+                  <span class="metric-footnote">{copy.contentPackCatalogNote}</span>
+                </article>
+                <article class="metric-card">
+                  <span class="metric-label">{copy.contentPackDeltaLabel}</span>
+                  <strong>
+                    {contentPackSnapshot().remoteVersion
+                      ? `+${Math.max(
+                          0,
+                          (contentPackSnapshot().remoteOperatorCount ?? 0) -
+                            contentPackSnapshot().operatorCount
+                        )} 干员`
+                      : "暂无新增"}
+                  </strong>
+                  <span class="metric-footnote">{copy.contentPackDeltaNote}</span>
+                </article>
+                <article class="metric-card">
+                  <span class="metric-label">{copy.contentPackSourceLabel}</span>
+                  <strong>{contentPackSnapshot().sourceLabel}</strong>
+                  <span class="metric-footnote">{copy.contentPackSourceNote}</span>
+                </article>
+                <article class="metric-card">
+                  <span class="metric-label">{copy.contentPackSyncedLabel}</span>
+                  <strong>{contentPackSnapshot().lastSyncedAt ?? copy.contentPackEmptyTime}</strong>
+                  <span class="metric-footnote">{copy.contentPackSyncedNote}</span>
+                </article>
+                <article class="metric-card">
+                  <span class="metric-label">{copy.contentPackCheckedLabel}</span>
+                  <strong>{contentPackSnapshot().lastCheckedAt ?? copy.contentPackEmptyTime}</strong>
+                  <span class="metric-footnote">{copy.contentPackCheckedNote}</span>
+                </article>
+              </div>
+
+              <div class="detail-card">
+                <div class="detail-card__meta">
+                  <span>{contentPackSnapshot().statusLabel}</span>
+                  <span>{`${contentPackSnapshot().currentServer} / 总计 ${contentPackSnapshot().operatorCount} 干员 / 当前 ${contentPackSnapshot().bannerCount} 卡池`}</span>
+                </div>
+                <h3>{contentPackSnapshot().statusNote}</h3>
+                <Show when={contentPackSnapshot().remoteVersion}>
+                  <p class="metric-footnote">
+                    {`${copy.contentPackRemotePrefix}：${contentPackSnapshot().remoteVersion} · 总计 ${contentPackSnapshot().remoteOperatorCount ?? 0} 干员 · 当前 ${contentPackSnapshot().remoteBannerCount ?? 0} 卡池 · ${contentPackSnapshot().remoteUpdatedAt ?? ""}`}
+                  </p>
+                </Show>
+                <div class="todo-form-actions">
+                  <button
+                    type="button"
+                    class="primary-action"
+                    disabled={contentPackBusy()}
+                    onClick={() => void handleSyncContentPack()}
+                  >
+                    {contentPackBusy() ? copy.loading : copy.contentPackUpdateButton}
+                  </button>
+                </div>
+              </div>
+            </section>
 
             <section class="records-panel">
               <div class="records-panel__header">
@@ -2379,34 +2503,26 @@ function MainShell() {
                 </div>
               </div>
 
-              <div class="card-grid developer-card-grid">
-                <article class="detail-card">
-                  <div class="detail-card__meta">
-                    <span>{copy.engineOwner}</span>
-                    <span>Rust</span>
-                  </div>
-                  <h3>{copy.engineOwnerNote}</h3>
+              <div class="metric-grid developer-metric-grid">
+                <article class="metric-card">
+                  <span class="metric-label">{copy.developerVersionLabel}</span>
+                  <strong>{snapshot().version}</strong>
+                  <span class="metric-footnote">{copy.developerVersionNote}</span>
                 </article>
-                <article class="detail-card">
-                  <div class="detail-card__meta">
-                    <span>{copy.runtimeTarget}</span>
-                    <span>{copy.windows}</span>
-                  </div>
-                  <h3>{copy.runtimeTargetNote}</h3>
+                <article class="metric-card">
+                  <span class="metric-label">{copy.developerMilestoneLabel}</span>
+                  <strong>{snapshot().milestone}</strong>
+                  <span class="metric-footnote">{copy.developerMilestoneNote}</span>
                 </article>
-                <article class="detail-card">
-                  <div class="detail-card__meta">
-                    <span>{copy.timingCorrection}</span>
-                    <span>Dual Clock</span>
-                  </div>
-                  <h3>{copy.timingCorrectionNote}</h3>
+                <article class="metric-card">
+                  <span class="metric-label">{copy.developerStatusLabel}</span>
+                  <strong>{statusText()}</strong>
+                  <span class="metric-footnote">{copy.developerStatusNote}</span>
                 </article>
-                <article class="detail-card">
-                  <div class="detail-card__meta">
-                    <span>{copy.currentStatus}</span>
-                    <span>{timerSnapshot().status}</span>
-                  </div>
-                  <h3>{copy.currentStatusNote}</h3>
+                <article class="metric-card">
+                  <span class="metric-label">{copy.timingCorrection}</span>
+                  <strong>Dual Clock</strong>
+                  <span class="metric-footnote">{copy.timingCorrectionNote}</span>
                 </article>
               </div>
             </section>

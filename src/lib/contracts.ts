@@ -103,6 +103,24 @@ export interface RewardSnapshot {
   latestRewards: RewardLedgerEntry[];
 }
 
+export interface ContentPackSnapshot {
+  currentVersion: string;
+  currentServer: string;
+  currentUpdatedAt: string;
+  operatorCount: number;
+  bannerCount: number;
+  lastCheckedAt: string | null;
+  lastSyncedAt: string | null;
+  sourceLabel: string;
+  statusLabel: string;
+  statusNote: string;
+  updateAvailable: boolean;
+  remoteVersion: string | null;
+  remoteUpdatedAt: string | null;
+  remoteOperatorCount: number | null;
+  remoteBannerCount: number | null;
+}
+
 export type TodoImportance = "low" | "medium" | "high";
 
 export interface TodoItem {

@@ -173,6 +173,54 @@ struct RewardSnapshot {
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ContentPackState {
+    current_version: String,
+    current_server: String,
+    current_updated_at: String,
+    operator_count: usize,
+    banner_count: usize,
+    last_checked_at: Option<String>,
+    last_synced_at: Option<String>,
+    source_label: String,
+}
+
+impl Default for ContentPackState {
+    fn default() -> Self {
+        Self {
+            current_version: "global-baseline-2026.03.28".to_string(),
+            current_server: "Global".to_string(),
+            current_updated_at: "2026-03-28 10:00".to_string(),
+            operator_count: 372,
+            banner_count: 2,
+            last_checked_at: None,
+            last_synced_at: None,
+            source_label: "应用内置全量基线".to_string(),
+        }
+    }
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ContentPackSnapshot {
+    current_version: String,
+    current_server: String,
+    current_updated_at: String,
+    operator_count: usize,
+    banner_count: usize,
+    last_checked_at: Option<String>,
+    last_synced_at: Option<String>,
+    source_label: String,
+    status_label: String,
+    status_note: String,
+    update_available: bool,
+    remote_version: Option<String>,
+    remote_updated_at: Option<String>,
+    remote_operator_count: Option<usize>,
+    remote_banner_count: Option<usize>,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct TodoItem {
     id: u64,
     title: String,
@@ -211,6 +259,7 @@ struct TimerEngineState {
     reward_wallet: Mutex<RewardWallet>,
     reward_ledger: Mutex<Vec<RewardLedgerEntry>>,
     next_reward_id: Mutex<u64>,
+    content_pack_state: Mutex<ContentPackState>,
     persistence: Option<PersistenceStore>,
 }
 
@@ -261,11 +310,13 @@ impl TimerEngineState {
             reward_wallet,
             mut reward_ledger,
             next_reward_id,
+            mut content_pack_state,
         } = persisted;
 
         sort_focus_records(&mut focus_records);
         sort_todo_items(&mut todo_items);
         sort_reward_ledger(&mut reward_ledger);
+        normalize_content_pack_state(&mut content_pack_state);
 
         Self {
             timer: Mutex::new(TimerEngine::default()),
@@ -276,6 +327,7 @@ impl TimerEngineState {
             reward_wallet: Mutex::new(reward_wallet),
             next_reward_id: Mutex::new(next_reward_id.max(next_reward_id_value(&reward_ledger))),
             reward_ledger: Mutex::new(reward_ledger),
+            content_pack_state: Mutex::new(content_pack_state),
             persistence,
         }
     }
@@ -324,6 +376,11 @@ impl TimerEngineState {
                 .next_reward_id
                 .lock()
                 .map_err(|_| "奖励编号状态锁定失败".to_string())?,
+            content_pack_state: self
+                .content_pack_state
+                .lock()
+                .map_err(|_| "内容包状态锁定失败".to_string())?
+                .clone(),
         };
 
         store.save(&persisted)
@@ -933,6 +990,68 @@ fn wallet_from_ledger(ledger: &[RewardLedgerEntry]) -> RewardWallet {
         })
 }
 
+fn current_local_timestamp() -> String {
+    Local::now().format("%Y-%m-%d %H:%M").to_string()
+}
+
+fn remote_content_pack_manifest() -> ContentPackState {
+    ContentPackState {
+        current_version: "global-2026.04.13-contentpack.2".to_string(),
+        current_server: "Global".to_string(),
+        current_updated_at: "2026-04-13 18:00".to_string(),
+        operator_count: 386,
+        banner_count: 3,
+        last_checked_at: None,
+        last_synced_at: None,
+        source_label: "远端全量目录快照示例".to_string(),
+    }
+}
+
+fn normalize_content_pack_state(state: &mut ContentPackState) {
+    let looks_like_old_sample =
+        state.current_server == "Global" && state.operator_count <= 18 && state.banner_count <= 2;
+
+    if looks_like_old_sample {
+        let remote = remote_content_pack_manifest();
+        let checked = state.last_checked_at.clone();
+        let synced = state
+            .last_synced_at
+            .clone()
+            .or_else(|| Some(current_local_timestamp()));
+
+        *state = remote;
+        state.last_checked_at = checked;
+        state.last_synced_at = synced;
+    }
+}
+
+fn content_pack_snapshot_from_state(
+    current: &ContentPackState,
+    remote: &ContentPackState,
+    status_label: &str,
+    status_note: &str,
+) -> ContentPackSnapshot {
+    let update_available = current.current_version != remote.current_version;
+
+    ContentPackSnapshot {
+        current_version: current.current_version.clone(),
+        current_server: current.current_server.clone(),
+        current_updated_at: current.current_updated_at.clone(),
+        operator_count: current.operator_count,
+        banner_count: current.banner_count,
+        last_checked_at: current.last_checked_at.clone(),
+        last_synced_at: current.last_synced_at.clone(),
+        source_label: current.source_label.clone(),
+        status_label: status_label.to_string(),
+        status_note: status_note.to_string(),
+        update_available,
+        remote_version: update_available.then(|| remote.current_version.clone()),
+        remote_updated_at: update_available.then(|| remote.current_updated_at.clone()),
+        remote_operator_count: update_available.then_some(remote.operator_count),
+        remote_banner_count: update_available.then_some(remote.banner_count),
+    }
+}
+
 fn analytics_snapshot(records: &[FocusRecord], todo_items: &[TodoItem]) -> AnalyticsSnapshot {
     let today = Local::now().format("%Y-%m-%d").to_string();
     let total_focus_duration_ms = records.iter().map(|record| record.duration_ms).sum::<u64>();
@@ -1067,9 +1186,9 @@ fn resolve_export_directory() -> Result<PathBuf, String> {
 fn bootstrap_shell() -> ShellSnapshot {
     ShellSnapshot {
         product_name: "Focused Moment",
-        version: "1.3.2",
-        milestone: "v1.3.2 \u{8d27}\u{5e01}\u{5e73}\u{8861}\u{7248}",
-        slogan: "\u{5b8c}\u{6210}\u{4e00}\u{8f6e}\u{4e13}\u{6ce8}\u{540e}\u{ff0c}\u{4f60}\u{7684}\u{79ef}\u{7d2f}\u{4e5f}\u{4f1a}\u{8ddf}\u{7740}\u{5411}\u{524d}\u{8d70}\u{4e00}\u{5c0f}\u{6b65}\u{3002}",
+        version: "1.4.2",
+        milestone: "v1.4.2 \u{5f00}\u{53d1}\u{8005}\u{9875}\u{9762}\u{51cf}\u{8d1f}\u{7248}",
+        slogan: "\u{5f53}\u{4ea7}\u{54c1}\u{57fa}\u{7ebf}\u{8d8a}\u{6765}\u{8d8a}\u{7a33}\u{7684}\u{65f6}\u{5019}\u{ff0c}\u{4e0d}\u{5fc5}\u{8981}\u{7684}\u{4fe1}\u{606f}\u{4e5f}\u{8be5}\u{4e00}\u{8d77}\u{53d8}\u{5c11}\u{3002}",
         surfaces: vec![
             ShellPanel {
                 id: "timer",
@@ -1102,9 +1221,16 @@ fn bootstrap_shell() -> ShellSnapshot {
             ShellPanel {
                 id: "reward-engine",
                 title: "\u{5956}\u{52b1}\u{5f15}\u{64ce}",
-                phase: "v1.3.0-v1.3.2",
+                phase: "v1.3.0-v1.4.0",
                 status: "\u{5df2}\u{63a5}\u{5165}",
                 summary: "\u{73b0}\u{5728}\u{6bcf}\u{5b8c}\u{6210}\u{4e00}\u{8f6e}\u{4e13}\u{6ce8}\u{ff0c}\u{90fd}\u{4f1a}\u{7ed3}\u{7b97}\u{9f99}\u{95e8}\u{5e01}\u{3001}\u{5408}\u{6210}\u{7389}\u{548c}\u{6e90}\u{77f3}\u{ff0c}\u{5e76}\u{7559}\u{4e0b}\u{5956}\u{52b1}\u{6d41}\u{6c34}\u{3002}",
+            },
+            ShellPanel {
+                id: "content-pack-sync",
+                title: "\u{5185}\u{5bb9}\u{5305}\u{540c}\u{6b65}",
+                phase: "v1.4.0-v1.4.1",
+                status: "\u{5df2}\u{63a5}\u{5165}",
+                summary: "\u{73b0}\u{5728}\u{53ef}\u{4ee5}\u{624b}\u{52a8}\u{68c0}\u{67e5}\u{65b9}\u{821f}\u{8d44}\u{6599}\u{66f4}\u{65b0}\u{ff0c}\u{5e76}\u{4ee5}\u{66f4}\u{5408}\u{7406}\u{7684}\u{201c}\u{5168}\u{91cf}\u{76ee}\u{5f55} + \u{5f53}\u{524d}\u{5361}\u{6c60}\u{201d}\u{53e3}\u{5f84}\u{5c55}\u{793a}\u{5185}\u{5bb9}\u{5305}\u{3002}",
             },
         ],
         reserved_extensions: vec![
@@ -1264,6 +1390,68 @@ fn get_reward_snapshot(
         .map_err(|_| "奖励流水状态锁定失败".to_string())?;
 
     Ok(reward_snapshot(&records, &wallet, &ledger))
+}
+
+#[tauri::command]
+fn get_content_pack_snapshot(
+    state: tauri::State<'_, TimerEngineState>,
+) -> Result<ContentPackSnapshot, String> {
+    let current = state
+        .content_pack_state
+        .lock()
+        .map_err(|_| "内容包状态锁定失败".to_string())?
+        .clone();
+    let remote = remote_content_pack_manifest();
+
+    Ok(content_pack_snapshot_from_state(
+        &current,
+        &remote,
+        "内容包待检查",
+        "点击下方按钮后，会比对远端静态快照与当前本地内容包版本。",
+    ))
+}
+
+#[tauri::command]
+fn sync_content_pack(
+    state: tauri::State<'_, TimerEngineState>,
+) -> Result<ContentPackSnapshot, String> {
+    let remote = remote_content_pack_manifest();
+    let checked_at = current_local_timestamp();
+
+    let snapshot = {
+        let mut current = state
+            .content_pack_state
+            .lock()
+            .map_err(|_| "内容包状态锁定失败".to_string())?;
+        current.last_checked_at = Some(checked_at);
+
+        if current.current_version != remote.current_version {
+            current.current_version = remote.current_version.clone();
+            current.current_server = remote.current_server.clone();
+            current.current_updated_at = remote.current_updated_at.clone();
+            current.operator_count = remote.operator_count;
+            current.banner_count = remote.banner_count;
+            current.source_label = remote.source_label.clone();
+            current.last_synced_at = Some(current_local_timestamp());
+
+            content_pack_snapshot_from_state(
+                &current,
+                &remote,
+                "内容包已更新",
+                "本地内容包已经同步到最新快照，后续寻访和干员目录会以这份快照为准。",
+            )
+        } else {
+            content_pack_snapshot_from_state(
+                &current,
+                &remote,
+                "已是最新资料",
+                "当前本地内容包已经和远端快照一致，这次不需要再下载新的资料。",
+            )
+        }
+    };
+
+    state.persist()?;
+    Ok(snapshot)
 }
 
 #[tauri::command]
@@ -1745,6 +1933,8 @@ pub fn run() {
             delete_focus_records,
             get_analytics_snapshot,
             get_reward_snapshot,
+            get_content_pack_snapshot,
+            sync_content_pack,
             clear_app_data,
             export_focus_records_csv,
             get_todo_items,

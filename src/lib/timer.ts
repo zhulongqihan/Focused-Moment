@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
   AnalyticsSnapshot,
   CompletionPayload,
+  ContentPackSnapshot,
   FocusRecord,
   RewardSnapshot,
   TimerSnapshot,
@@ -37,6 +38,14 @@ export async function getAnalyticsSnapshot() {
 
 export async function getRewardSnapshot() {
   return invoke<RewardSnapshot>("get_reward_snapshot");
+}
+
+export async function getContentPackSnapshot() {
+  return invoke<ContentPackSnapshot>("get_content_pack_snapshot");
+}
+
+export async function syncContentPack() {
+  return invoke<ContentPackSnapshot>("sync_content_pack");
 }
 
 export async function deleteFocusRecord(id: number) {
