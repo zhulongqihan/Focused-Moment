@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{FocusRecord, TodoItem};
+use crate::{FocusRecord, RewardLedgerEntry, RewardWallet, TodoItem};
 
 const STORAGE_DIR_NAME: &str = "FocusedMoment";
 const STORAGE_FILE_NAME: &str = "focused-moment-state.json";
@@ -21,6 +21,9 @@ pub struct PersistedState {
     pub next_record_id: u64,
     pub todo_items: Vec<TodoItem>,
     pub next_todo_id: u64,
+    pub reward_wallet: RewardWallet,
+    pub reward_ledger: Vec<RewardLedgerEntry>,
+    pub next_reward_id: u64,
 }
 
 impl PersistenceStore {

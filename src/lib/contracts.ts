@@ -46,6 +46,7 @@ export interface FocusRecord {
 export interface CompletionPayload {
   timerSnapshot: TimerSnapshot;
   records: FocusRecord[];
+  rewardSnapshot: RewardSnapshot;
 }
 
 export interface DailyInsight {
@@ -70,6 +71,36 @@ export interface AnalyticsSnapshot {
   todayFocusDurationLabel: string;
   todaySessionCount: number;
   dailyBreakdown: DailyInsight[];
+}
+
+export interface RewardWallet {
+  lmd: number;
+  orundum: number;
+  originium: number;
+}
+
+export interface RewardLedgerEntry {
+  id: number;
+  sourceRecordId: number;
+  sourceTitle: string;
+  sourceModeLabel: string;
+  durationMs: number;
+  durationLabel: string;
+  lmd: number;
+  orundum: number;
+  originium: number;
+  completedAt: string;
+  completedDate: string;
+  completedTime: string;
+}
+
+export interface RewardSnapshot {
+  wallet: RewardWallet;
+  todayFocusDurationMs: number;
+  todayFocusDurationLabel: string;
+  currentStreakDays: number;
+  totalRewardCount: number;
+  latestRewards: RewardLedgerEntry[];
 }
 
 export type TodoImportance = "low" | "medium" | "high";

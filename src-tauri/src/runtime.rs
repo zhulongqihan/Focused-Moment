@@ -103,6 +103,7 @@ struct FocusRecord {
 struct CompletionPayload {
     timer_snapshot: TimerSnapshot,
     records: Vec<FocusRecord>,
+    reward_snapshot: RewardSnapshot,
 }
 
 #[derive(Clone, Serialize)]
@@ -131,6 +132,43 @@ struct AnalyticsSnapshot {
     today_focus_duration_label: String,
     today_session_count: usize,
     daily_breakdown: Vec<DailyInsight>,
+}
+
+#[derive(Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RewardWallet {
+    lmd: u64,
+    orundum: u64,
+    originium: u64,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RewardLedgerEntry {
+    id: u64,
+    #[serde(default)]
+    source_record_id: u64,
+    source_title: String,
+    source_mode_label: String,
+    duration_ms: u64,
+    duration_label: String,
+    lmd: u64,
+    orundum: u64,
+    originium: u64,
+    completed_at: String,
+    completed_date: String,
+    completed_time: String,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RewardSnapshot {
+    wallet: RewardWallet,
+    today_focus_duration_ms: u64,
+    today_focus_duration_label: String,
+    current_streak_days: usize,
+    total_reward_count: usize,
+    latest_rewards: Vec<RewardLedgerEntry>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -170,6 +208,9 @@ struct TimerEngineState {
     next_record_id: Mutex<u64>,
     todo_items: Mutex<Vec<TodoItem>>,
     next_todo_id: Mutex<u64>,
+    reward_wallet: Mutex<RewardWallet>,
+    reward_ledger: Mutex<Vec<RewardLedgerEntry>>,
+    next_reward_id: Mutex<u64>,
     persistence: Option<PersistenceStore>,
 }
 
@@ -217,10 +258,14 @@ impl TimerEngineState {
             next_record_id,
             mut todo_items,
             next_todo_id,
+            reward_wallet,
+            mut reward_ledger,
+            next_reward_id,
         } = persisted;
 
         sort_focus_records(&mut focus_records);
         sort_todo_items(&mut todo_items);
+        sort_reward_ledger(&mut reward_ledger);
 
         Self {
             timer: Mutex::new(TimerEngine::default()),
@@ -228,6 +273,9 @@ impl TimerEngineState {
             focus_records: Mutex::new(focus_records),
             next_todo_id: Mutex::new(next_todo_id.max(next_todo_id_value(&todo_items))),
             todo_items: Mutex::new(todo_items),
+            reward_wallet: Mutex::new(reward_wallet),
+            next_reward_id: Mutex::new(next_reward_id.max(next_reward_id_value(&reward_ledger))),
+            reward_ledger: Mutex::new(reward_ledger),
             persistence,
         }
     }
@@ -262,6 +310,20 @@ impl TimerEngineState {
                 "\u{4efb}\u{52a1}\u{7f16}\u{53f7}\u{72b6}\u{6001}\u{9501}\u{5b9a}\u{5931}\u{8d25}"
                     .to_string()
             })?,
+            reward_wallet: self
+                .reward_wallet
+                .lock()
+                .map_err(|_| "奖励钱包状态锁定失败".to_string())?
+                .clone(),
+            reward_ledger: self
+                .reward_ledger
+                .lock()
+                .map_err(|_| "奖励流水状态锁定失败".to_string())?
+                .clone(),
+            next_reward_id: *self
+                .next_reward_id
+                .lock()
+                .map_err(|_| "奖励编号状态锁定失败".to_string())?,
         };
 
         store.save(&persisted)
@@ -307,6 +369,30 @@ impl TimerEngineState {
                     .to_string()
             })?;
             *next_todo_id = 0;
+        }
+
+        {
+            let mut wallet = self
+                .reward_wallet
+                .lock()
+                .map_err(|_| "奖励钱包状态锁定失败".to_string())?;
+            *wallet = RewardWallet::default();
+        }
+
+        {
+            let mut ledger = self
+                .reward_ledger
+                .lock()
+                .map_err(|_| "奖励流水状态锁定失败".to_string())?;
+            ledger.clear();
+        }
+
+        {
+            let mut next_reward_id = self
+                .next_reward_id
+                .lock()
+                .map_err(|_| "奖励编号状态锁定失败".to_string())?;
+            *next_reward_id = 0;
         }
 
         self.persist()
@@ -669,6 +755,14 @@ fn next_todo_id_value(items: &[TodoItem]) -> u64 {
         .map_or(0, |id| id + 1)
 }
 
+fn next_reward_id_value(entries: &[RewardLedgerEntry]) -> u64 {
+    entries
+        .iter()
+        .map(|entry| entry.id)
+        .max()
+        .map_or(0, |id| id + 1)
+}
+
 fn sort_focus_records(records: &mut [FocusRecord]) {
     records.sort_by(|left, right| Reverse(left.id).cmp(&Reverse(right.id)));
 }
@@ -686,6 +780,10 @@ fn sort_todo_items(items: &mut [TodoItem]) {
     });
 }
 
+fn sort_reward_ledger(entries: &mut [RewardLedgerEntry]) {
+    entries.sort_by(|left, right| Reverse(left.id).cmp(&Reverse(right.id)));
+}
+
 fn current_local_markers() -> (String, String, String) {
     let now = Local::now();
     (
@@ -693,6 +791,146 @@ fn current_local_markers() -> (String, String, String) {
         now.format("%Y-%m-%d").to_string(),
         now.format("%H:%M").to_string(),
     )
+}
+
+fn current_streak_days(records: &[FocusRecord]) -> usize {
+    let today = Local::now().date_naive();
+    let mut unique_days = records
+        .iter()
+        .filter_map(|record| {
+            chrono::NaiveDate::parse_from_str(&record.completed_date, "%Y-%m-%d").ok()
+        })
+        .collect::<Vec<_>>();
+
+    unique_days.sort_unstable();
+    unique_days.dedup();
+
+    let mut cursor = today;
+    let mut streak = 0usize;
+
+    for day in unique_days.into_iter().rev() {
+        if day == cursor {
+            streak += 1;
+            cursor = cursor.pred_opt().unwrap_or(cursor);
+        } else if streak == 0 && day == today.pred_opt().unwrap_or(today) {
+            cursor = day;
+            streak += 1;
+            cursor = cursor.pred_opt().unwrap_or(cursor);
+        } else if day < cursor {
+            break;
+        }
+    }
+
+    streak
+}
+
+fn count_originium_pity_misses(reward_ledger: &[RewardLedgerEntry]) -> usize {
+    reward_ledger
+        .iter()
+        .filter(|entry| {
+            entry.duration_ms >= POMODORO_FOCUS_MS || entry.duration_ms >= 45 * 60 * 1000
+        })
+        .take_while(|entry| entry.originium == 0)
+        .count()
+}
+
+fn build_reward_entry(
+    id: u64,
+    source_record_id: u64,
+    title: &str,
+    completed_session: &CompletedSession,
+    completed_at: String,
+    completed_date: String,
+    completed_time: String,
+    linked_todo_id: Option<u64>,
+    reward_ledger: &[RewardLedgerEntry],
+) -> RewardLedgerEntry {
+    let duration_minutes = (completed_session.duration_ms / 60_000).max(1);
+    let linked_lmd_bonus = if linked_todo_id.is_some() { 90 } else { 0 };
+    let linked_orundum_bonus = if linked_todo_id.is_some() { 20 } else { 0 };
+    let pomodoro_orundum_bonus = if completed_session.mode_key == "pomodoro" {
+        40
+    } else {
+        0
+    };
+
+    let lmd = duration_minutes * 18 + linked_lmd_bonus;
+    let orundum = duration_minutes * 6 + pomodoro_orundum_bonus + linked_orundum_bonus;
+
+    let title_factor = title.chars().count() as u64;
+    let date_factor = completed_date
+        .chars()
+        .filter(|ch| ch.is_ascii_digit())
+        .filter_map(|ch| ch.to_digit(10))
+        .map(u64::from)
+        .sum::<u64>();
+    let random_seed = id
+        .saturating_mul(13)
+        .saturating_add(duration_minutes)
+        .saturating_add(title_factor)
+        .saturating_add(date_factor);
+    let is_originium_eligible = completed_session.duration_ms >= POMODORO_FOCUS_MS
+        || completed_session.duration_ms >= 45 * 60 * 1000;
+    let recent_miss_streak = count_originium_pity_misses(reward_ledger);
+    let pity_triggered = is_originium_eligible && recent_miss_streak >= 5;
+    let surprise_hit = if completed_session.mode_key == "pomodoro" {
+        random_seed % 100 < 8
+    } else {
+        random_seed % 100 < 6
+    };
+    let originium = if is_originium_eligible && (pity_triggered || surprise_hit) {
+        1
+    } else {
+        0
+    };
+
+    RewardLedgerEntry {
+        id,
+        source_record_id,
+        source_title: title.to_string(),
+        source_mode_label: completed_session.mode_label.to_string(),
+        duration_ms: completed_session.duration_ms,
+        duration_label: format_duration_ms(completed_session.duration_ms),
+        lmd,
+        orundum,
+        originium,
+        completed_at,
+        completed_date,
+        completed_time,
+    }
+}
+
+fn reward_snapshot(
+    records: &[FocusRecord],
+    wallet: &RewardWallet,
+    ledger: &[RewardLedgerEntry],
+) -> RewardSnapshot {
+    let today = Local::now().format("%Y-%m-%d").to_string();
+    let today_focus_duration_ms = records
+        .iter()
+        .filter(|record| record.completed_date == today)
+        .map(|record| record.duration_ms)
+        .sum::<u64>();
+
+    RewardSnapshot {
+        wallet: wallet.clone(),
+        today_focus_duration_ms,
+        today_focus_duration_label: format_duration_ms(today_focus_duration_ms),
+        current_streak_days: current_streak_days(records),
+        total_reward_count: ledger.len(),
+        latest_rewards: ledger.iter().take(6).cloned().collect(),
+    }
+}
+
+fn wallet_from_ledger(ledger: &[RewardLedgerEntry]) -> RewardWallet {
+    ledger
+        .iter()
+        .fold(RewardWallet::default(), |mut wallet, entry| {
+            wallet.lmd = wallet.lmd.saturating_add(entry.lmd);
+            wallet.orundum = wallet.orundum.saturating_add(entry.orundum);
+            wallet.originium = wallet.originium.saturating_add(entry.originium);
+            wallet
+        })
 }
 
 fn analytics_snapshot(records: &[FocusRecord], todo_items: &[TodoItem]) -> AnalyticsSnapshot {
@@ -829,9 +1067,9 @@ fn resolve_export_directory() -> Result<PathBuf, String> {
 fn bootstrap_shell() -> ShellSnapshot {
     ShellSnapshot {
         product_name: "Focused Moment",
-        version: "1.2.2",
-        milestone: "v1.2.2 \u{53d1}\u{5e03}\u{6d41}\u{7a0b}\u{6536}\u{5c3e}\u{7248}",
-        slogan: "\u{7528}\u{66f4}\u{8f7b}\u{7684}\u{65b9}\u{5f0f}\u{4e13}\u{6ce8}\u{3001}\u{5b89}\u{6392}\u{548c}\u{590d}\u{76d8}\u{6bcf}\u{4e00}\u{5929}\u{3002}",
+        version: "1.3.2",
+        milestone: "v1.3.2 \u{8d27}\u{5e01}\u{5e73}\u{8861}\u{7248}",
+        slogan: "\u{5b8c}\u{6210}\u{4e00}\u{8f6e}\u{4e13}\u{6ce8}\u{540e}\u{ff0c}\u{4f60}\u{7684}\u{79ef}\u{7d2f}\u{4e5f}\u{4f1a}\u{8ddf}\u{7740}\u{5411}\u{524d}\u{8d70}\u{4e00}\u{5c0f}\u{6b65}\u{3002}",
         surfaces: vec![
             ShellPanel {
                 id: "timer",
@@ -861,15 +1099,15 @@ fn bootstrap_shell() -> ShellSnapshot {
                 status: "\u{5df2}\u{63a5}\u{5165}",
                 summary: "\u{5173}\u{95ed}\u{4e3b}\u{7a97}\u{53e3}\u{540e}\u{4f1a}\u{9690}\u{85cf}\u{5230}\u{7cfb}\u{7edf}\u{6258}\u{76d8}\u{ff0c}\u{53ef}\u{4ee5}\u{4ece}\u{6258}\u{76d8}\u{91cd}\u{65b0}\u{6253}\u{5f00}\u{6216}\u{9000}\u{51fa}\u{5e94}\u{7528}\u{3002}",
             },
-        ],
-        reserved_extensions: vec![
             ShellPanel {
                 id: "reward-engine",
                 title: "\u{5956}\u{52b1}\u{5f15}\u{64ce}",
-                phase: "\u{9884}\u{7559}",
-                status: "\u{672a}\u{6765}\u{6269}\u{5c55}",
-                summary: "\u{628a}\u{4e13}\u{6ce8}\u{65f6}\u{957f}\u{6362}\u{7b97}\u{6210}\u{5185}\u{90e8}\u{8d27}\u{5e01}\u{ff0c}\u{4f46}\u{4e0d}\u{548c}\u{8ba1}\u{65f6}\u{6838}\u{5fc3}\u{5f3a}\u{8026}\u{5408}\u{3002}",
+                phase: "v1.3.0-v1.3.2",
+                status: "\u{5df2}\u{63a5}\u{5165}",
+                summary: "\u{73b0}\u{5728}\u{6bcf}\u{5b8c}\u{6210}\u{4e00}\u{8f6e}\u{4e13}\u{6ce8}\u{ff0c}\u{90fd}\u{4f1a}\u{7ed3}\u{7b97}\u{9f99}\u{95e8}\u{5e01}\u{3001}\u{5408}\u{6210}\u{7389}\u{548c}\u{6e90}\u{77f3}\u{ff0c}\u{5e76}\u{7559}\u{4e0b}\u{5956}\u{52b1}\u{6d41}\u{6c34}\u{3002}",
             },
+        ],
+        reserved_extensions: vec![
             ShellPanel {
                 id: "progression",
                 title: "\u{517b}\u{6210}\u{5c42}",
@@ -933,6 +1171,21 @@ fn delete_focus_record(
         Ok(records.clone())
     })?;
 
+    {
+        let mut ledger = state
+            .reward_ledger
+            .lock()
+            .map_err(|_| "奖励流水状态锁定失败".to_string())?;
+        ledger.retain(|entry| entry.source_record_id != id);
+        sort_reward_ledger(&mut ledger);
+
+        let mut wallet = state
+            .reward_wallet
+            .lock()
+            .map_err(|_| "奖励钱包状态锁定失败".to_string())?;
+        *wallet = wallet_from_ledger(&ledger);
+    }
+
     state.persist()?;
     Ok(records)
 }
@@ -958,6 +1211,21 @@ fn delete_focus_records(
         Ok(records.clone())
     })?;
 
+    {
+        let mut ledger = state
+            .reward_ledger
+            .lock()
+            .map_err(|_| "奖励流水状态锁定失败".to_string())?;
+        ledger.retain(|entry| !id_set.contains(&entry.source_record_id));
+        sort_reward_ledger(&mut ledger);
+
+        let mut wallet = state
+            .reward_wallet
+            .lock()
+            .map_err(|_| "奖励钱包状态锁定失败".to_string())?;
+        *wallet = wallet_from_ledger(&ledger);
+    }
+
     state.persist()?;
     Ok(records)
 }
@@ -976,6 +1244,26 @@ fn get_analytics_snapshot(
     })?;
 
     Ok(analytics_snapshot(&records, &todo_items))
+}
+
+#[tauri::command]
+fn get_reward_snapshot(
+    state: tauri::State<'_, TimerEngineState>,
+) -> Result<RewardSnapshot, String> {
+    let records = state
+        .focus_records
+        .lock()
+        .map_err(|_| "记录列表状态锁定失败".to_string())?;
+    let wallet = state
+        .reward_wallet
+        .lock()
+        .map_err(|_| "奖励钱包状态锁定失败".to_string())?;
+    let ledger = state
+        .reward_ledger
+        .lock()
+        .map_err(|_| "奖励流水状态锁定失败".to_string())?;
+
+    Ok(reward_snapshot(&records, &wallet, &ledger))
 }
 
 #[tauri::command]
@@ -1218,15 +1506,17 @@ fn complete_focus_session(
     };
 
     let normalized_title = title.trim();
+    let record_title = if normalized_title.is_empty() {
+        linked_todo_title
+            .clone()
+            .unwrap_or_else(|| "\u{672a}\u{547d}\u{540d}\u{4e8b}\u{52a1}".to_string())
+    } else {
+        normalized_title.to_string()
+    };
+
     let record = FocusRecord {
         id: next_id,
-        title: if normalized_title.is_empty() {
-            linked_todo_title
-                .clone()
-                .unwrap_or_else(|| "\u{672a}\u{547d}\u{540d}\u{4e8b}\u{52a1}".to_string())
-        } else {
-            normalized_title.to_string()
-        },
+        title: record_title.clone(),
         duration_ms: completed_session.duration_ms,
         duration_label: format_duration_ms(completed_session.duration_ms),
         mode_key: completed_session.mode_key.to_string(),
@@ -1239,6 +1529,11 @@ fn complete_focus_session(
         completed_time,
     };
 
+    let record_id = record.id;
+    let reward_completed_at = record.completed_at.clone();
+    let reward_completed_date = record.completed_date.clone();
+    let reward_completed_time = record.completed_time.clone();
+
     let records = {
         let mut records = state.focus_records.lock().map_err(|_| {
             "\u{8bb0}\u{5f55}\u{5217}\u{8868}\u{72b6}\u{6001}\u{9501}\u{5b9a}\u{5931}\u{8d25}"
@@ -1250,6 +1545,55 @@ fn complete_focus_session(
         records.clone()
     };
 
+    let reward_id = {
+        let mut id_guard = state
+            .next_reward_id
+            .lock()
+            .map_err(|_| "奖励编号状态锁定失败".to_string())?;
+        let next_id = *id_guard;
+        *id_guard += 1;
+        next_id
+    };
+
+    let reward_ledger_before = {
+        let ledger = state
+            .reward_ledger
+            .lock()
+            .map_err(|_| "奖励流水状态锁定失败".to_string())?;
+        ledger.clone()
+    };
+
+    let reward_entry = build_reward_entry(
+        reward_id,
+        record_id,
+        &record_title,
+        &completed_session,
+        reward_completed_at,
+        reward_completed_date,
+        reward_completed_time,
+        linked_todo_id,
+        &reward_ledger_before,
+    );
+
+    let reward_snapshot = {
+        let mut wallet = state
+            .reward_wallet
+            .lock()
+            .map_err(|_| "奖励钱包状态锁定失败".to_string())?;
+        wallet.lmd = wallet.lmd.saturating_add(reward_entry.lmd);
+        wallet.orundum = wallet.orundum.saturating_add(reward_entry.orundum);
+        wallet.originium = wallet.originium.saturating_add(reward_entry.originium);
+
+        let mut ledger = state
+            .reward_ledger
+            .lock()
+            .map_err(|_| "奖励流水状态锁定失败".to_string())?;
+        ledger.insert(0, reward_entry);
+        sort_reward_ledger(&mut ledger);
+
+        reward_snapshot(&records, &wallet, &ledger)
+    };
+
     state.persist()?;
 
     let timer_snapshot = with_timer_engine(&state, |engine| Ok(engine.snapshot()))?;
@@ -1257,6 +1601,7 @@ fn complete_focus_session(
     Ok(CompletionPayload {
         timer_snapshot,
         records,
+        reward_snapshot,
     })
 }
 
@@ -1399,6 +1744,7 @@ pub fn run() {
             delete_focus_record,
             delete_focus_records,
             get_analytics_snapshot,
+            get_reward_snapshot,
             clear_app_data,
             export_focus_records_csv,
             get_todo_items,

@@ -1505,6 +1505,52 @@ body {
   font-size: 0.78rem;
 }
 
+.reward-panel {
+  display: grid;
+  gap: 18px;
+}
+
+.reward-wallet-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.metric-card--reward {
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(255, 252, 247, 0.96), rgba(243, 239, 231, 0.9)),
+    var(--panel);
+}
+
+.metric-card--reward::after {
+  content: "";
+  position: absolute;
+  inset: auto -18% -36% auto;
+  width: 118px;
+  height: 118px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(113, 140, 125, 0.18), transparent 70%);
+  pointer-events: none;
+}
+
+.reward-record__gain {
+  margin: 0;
+  color: var(--text-soft);
+}
+
+.reward-ledger-title {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.reward-record {
+  gap: 10px;
+}
+
+.reward-record__gain {
+  font-size: 0.92rem;
+}
+
 @keyframes rise-in {
   from {
     opacity: 0;
@@ -1588,6 +1634,10 @@ body {
 
   .trend-highlights,
   .trend-bars {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .reward-wallet-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 

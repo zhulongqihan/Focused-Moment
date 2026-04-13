@@ -3,6 +3,7 @@ import type {
   AnalyticsSnapshot,
   CompletionPayload,
   FocusRecord,
+  RewardSnapshot,
   TimerSnapshot,
 } from "./contracts";
 
@@ -32,6 +33,10 @@ export async function getFocusRecords() {
 
 export async function getAnalyticsSnapshot() {
   return invoke<AnalyticsSnapshot>("get_analytics_snapshot");
+}
+
+export async function getRewardSnapshot() {
+  return invoke<RewardSnapshot>("get_reward_snapshot");
 }
 
 export async function deleteFocusRecord(id: number) {

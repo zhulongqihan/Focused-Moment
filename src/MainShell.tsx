@@ -4,6 +4,8 @@ import type {
   AnalyticsSnapshot,
   DailyInsight,
   FocusRecord,
+  RewardLedgerEntry,
+  RewardSnapshot,
   ShellSnapshot,
   TimerSnapshot,
   TodoDraft,
@@ -25,6 +27,7 @@ import {
   exportFocusRecordsCsv,
   getAnalyticsSnapshot,
   getFocusRecords,
+  getRewardSnapshot,
   getTimerSnapshot,
   pauseTimer,
   resetTimer,
@@ -181,6 +184,21 @@ const copy = {
   focusPendingNote: "\u8fd8\u6ca1\u6709\u5b8c\u6210\u7684\u4efb\u52a1\u6570\u91cf",
   focusModeLabel: "\u5f53\u524d\u8282\u594f",
   focusModeNote: "\u4f60\u73b0\u5728\u6b63\u5728\u4f7f\u7528\u7684\u4e13\u6ce8\u65b9\u5f0f",
+  rewardEyebrow: "\u4e13\u6ce8\u5956\u52b1",
+  rewardTitle: "\u6bcf\u5b8c\u6210\u4e00\u8f6e\u4e13\u6ce8\uff0c\u90fd\u4f1a\u6709\u4e00\u70b9\u56de\u54cd",
+  rewardSummary:
+    "\u73b0\u5728\u4ee5\u7a33\u5b9a\u7684\u9f99\u95e8\u5e01\u4e0e\u5408\u6210\u7389\u4f5c\u4e3a\u4e3b\u56de\u62a5\uff0c\u6e90\u77f3\u5219\u6539\u6210\u957f\u4e13\u6ce8\u624d\u4f1a\u89e6\u53d1\u7684\u60ca\u559c\u6389\u843d\u4e0e\u4fdd\u5e95\u673a\u5236\u3002",
+  rewardLmd: "\u9f99\u95e8\u5e01",
+  rewardOrundum: "\u5408\u6210\u7389",
+  rewardOriginium: "\u6e90\u77f3",
+  rewardWalletNote: "\u5f53\u524d\u672c\u5730\u5b58\u6863\u4e2d\u7d2f\u79ef\u4e0b\u6765\u7684\u8d27\u5e01",
+  rewardTodayLabel: "\u4eca\u65e5\u4e13\u6ce8\u7d2f\u8ba1",
+  rewardTodayNote: "\u4eca\u5929\u5df2\u7ecf\u6c89\u6dc0\u4e0b\u6765\u7684\u4e13\u6ce8\u65f6\u957f",
+  rewardStreakLabel: "\u8fde\u7eed\u4e13\u6ce8",
+  rewardStreakNote: "\u6309\u6709\u8bb0\u5f55\u7684\u5929\u6570\u8fde\u7eed\u7d2f\u8ba1",
+  rewardLedgerTitle: "\u6700\u8fd1\u5165\u8d26",
+  rewardLedgerEmpty: "\u5b8c\u6210\u7b2c\u4e00\u8f6e\u4e13\u6ce8\u540e\uff0c\u5956\u52b1\u6d41\u6c34\u5c31\u4f1a\u51fa\u73b0\u5728\u8fd9\u91cc\u3002",
+  rewardGainPrefix: "\u672c\u8f6e\u5165\u8d26",
   modeSwitchEyebrow: "\u8ba1\u65f6\u6a21\u5f0f",
   stopwatchMode: "\u6b63\u5411\u8ba1\u65f6",
   pomodoroMode: "\u756a\u8304\u949f",
@@ -282,6 +300,10 @@ const copy = {
   insightRelationNote: "\u5f53\u524d\u8303\u56f4\u5185\u6709\u591a\u5c11\u8f6e\u4e13\u6ce8\u662f\u4e0e\u4efb\u52a1\u5173\u8054\u7684",
   insightLinkedTasks: "\u5173\u8054\u4efb\u52a1\u6570",
   insightLinkedTasksNote: "\u5f53\u524d\u8303\u56f4\u5185\u88ab\u4e13\u6ce8\u8bb0\u5f55\u5173\u8054\u5230\u7684\u4efb\u52a1\u6570\u91cf",
+  insightRewardEyebrow: "\u5956\u52b1\u603b\u89c8",
+  insightRewardTitle: "\u8fd9\u6bb5\u65f6\u95f4\u7684\u5956\u52b1\u79ef\u7d2f",
+  insightRewardSummary:
+    "\u9664\u4e86\u770b\u4e13\u6ce8\u65f6\u957f\uff0c\u73b0\u5728\u4e5f\u53ef\u4ee5\u76f4\u63a5\u770b\u5230\u8d27\u5e01\u4f59\u989d\u3001\u8fde\u7eed\u4e13\u6ce8\u5929\u6570\u548c\u6700\u8fd1\u7684\u5956\u52b1\u8bb0\u5f55\u3002",
   insightDailyEyebrow: "\u6309\u65e5\u590d\u76d8",
   insightDailyTitle: "\u6700\u8fd1\u7684\u4e13\u6ce8\u6c89\u6dc0\u8282\u594f",
   insightDailyEmpty: "\u8fd8\u6ca1\u6709\u5f62\u6210\u6309\u65e5\u805a\u5408\u6570\u636e\uff0c\u5b8c\u6210\u51e0\u8f6e\u4e13\u6ce8\u540e\u518d\u56de\u6765\u770b\u3002",
@@ -310,7 +332,7 @@ const copy = {
   clearRangeDone: "\u5df2\u6e05\u7406\u5f53\u524d\u8303\u56f4\u7684\u4e13\u6ce8\u8bb0\u5f55",
   clearData: "\u6e05\u7a7a\u672c\u5730\u6570\u636e",
   clearDataConfirm:
-    "\u8fd9\u4f1a\u6e05\u7a7a\u672c\u5730\u7684\u4efb\u52a1\u3001\u4e13\u6ce8\u8bb0\u5f55\u548c\u7edf\u8ba1\u7ed3\u679c\uff0c\u786e\u5b9a\u7ee7\u7eed\u5417\uff1f",
+    "\u8fd9\u4f1a\u6e05\u7a7a\u672c\u5730\u7684\u4efb\u52a1\u3001\u4e13\u6ce8\u8bb0\u5f55\u3001\u5956\u52b1\u6d41\u6c34\u548c\u7edf\u8ba1\u7ed3\u679c\uff0c\u786e\u5b9a\u7ee7\u7eed\u5417\uff1f",
   clearDataDone: "\u5df2\u6e05\u7a7a\u672c\u5730\u6570\u636e",
   developerEyebrow: "\u5f00\u53d1\u8005\u4fe1\u606f",
   developerTitle: "\u8fd9\u4e9b\u5185\u90e8\u4fe1\u606f\u90fd\u6536\u5728\u8fd9\u91cc",
@@ -323,7 +345,7 @@ const copy = {
   developerStatusLabel: "\u8fd0\u884c\u72b6\u6001",
   developerStatusNote: "\u542f\u52a8\u548c\u4ea4\u4e92\u8fc7\u7a0b\u4e2d\u7684\u6700\u65b0\u72b6\u6001\u6587\u5b57",
   developerStorageLabel: "\u6570\u636e\u5b58\u50a8",
-  developerStorageNote: "\u6240\u6709\u4efb\u52a1\u548c\u4e13\u6ce8\u8bb0\u5f55\u9ed8\u8ba4\u4fdd\u5b58\u5728\u672c\u5730",
+  developerStorageNote: "\u6240\u6709\u4efb\u52a1\u3001\u4e13\u6ce8\u8bb0\u5f55\u548c\u5956\u52b1\u6570\u636e\u9ed8\u8ba4\u4fdd\u5b58\u5728\u672c\u5730",
   developerInfoEyebrow: "\u8fd0\u884c\u4fe1\u606f",
   developerInfoTitle: "\u4e0e\u8fd9\u4e2a\u7248\u672c\u76f8\u5173\u7684\u5185\u90e8\u8bf4\u660e",
   developerModulesEyebrow: "\u6a21\u5757\u8def\u7ebf",
@@ -337,10 +359,10 @@ const copy = {
 
 const emptySnapshot: ShellSnapshot = {
   productName: "Focused Moment",
-  version: "1.2.2",
-  milestone: "v1.2.2 \u53d1\u5e03\u6d41\u7a0b\u6536\u5c3e\u7248",
+  version: "1.3.2",
+  milestone: "v1.3.2 \u8d27\u5e01\u5e73\u8861\u7248",
   slogan:
-    "\u7528\u66f4\u8f7b\u7684\u65b9\u5f0f\u4e13\u6ce8\u3001\u5b89\u6392\u548c\u590d\u76d8\u6bcf\u4e00\u5929\u3002",
+    "\u5b8c\u6210\u4e00\u8f6e\u4e13\u6ce8\u540e\uff0c\u4f60\u7684\u79ef\u7d2f\u4e5f\u4f1a\u8ddf\u7740\u5411\u524d\u8d70\u4e00\u5c0f\u6b65\u3002",
   surfaces: [],
   reservedExtensions: [],
 };
@@ -373,6 +395,19 @@ const emptyAnalyticsSnapshot: AnalyticsSnapshot = {
   dailyBreakdown: [],
 };
 
+const emptyRewardSnapshot: RewardSnapshot = {
+  wallet: {
+    lmd: 0,
+    orundum: 0,
+    originium: 0,
+  },
+  todayFocusDurationMs: 0,
+  todayFocusDurationLabel: "00:00:00",
+  currentStreakDays: 0,
+  totalRewardCount: 0,
+  latestRewards: [],
+};
+
 function formatTrendDateLabel(date: string) {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
   if (!match) {
@@ -388,6 +423,23 @@ function formatDurationLabel(durationMs: number) {
   const minutes = `${Math.floor((totalSeconds % 3600) / 60)}`.padStart(2, "0");
   const seconds = `${totalSeconds % 60}`.padStart(2, "0");
   return `${hours}:${minutes}:${seconds}`;
+}
+
+function formatNumberValue(value: number) {
+  return new Intl.NumberFormat("zh-CN").format(value);
+}
+
+function formatRewardEntryGain(entry: RewardLedgerEntry) {
+  const parts = [
+    `龙门币 +${entry.lmd}`,
+    `合成玉 +${entry.orundum}`,
+  ];
+
+  if (entry.originium > 0) {
+    parts.push(`源石 +${entry.originium}`);
+  }
+
+  return parts.join(" / ");
 }
 
 function isIsoDateValue(value: string) {
@@ -514,6 +566,8 @@ function MainShell() {
   const [records, setRecords] = createSignal<FocusRecord[]>([]);
   const [analyticsSnapshot, setAnalyticsSnapshot] =
     createSignal<AnalyticsSnapshot>(emptyAnalyticsSnapshot);
+  const [rewardSnapshot, setRewardSnapshot] =
+    createSignal<RewardSnapshot>(emptyRewardSnapshot);
   const [todoItems, setTodoItems] = createSignal<TodoItem[]>([]);
   const [todoDraft, setTodoDraft] =
     createSignal<TodoDraft>(createDefaultTodoDraft());
@@ -771,6 +825,11 @@ function MainShell() {
     setAnalyticsSnapshot(nextAnalyticsSnapshot);
   }
 
+  async function refreshRewardSummary() {
+    const nextRewardSnapshot = await getRewardSnapshot();
+    setRewardSnapshot(nextRewardSnapshot);
+  }
+
   async function refreshTodoItems() {
     const nextTodoItems = await getTodoItems();
     setTodoItems(nextTodoItems);
@@ -892,8 +951,14 @@ function MainShell() {
       );
       setTimerSnapshot(payload.timerSnapshot);
       setRecords(payload.records);
+      setRewardSnapshot(payload.rewardSnapshot);
       await refreshAnalyticsSummary();
-      setStatusText(`\u5df2\u8bb0\u5f55\uff1a${completionTitle()}`);
+      const latestReward = payload.rewardSnapshot.latestRewards[0];
+      setStatusText(
+        latestReward
+          ? `${copy.rewardGainPrefix}：${formatRewardEntryGain(latestReward)}`
+          : `\u5df2\u8bb0\u5f55\uff1a${completionTitle()}`
+      );
       setCurrentTaskTitle("");
       setLinkedTodoId(null);
     } catch (error) {
@@ -927,6 +992,7 @@ function MainShell() {
       await refreshFocusRecords();
       await refreshTodoItems();
       await refreshAnalyticsSummary();
+      await refreshRewardSummary();
       setStatusText(copy.clearDataDone);
     } catch (error) {
       setStatusText(getErrorMessage(error));
@@ -952,6 +1018,7 @@ function MainShell() {
       const nextRecords = await deleteFocusRecord(id);
       setRecords(nextRecords);
       await refreshAnalyticsSummary();
+      await refreshRewardSummary();
       setStatusText(`已删除专注记录：${title}`);
     } catch (error) {
       setStatusText(getErrorMessage(error));
@@ -982,6 +1049,7 @@ function MainShell() {
       const nextRecords = await deleteFocusRecords(ids);
       setRecords(nextRecords);
       await refreshAnalyticsSummary();
+      await refreshRewardSummary();
       setStatusText(copy.clearRangeDone);
     } catch (error) {
       setStatusText(getErrorMessage(error));
@@ -1038,6 +1106,7 @@ function MainShell() {
       await refreshFocusRecords();
       await refreshTodoItems();
       await refreshAnalyticsSummary();
+      await refreshRewardSummary();
       setStatusText(copy.ready);
     } catch (error) {
       const message =
@@ -1172,6 +1241,65 @@ function MainShell() {
                 <span class="metric-footnote">{copy.focusModeNote}</span>
               </article>
             </div>
+
+            <section class="panel chart-panel reward-panel">
+              <div class="records-panel__header">
+                <div>
+                  <span class="eyebrow">{copy.rewardEyebrow}</span>
+                  <h3>{copy.rewardTitle}</h3>
+                </div>
+                <p class="chart-panel__summary">{copy.rewardSummary}</p>
+              </div>
+
+              <div class="metric-grid reward-wallet-grid">
+                <article class="metric-card metric-card--reward">
+                  <span class="metric-label">{copy.rewardLmd}</span>
+                  <strong>{formatNumberValue(rewardSnapshot().wallet.lmd)}</strong>
+                  <span class="metric-footnote">{copy.rewardWalletNote}</span>
+                </article>
+                <article class="metric-card metric-card--reward">
+                  <span class="metric-label">{copy.rewardOrundum}</span>
+                  <strong>{formatNumberValue(rewardSnapshot().wallet.orundum)}</strong>
+                  <span class="metric-footnote">{copy.rewardWalletNote}</span>
+                </article>
+                <article class="metric-card metric-card--reward">
+                  <span class="metric-label">{copy.rewardOriginium}</span>
+                  <strong>{formatNumberValue(rewardSnapshot().wallet.originium)}</strong>
+                  <span class="metric-footnote">{copy.rewardWalletNote}</span>
+                </article>
+                <article class="metric-card metric-card--reward">
+                  <span class="metric-label">{copy.rewardTodayLabel}</span>
+                  <strong>{rewardSnapshot().todayFocusDurationLabel}</strong>
+                  <span class="metric-footnote">{copy.rewardTodayNote}</span>
+                </article>
+              </div>
+
+              <div class="records-list">
+                <h4 class="reward-ledger-title">{copy.rewardLedgerTitle}</h4>
+                <For each={rewardSnapshot().latestRewards.slice(0, 3)}>
+                  {(entry) => (
+                    <article class="record-card reward-record">
+                      <div class="record-card__main">
+                        <div class="record-card__copy">
+                          <strong>{entry.sourceTitle}</strong>
+                          <div class="record-card__meta">
+                            <span class="record-pill">{entry.sourceModeLabel}</span>
+                            <span class="record-pill record-pill--muted">
+                              {`${entry.completedDate} ${entry.completedTime}`}
+                            </span>
+                          </div>
+                        </div>
+                        <span>{entry.durationLabel}</span>
+                      </div>
+                      <p class="reward-record__gain">{formatRewardEntryGain(entry)}</p>
+                    </article>
+                  )}
+                </For>
+                <Show when={rewardSnapshot().latestRewards.length === 0}>
+                  <p class="records-empty">{copy.rewardLedgerEmpty}</p>
+                </Show>
+              </div>
+            </section>
 
             <section class="timer-panel">
               <div class="mode-switch">
@@ -1859,6 +1987,65 @@ function MainShell() {
                 </span>
               </article>
             </div>
+
+            <section class="panel chart-panel reward-panel">
+              <div class="records-panel__header">
+                <div>
+                  <span class="eyebrow">{copy.insightRewardEyebrow}</span>
+                  <h3>{copy.insightRewardTitle}</h3>
+                </div>
+                <p class="chart-panel__summary">{copy.insightRewardSummary}</p>
+              </div>
+
+              <div class="metric-grid reward-wallet-grid">
+                <article class="metric-card metric-card--reward">
+                  <span class="metric-label">{copy.rewardLmd}</span>
+                  <strong>{formatNumberValue(rewardSnapshot().wallet.lmd)}</strong>
+                  <span class="metric-footnote">{copy.rewardWalletNote}</span>
+                </article>
+                <article class="metric-card metric-card--reward">
+                  <span class="metric-label">{copy.rewardOrundum}</span>
+                  <strong>{formatNumberValue(rewardSnapshot().wallet.orundum)}</strong>
+                  <span class="metric-footnote">{copy.rewardWalletNote}</span>
+                </article>
+                <article class="metric-card metric-card--reward">
+                  <span class="metric-label">{copy.rewardOriginium}</span>
+                  <strong>{formatNumberValue(rewardSnapshot().wallet.originium)}</strong>
+                  <span class="metric-footnote">{copy.rewardWalletNote}</span>
+                </article>
+                <article class="metric-card metric-card--reward">
+                  <span class="metric-label">{copy.rewardStreakLabel}</span>
+                  <strong>{`${rewardSnapshot().currentStreakDays} 天`}</strong>
+                  <span class="metric-footnote">{copy.rewardStreakNote}</span>
+                </article>
+              </div>
+
+              <div class="records-list">
+                <h4 class="reward-ledger-title">{copy.rewardLedgerTitle}</h4>
+                <For each={rewardSnapshot().latestRewards}>
+                  {(entry) => (
+                    <article class="record-card reward-record">
+                      <div class="record-card__main">
+                        <div class="record-card__copy">
+                          <strong>{entry.sourceTitle}</strong>
+                          <div class="record-card__meta">
+                            <span class="record-pill">{entry.sourceModeLabel}</span>
+                            <span class="record-pill record-pill--muted">
+                              {`${entry.completedDate} ${entry.completedTime}`}
+                            </span>
+                          </div>
+                        </div>
+                        <span>{entry.durationLabel}</span>
+                      </div>
+                      <p class="reward-record__gain">{formatRewardEntryGain(entry)}</p>
+                    </article>
+                  )}
+                </For>
+                <Show when={rewardSnapshot().latestRewards.length === 0}>
+                  <p class="records-empty">{copy.rewardLedgerEmpty}</p>
+                </Show>
+              </div>
+            </section>
 
             <section class="panel chart-panel">
               <div class="records-panel__header">
