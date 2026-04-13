@@ -19,6 +19,8 @@ const POMODORO_FOCUS_MS: u64 = 25 * 60 * 1000;
 const POMODORO_BREAK_MS: u64 = 5 * 60 * 1000;
 const TRAY_SHOW_ID: &str = "tray_show_main";
 const TRAY_QUIT_ID: &str = "tray_quit_app";
+const HEADHUNT_SINGLE_COST: u64 = 600;
+const HEADHUNT_TEN_COST: u64 = 6_000;
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -219,6 +221,95 @@ struct ContentPackSnapshot {
     remote_banner_count: Option<usize>,
 }
 
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct HeadhuntBannerSnapshot {
+    id: String,
+    name: String,
+    summary: String,
+    rate_up_names: Vec<String>,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct HeadhuntPullResult {
+    id: u64,
+    banner_id: String,
+    banner_name: String,
+    operator_id: String,
+    operator_name: String,
+    rarity: u8,
+    profession: String,
+    is_rate_up: bool,
+    is_new: bool,
+    cost_orundum: u64,
+    pulled_at: String,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct HeadhuntOwnedOperator {
+    operator_id: String,
+    operator_name: String,
+    rarity: u8,
+    count: u32,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HeadhuntState {
+    current_banner_id: String,
+    history: Vec<HeadhuntPullResult>,
+    owned_operators: Vec<HeadhuntOwnedOperator>,
+    next_pull_id: u64,
+    total_pulls: u64,
+    pity_without_six_star: u32,
+}
+
+impl Default for HeadhuntState {
+    fn default() -> Self {
+        Self {
+            current_banner_id: "standard-focus".to_string(),
+            history: Vec::new(),
+            owned_operators: Vec::new(),
+            next_pull_id: 0,
+            total_pulls: 0,
+            pity_without_six_star: 0,
+        }
+    }
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct HeadhuntSnapshot {
+    current_banner: HeadhuntBannerSnapshot,
+    wallet_orundum: u64,
+    total_pulls: u64,
+    pity_without_six_star: u32,
+    pulls_until_soft_pity: u32,
+    unique_owned_count: usize,
+    owned_operators: Vec<HeadhuntOwnedOperator>,
+    recent_results: Vec<HeadhuntPullResult>,
+    history: Vec<HeadhuntPullResult>,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct HeadhuntPayload {
+    snapshot: HeadhuntSnapshot,
+    batch_results: Vec<HeadhuntPullResult>,
+    spent_orundum: u64,
+}
+
+#[derive(Clone, Copy)]
+struct HeadhuntOperatorDefinition {
+    id: &'static str,
+    name: &'static str,
+    rarity: u8,
+    profession: &'static str,
+    is_rate_up: bool,
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct TodoItem {
@@ -260,6 +351,7 @@ struct TimerEngineState {
     reward_ledger: Mutex<Vec<RewardLedgerEntry>>,
     next_reward_id: Mutex<u64>,
     content_pack_state: Mutex<ContentPackState>,
+    headhunt_state: Mutex<HeadhuntState>,
     persistence: Option<PersistenceStore>,
 }
 
@@ -311,6 +403,7 @@ impl TimerEngineState {
             mut reward_ledger,
             next_reward_id,
             mut content_pack_state,
+            headhunt_state,
         } = persisted;
 
         sort_focus_records(&mut focus_records);
@@ -328,6 +421,7 @@ impl TimerEngineState {
             next_reward_id: Mutex::new(next_reward_id.max(next_reward_id_value(&reward_ledger))),
             reward_ledger: Mutex::new(reward_ledger),
             content_pack_state: Mutex::new(content_pack_state),
+            headhunt_state: Mutex::new(headhunt_state),
             persistence,
         }
     }
@@ -380,6 +474,11 @@ impl TimerEngineState {
                 .content_pack_state
                 .lock()
                 .map_err(|_| "内容包状态锁定失败".to_string())?
+                .clone(),
+            headhunt_state: self
+                .headhunt_state
+                .lock()
+                .map_err(|_| "寻访状态锁定失败".to_string())?
                 .clone(),
         };
 
@@ -450,6 +549,14 @@ impl TimerEngineState {
                 .lock()
                 .map_err(|_| "奖励编号状态锁定失败".to_string())?;
             *next_reward_id = 0;
+        }
+
+        {
+            let mut headhunt_state = self
+                .headhunt_state
+                .lock()
+                .map_err(|_| "寻访状态锁定失败".to_string())?;
+            *headhunt_state = HeadhuntState::default();
         }
 
         self.persist()
@@ -994,6 +1101,134 @@ fn current_local_timestamp() -> String {
     Local::now().format("%Y-%m-%d %H:%M").to_string()
 }
 
+const HEADHUNT_OPERATORS: [HeadhuntOperatorDefinition; 16] = [
+    HeadhuntOperatorDefinition {
+        id: "surtr",
+        name: "史尔特尔",
+        rarity: 6,
+        profession: "术师",
+        is_rate_up: true,
+    },
+    HeadhuntOperatorDefinition {
+        id: "silverash",
+        name: "银灰",
+        rarity: 6,
+        profession: "近卫",
+        is_rate_up: false,
+    },
+    HeadhuntOperatorDefinition {
+        id: "exusiai",
+        name: "能天使",
+        rarity: 6,
+        profession: "狙击",
+        is_rate_up: false,
+    },
+    HeadhuntOperatorDefinition {
+        id: "eyjafjalla",
+        name: "艾雅法拉",
+        rarity: 6,
+        profession: "术师",
+        is_rate_up: false,
+    },
+    HeadhuntOperatorDefinition {
+        id: "lappland",
+        name: "拉普兰德",
+        rarity: 5,
+        profession: "近卫",
+        is_rate_up: true,
+    },
+    HeadhuntOperatorDefinition {
+        id: "texas",
+        name: "德克萨斯",
+        rarity: 5,
+        profession: "先锋",
+        is_rate_up: true,
+    },
+    HeadhuntOperatorDefinition {
+        id: "ptilopsis",
+        name: "白面鸮",
+        rarity: 5,
+        profession: "医疗",
+        is_rate_up: false,
+    },
+    HeadhuntOperatorDefinition {
+        id: "liskarm",
+        name: "雷蛇",
+        rarity: 5,
+        profession: "重装",
+        is_rate_up: false,
+    },
+    HeadhuntOperatorDefinition {
+        id: "courier",
+        name: "讯使",
+        rarity: 4,
+        profession: "先锋",
+        is_rate_up: false,
+    },
+    HeadhuntOperatorDefinition {
+        id: "vigna",
+        name: "红豆",
+        rarity: 4,
+        profession: "先锋",
+        is_rate_up: false,
+    },
+    HeadhuntOperatorDefinition {
+        id: "gravel",
+        name: "砾",
+        rarity: 4,
+        profession: "特种",
+        is_rate_up: false,
+    },
+    HeadhuntOperatorDefinition {
+        id: "jessica",
+        name: "杰西卡",
+        rarity: 4,
+        profession: "狙击",
+        is_rate_up: false,
+    },
+    HeadhuntOperatorDefinition {
+        id: "fang",
+        name: "芬",
+        rarity: 3,
+        profession: "先锋",
+        is_rate_up: false,
+    },
+    HeadhuntOperatorDefinition {
+        id: "plume",
+        name: "翎羽",
+        rarity: 3,
+        profession: "先锋",
+        is_rate_up: false,
+    },
+    HeadhuntOperatorDefinition {
+        id: "hibiscus",
+        name: "芙蓉",
+        rarity: 3,
+        profession: "医疗",
+        is_rate_up: false,
+    },
+    HeadhuntOperatorDefinition {
+        id: "lava",
+        name: "炎熔",
+        rarity: 3,
+        profession: "术师",
+        is_rate_up: false,
+    },
+];
+
+fn standard_headhunt_banner() -> HeadhuntBannerSnapshot {
+    HeadhuntBannerSnapshot {
+        id: "standard-focus".to_string(),
+        name: "标准寻访·启程演算".to_string(),
+        summary: "先接入单抽、十连、保底计数和本地记录。当前使用一套稳定的示例卡池，为后续接真实内容包目录打底。".to_string(),
+        rate_up_names: vec![
+            "史尔特尔".to_string(),
+            "拉普兰德".to_string(),
+            "德克萨斯".to_string(),
+        ],
+    }
+}
+
 fn remote_content_pack_manifest() -> ContentPackState {
     ContentPackState {
         current_version: "global-2026.04.13-contentpack.2".to_string(),
@@ -1049,6 +1284,82 @@ fn content_pack_snapshot_from_state(
         remote_updated_at: update_available.then(|| remote.current_updated_at.clone()),
         remote_operator_count: update_available.then_some(remote.operator_count),
         remote_banner_count: update_available.then_some(remote.banner_count),
+    }
+}
+
+fn headhunt_snapshot(wallet: &RewardWallet, headhunt_state: &HeadhuntState) -> HeadhuntSnapshot {
+    HeadhuntSnapshot {
+        current_banner: standard_headhunt_banner(),
+        wallet_orundum: wallet.orundum,
+        total_pulls: headhunt_state.total_pulls,
+        pity_without_six_star: headhunt_state.pity_without_six_star,
+        pulls_until_soft_pity: 50u32.saturating_sub(headhunt_state.pity_without_six_star),
+        unique_owned_count: headhunt_state.owned_operators.len(),
+        owned_operators: headhunt_state.owned_operators.clone(),
+        recent_results: headhunt_state.history.iter().take(10).cloned().collect(),
+        history: headhunt_state.history.iter().take(30).cloned().collect(),
+    }
+}
+
+fn next_random_seed(state: &HeadhuntState, wallet: &RewardWallet, step: u64) -> u64 {
+    let nanos = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .map(|duration| duration.as_nanos() as u64)
+        .unwrap_or(0);
+
+    nanos
+        ^ state.total_pulls.rotate_left(7)
+        ^ u64::from(state.pity_without_six_star).rotate_left(13)
+        ^ wallet.orundum.rotate_left(17)
+        ^ step.rotate_left(23)
+}
+
+fn draw_operator_by_roll(roll: u64, six_star_rate: u64) -> HeadhuntOperatorDefinition {
+    let six_threshold = six_star_rate;
+    let five_threshold = six_threshold + 8;
+    let four_threshold = five_threshold + 50;
+    let rarity = if roll < six_threshold {
+        6
+    } else if roll < five_threshold {
+        5
+    } else if roll < four_threshold {
+        4
+    } else {
+        3
+    };
+
+    let pool = HEADHUNT_OPERATORS
+        .iter()
+        .copied()
+        .filter(|operator| operator.rarity == rarity)
+        .collect::<Vec<_>>();
+    let operator_index = (roll as usize) % pool.len();
+    pool[operator_index]
+}
+
+fn record_owned_operator(
+    owned_operators: &mut Vec<HeadhuntOwnedOperator>,
+    operator: HeadhuntOperatorDefinition,
+) -> bool {
+    if let Some(entry) = owned_operators
+        .iter_mut()
+        .find(|entry| entry.operator_id == operator.id)
+    {
+        entry.count = entry.count.saturating_add(1);
+        false
+    } else {
+        owned_operators.push(HeadhuntOwnedOperator {
+            operator_id: operator.id.to_string(),
+            operator_name: operator.name.to_string(),
+            rarity: operator.rarity,
+            count: 1,
+        });
+        owned_operators.sort_by(|left, right| {
+            Reverse(left.rarity)
+                .cmp(&Reverse(right.rarity))
+                .then_with(|| left.operator_name.cmp(&right.operator_name))
+        });
+        true
     }
 }
 
@@ -1186,9 +1497,9 @@ fn resolve_export_directory() -> Result<PathBuf, String> {
 fn bootstrap_shell() -> ShellSnapshot {
     ShellSnapshot {
         product_name: "Focused Moment",
-        version: "1.4.2",
-        milestone: "v1.4.2 \u{5f00}\u{53d1}\u{8005}\u{9875}\u{9762}\u{51cf}\u{8d1f}\u{7248}",
-        slogan: "\u{5f53}\u{4ea7}\u{54c1}\u{57fa}\u{7ebf}\u{8d8a}\u{6765}\u{8d8a}\u{7a33}\u{7684}\u{65f6}\u{5019}\u{ff0c}\u{4e0d}\u{5fc5}\u{8981}\u{7684}\u{4fe1}\u{606f}\u{4e5f}\u{8be5}\u{4e00}\u{8d77}\u{53d8}\u{5c11}\u{3002}",
+        version: "1.5.0",
+        milestone: "v1.5.0 \u{5bfb}\u{8bbf}\u{7cfb}\u{7edf}\u{7b2c}\u{4e00}\u{7248}",
+        slogan: "\u{4e13}\u{6ce8}\u{79ef}\u{7d2f}\u{4e0b}\u{6765}\u{7684}\u{5408}\u{6210}\u{7389}\u{ff0c}\u{73b0}\u{5728}\u{7ec8}\u{4e8e}\u{53ef}\u{4ee5}\u{771f}\u{6b63}\u{653e}\u{8fdb}\u{5bfb}\u{8bbf}\u{7cfb}\u{7edf}\u{91cc}\u{4e86}\u{3002}",
         surfaces: vec![
             ShellPanel {
                 id: "timer",
@@ -1231,6 +1542,13 @@ fn bootstrap_shell() -> ShellSnapshot {
                 phase: "v1.4.0-v1.4.1",
                 status: "\u{5df2}\u{63a5}\u{5165}",
                 summary: "\u{73b0}\u{5728}\u{53ef}\u{4ee5}\u{624b}\u{52a8}\u{68c0}\u{67e5}\u{65b9}\u{821f}\u{8d44}\u{6599}\u{66f4}\u{65b0}\u{ff0c}\u{5e76}\u{4ee5}\u{66f4}\u{5408}\u{7406}\u{7684}\u{201c}\u{5168}\u{91cf}\u{76ee}\u{5f55} + \u{5f53}\u{524d}\u{5361}\u{6c60}\u{201d}\u{53e3}\u{5f84}\u{5c55}\u{793a}\u{5185}\u{5bb9}\u{5305}\u{3002}",
+            },
+            ShellPanel {
+                id: "headhunt-engine",
+                title: "\u{5bfb}\u{8bbf}\u{5f15}\u{64ce}",
+                phase: "v1.5.0",
+                status: "\u{5df2}\u{63a5}\u{5165}",
+                summary: "\u{73b0}\u{5728}\u{5df2}\u{7ecf}\u{53ef}\u{4ee5}\u{4f7f}\u{7528}\u{5408}\u{6210}\u{7389}\u{8fdb}\u{884c}\u{5355}\u{62bd}\u{3001}\u{5341}\u{8fde}\u{3001}\u{8bb0}\u{5f55}\u{4fdd}\u{5e95}\u{8fdb}\u{5ea6}\u{548c}\u{672c}\u{5730}\u{5bfb}\u{8bbf}\u{5386}\u{53f2}\u{3002}",
             },
         ],
         reserved_extensions: vec![
@@ -1452,6 +1770,111 @@ fn sync_content_pack(
 
     state.persist()?;
     Ok(snapshot)
+}
+
+#[tauri::command]
+fn get_headhunt_snapshot(
+    state: tauri::State<'_, TimerEngineState>,
+) -> Result<HeadhuntSnapshot, String> {
+    let wallet = state
+        .reward_wallet
+        .lock()
+        .map_err(|_| "奖励钱包状态锁定失败".to_string())?;
+    let headhunt_state = state
+        .headhunt_state
+        .lock()
+        .map_err(|_| "寻访状态锁定失败".to_string())?;
+
+    Ok(headhunt_snapshot(&wallet, &headhunt_state))
+}
+
+#[tauri::command]
+fn perform_headhunt(
+    state: tauri::State<'_, TimerEngineState>,
+    pulls: u8,
+) -> Result<HeadhuntPayload, String> {
+    let pull_count = match pulls {
+        1 | 10 => pulls as usize,
+        _ => return Err("当前只支持单抽或十连".to_string()),
+    };
+    let total_cost = if pull_count == 10 {
+        HEADHUNT_TEN_COST
+    } else {
+        HEADHUNT_SINGLE_COST
+    };
+    let cost_per_pull = total_cost / pull_count as u64;
+    let banner = standard_headhunt_banner();
+
+    let payload = {
+        let mut wallet = state
+            .reward_wallet
+            .lock()
+            .map_err(|_| "奖励钱包状态锁定失败".to_string())?;
+        if wallet.orundum < total_cost {
+            return Err(format!(
+                "合成玉不足，单抽需要 {}，十连需要 {}",
+                HEADHUNT_SINGLE_COST, HEADHUNT_TEN_COST
+            ));
+        }
+
+        let mut headhunt_state = state
+            .headhunt_state
+            .lock()
+            .map_err(|_| "寻访状态锁定失败".to_string())?;
+
+        wallet.orundum = wallet.orundum.saturating_sub(total_cost);
+
+        let mut batch_results = Vec::with_capacity(pull_count);
+        for index in 0..pull_count {
+            let six_star_rate = if headhunt_state.pity_without_six_star < 50 {
+                2
+            } else {
+                (2 + u64::from(headhunt_state.pity_without_six_star - 49) * 2).min(100)
+            };
+            let roll_seed = next_random_seed(&headhunt_state, &wallet, index as u64 + 1);
+            let operator = draw_operator_by_roll(roll_seed % 100, six_star_rate);
+            let is_new = record_owned_operator(&mut headhunt_state.owned_operators, operator);
+            let result = HeadhuntPullResult {
+                id: headhunt_state.next_pull_id,
+                banner_id: banner.id.clone(),
+                banner_name: banner.name.clone(),
+                operator_id: operator.id.to_string(),
+                operator_name: operator.name.to_string(),
+                rarity: operator.rarity,
+                profession: operator.profession.to_string(),
+                is_rate_up: operator.is_rate_up,
+                is_new,
+                cost_orundum: cost_per_pull,
+                pulled_at: current_local_timestamp(),
+            };
+
+            headhunt_state.next_pull_id = headhunt_state.next_pull_id.saturating_add(1);
+            headhunt_state.total_pulls = headhunt_state.total_pulls.saturating_add(1);
+            if operator.rarity == 6 {
+                headhunt_state.pity_without_six_star = 0;
+            } else {
+                headhunt_state.pity_without_six_star =
+                    headhunt_state.pity_without_six_star.saturating_add(1);
+            }
+
+            batch_results.push(result);
+        }
+
+        for result in batch_results.iter().rev() {
+            headhunt_state.history.insert(0, result.clone());
+        }
+        headhunt_state.history.truncate(120);
+
+        let snapshot = headhunt_snapshot(&wallet, &headhunt_state);
+        HeadhuntPayload {
+            snapshot,
+            batch_results,
+            spent_orundum: total_cost,
+        }
+    };
+
+    state.persist()?;
+    Ok(payload)
 }
 
 #[tauri::command]
@@ -1935,6 +2358,8 @@ pub fn run() {
             get_reward_snapshot,
             get_content_pack_snapshot,
             sync_content_pack,
+            get_headhunt_snapshot,
+            perform_headhunt,
             clear_app_data,
             export_focus_records_csv,
             get_todo_items,

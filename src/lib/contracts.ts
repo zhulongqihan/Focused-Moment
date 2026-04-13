@@ -121,6 +121,52 @@ export interface ContentPackSnapshot {
   remoteBannerCount: number | null;
 }
 
+export interface HeadhuntBannerSnapshot {
+  id: string;
+  name: string;
+  summary: string;
+  rateUpNames: string[];
+}
+
+export interface HeadhuntPullResult {
+  id: number;
+  bannerId: string;
+  bannerName: string;
+  operatorId: string;
+  operatorName: string;
+  rarity: number;
+  profession: string;
+  isRateUp: boolean;
+  isNew: boolean;
+  costOrundum: number;
+  pulledAt: string;
+}
+
+export interface HeadhuntOwnedOperator {
+  operatorId: string;
+  operatorName: string;
+  rarity: number;
+  count: number;
+}
+
+export interface HeadhuntSnapshot {
+  currentBanner: HeadhuntBannerSnapshot;
+  walletOrundum: number;
+  totalPulls: number;
+  pityWithoutSixStar: number;
+  pullsUntilSoftPity: number;
+  uniqueOwnedCount: number;
+  ownedOperators: HeadhuntOwnedOperator[];
+  recentResults: HeadhuntPullResult[];
+  history: HeadhuntPullResult[];
+}
+
+export interface HeadhuntPayload {
+  snapshot: HeadhuntSnapshot;
+  batchResults: HeadhuntPullResult[];
+  spentOrundum: number;
+}
+
 export type TodoImportance = "low" | "medium" | "high";
 
 export interface TodoItem {

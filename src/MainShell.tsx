@@ -5,6 +5,8 @@ import type {
   ContentPackSnapshot,
   DailyInsight,
   FocusRecord,
+  HeadhuntPayload,
+  HeadhuntSnapshot,
   RewardLedgerEntry,
   RewardSnapshot,
   ShellSnapshot,
@@ -37,6 +39,7 @@ import {
   startTimer,
   switchTimerMode,
 } from "./lib/timer";
+import { getHeadhuntSnapshot, performHeadhunt } from "./lib/headhunt";
 import {
   closeMainWindow,
   minimizeMainWindow,
@@ -46,7 +49,7 @@ import {
 } from "./lib/window-controls";
 import "./App.css";
 
-type ViewKey = "focus" | "tasks" | "insights" | "lab";
+type ViewKey = "focus" | "tasks" | "insights" | "headhunt" | "lab";
 type ReviewRangeKey = "today" | "7d" | "30d" | "all" | "custom";
 type TodoFilterKey = "all" | "pending" | "completed" | "today" | "high";
 type TodoSortKey = "smart" | "schedule" | "importance" | "newest" | "title";
@@ -80,6 +83,11 @@ const viewItems = [
     key: "insights",
     label: "\u67e5\u770b\u590d\u76d8",
     summary: "\u770b\u770b\u6700\u8fd1\u7684\u4e13\u6ce8\u53d8\u5316",
+  },
+  {
+    key: "headhunt",
+    label: "\u5bfb\u8bbf\u4e2d\u5fc3",
+    summary: "\u5408\u6210\u7389\u3001\u4fdd\u5e95\u4e0e\u62bd\u5361\u8bb0\u5f55",
   },
   {
     key: "lab",
@@ -202,6 +210,35 @@ const copy = {
   rewardLedgerTitle: "\u6700\u8fd1\u5165\u8d26",
   rewardLedgerEmpty: "\u5b8c\u6210\u7b2c\u4e00\u8f6e\u4e13\u6ce8\u540e\uff0c\u5956\u52b1\u6d41\u6c34\u5c31\u4f1a\u51fa\u73b0\u5728\u8fd9\u91cc\u3002",
   rewardGainPrefix: "\u672c\u8f6e\u5165\u8d26",
+  headhuntEyebrow: "\u5bfb\u8bbf\u4e2d\u5fc3",
+  headhuntTitle: "\u5408\u6210\u7389\u73b0\u5728\u53ef\u4ee5\u771f\u6b63\u7528\u6765\u62bd\u5361\u4e86",
+  headhuntSummary:
+    "\u8fd9\u4e00\u7248\u5148\u63a5\u5165\u6807\u51c6\u5bfb\u8bbf\u57fa\u7840\u7248\uff1a\u5355\u62bd\u3001\u5341\u8fde\u3001\u516d\u661f\u4fdd\u5e95\u9012\u589e\u3001\u672c\u5730\u62bd\u5361\u8bb0\u5f55\u90fd\u5df2\u7ecf\u8fde\u8d77\u6765\u4e86\u3002",
+  headhuntOrundumLabel: "\u5f53\u524d\u5408\u6210\u7389",
+  headhuntPullsLabel: "\u7d2f\u8ba1\u5bfb\u8bbf",
+  headhuntPityLabel: "\u516d\u661f\u524d\u7f6e",
+  headhuntOwnedLabel: "\u5df2\u83b7\u5f97\u5e72\u5458",
+  headhuntSingleAction: "\u5355\u6b21\u5bfb\u8bbf\uff08600\uff09",
+  headhuntTenAction: "\u5341\u8fde\u5bfb\u8bbf\uff086000\uff09",
+  headhuntPityNote: "\u8fde\u7eed 50 \u62bd\u6ca1\u6709 6 \u661f\u540e\uff0c6 \u661f\u51fa\u73b0\u6982\u7387\u4f1a\u9010\u62bd\u63d0\u9ad8\u3002",
+  headhuntBannerRateUp: "\u5f53\u524d UP",
+  headhuntRecentTitle: "\u672c\u8f6e\u7ed3\u679c",
+  headhuntHistoryTitle: "\u6700\u8fd1\u5bfb\u8bbf\u8bb0\u5f55",
+  headhuntHistoryEmpty: "\u5b8c\u6210\u7b2c\u4e00\u6b21\u5bfb\u8bbf\u540e\uff0c\u7ed3\u679c\u548c\u5386\u53f2\u5c31\u4f1a\u51fa\u73b0\u5728\u8fd9\u91cc\u3002",
+  headhuntNewTag: "\u65b0\u83b7\u5f97",
+  headhuntDuplicateTag: "\u91cd\u590d\u83b7\u5f97",
+  headhuntHistorySummary: "\u8fd9\u91cc\u4f1a\u4fdd\u7559\u6700\u8fd1 30 \u6761\u5bfb\u8bbf\u8bb0\u5f55\uff0c\u65b9\u4fbf\u4f60\u56de\u770b\u8fd9\u6bb5\u65f6\u95f4\u7684\u51fa\u8d27\u8282\u594f\u3002",
+  headhuntDonePrefix: "\u5bfb\u8bbf\u5b8c\u6210",
+  headhuntBannerLabel: "\u5f53\u671f\u5361\u6c60",
+  headhuntSpendHint:
+    "\u5355\u62bd\u6d88\u8017 600 \u5408\u6210\u7389\uff0c\u5341\u8fde\u6d88\u8017 6000 \u5408\u6210\u7389\uff0c6 \u661f\u4f1a\u8bb0\u5f55\u672c\u5730\u4fdd\u5e95\u8fdb\u5ea6\u3002",
+  headhuntBatchEmpty:
+    "\u8fd8\u6ca1\u6709\u5f00\u59cb\u5bfb\u8bbf\uff0c\u7b49\u4f60\u5b8c\u6210\u7b2c\u4e00\u62bd\u540e\uff0c\u7ed3\u679c\u5c31\u4f1a\u51fa\u73b0\u5728\u8fd9\u91cc\u3002",
+  headhuntOwnedTitle: "\u5df2\u83b7\u5f97\u5e72\u5458",
+  headhuntOwnedSummary:
+    "\u91cd\u590d\u5bfb\u8bbf\u4f1a\u7ee7\u7eed\u7d2f\u79ef\u62e5\u6709\u6b21\u6570\uff0c\u4e3a\u540e\u7eed\u6f5c\u80fd\u548c\u517b\u6210\u9884\u7559\u7a7a\u95f4\u3002",
+  headhuntOwnedEmpty:
+    "\u8fd8\u6ca1\u6709\u83b7\u5f97\u5e72\u5458\uff0c\u5b8c\u6210\u7b2c\u4e00\u6b21\u5bfb\u8bbf\u540e\u5c31\u4f1a\u5728\u8fd9\u91cc\u5f00\u59cb\u79ef\u7d2f\u3002",
   modeSwitchEyebrow: "\u8ba1\u65f6\u6a21\u5f0f",
   stopwatchMode: "\u6b63\u5411\u8ba1\u65f6",
   pomodoroMode: "\u756a\u8304\u949f",
@@ -383,10 +420,10 @@ const copy = {
 
 const emptySnapshot: ShellSnapshot = {
   productName: "Focused Moment",
-  version: "1.4.2",
-  milestone: "v1.4.2 \u5f00\u53d1\u8005\u9875\u9762\u51cf\u8d1f\u7248",
+  version: "1.5.0",
+  milestone: "v1.5.0 \u5bfb\u8bbf\u7cfb\u7edf\u7b2c\u4e00\u7248",
   slogan:
-    "\u5f53\u4ea7\u54c1\u57fa\u7ebf\u8d8a\u6765\u8d8a\u7a33\u7684\u65f6\u5019\uff0c\u4e0d\u5fc5\u8981\u7684\u4fe1\u606f\u4e5f\u8be5\u4e00\u8d77\u53d8\u5c11\u3002",
+    "\u4e13\u6ce8\u4e0d\u53ea\u80fd\u7559\u4e0b\u8bb0\u5f55\uff0c\u73b0\u5728\u4e5f\u53ef\u4ee5\u628a\u5408\u6210\u7389\u771f\u6b63\u653e\u8fdb\u5bfb\u8bbf\u7cfb\u7edf\u91cc\u3002",
   surfaces: [],
   reservedExtensions: [],
 };
@@ -450,6 +487,23 @@ const emptyContentPackSnapshot: ContentPackSnapshot = {
   remoteBannerCount: null,
 };
 
+const emptyHeadhuntSnapshot: HeadhuntSnapshot = {
+  currentBanner: {
+    id: "standard-focus",
+    name: "标准寻访·启程演算",
+    summary: "先接入一套稳定的示例卡池，为后续接真实内容包目录打底。",
+    rateUpNames: ["史尔特尔", "拉普兰德", "德克萨斯"],
+  },
+  walletOrundum: 0,
+  totalPulls: 0,
+  pityWithoutSixStar: 0,
+  pullsUntilSoftPity: 50,
+  uniqueOwnedCount: 0,
+  ownedOperators: [],
+  recentResults: [],
+  history: [],
+};
+
 function formatTrendDateLabel(date: string) {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
   if (!match) {
@@ -482,6 +536,10 @@ function formatRewardEntryGain(entry: RewardLedgerEntry) {
   }
 
   return parts.join(" / ");
+}
+
+function formatHeadhuntRarity(rarity: number) {
+  return `${rarity}★`;
 }
 
 function isIsoDateValue(value: string) {
@@ -612,6 +670,11 @@ function MainShell() {
     createSignal<RewardSnapshot>(emptyRewardSnapshot);
   const [contentPackSnapshot, setContentPackSnapshot] =
     createSignal<ContentPackSnapshot>(emptyContentPackSnapshot);
+  const [headhuntSnapshot, setHeadhuntSnapshot] =
+    createSignal<HeadhuntSnapshot>(emptyHeadhuntSnapshot);
+  const [lastHeadhuntBatch, setLastHeadhuntBatch] = createSignal<
+    HeadhuntPayload["batchResults"]
+  >([]);
   const [todoItems, setTodoItems] = createSignal<TodoItem[]>([]);
   const [todoDraft, setTodoDraft] =
     createSignal<TodoDraft>(createDefaultTodoDraft());
@@ -623,6 +686,7 @@ function MainShell() {
   const [timerBusy, setTimerBusy] = createSignal(false);
   const [todoBusy, setTodoBusy] = createSignal(false);
   const [contentPackBusy, setContentPackBusy] = createSignal(false);
+  const [headhuntBusy, setHeadhuntBusy] = createSignal(false);
   const [activeView, setActiveView] = createSignal<ViewKey>("focus");
   const [reviewRange, setReviewRange] = createSignal<ReviewRangeKey>("7d");
   const [customStartDate, setCustomStartDate] = createSignal(getLocalDateValue());
@@ -824,6 +888,10 @@ function MainShell() {
     const lastX = trendPointX(days.length - 1, days.length);
       return `${firstX},164 ${line} ${lastX},164`;
     };
+  const latestHeadhuntBatch = () =>
+    lastHeadhuntBatch().length > 0
+      ? lastHeadhuntBatch()
+      : headhuntSnapshot().recentResults.slice(0, 10);
 
   createEffect(() => {
     const activeLinkedTodoId = linkedTodoId();
@@ -878,6 +946,11 @@ function MainShell() {
   async function refreshContentPackSummary() {
     const nextContentPackSnapshot = await getContentPackSnapshot();
     setContentPackSnapshot(nextContentPackSnapshot);
+  }
+
+  async function refreshHeadhuntSummary() {
+    const nextHeadhuntSnapshot = await getHeadhuntSnapshot();
+    setHeadhuntSnapshot(nextHeadhuntSnapshot);
   }
 
   async function refreshTodoItems() {
@@ -1002,6 +1075,7 @@ function MainShell() {
       setTimerSnapshot(payload.timerSnapshot);
       setRecords(payload.records);
       setRewardSnapshot(payload.rewardSnapshot);
+      await refreshHeadhuntSummary();
       await refreshAnalyticsSummary();
       const latestReward = payload.rewardSnapshot.latestRewards[0];
       setStatusText(
@@ -1040,6 +1114,28 @@ function MainShell() {
     }
   }
 
+  async function handleHeadhunt(pulls: 1 | 10) {
+    if (headhuntBusy()) {
+      return;
+    }
+
+    setHeadhuntBusy(true);
+
+    try {
+      const payload = await performHeadhunt(pulls);
+      setHeadhuntSnapshot(payload.snapshot);
+      setLastHeadhuntBatch(payload.batchResults);
+      await refreshRewardSummary();
+      setStatusText(
+        `${copy.headhuntDonePrefix}：${pulls === 10 ? "十连" : "单抽"}，消耗 ${payload.spentOrundum} 合成玉`
+      );
+    } catch (error) {
+      setStatusText(getErrorMessage(error));
+    } finally {
+      setHeadhuntBusy(false);
+    }
+  }
+
   async function handleClearAppData() {
     if (todoBusy() || timerBusy()) {
       return;
@@ -1065,6 +1161,7 @@ function MainShell() {
       await refreshTodoItems();
       await refreshAnalyticsSummary();
       await refreshRewardSummary();
+      await refreshHeadhuntSummary();
       setStatusText(copy.clearDataDone);
     } catch (error) {
       setStatusText(getErrorMessage(error));
@@ -1091,6 +1188,7 @@ function MainShell() {
       setRecords(nextRecords);
       await refreshAnalyticsSummary();
       await refreshRewardSummary();
+      await refreshHeadhuntSummary();
       setStatusText(`已删除专注记录：${title}`);
     } catch (error) {
       setStatusText(getErrorMessage(error));
@@ -1122,6 +1220,7 @@ function MainShell() {
       setRecords(nextRecords);
       await refreshAnalyticsSummary();
       await refreshRewardSummary();
+      await refreshHeadhuntSummary();
       setStatusText(copy.clearRangeDone);
     } catch (error) {
       setStatusText(getErrorMessage(error));
@@ -1180,6 +1279,7 @@ function MainShell() {
       await refreshAnalyticsSummary();
       await refreshRewardSummary();
       await refreshContentPackSummary();
+      await refreshHeadhuntSummary();
       setStatusText(copy.ready);
     } catch (error) {
       const message =
@@ -2123,6 +2223,72 @@ function MainShell() {
             <section class="panel chart-panel">
               <div class="records-panel__header">
                 <div>
+                  <span class="eyebrow">{copy.headhuntEyebrow}</span>
+                  <h3>{copy.headhuntTitle}</h3>
+                </div>
+                <p class="chart-panel__summary">{copy.headhuntSummary}</p>
+              </div>
+
+              <div class="metric-grid reward-wallet-grid">
+                <article class="metric-card metric-card--reward">
+                  <span class="metric-label">{copy.headhuntOrundumLabel}</span>
+                  <strong>{formatNumberValue(headhuntSnapshot().walletOrundum)}</strong>
+                  <span class="metric-footnote">{copy.rewardWalletNote}</span>
+                </article>
+                <article class="metric-card metric-card--reward">
+                  <span class="metric-label">{copy.headhuntPullsLabel}</span>
+                  <strong>{formatNumberValue(headhuntSnapshot().totalPulls)}</strong>
+                  <span class="metric-footnote">{copy.headhuntHistorySummary}</span>
+                </article>
+                <article class="metric-card metric-card--reward">
+                  <span class="metric-label">{copy.headhuntPityLabel}</span>
+                  <strong>{`${headhuntSnapshot().pityWithoutSixStar} 抽`}</strong>
+                  <span class="metric-footnote">{copy.headhuntPityNote}</span>
+                </article>
+                <article class="metric-card metric-card--reward">
+                  <span class="metric-label">{copy.headhuntOwnedLabel}</span>
+                  <strong>{formatNumberValue(headhuntSnapshot().uniqueOwnedCount)}</strong>
+                  <span class="metric-footnote">{copy.headhuntOwnedSummary}</span>
+                </article>
+              </div>
+
+              <div class="records-list">
+                <h4 class="reward-ledger-title">{copy.headhuntHistoryTitle}</h4>
+                <For each={headhuntSnapshot().recentResults.slice(0, 5)}>
+                  {(result) => (
+                    <article class="record-card">
+                      <div class="record-card__main">
+                        <div class="record-card__copy">
+                          <strong>{result.operatorName}</strong>
+                          <div class="record-card__meta">
+                            <span class="record-pill">{formatHeadhuntRarity(result.rarity)}</span>
+                            <span class="record-pill record-pill--muted">
+                              {result.profession}
+                            </span>
+                            <span
+                              classList={{
+                                "record-pill": true,
+                                "record-pill--muted": !result.isNew,
+                              }}
+                            >
+                              {result.isNew ? copy.headhuntNewTag : copy.headhuntDuplicateTag}
+                            </span>
+                          </div>
+                        </div>
+                        <span>{result.pulledAt}</span>
+                      </div>
+                    </article>
+                  )}
+                </For>
+                <Show when={headhuntSnapshot().recentResults.length === 0}>
+                  <p class="records-empty">{copy.headhuntHistoryEmpty}</p>
+                </Show>
+              </div>
+            </section>
+
+            <section class="panel chart-panel">
+              <div class="records-panel__header">
+                <div>
                   <span class="eyebrow">{copy.insightTrendEyebrow}</span>
                   <h3>{copy.insightTrendTitle}</h3>
                 </div>
@@ -2401,6 +2567,205 @@ function MainShell() {
                   <p class="records-empty">{copy.insightRecordsEmpty}</p>
                 )}
               </div>
+            </section>
+          </section>
+        </Show>
+
+        <Show when={activeView() === "headhunt"}>
+          <section class="panel section-panel">
+            <div class="section-heading">
+              <div>
+                <span class="eyebrow">{copy.headhuntEyebrow}</span>
+                <h2>{copy.headhuntTitle}</h2>
+              </div>
+              <p>{copy.headhuntSummary}</p>
+            </div>
+
+            <section class="panel chart-panel">
+              <div class="records-panel__header">
+                <div>
+                  <span class="eyebrow">{copy.headhuntBannerLabel}</span>
+                  <h3>{headhuntSnapshot().currentBanner.name}</h3>
+                </div>
+                <p class="chart-panel__summary">
+                  {headhuntSnapshot().currentBanner.summary}
+                </p>
+              </div>
+
+              <div class="record-card">
+                <div class="record-card__main">
+                  <div class="record-card__copy">
+                    <strong>{copy.headhuntBannerRateUp}</strong>
+                    <div class="record-card__meta">
+                      <For each={headhuntSnapshot().currentBanner.rateUpNames}>
+                        {(name) => <span class="record-pill">{name}</span>}
+                      </For>
+                    </div>
+                  </div>
+                  <span>{copy.headhuntSpendHint}</span>
+                </div>
+              </div>
+
+              <div class="metric-grid reward-wallet-grid">
+                <article class="metric-card metric-card--reward">
+                  <span class="metric-label">{copy.headhuntOrundumLabel}</span>
+                  <strong>{formatNumberValue(headhuntSnapshot().walletOrundum)}</strong>
+                  <span class="metric-footnote">{copy.rewardWalletNote}</span>
+                </article>
+                <article class="metric-card metric-card--reward">
+                  <span class="metric-label">{copy.headhuntPullsLabel}</span>
+                  <strong>{formatNumberValue(headhuntSnapshot().totalPulls)}</strong>
+                  <span class="metric-footnote">{copy.headhuntHistorySummary}</span>
+                </article>
+                <article class="metric-card metric-card--reward">
+                  <span class="metric-label">{copy.headhuntPityLabel}</span>
+                  <strong>{`${headhuntSnapshot().pityWithoutSixStar} 抽`}</strong>
+                  <span class="metric-footnote">
+                    {`距离软保底还有 ${headhuntSnapshot().pullsUntilSoftPity} 抽`}
+                  </span>
+                </article>
+                <article class="metric-card metric-card--reward">
+                  <span class="metric-label">{copy.headhuntOwnedLabel}</span>
+                  <strong>{formatNumberValue(headhuntSnapshot().uniqueOwnedCount)}</strong>
+                  <span class="metric-footnote">{copy.headhuntOwnedSummary}</span>
+                </article>
+              </div>
+
+              <div class="review-toolbar__actions">
+                <button
+                  type="button"
+                  class="action-button action-button--primary"
+                  disabled={headhuntBusy() || headhuntSnapshot().walletOrundum < 600}
+                  onClick={() => void handleHeadhunt(1)}
+                >
+                  {copy.headhuntSingleAction}
+                </button>
+                <button
+                  type="button"
+                  class="action-button action-button--success"
+                  disabled={headhuntBusy() || headhuntSnapshot().walletOrundum < 6000}
+                  onClick={() => void handleHeadhunt(10)}
+                >
+                  {copy.headhuntTenAction}
+                </button>
+              </div>
+            </section>
+
+            <section class="records-panel">
+              <div class="records-panel__header">
+                <div>
+                  <span class="eyebrow">{copy.headhuntRecentTitle}</span>
+                  <h3>{copy.headhuntRecentTitle}</h3>
+                </div>
+                <p class="chart-panel__summary">{copy.headhuntSpendHint}</p>
+              </div>
+
+              <div class="records-list">
+                <For each={latestHeadhuntBatch()}>
+                  {(result) => (
+                    <article class="record-card">
+                      <div class="record-card__main">
+                        <div class="record-card__copy">
+                          <strong>{result.operatorName}</strong>
+                          <div class="record-card__meta">
+                            <span class="record-pill">{formatHeadhuntRarity(result.rarity)}</span>
+                            <span class="record-pill record-pill--muted">
+                              {result.profession}
+                            </span>
+                            <span
+                              classList={{
+                                "record-pill": true,
+                                "record-pill--muted": !result.isRateUp,
+                              }}
+                            >
+                              {result.isRateUp ? copy.headhuntBannerRateUp : result.bannerName}
+                            </span>
+                            <span
+                              classList={{
+                                "record-pill": true,
+                                "record-pill--muted": !result.isNew,
+                              }}
+                            >
+                              {result.isNew ? copy.headhuntNewTag : copy.headhuntDuplicateTag}
+                            </span>
+                          </div>
+                        </div>
+                        <span>{`${result.costOrundum} 合成玉`}</span>
+                      </div>
+                    </article>
+                  )}
+                </For>
+                <Show when={latestHeadhuntBatch().length === 0}>
+                  <p class="records-empty">{copy.headhuntBatchEmpty}</p>
+                </Show>
+              </div>
+            </section>
+
+            <section class="records-panel">
+              <div class="records-panel__header">
+                <div>
+                  <span class="eyebrow">{copy.headhuntHistoryTitle}</span>
+                  <h3>{copy.headhuntHistoryTitle}</h3>
+                </div>
+                <p class="chart-panel__summary">{copy.headhuntHistorySummary}</p>
+              </div>
+
+              <div class="records-list">
+                <For each={headhuntSnapshot().history}>
+                  {(result) => (
+                    <article class="record-card">
+                      <div class="record-card__main">
+                        <div class="record-card__copy">
+                          <strong>{result.operatorName}</strong>
+                          <div class="record-card__meta">
+                            <span class="record-pill">{formatHeadhuntRarity(result.rarity)}</span>
+                            <span class="record-pill record-pill--muted">
+                              {result.profession}
+                            </span>
+                            <span class="record-pill record-pill--muted">
+                              {result.pulledAt}
+                            </span>
+                          </div>
+                        </div>
+                        <span>{result.bannerName}</span>
+                      </div>
+                    </article>
+                  )}
+                </For>
+                <Show when={headhuntSnapshot().history.length === 0}>
+                  <p class="records-empty">{copy.headhuntHistoryEmpty}</p>
+                </Show>
+              </div>
+            </section>
+
+            <section class="records-panel">
+              <div class="records-panel__header">
+                <div>
+                  <span class="eyebrow">{copy.headhuntOwnedTitle}</span>
+                  <h3>{copy.headhuntOwnedTitle}</h3>
+                </div>
+                <p class="chart-panel__summary">{copy.headhuntOwnedSummary}</p>
+              </div>
+
+              <div class="card-grid developer-card-grid">
+                <For each={headhuntSnapshot().ownedOperators}>
+                  {(operator) => (
+                    <article class="detail-card">
+                      <div class="detail-card__meta">
+                        <span class="record-pill">{formatHeadhuntRarity(operator.rarity)}</span>
+                        <span class="record-pill record-pill--muted">
+                          {`拥有 ${operator.count}`}
+                        </span>
+                      </div>
+                      <h3>{operator.operatorName}</h3>
+                    </article>
+                  )}
+                </For>
+              </div>
+
+              <Show when={headhuntSnapshot().ownedOperators.length === 0}>
+                <p class="records-empty">{copy.headhuntOwnedEmpty}</p>
+              </Show>
             </section>
           </section>
         </Show>
