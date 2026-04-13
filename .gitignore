@@ -3,6 +3,7 @@ dist
 src-tauri/target
 docs/
 .vscode/
+.release/
 *.log
 /*.exe
 /*.msi

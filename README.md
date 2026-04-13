@@ -83,6 +83,19 @@ pnpm package:debug
 pnpm package:release
 ```
 
+把已经构建好的当前版本同步到 GitHub Release：
+
+```bash
+pnpm release:github
+```
+
+如果你希望按固定顺序一口气完成：
+`构建 -> 推送 main -> 打 tag -> 推送 tag -> GitHub Release`
+
+```bash
+pnpm release:ship
+```
+
 只清理根目录旧构建产物：
 
 ```bash
