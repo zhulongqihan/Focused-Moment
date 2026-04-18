@@ -26,6 +26,13 @@ export interface TimerSnapshot {
   elapsedLabel: string;
   secondaryLabel: string;
   canCompleteSession: boolean;
+  activeTaskTitle: string;
+  linkedTodoId: number | null;
+  currentRound: number;
+  completedFocusCount: number;
+  completedBreakCount: number;
+  recoveredFromLastSession: boolean;
+  alertSequence: number;
 }
 
 export interface FocusRecord {

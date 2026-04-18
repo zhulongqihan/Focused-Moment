@@ -26,6 +26,16 @@ export async function switchTimerMode(mode: "stopwatch" | "pomodoro") {
   return invoke<TimerSnapshot>("switch_timer_mode", { mode });
 }
 
+export async function updateTimerContext(
+  title: string,
+  linkedTodoId: number | null
+) {
+  return invoke<TimerSnapshot>("update_timer_context", {
+    title,
+    linkedTodoId,
+  });
+}
+
 export async function getFocusRecords() {
   return invoke<FocusRecord[]>("get_focus_records");
 }

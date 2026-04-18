@@ -6,11 +6,11 @@ use std::env;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Mutex;
-use std::time::{Duration, Instant, SystemTime};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use chrono::Local;
 use serde::{Deserialize, Serialize};
-use storage::{PersistedState, PersistenceStore};
+use storage::{PersistedRuntimeState, PersistedState, PersistenceStore};
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Manager, Window, WindowEvent};
@@ -76,6 +76,13 @@ struct TimerSnapshot {
     elapsed_label: String,
     secondary_label: &'static str,
     can_complete_session: bool,
+    active_task_title: String,
+    linked_todo_id: Option<u64>,
+    current_round: u64,
+    completed_focus_count: u64,
+    completed_break_count: u64,
+    recovered_from_last_session: bool,
+    alert_sequence: u64,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -158,6 +165,24 @@ enum PomodoroPhase {
     Break,
 }
 
+impl TimerMode {
+    fn key(self) -> &'static str {
+        match self {
+            TimerMode::Stopwatch => "stopwatch",
+            TimerMode::Pomodoro => "pomodoro",
+        }
+    }
+}
+
+impl PomodoroPhase {
+    fn key(self) -> &'static str {
+        match self {
+            PomodoroPhase::Focus => "focus",
+            PomodoroPhase::Break => "break",
+        }
+    }
+}
+
 #[derive(Clone, Copy)]
 struct RunAnchor {
     monotonic: Instant,
@@ -181,6 +206,11 @@ struct TimerEngine {
     pomodoro_elapsed_ms: u64,
     pomodoro_phase: PomodoroPhase,
     pending_pomodoro_record_ms: Option<u64>,
+    current_task_title: String,
+    linked_todo_id: Option<u64>,
+    completed_focus_count: u64,
+    completed_break_count: u64,
+    recovered_from_last_session: bool,
 }
 
 struct CompletedSession {
@@ -212,6 +242,19 @@ impl TimerEngineState {
             })
             .unwrap_or_default();
 
+        let persisted_runtime = persistence
+            .as_ref()
+            .and_then(|store| {
+                store
+                    .load_runtime()
+                    .map_err(|error| {
+                        eprintln!("failed to load persisted runtime state: {error}");
+                        error
+                    })
+                    .ok()
+            })
+            .unwrap_or_default();
+
         let PersistedState {
             mut focus_records,
             next_record_id,
@@ -222,8 +265,15 @@ impl TimerEngineState {
         sort_focus_records(&mut focus_records);
         sort_todo_items(&mut todo_items);
 
+        let mut timer = TimerEngine::from_persisted_runtime(persisted_runtime);
+        if let Some(linked_todo_id) = timer.linked_todo_id {
+            if !todo_items.iter().any(|item| item.id == linked_todo_id) {
+                timer.linked_todo_id = None;
+            }
+        }
+
         Self {
-            timer: Mutex::new(TimerEngine::default()),
+            timer: Mutex::new(timer),
             next_record_id: Mutex::new(next_record_id.max(next_focus_record_id(&focus_records))),
             focus_records: Mutex::new(focus_records),
             next_todo_id: Mutex::new(next_todo_id.max(next_todo_id_value(&todo_items))),
@@ -265,6 +315,28 @@ impl TimerEngineState {
         };
 
         store.save(&persisted)
+    }
+
+    fn persist_runtime(&self) -> Result<(), String> {
+        let Some(store) = &self.persistence else {
+            return Ok(());
+        };
+
+        let persisted = self
+            .timer
+            .lock()
+            .map_err(|_| {
+                "\u{8ba1}\u{65f6}\u{5f15}\u{64ce}\u{72b6}\u{6001}\u{9501}\u{5b9a}\u{5931}\u{8d25}"
+                    .to_string()
+            })?
+            .persisted_runtime_state();
+
+        store.save_runtime(&persisted)
+    }
+
+    fn persist_all(&self) -> Result<(), String> {
+        self.persist()?;
+        self.persist_runtime()
     }
 
     fn clear_all(&self) -> Result<(), String> {
@@ -309,25 +381,112 @@ impl TimerEngineState {
             *next_todo_id = 0;
         }
 
-        self.persist()
+        self.persist()?;
+
+        if let Some(store) = &self.persistence {
+            store.clear_runtime()?;
+        }
+
+        Ok(())
     }
 }
 
 impl TimerEngine {
+    fn from_persisted_runtime(runtime: PersistedRuntimeState) -> Self {
+        let mode = parse_mode_key_value(&runtime.mode_key).unwrap_or_default();
+        let pomodoro_phase = parse_phase_key_value(&runtime.pomodoro_phase_key).unwrap_or_default();
+        let has_task_title = !runtime.current_task_title.trim().is_empty();
+        let anchor = runtime.anchor_wall_clock_ms.and_then(|milliseconds| {
+            if runtime.is_running {
+                Some(Self::anchor_from_wall_clock_ms(milliseconds))
+            } else {
+                None
+            }
+        });
+
+        Self {
+            mode,
+            running_anchor: anchor,
+            stopwatch_elapsed_ms: runtime.stopwatch_elapsed_ms,
+            pomodoro_elapsed_ms: runtime.pomodoro_elapsed_ms,
+            pomodoro_phase,
+            pending_pomodoro_record_ms: runtime.pending_pomodoro_record_ms,
+            current_task_title: runtime.current_task_title,
+            linked_todo_id: runtime.linked_todo_id,
+            completed_focus_count: runtime.completed_focus_count,
+            completed_break_count: runtime.completed_break_count,
+            recovered_from_last_session: runtime.is_running
+                || runtime.stopwatch_elapsed_ms > 0
+                || runtime.pomodoro_elapsed_ms > 0
+                || runtime.pending_pomodoro_record_ms.is_some()
+                || has_task_title
+                || runtime.linked_todo_id.is_some(),
+        }
+    }
+
+    fn persisted_runtime_state(&mut self) -> PersistedRuntimeState {
+        self.sync_running_time();
+        PersistedRuntimeState {
+            mode_key: self.mode.key().to_string(),
+            stopwatch_elapsed_ms: self.stopwatch_elapsed_ms,
+            pomodoro_elapsed_ms: self.pomodoro_elapsed_ms,
+            pomodoro_phase_key: self.pomodoro_phase.key().to_string(),
+            pending_pomodoro_record_ms: self.pending_pomodoro_record_ms,
+            is_running: self.running_anchor.is_some(),
+            anchor_wall_clock_ms: self
+                .running_anchor
+                .map(|anchor| system_time_to_epoch_ms(anchor.wall_clock)),
+            current_task_title: self.current_task_title.clone(),
+            linked_todo_id: self.linked_todo_id,
+            completed_focus_count: self.completed_focus_count,
+            completed_break_count: self.completed_break_count,
+        }
+    }
+
+    fn update_context(&mut self, title: String, linked_todo_id: Option<u64>) {
+        self.current_task_title = title;
+        self.linked_todo_id = linked_todo_id;
+    }
+
+    fn clear_context(&mut self) {
+        self.current_task_title.clear();
+        self.linked_todo_id = None;
+    }
+
+    fn clear_recovery_flag(&mut self) {
+        self.recovered_from_last_session = false;
+    }
+
+    fn current_round(&self) -> u64 {
+        match self.mode {
+            TimerMode::Stopwatch => 1,
+            TimerMode::Pomodoro => match self.pomodoro_phase {
+                PomodoroPhase::Focus => self.completed_focus_count + 1,
+                PomodoroPhase::Break => self.completed_focus_count.max(1),
+            },
+        }
+    }
+
     fn start(&mut self) {
         if self.running_anchor.is_none() {
             self.running_anchor = Some(Self::new_anchor());
         }
+        self.clear_recovery_flag();
     }
 
     fn pause(&mut self) {
         self.sync_running_time();
         self.running_anchor = None;
+        self.clear_recovery_flag();
     }
 
     fn reset(&mut self) {
         self.running_anchor = None;
         self.pending_pomodoro_record_ms = None;
+        self.clear_context();
+        self.completed_focus_count = 0;
+        self.completed_break_count = 0;
+        self.clear_recovery_flag();
 
         match self.mode {
             TimerMode::Stopwatch => self.stopwatch_elapsed_ms = 0,
@@ -347,6 +506,10 @@ impl TimerEngine {
         self.mode = mode;
         self.running_anchor = None;
         self.pending_pomodoro_record_ms = None;
+        self.clear_context();
+        self.completed_focus_count = 0;
+        self.completed_break_count = 0;
+        self.clear_recovery_flag();
 
         match self.mode {
             TimerMode::Stopwatch => self.stopwatch_elapsed_ms = 0,
@@ -370,6 +533,8 @@ impl TimerEngine {
 
                 self.stopwatch_elapsed_ms = 0;
                 self.running_anchor = None;
+                self.clear_context();
+                self.clear_recovery_flag();
 
                 Ok(CompletedSession {
                     duration_ms: elapsed_ms,
@@ -406,6 +571,9 @@ impl TimerEngine {
                 self.pomodoro_elapsed_ms = 0;
                 self.pomodoro_phase = PomodoroPhase::Break;
                 self.running_anchor = None;
+                self.completed_focus_count = self.completed_focus_count.saturating_add(1);
+                self.clear_context();
+                self.clear_recovery_flag();
 
                 Ok(CompletedSession {
                     duration_ms: elapsed_ms,
@@ -447,6 +615,13 @@ impl TimerEngine {
             elapsed_label: format_duration_ms(elapsed_ms),
             secondary_label: "\u{5df2}\u{7d2f}\u{8ba1}\u{4e13}\u{6ce8}\u{65f6}\u{957f}",
             can_complete_session: true,
+            active_task_title: self.current_task_title.clone(),
+            linked_todo_id: self.linked_todo_id,
+            current_round: self.current_round(),
+            completed_focus_count: self.completed_focus_count,
+            completed_break_count: self.completed_break_count,
+            recovered_from_last_session: self.recovered_from_last_session,
+            alert_sequence: 0,
         }
     }
 
@@ -490,6 +665,13 @@ impl TimerEngine {
             secondary_label,
             can_complete_session: self.pending_pomodoro_record_ms.is_some()
                 || self.pomodoro_phase == PomodoroPhase::Focus,
+            active_task_title: self.current_task_title.clone(),
+            linked_todo_id: self.linked_todo_id,
+            current_round: self.current_round(),
+            completed_focus_count: self.completed_focus_count,
+            completed_break_count: self.completed_break_count,
+            recovered_from_last_session: self.recovered_from_last_session,
+            alert_sequence: 0,
         }
     }
 
@@ -527,10 +709,16 @@ impl TimerEngine {
                         && self.pending_pomodoro_record_ms.is_none()
                     {
                         self.pending_pomodoro_record_ms = Some(phase_duration);
+                        self.completed_focus_count =
+                            self.completed_focus_count.saturating_add(1);
                     }
                     self.pomodoro_phase = match self.pomodoro_phase {
                         PomodoroPhase::Focus => PomodoroPhase::Break,
-                        PomodoroPhase::Break => PomodoroPhase::Focus,
+                        PomodoroPhase::Break => {
+                            self.completed_break_count =
+                                self.completed_break_count.saturating_add(1);
+                            PomodoroPhase::Focus
+                        }
                     };
                 }
 
@@ -545,6 +733,13 @@ impl TimerEngine {
         RunAnchor {
             monotonic: Instant::now(),
             wall_clock: SystemTime::now(),
+        }
+    }
+
+    fn anchor_from_wall_clock_ms(milliseconds: u64) -> RunAnchor {
+        RunAnchor {
+            monotonic: Instant::now(),
+            wall_clock: UNIX_EPOCH + Duration::from_millis(milliseconds),
         }
     }
 }
@@ -579,11 +774,29 @@ fn format_duration_ms(total_ms: u64) -> String {
     format!("{hours:02}:{minutes:02}:{seconds:02}")
 }
 
+fn system_time_to_epoch_ms(time: SystemTime) -> u64 {
+    time.duration_since(UNIX_EPOCH)
+        .unwrap_or(Duration::ZERO)
+        .as_millis() as u64
+}
+
 fn parse_mode(mode: &str) -> Result<TimerMode, String> {
     match mode {
         "stopwatch" => Ok(TimerMode::Stopwatch),
         "pomodoro" => Ok(TimerMode::Pomodoro),
         _ => Err("\u{4e0d}\u{652f}\u{6301}\u{7684}\u{8ba1}\u{65f6}\u{6a21}\u{5f0f}".to_string()),
+    }
+}
+
+fn parse_mode_key_value(mode: &str) -> Result<TimerMode, String> {
+    parse_mode(mode)
+}
+
+fn parse_phase_key_value(value: &str) -> Result<PomodoroPhase, String> {
+    match value {
+        "focus" => Ok(PomodoroPhase::Focus),
+        "break" => Ok(PomodoroPhase::Break),
+        _ => Err("\u{4e0d}\u{652f}\u{6301}\u{7684}\u{756a}\u{8304}\u{95f4}\u{9694}\u{9636}\u{6bb5}".to_string()),
     }
 }
 
@@ -840,8 +1053,8 @@ fn resolve_export_directory() -> Result<PathBuf, String> {
 fn bootstrap_shell() -> ShellSnapshot {
     ShellSnapshot {
         product_name: "Focused Moment",
-        version: "1.2.5",
-        milestone: "v1.2.5 \u{8d8b}\u{52bf}\u{56fe}\u{4ea4}\u{4e92}\u{4e0e}\u{7f8e}\u{89c2}\u{4fee}\u{8ba2}\u{7248}",
+        version: "1.2.6",
+        milestone: "v1.2.6 \u{8fd0}\u{884c}\u{72b6}\u{6001}\u{6062}\u{590d}\u{7248}",
         slogan: "\u{7528}\u{66f4}\u{8f7b}\u{7684}\u{65b9}\u{5f0f}\u{4e13}\u{6ce8}\u{3001}\u{5b89}\u{6392}\u{548c}\u{590d}\u{76d8}\u{6bcf}\u{4e00}\u{5929}\u{3002}",
         surfaces: vec![
             ShellPanel {
@@ -884,9 +1097,9 @@ fn bootstrap_shell() -> ShellSnapshot {
             ShellPanel {
                 id: "session-recovery",
                 title: "\u{4f1a}\u{8bdd}\u{6062}\u{590d}",
-                phase: "\u{9884}\u{7559}",
-                status: "\u{672a}\u{6765}\u{6269}\u{5c55}",
-                summary: "\u{4e3a}\u{5f3a}\u{9000}\u{3001}\u{767d}\u{5c4f}\u{6216}\u{610f}\u{5916}\u{4e2d}\u{65ad}\u{540e}\u{7684}\u{8ba1}\u{65f6}\u{6062}\u{590d}\u{4fdd}\u{7559}\u{72ec}\u{7acb}\u{7684}\u{8fd0}\u{884c}\u{6001}\u{5b58}\u{50a8}\u{4f4d}\u{7f6e}\u{3002}",
+                phase: "v1.2.6",
+                status: "\u{6b63}\u{5728}\u{63a5}\u{5165}",
+                summary: "\u{5f53}\u{524d}\u{7248}\u{672c}\u{4f1a}\u{628a}\u{8fd0}\u{884c}\u{4e2d}\u{7684}\u{8ba1}\u{65f6}\u{3001}\u{4e8b}\u{52a1}\u{8349}\u{7a3f}\u{548c}\u{5173}\u{8054}\u{72b6}\u{6001}\u{72ec}\u{7acb}\u{843d}\u{76d8}\u{ff0c}\u{7528}\u{4e8e}\u{610f}\u{5916}\u{9000}\u{51fa}\u{540e}\u{6062}\u{590d}\u{3002}",
             },
             ShellPanel {
                 id: "data-backup",
@@ -905,15 +1118,46 @@ fn get_timer_snapshot(state: tauri::State<'_, TimerEngineState>) -> Result<Timer
 }
 
 #[tauri::command]
+fn update_timer_context(
+    state: tauri::State<'_, TimerEngineState>,
+    title: String,
+    linked_todo_id: Option<u64>,
+) -> Result<TimerSnapshot, String> {
+    if let Some(id) = linked_todo_id {
+        let items = state.todo_items.lock().map_err(|_| {
+            "\u{4efb}\u{52a1}\u{5217}\u{8868}\u{72b6}\u{6001}\u{9501}\u{5b9a}\u{5931}\u{8d25}"
+                .to_string()
+        })?;
+
+        if !items.iter().any(|item| item.id == id && !item.is_completed) {
+            return Err(
+                "\u{5f53}\u{524d}\u{5173}\u{8054}\u{7684}\u{4efb}\u{52a1}\u{4e0d}\u{5b58}\u{5728}\u{6216}\u{5df2}\u{5b8c}\u{6210}"
+                    .to_string(),
+            );
+        }
+    }
+
+    let snapshot = with_timer_engine(&state, |engine| {
+        engine.update_context(title.trim().to_string(), linked_todo_id);
+        Ok(engine.snapshot())
+    })?;
+
+    state.persist_runtime()?;
+    Ok(snapshot)
+}
+
+#[tauri::command]
 fn switch_timer_mode(
     state: tauri::State<'_, TimerEngineState>,
     mode: String,
 ) -> Result<TimerSnapshot, String> {
     let next_mode = parse_mode(&mode)?;
-    with_timer_engine(&state, |engine| {
+    let snapshot = with_timer_engine(&state, |engine| {
         engine.switch_mode(next_mode);
         Ok(engine.snapshot())
-    })
+    })?;
+    state.persist_runtime()?;
+    Ok(snapshot)
 }
 
 #[tauri::command]
@@ -1131,17 +1375,29 @@ fn toggle_todo_item(
     state: tauri::State<'_, TimerEngineState>,
     id: u64,
 ) -> Result<Vec<TodoItem>, String> {
+    let mut should_clear_timer_link = false;
     let items = with_todo_items(&state, |items| {
         let item = items.iter_mut().find(|item| item.id == id).ok_or_else(|| {
             "\u{672a}\u{627e}\u{5230}\u{8981}\u{66f4}\u{65b0}\u{7684}\u{4efb}\u{52a1}".to_string()
         })?;
 
         item.is_completed = !item.is_completed;
+        should_clear_timer_link = item.is_completed;
         sort_todo_items(items);
         Ok(items.clone())
     })?;
 
     state.persist()?;
+    if should_clear_timer_link {
+        with_timer_engine(&state, |engine| {
+            if engine.linked_todo_id == Some(id) {
+                engine.linked_todo_id = None;
+                return Ok(());
+            }
+            Ok(())
+        })?;
+        state.persist_runtime()?;
+    }
     Ok(items)
 }
 
@@ -1165,31 +1421,44 @@ fn delete_todo_item(
     })?;
 
     state.persist()?;
+    with_timer_engine(&state, |engine| {
+        if engine.linked_todo_id == Some(id) {
+            engine.linked_todo_id = None;
+        }
+        Ok(())
+    })?;
+    state.persist_runtime()?;
     Ok(items)
 }
 
 #[tauri::command]
 fn start_timer(state: tauri::State<'_, TimerEngineState>) -> Result<TimerSnapshot, String> {
-    with_timer_engine(&state, |engine| {
+    let snapshot = with_timer_engine(&state, |engine| {
         engine.start();
         Ok(engine.snapshot())
-    })
+    })?;
+    state.persist_runtime()?;
+    Ok(snapshot)
 }
 
 #[tauri::command]
 fn pause_timer(state: tauri::State<'_, TimerEngineState>) -> Result<TimerSnapshot, String> {
-    with_timer_engine(&state, |engine| {
+    let snapshot = with_timer_engine(&state, |engine| {
         engine.pause();
         Ok(engine.snapshot())
-    })
+    })?;
+    state.persist_runtime()?;
+    Ok(snapshot)
 }
 
 #[tauri::command]
 fn reset_timer(state: tauri::State<'_, TimerEngineState>) -> Result<TimerSnapshot, String> {
-    with_timer_engine(&state, |engine| {
+    let snapshot = with_timer_engine(&state, |engine| {
         engine.reset();
         Ok(engine.snapshot())
-    })
+    })?;
+    state.persist_runtime()?;
+    Ok(snapshot)
 }
 
 #[tauri::command]
@@ -1261,7 +1530,7 @@ fn complete_focus_session(
         records.clone()
     };
 
-    state.persist()?;
+    state.persist_all()?;
 
     let timer_snapshot = with_timer_engine(&state, |engine| Ok(engine.snapshot()))?;
 
@@ -1405,6 +1674,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             bootstrap_shell,
             get_timer_snapshot,
+            update_timer_context,
             switch_timer_mode,
             get_focus_records,
             delete_focus_record,

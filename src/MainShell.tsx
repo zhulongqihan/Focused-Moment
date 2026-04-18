@@ -30,6 +30,7 @@ import {
   resetTimer,
   startTimer,
   switchTimerMode,
+  updateTimerContext,
 } from "./lib/timer";
 import {
   closeMainWindow,
@@ -215,6 +216,8 @@ const copy = {
   completePomodoroPending: "\u8bb0\u5f55\u4e0a\u4e00\u8f6e\u4e13\u6ce8",
   pomodoroHint:
     "\u756a\u8304\u949f\u4f1a\u5728 25 \u5206\u949f\u4e13\u6ce8\u548c 5 \u5206\u949f\u77ed\u4f11\u606f\u4e4b\u95f4\u5207\u6362\u3002\u8fdb\u5165\u4f11\u606f\u9636\u6bb5\u540e\uff0c\u4ecd\u53ef\u8865\u8bb0\u521a\u7ed3\u675f\u7684\u4e0a\u4e00\u8f6e\u4e13\u6ce8\u3002",
+  sessionRecovered:
+    "\u5df2\u6062\u590d\u4e0a\u6b21\u672a\u7ed3\u675f\u7684\u4e13\u6ce8\u72b6\u6001\uff0c\u53ef\u4ee5\u76f4\u63a5\u7ee7\u7eed\u6216\u5148\u91cd\u7f6e\u3002",
   engineOwner: "\u5f15\u64ce\u5f52\u5c5e",
   engineOwnerNote: "\u65f6\u95f4\u7d2f\u8ba1\u4e0d\u4f9d\u8d56\u524d\u7aef\u5b9a\u65f6\u5668",
   currentStatus: "\u5f53\u524d\u72b6\u6001",
@@ -364,8 +367,8 @@ const copy = {
 
 const emptySnapshot: ShellSnapshot = {
   productName: "Focused Moment",
-  version: "1.2.5",
-  milestone: "v1.2.5 \u8d8b\u52bf\u56fe\u4ea4\u4e92\u4e0e\u7f8e\u89c2\u4fee\u8ba2\u7248",
+  version: "1.2.6",
+  milestone: "v1.2.6 \u8fd0\u884c\u72b6\u6001\u6062\u590d\u7248",
   slogan:
     "\u7528\u66f4\u8f7b\u7684\u65b9\u5f0f\u4e13\u6ce8\u3001\u5b89\u6392\u548c\u590d\u76d8\u6bcf\u4e00\u5929\u3002",
   surfaces: [],
@@ -383,6 +386,13 @@ const emptyTimerSnapshot: TimerSnapshot = {
   elapsedLabel: "00:00:00",
   secondaryLabel: "\u5df2\u7d2f\u8ba1\u4e13\u6ce8\u65f6\u957f",
   canCompleteSession: true,
+  activeTaskTitle: "",
+  linkedTodoId: null,
+  currentRound: 1,
+  completedFocusCount: 0,
+  completedBreakCount: 0,
+  recoveredFromLastSession: false,
+  alertSequence: 0,
 };
 
 const emptyAnalyticsSnapshot: AnalyticsSnapshot = {
@@ -561,6 +571,8 @@ function MainShell() {
   const [showCompletedTodos, setShowCompletedTodos] = createSignal(false);
   const [activeTrendDate, setActiveTrendDate] = createSignal<string | null>(null);
   const [activeTrendWindow, setActiveTrendWindow] = createSignal<7 | 14 | 30>(7);
+  const [todoItemsHydrated, setTodoItemsHydrated] = createSignal(false);
+  let timerContextHydrated = false;
 
   const timerReady = () => !bootError();
   const taskHintText = () =>
@@ -893,6 +905,10 @@ function MainShell() {
   };
 
   createEffect(() => {
+    if (!todoItemsHydrated()) {
+      return;
+    }
+
     const activeLinkedTodoId = linkedTodoId();
     if (
       activeLinkedTodoId !== null &&
@@ -900,6 +916,25 @@ function MainShell() {
     ) {
       setLinkedTodoId(null);
     }
+  });
+
+  createEffect(() => {
+    const title = currentTaskTitle();
+    const activeLinkedTodoId = linkedTodoId();
+
+    if (!timerContextHydrated) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void updateTimerContext(title, activeLinkedTodoId).catch(() => {
+        // Keep local draft as the source of truth if a transient sync error happens.
+      });
+    }, 180);
+
+    onCleanup(() => {
+      window.clearTimeout(timeoutId);
+    });
   });
 
   createEffect(() => {
@@ -1100,9 +1135,21 @@ function MainShell() {
     return copy.defaultError;
   }
 
-  async function refreshTimerSnapshot() {
-    const nextTimerSnapshot = await getTimerSnapshot();
+  function applyTimerSnapshot(
+    nextTimerSnapshot: TimerSnapshot,
+    syncDraft = false
+  ) {
     setTimerSnapshot(nextTimerSnapshot);
+    if (syncDraft) {
+      setCurrentTaskTitle(nextTimerSnapshot.activeTaskTitle);
+      setLinkedTodoId(nextTimerSnapshot.linkedTodoId);
+      timerContextHydrated = true;
+    }
+  }
+
+  async function refreshTimerSnapshot(syncDraft = false) {
+    const nextTimerSnapshot = await getTimerSnapshot();
+    applyTimerSnapshot(nextTimerSnapshot, syncDraft);
   }
 
   async function refreshFocusRecords() {
@@ -1118,6 +1165,7 @@ function MainShell() {
   async function refreshTodoItems() {
     const nextTodoItems = await getTodoItems();
     setTodoItems(nextTodoItems);
+    setTodoItemsHydrated(true);
   }
 
   async function runTimerAction(action: () => Promise<TimerSnapshot>) {
@@ -1129,7 +1177,7 @@ function MainShell() {
 
     try {
       const nextTimerSnapshot = await action();
-      setTimerSnapshot(nextTimerSnapshot);
+      applyTimerSnapshot(nextTimerSnapshot, true);
     } catch (error) {
       setStatusText(getErrorMessage(error));
     } finally {
@@ -1378,11 +1426,15 @@ function MainShell() {
     try {
       const nextSnapshot = await invoke<ShellSnapshot>("bootstrap_shell");
       setSnapshot(nextSnapshot);
-      await refreshTimerSnapshot();
+      await refreshTimerSnapshot(true);
       await refreshFocusRecords();
       await refreshTodoItems();
       await refreshAnalyticsSummary();
-      setStatusText(copy.ready);
+      setStatusText(
+        timerSnapshot().recoveredFromLastSession
+          ? copy.sessionRecovered
+          : copy.ready
+      );
     } catch (error) {
       const message =
         error instanceof Error ? error.message : copy.shellFallback;
@@ -1592,6 +1644,9 @@ function MainShell() {
                 </div>
 
                 <p class="task-link-hint">{taskLinkSummary()}</p>
+                <Show when={timerSnapshot().recoveredFromLastSession}>
+                  <p class="task-recovery-hint">{copy.sessionRecovered}</p>
+                </Show>
               </div>
 
               <div class="timer-panel__header">

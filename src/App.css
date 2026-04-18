@@ -472,6 +472,19 @@ body {
   font-size: 0.9rem;
 }
 
+.task-recovery-hint {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(81, 104, 93, 0.12);
+  background:
+    linear-gradient(145deg, rgba(81, 104, 93, 0.12), rgba(255, 252, 247, 0.94)),
+    rgba(255, 252, 247, 0.9);
+  color: var(--accent-strong);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
 .task-input {
   width: 100%;
   box-sizing: border-box;
