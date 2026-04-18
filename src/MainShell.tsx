@@ -78,7 +78,7 @@ const viewItems = [
   {
     key: "lab",
     label: "\u5f00\u53d1\u8005\u4fe1\u606f",
-    summary: "\u7248\u672c\u3001\u72b6\u6001\u4e0e\u6269\u5c55\u9884\u7559",
+    summary: "\u7248\u672c\u3001\u72b6\u6001\u4e0e\u4e3b\u7ebf\u8def\u7ebf",
   },
 ] as const;
 
@@ -120,18 +120,22 @@ function getLocalDateValue() {
   return `${year}-${month}-${day}`;
 }
 
-function getLocalTimeValue() {
-  const now = new Date();
-  const hours = `${now.getHours()}`.padStart(2, "0");
-  const minutes = `${now.getMinutes()}`.padStart(2, "0");
-  return `${hours}:${minutes}`;
+function formatScheduledTimeLabel(value: string) {
+  const normalized = value.trim();
+  return normalized ? normalized : "\u672a\u8bbe\u7f6e";
+}
+
+function getTodoScheduleSortValue(
+  item: Pick<TodoItem, "scheduledDate" | "scheduledTime">
+) {
+  return `${item.scheduledDate} ${item.scheduledTime.trim() || "99:99"}`;
 }
 
 function createDefaultTodoDraft(title = ""): TodoDraft {
   return {
     title,
     scheduledDate: getLocalDateValue(),
-    scheduledTime: getLocalTimeValue(),
+    scheduledTime: "",
     importanceKey: "medium",
   };
 }
@@ -216,13 +220,15 @@ const copy = {
   recordsEyebrow: "\u4e13\u6ce8\u8bb0\u5f55",
   recordsTitle: "\u6700\u8fd1\u8bb0\u4e0b\u6765\u7684\u4e13\u6ce8",
   recordsEmpty: "\u8fd8\u6ca1\u6709\u4e13\u6ce8\u8bb0\u5f55\uff0c\u5b8c\u6210\u7b2c\u4e00\u8f6e\u540e\u5c31\u4f1a\u51fa\u73b0\u5728\u8fd9\u91cc\u3002",
+  recordsWindowNote: "\u9ed8\u8ba4\u53ea\u663e\u793a\u8fd1 7 \u5929\u5185\u7684\u6700\u65b0 6 \u6761\u8bb0\u5f55\uff0c\u66f4\u65e9\u7684\u5185\u5bb9\u53ef\u4ee5\u5728\u201c\u67e5\u770b\u590d\u76d8\u201d\u91cc\u7ee7\u7eed\u770b\u3002",
+  recordsRecentEmpty: "\u6700\u8fd1 7 \u5929\u6682\u65f6\u8fd8\u6ca1\u6709\u65b0\u7684\u4e13\u6ce8\u8bb0\u5f55\uff0c\u66f4\u65e9\u7684\u5386\u53f2\u53ef\u4ee5\u5728\u201c\u67e5\u770b\u590d\u76d8\u201d\u91cc\u67e5\u770b\u3002",
   unnamedTask: "\u672a\u547d\u540d\u4e8b\u52a1",
   recordIndependent: "\u72ec\u7acb\u4e8b\u4ef6",
   recordLinkedPrefix: "\u5173\u8054\u4efb\u52a1\uff1a",
   todoEyebrow: "\u5f85\u529e\u7ba1\u7406",
   todoTitle: "\u628a\u4eca\u5929\u8981\u505a\u7684\u4e8b\u6392\u6e05\u695a",
   todoSummary:
-    "\u628a\u60f3\u505a\u7684\u4e8b\u3001\u9884\u8ba1\u65f6\u95f4\u548c\u91cd\u8981\u7a0b\u5ea6\u8bb0\u4e0b\u6765\uff0c\u7b49\u5f00\u59cb\u4e13\u6ce8\u65f6\u518d\u76f4\u63a5\u5173\u8054\u5b83\u3002",
+    "\u628a\u60f3\u505a\u7684\u4e8b\u3001\u65e5\u671f\u3001\u53ef\u9009\u7684\u5f00\u59cb\u65f6\u95f4\u548c\u91cd\u8981\u7a0b\u5ea6\u8bb0\u4e0b\u6765\uff0c\u7b49\u5f00\u59cb\u4e13\u6ce8\u65f6\u518d\u76f4\u63a5\u5173\u8054\u5b83\u3002",
   todoPlaceholder: "\u65b0\u589e\u4e00\u4e2a\u4efb\u52a1\uff0c\u4f8b\u5982\uff1a\u8865\u5b8c\u5468\u62a5\u521d\u7a3f",
   todoSearchPlaceholder: "\u641c\u7d22\u4efb\u52a1\u540d\u79f0\uff0c\u5feb\u901f\u627e\u5230\u8981\u5904\u7406\u7684\u4e8b",
   todoToolsEyebrow: "\u4efb\u52a1\u5de5\u5177",
@@ -234,12 +240,16 @@ const copy = {
   todoVisibleCount: "\u5f53\u524d\u53ef\u89c1",
   todoFilteredEmpty: "\u8fd9\u4e2a\u7b5b\u9009\u7ec4\u5408\u4e0b\u8fd8\u6ca1\u6709\u5339\u914d\u7684\u4efb\u52a1\uff0c\u53ef\u4ee5\u6362\u4e2a\u6761\u4ef6\u8bd5\u8bd5\u3002",
   todoDateLabel: "\u65e5\u671f",
-  todoTimeLabel: "\u5f00\u59cb\u65f6\u95f4",
+  todoTimeLabel: "\u5f00\u59cb\u65f6\u95f4\uff08\u53ef\u9009\uff09",
   todoImportanceLabel: "\u91cd\u8981\u7a0b\u5ea6",
   todoCreate: "\u6dfb\u52a0\u4efb\u52a1",
   todoEmpty: "\u8fd8\u6ca1\u6709\u4efb\u52a1\uff0c\u5148\u6dfb\u52a0\u4e00\u9879\u4eca\u5929\u60f3\u63a8\u8fdb\u7684\u4e8b\u60c5\u5427\u3002",
   todoPendingCount: "\u5f85\u63a8\u8fdb",
   todoCompletedCount: "\u5df2\u5b8c\u6210",
+  todoCompletedSection: "\u5df2\u5b8c\u6210\u4efb\u52a1",
+  todoCompletedSectionNote: "\u8fd9\u90e8\u5206\u9ed8\u8ba4\u6536\u8d77\uff0c\u9700\u8981\u65f6\u518d\u5c55\u5f00\uff0c\u53ef\u4ee5\u8ba9\u5f53\u524d\u5f85\u63a8\u8fdb\u7684\u4efb\u52a1\u66f4\u805a\u7126\u3002",
+  todoCompletedToggleOpen: "\u5c55\u5f00",
+  todoCompletedToggleClose: "\u6536\u8d77",
   todoEdit: "\u7f16\u8f91",
   todoDelete: "\u5220\u9664",
   todoSave: "\u4fdd\u5b58",
@@ -315,7 +325,7 @@ const copy = {
   developerEyebrow: "\u5f00\u53d1\u8005\u4fe1\u606f",
   developerTitle: "\u8fd9\u4e9b\u5185\u90e8\u4fe1\u606f\u90fd\u6536\u5728\u8fd9\u91cc",
   developerSummary:
-    "\u7248\u672c\u53f7\u3001\u8fd0\u884c\u72b6\u6001\u3001\u65f6\u95f4\u6821\u6b63\u65b9\u5f0f\u3001\u672a\u6765\u6269\u5c55\u9884\u7559\u7b49\u5185\u5bb9\u90fd\u79fb\u5230\u4e86\u8fd9\u4e2a\u9875\u9762\uff0c\u65e5\u5e38\u4f7f\u7528\u65f6\u53ef\u4ee5\u76f4\u63a5\u5ffd\u7565\u5b83\u3002",
+    "\u7248\u672c\u53f7\u3001\u8fd0\u884c\u72b6\u6001\u3001\u65f6\u95f4\u6821\u6b63\u65b9\u5f0f\u3001\u4ea7\u54c1\u4e3b\u7ebf\u548c\u540e\u7eed\u7eaf\u6548\u7387\u5de5\u5177\u9884\u7559\u90fd\u6536\u5728\u8fd9\u4e2a\u9875\u9762\uff0c\u65e5\u5e38\u4f7f\u7528\u65f6\u53ef\u4ee5\u76f4\u63a5\u5ffd\u7565\u5b83\u3002",
   developerVersionLabel: "\u5e94\u7528\u7248\u672c",
   developerVersionNote: "\u5f53\u524d\u6784\u5efa\u6240\u5bf9\u5e94\u7684\u7248\u672c\u53f7",
   developerMilestoneLabel: "\u5f53\u524d\u9636\u6bb5",
@@ -329,7 +339,7 @@ const copy = {
   developerModulesEyebrow: "\u6a21\u5757\u8def\u7ebf",
   developerModulesTitle: "\u5df2\u5b8c\u6210\u548c\u9884\u7559\u7684\u80fd\u529b",
   developerModulesSummary:
-    "\u8fd9\u91cc\u4f1a\u96c6\u4e2d\u663e\u793a\u5df2\u63a5\u5165\u7684\u6a21\u5757\u3001\u5f53\u524d\u7684\u5f00\u53d1\u9636\u6bb5\uff0c\u4ee5\u53ca\u540e\u7eed\u6269\u5c55\u9884\u7559\u3002",
+    "\u8fd9\u91cc\u4f1a\u96c6\u4e2d\u663e\u793a\u5df2\u63a5\u5165\u7684\u6a21\u5757\u3001\u5f53\u524d\u7684\u5f00\u53d1\u9636\u6bb5\uff0c\u4ee5\u53ca\u540e\u7eed\u4e13\u6ce8\u63d0\u9192\u3001\u4f1a\u8bdd\u6062\u590d\u548c\u6570\u636e\u5907\u4efd\u65b9\u5411\u7684\u9884\u7559\u3002",
   fallbackPrefix: "\u8f7d\u5165\u56de\u9000\u4fe1\u606f\uff1a",
   windows: "Windows",
   defaultError: "\u64cd\u4f5c\u6ca1\u6709\u6210\u529f\uff0c\u8bf7\u91cd\u8bd5\u3002",
@@ -337,8 +347,8 @@ const copy = {
 
 const emptySnapshot: ShellSnapshot = {
   productName: "Focused Moment",
-  version: "1.2.2",
-  milestone: "v1.2.2 \u53d1\u5e03\u6d41\u7a0b\u6536\u5c3e\u7248",
+  version: "1.2.4",
+  milestone: "v1.2.4 \u4e3b\u754c\u9762\u7a7a\u95f4\u4f18\u5316\u7248",
   slogan:
     "\u7528\u66f4\u8f7b\u7684\u65b9\u5f0f\u4e13\u6ce8\u3001\u5b89\u6392\u548c\u590d\u76d8\u6bcf\u4e00\u5929\u3002",
   surfaces: [],
@@ -531,6 +541,7 @@ function MainShell() {
   const [todoSearchQuery, setTodoSearchQuery] = createSignal("");
   const [todoFilter, setTodoFilter] = createSignal<TodoFilterKey>("all");
   const [todoSort, setTodoSort] = createSignal<TodoSortKey>("smart");
+  const [showCompletedTodos, setShowCompletedTodos] = createSignal(false);
 
   const timerReady = () => !bootError();
   const taskHintText = () =>
@@ -541,6 +552,17 @@ function MainShell() {
     todoItems().filter((item) => !item.isCompleted).length;
   const completedTodoCount = () =>
     todoItems().filter((item) => item.isCompleted).length;
+  const linkableTodoItems = () =>
+    todoItems().filter((item) => !item.isCompleted);
+  const recentFocusRecords = () => {
+    const threshold = addDaysToIsoDate(getLocalDateValue(), -6);
+    return records()
+      .filter(
+        (record) =>
+          !isIsoDateValue(record.completedDate) || record.completedDate >= threshold
+      )
+      .slice(0, 6);
+  };
   const visibleTodoItems = () => {
     const searchQuery = todoSearchQuery().trim().toLowerCase();
     const today = getLocalDateValue();
@@ -572,8 +594,8 @@ function MainShell() {
 
     return filteredItems.slice().sort((left, right) => {
       if (todoSort() === "schedule") {
-        return `${left.scheduledDate} ${left.scheduledTime}`.localeCompare(
-          `${right.scheduledDate} ${right.scheduledTime}`
+        return getTodoScheduleSortValue(left).localeCompare(
+          getTodoScheduleSortValue(right)
         );
       }
 
@@ -593,9 +615,20 @@ function MainShell() {
       return left.title.localeCompare(right.title, "zh-Hans-CN");
     });
   };
+  const visiblePendingTodoItems = () =>
+    visibleTodoItems().filter((item) => !item.isCompleted);
+  const visibleCompletedTodoItems = () =>
+    visibleTodoItems().filter((item) => item.isCompleted);
+  const shouldShowCompletedTodoSection = () =>
+    visibleCompletedTodoItems().length > 0;
+  const isCompletedTodoSectionExpanded = () =>
+    todoFilter() === "completed" || showCompletedTodos();
+  const displayedTodoCount = () =>
+    visiblePendingTodoItems().length +
+    (isCompletedTodoSectionExpanded() ? visibleCompletedTodoItems().length : 0);
   const storedRecordCount = () => analyticsSnapshot().sessionCount;
   const linkedTodoItem = () =>
-    todoItems().find((item) => item.id === linkedTodoId()) ?? null;
+    linkableTodoItems().find((item) => item.id === linkedTodoId()) ?? null;
   const linkedTodoValue = () =>
     linkedTodoId() === null ? "" : String(linkedTodoId());
   const taskLinkSummary = () =>
@@ -730,11 +763,174 @@ function MainShell() {
     const activeLinkedTodoId = linkedTodoId();
     if (
       activeLinkedTodoId !== null &&
-      !todoItems().some((item) => item.id === activeLinkedTodoId)
+      !linkableTodoItems().some((item) => item.id === activeLinkedTodoId)
     ) {
       setLinkedTodoId(null);
     }
   });
+
+  function renderTodoCard(item: TodoItem) {
+    return (
+      <article
+        classList={{
+          "todo-card": true,
+          "todo-card--completed": item.isCompleted,
+        }}
+      >
+        <button
+          type="button"
+          classList={{
+            "todo-toggle": true,
+            "todo-toggle--completed": item.isCompleted,
+          }}
+          disabled={todoBusy()}
+          onClick={() => void handleToggleTodo(item.id)}
+        >
+          {item.isCompleted ? "\u2713" : ""}
+        </button>
+
+        <div class="todo-card__body">
+          {editingTodoId() === item.id ? (
+            <div class="todo-edit-row">
+              <input
+                class="task-input"
+                type="text"
+                value={editingTodoDraft().title}
+                disabled={todoBusy()}
+                onInput={(event) =>
+                  patchEditingTodoDraft({
+                    title: event.currentTarget.value,
+                  })
+                }
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    void handleSaveTodo(item.id);
+                  }
+                }}
+              />
+              <div class="todo-form-grid">
+                <label class="todo-form-field">
+                  <span>{copy.todoDateLabel}</span>
+                  <input
+                    class="task-input"
+                    type="date"
+                    value={editingTodoDraft().scheduledDate}
+                    disabled={todoBusy()}
+                    onInput={(event) =>
+                      patchEditingTodoDraft({
+                        scheduledDate: event.currentTarget.value,
+                      })
+                    }
+                  />
+                </label>
+                <label class="todo-form-field">
+                  <span>{copy.todoTimeLabel}</span>
+                  <input
+                    class="task-input"
+                    type="time"
+                    value={editingTodoDraft().scheduledTime}
+                    disabled={todoBusy()}
+                    onInput={(event) =>
+                      patchEditingTodoDraft({
+                        scheduledTime: event.currentTarget.value,
+                      })
+                    }
+                  />
+                </label>
+                <label class="todo-form-field">
+                  <span>{copy.todoImportanceLabel}</span>
+                  <select
+                    class="task-input task-select"
+                    value={editingTodoDraft().importanceKey}
+                    disabled={todoBusy()}
+                    onChange={(event) =>
+                      patchEditingTodoDraft({
+                        importanceKey: event.currentTarget.value as TodoImportance,
+                      })
+                    }
+                  >
+                    <For each={importanceOptions}>
+                      {(option) => <option value={option.key}>{option.label}</option>}
+                    </For>
+                  </select>
+                </label>
+              </div>
+              <div class="todo-inline-actions">
+                <button
+                  type="button"
+                  class="action-button action-button--success"
+                  disabled={todoBusy() || !editingTodoDraft().title.trim()}
+                  onClick={() => void handleSaveTodo(item.id)}
+                >
+                  {copy.todoSave}
+                </button>
+                <button
+                  type="button"
+                  class="action-button"
+                  disabled={todoBusy()}
+                  onClick={() => cancelTodoEditing()}
+                >
+                  {copy.todoCancel}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div class="todo-card__title-row">
+                <strong>{item.title}</strong>
+                <span class="todo-status-pill">
+                  {item.isCompleted ? copy.todoStatusDone : copy.todoStatusPending}
+                </span>
+              </div>
+              <div class="todo-attribute-row">
+                <span class="todo-attribute">
+                  {copy.todoDateValueLabel}
+                  {`\uff1a${item.scheduledDate}`}
+                </span>
+                <span class="todo-attribute">
+                  {copy.todoTimeValueLabel}
+                  {`\uff1a${formatScheduledTimeLabel(item.scheduledTime)}`}
+                </span>
+                <span
+                  classList={{
+                    "todo-attribute": true,
+                    "todo-attribute--high": item.importanceKey === "high",
+                    "todo-attribute--medium": item.importanceKey === "medium",
+                    "todo-attribute--low": item.importanceKey === "low",
+                  }}
+                >
+                  {copy.todoImportanceValueLabel}
+                  {`\uff1a${getImportanceLabel(item.importanceKey)}`}
+                </span>
+              </div>
+            </>
+          )}
+        </div>
+
+        {editingTodoId() !== item.id && (
+          <div class="todo-inline-actions">
+            <button
+              type="button"
+              class="action-button"
+              disabled={todoBusy()}
+              onClick={() => beginTodoEditing(item)}
+            >
+              {copy.todoEdit}
+            </button>
+            <button
+              type="button"
+              class="action-button"
+              disabled={todoBusy()}
+              onClick={() => void handleDeleteTodo(item.id)}
+            >
+              {copy.todoDelete}
+            </button>
+          </div>
+        )}
+      </article>
+    );
+  }
 
   function patchTodoDraft(patch: Partial<TodoDraft>) {
     setTodoDraft((current) => ({ ...current, ...patch }));
@@ -1236,10 +1432,10 @@ function MainShell() {
                       }
                     >
                       <option value="">{copy.linkTodoEmpty}</option>
-                      <For each={todoItems()}>
+                      <For each={linkableTodoItems()}>
                         {(item) => (
                           <option value={item.id}>
-                            {`${item.title} - ${item.scheduledDate} ${item.scheduledTime}`}
+                            {`${item.title} - ${item.scheduledDate} ${formatScheduledTimeLabel(item.scheduledTime)}`}
                           </option>
                         )}
                       </For>
@@ -1326,10 +1522,11 @@ function MainShell() {
                     <span class="eyebrow">{copy.recordsEyebrow}</span>
                     <h3>{copy.recordsTitle}</h3>
                   </div>
+                  <p class="records-panel__summary">{copy.recordsWindowNote}</p>
                 </div>
 
                 <div class="records-list">
-                  <For each={records()}>
+                  <For each={recentFocusRecords()}>
                     {(record) => (
                       <article class="record-card">
                         <div class="record-card__main">
@@ -1361,6 +1558,9 @@ function MainShell() {
                   </For>
                   {records().length === 0 && (
                     <p class="records-empty">{copy.recordsEmpty}</p>
+                  )}
+                  {records().length > 0 && recentFocusRecords().length === 0 && (
+                    <p class="records-empty">{copy.recordsRecentEmpty}</p>
                   )}
                 </div>
               </section>
@@ -1461,7 +1661,7 @@ function MainShell() {
             </article>
             <article class="todo-metric-card">
               <span class="metric-label">{copy.todoVisibleCount}</span>
-              <strong>{visibleTodoItems().length}</strong>
+              <strong>{displayedTodoCount()}</strong>
             </article>
           </div>
 
@@ -1523,181 +1723,48 @@ function MainShell() {
           </section>
 
           <div class="todo-list">
-            <For each={visibleTodoItems()}>
-              {(item) => (
-                <article
-                  classList={{
-                    "todo-card": true,
-                    "todo-card--completed": item.isCompleted,
-                  }}
-                >
-                  <button
-                    type="button"
-                    classList={{
-                      "todo-toggle": true,
-                      "todo-toggle--completed": item.isCompleted,
-                    }}
-                    disabled={todoBusy()}
-                    onClick={() => void handleToggleTodo(item.id)}
-                  >
-                    {item.isCompleted ? "\u2713" : ""}
-                  </button>
-
-                  <div class="todo-card__body">
-                    {editingTodoId() === item.id ? (
-                      <div class="todo-edit-row">
-                        <input
-                          class="task-input"
-                          type="text"
-                          value={editingTodoDraft().title}
-                          disabled={todoBusy()}
-                          onInput={(event) =>
-                            patchEditingTodoDraft({
-                              title: event.currentTarget.value,
-                            })
-                          }
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter") {
-                              event.preventDefault();
-                              void handleSaveTodo(item.id);
-                            }
-                          }}
-                        />
-                        <div class="todo-form-grid">
-                          <label class="todo-form-field">
-                            <span>{copy.todoDateLabel}</span>
-                            <input
-                              class="task-input"
-                              type="date"
-                              value={editingTodoDraft().scheduledDate}
-                              disabled={todoBusy()}
-                              onInput={(event) =>
-                                patchEditingTodoDraft({
-                                  scheduledDate: event.currentTarget.value,
-                                })
-                              }
-                            />
-                          </label>
-                          <label class="todo-form-field">
-                            <span>{copy.todoTimeLabel}</span>
-                            <input
-                              class="task-input"
-                              type="time"
-                              value={editingTodoDraft().scheduledTime}
-                              disabled={todoBusy()}
-                              onInput={(event) =>
-                                patchEditingTodoDraft({
-                                  scheduledTime: event.currentTarget.value,
-                                })
-                              }
-                            />
-                          </label>
-                          <label class="todo-form-field">
-                            <span>{copy.todoImportanceLabel}</span>
-                            <select
-                              class="task-input task-select"
-                              value={editingTodoDraft().importanceKey}
-                              disabled={todoBusy()}
-                              onChange={(event) =>
-                                patchEditingTodoDraft({
-                                  importanceKey:
-                                    event.currentTarget
-                                      .value as TodoImportance,
-                                })
-                              }
-                            >
-                              <For each={importanceOptions}>
-                                {(option) => (
-                                  <option value={option.key}>
-                                    {option.label}
-                                  </option>
-                                )}
-                              </For>
-                            </select>
-                          </label>
-                        </div>
-                        <div class="todo-inline-actions">
-                          <button
-                            type="button"
-                            class="action-button action-button--success"
-                            disabled={
-                              todoBusy() || !editingTodoDraft().title.trim()
-                            }
-                            onClick={() => void handleSaveTodo(item.id)}
-                          >
-                            {copy.todoSave}
-                          </button>
-                          <button
-                            type="button"
-                            class="action-button"
-                            disabled={todoBusy()}
-                            onClick={() => cancelTodoEditing()}
-                          >
-                            {copy.todoCancel}
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        <div class="todo-card__title-row">
-                          <strong>{item.title}</strong>
-                          <span class="todo-status-pill">
-                            {item.isCompleted
-                              ? copy.todoStatusDone
-                              : copy.todoStatusPending}
-                          </span>
-                        </div>
-                        <div class="todo-attribute-row">
-                          <span class="todo-attribute">
-                            {copy.todoDateValueLabel}
-                            {`\uff1a${item.scheduledDate}`}
-                          </span>
-                          <span class="todo-attribute">
-                            {copy.todoTimeValueLabel}
-                            {`\uff1a${item.scheduledTime}`}
-                          </span>
-                          <span
-                            classList={{
-                              "todo-attribute": true,
-                              "todo-attribute--high":
-                                item.importanceKey === "high",
-                              "todo-attribute--medium":
-                                item.importanceKey === "medium",
-                              "todo-attribute--low":
-                                item.importanceKey === "low",
-                            }}
-                          >
-                            {copy.todoImportanceValueLabel}
-                            {`\uff1a${getImportanceLabel(item.importanceKey)}`}
-                          </span>
-                        </div>
-                      </>
-                    )}
-                  </div>
-
-                  {editingTodoId() !== item.id && (
-                    <div class="todo-inline-actions">
-                      <button
-                        type="button"
-                        class="action-button"
-                        disabled={todoBusy()}
-                        onClick={() => beginTodoEditing(item)}
-                      >
-                        {copy.todoEdit}
-                      </button>
-                      <button
-                        type="button"
-                        class="action-button"
-                        disabled={todoBusy()}
-                        onClick={() => void handleDeleteTodo(item.id)}
-                      >
-                        {copy.todoDelete}
-                      </button>
-                    </div>
-                  )}
-                </article>
-              )}
+            <For each={visiblePendingTodoItems()}>
+              {(item) => renderTodoCard(item)}
             </For>
+
+            <Show when={shouldShowCompletedTodoSection()}>
+              <section class="todo-completed-section">
+                <button
+                  type="button"
+                  class="todo-collapse-toggle"
+                  onClick={() => setShowCompletedTodos((current) => !current)}
+                >
+                  <div class="todo-collapse-toggle__copy">
+                    <strong>{copy.todoCompletedSection}</strong>
+                    <span>{copy.todoCompletedSectionNote}</span>
+                  </div>
+                  <div class="todo-collapse-toggle__meta">
+                    <span class="todo-collapse-toggle__count">
+                      {visibleCompletedTodoItems().length}
+                    </span>
+                    <span
+                      classList={{
+                        "todo-collapse-toggle__chevron": true,
+                        "todo-collapse-toggle__chevron--open":
+                          isCompletedTodoSectionExpanded(),
+                      }}
+                    >
+                      {isCompletedTodoSectionExpanded()
+                        ? copy.todoCompletedToggleClose
+                        : copy.todoCompletedToggleOpen}
+                    </span>
+                  </div>
+                </button>
+
+                <Show when={isCompletedTodoSectionExpanded()}>
+                  <div class="todo-completed-list">
+                    <For each={visibleCompletedTodoItems()}>
+                      {(item) => renderTodoCard(item)}
+                    </For>
+                  </div>
+                </Show>
+              </section>
+            </Show>
 
             {todoItems().length === 0 && (
               <p class="records-empty">{copy.todoEmpty}</p>

@@ -616,6 +616,10 @@ fn normalize_scheduled_date(value: &str) -> Result<String, String> {
 
 fn normalize_scheduled_time(value: &str) -> Result<String, String> {
     let normalized = value.trim();
+    if normalized.is_empty() {
+        return Ok(String::new());
+    }
+
     let is_valid = normalized.len() == 5
         && normalized
             .chars()
@@ -673,12 +677,19 @@ fn sort_focus_records(records: &mut [FocusRecord]) {
     records.sort_by(|left, right| Reverse(left.id).cmp(&Reverse(right.id)));
 }
 
+fn scheduled_time_sort_key(value: &str) -> (bool, &str) {
+    (value.trim().is_empty(), value)
+}
+
 fn sort_todo_items(items: &mut [TodoItem]) {
     items.sort_by(|left, right| {
         left.is_completed
             .cmp(&right.is_completed)
             .then_with(|| left.scheduled_date.cmp(&right.scheduled_date))
-            .then_with(|| left.scheduled_time.cmp(&right.scheduled_time))
+            .then_with(|| {
+                scheduled_time_sort_key(&left.scheduled_time)
+                    .cmp(&scheduled_time_sort_key(&right.scheduled_time))
+            })
             .then_with(|| {
                 importance_rank(&left.importance_key).cmp(&importance_rank(&right.importance_key))
             })
@@ -829,8 +840,8 @@ fn resolve_export_directory() -> Result<PathBuf, String> {
 fn bootstrap_shell() -> ShellSnapshot {
     ShellSnapshot {
         product_name: "Focused Moment",
-        version: "1.2.2",
-        milestone: "v1.2.2 \u{53d1}\u{5e03}\u{6d41}\u{7a0b}\u{6536}\u{5c3e}\u{7248}",
+        version: "1.2.4",
+        milestone: "v1.2.4 \u{4e3b}\u{754c}\u{9762}\u{7a7a}\u{95f4}\u{4f18}\u{5316}\u{7248}",
         slogan: "\u{7528}\u{66f4}\u{8f7b}\u{7684}\u{65b9}\u{5f0f}\u{4e13}\u{6ce8}\u{3001}\u{5b89}\u{6392}\u{548c}\u{590d}\u{76d8}\u{6bcf}\u{4e00}\u{5929}\u{3002}",
         surfaces: vec![
             ShellPanel {
@@ -864,25 +875,25 @@ fn bootstrap_shell() -> ShellSnapshot {
         ],
         reserved_extensions: vec![
             ShellPanel {
-                id: "reward-engine",
-                title: "\u{5956}\u{52b1}\u{5f15}\u{64ce}",
+                id: "focus-reminders",
+                title: "\u{4e13}\u{6ce8}\u{63d0}\u{9192}",
                 phase: "\u{9884}\u{7559}",
                 status: "\u{672a}\u{6765}\u{6269}\u{5c55}",
-                summary: "\u{628a}\u{4e13}\u{6ce8}\u{65f6}\u{957f}\u{6362}\u{7b97}\u{6210}\u{5185}\u{90e8}\u{8d27}\u{5e01}\u{ff0c}\u{4f46}\u{4e0d}\u{548c}\u{8ba1}\u{65f6}\u{6838}\u{5fc3}\u{5f3a}\u{8026}\u{5408}\u{3002}",
+                summary: "\u{4e3a}\u{756a}\u{8304}\u{7ed3}\u{675f}\u{3001}\u{6b63}\u{5411}\u{8ba1}\u{65f6}\u{5230}\u{70b9}\u{548c}\u{7a97}\u{53e3}\u{5524}\u{8d77}\u{4fdd}\u{7559}\u{7a33}\u{5b9a}\u{7684}\u{63d0}\u{9192}\u{63a5}\u{5165}\u{4f4d}\u{7f6e}\u{3002}",
             },
             ShellPanel {
-                id: "progression",
-                title: "\u{517b}\u{6210}\u{5c42}",
+                id: "session-recovery",
+                title: "\u{4f1a}\u{8bdd}\u{6062}\u{590d}",
                 phase: "\u{9884}\u{7559}",
                 status: "\u{672a}\u{6765}\u{6269}\u{5c55}",
-                summary: "\u{4e3a}\u{672a}\u{6765}\u{7684}\u{89d2}\u{8272}\u{6210}\u{957f}\u{3001}\u{517b}\u{6210}\u{5faa}\u{73af}\u{6216}\u{6536}\u{96c6}\u{7cfb}\u{7edf}\u{4fdd}\u{7559}\u{7ed3}\u{6784}\u{4f4d}\u{7f6e}\u{3002}",
+                summary: "\u{4e3a}\u{5f3a}\u{9000}\u{3001}\u{767d}\u{5c4f}\u{6216}\u{610f}\u{5916}\u{4e2d}\u{65ad}\u{540e}\u{7684}\u{8ba1}\u{65f6}\u{6062}\u{590d}\u{4fdd}\u{7559}\u{72ec}\u{7acb}\u{7684}\u{8fd0}\u{884c}\u{6001}\u{5b58}\u{50a8}\u{4f4d}\u{7f6e}\u{3002}",
             },
             ShellPanel {
-                id: "theme-profile",
-                title: "\u{4e3b}\u{9898}\u{914d}\u{7f6e}",
+                id: "data-backup",
+                title: "\u{6570}\u{636e}\u{5907}\u{4efd}\u{4e0e}\u{6062}\u{590d}",
                 phase: "\u{9884}\u{7559}",
                 status: "\u{672a}\u{6765}\u{6269}\u{5c55}",
-                summary: "\u{8ba9}\u{5f53}\u{524d}\u{514b}\u{5236}\u{7684}\u{57fa}\u{7840}\u{98ce}\u{683c}\u{80fd}\u{5728}\u{540e}\u{9762}\u{5e73}\u{6ed1}\u{5207}\u{6362}\u{4e3a}\u{66f4}\u{591a}\u{4e3b}\u{9898}\u{5316}\u{89c6}\u{89c9}\u{3002}",
+                summary: "\u{540e}\u{7eed}\u{4f1a}\u{628a}\u{4efb}\u{52a1}\u{3001}\u{4e13}\u{6ce8}\u{8bb0}\u{5f55}\u{548c}\u{8fd0}\u{884c}\u{4e2d}\u{4f1a}\u{8bdd}\u{62c6}\u{6210}\u{66f4}\u{7a33}\u{7684}\u{5907}\u{4efd}/\u{6062}\u{590d}\u{80fd}\u{529b}\u{3002}",
             },
         ],
     }
