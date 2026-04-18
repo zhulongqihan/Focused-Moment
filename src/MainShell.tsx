@@ -175,6 +175,10 @@ const copy = {
     "\u9009\u4e00\u4e2a\u4efb\u52a1\uff0c\u7136\u540e\u7528\u6b63\u5411\u8ba1\u65f6\u6216\u756a\u8304\u949f\u628a\u5b83\u5b89\u9759\u5730\u505a\u5b8c\u3002",
   loading: "\u6b63\u5728\u8f7d\u5165 Focused Moment...",
   ready: "\u51c6\u5907\u597d\u4e86\uff0c\u4f60\u53ef\u4ee5\u968f\u65f6\u5f00\u59cb\u4e00\u8f6e\u4e13\u6ce8\u3002",
+  reviewLoading:
+    "\u4e3b\u754c\u9762\u5df2\u5c31\u7eea\uff0c\u590d\u76d8\u8bb0\u5f55\u6b63\u5728\u540e\u53f0\u8865\u9f50\u3002",
+  reviewPartial:
+    "\u4e3b\u754c\u9762\u5df2\u6253\u5f00\uff0c\u4f46\u590d\u76d8\u6570\u636e\u6682\u65f6\u6ca1\u6709\u5168\u90e8\u52a0\u8f7d\u5b8c\uff0c\u53ef\u4ee5\u7a0d\u540e\u518d\u770b\u3002",
   fallback: "\u5e94\u7528\u5df2\u4f7f\u7528\u56de\u9000\u6570\u636e\u542f\u52a8\u3002",
   shellFallback: "\u8f7d\u5165\u684c\u9762\u58f3\u5c42\u6570\u636e\u5931\u8d25\u3002",
   minimize: "\u6700\u5c0f\u5316",
@@ -367,8 +371,8 @@ const copy = {
 
 const emptySnapshot: ShellSnapshot = {
   productName: "Focused Moment",
-  version: "1.2.6",
-  milestone: "v1.2.6 \u8fd0\u884c\u72b6\u6001\u6062\u590d\u7248",
+  version: "1.2.7",
+  milestone: "v1.2.7 \u542f\u52a8\u4e0e\u8f6e\u8be2\u7a33\u5b9a\u6027\u4fee\u8ba2\u7248",
   slogan:
     "\u7528\u66f4\u8f7b\u7684\u65b9\u5f0f\u4e13\u6ce8\u3001\u5b89\u6392\u548c\u590d\u76d8\u6bcf\u4e00\u5929\u3002",
   surfaces: [],
@@ -1168,6 +1172,24 @@ function MainShell() {
     setTodoItemsHydrated(true);
   }
 
+  async function refreshReviewDataInBackground() {
+    const results = await Promise.allSettled([
+      refreshFocusRecords(),
+      refreshAnalyticsSummary(),
+    ]);
+
+    const hasFailure = results.some((result) => result.status === "rejected");
+    if (hasFailure) {
+      setStatusText(copy.reviewPartial);
+    } else if (statusText() === copy.reviewLoading) {
+      setStatusText(
+        timerSnapshot().recoveredFromLastSession
+          ? copy.sessionRecovered
+          : copy.ready
+      );
+    }
+  }
+
   async function runTimerAction(action: () => Promise<TimerSnapshot>) {
     if (timerBusy()) {
       return;
@@ -1423,18 +1445,53 @@ function MainShell() {
   }
 
   onMount(async () => {
+    let pollingTimerId: number | null = null;
+    let disposed = false;
+
+    const scheduleTimerRefresh = () => {
+      if (disposed) {
+        return;
+      }
+
+      const delay = timerSnapshot().isRunning ? 1000 : 3000;
+      pollingTimerId = window.setTimeout(async () => {
+        try {
+          await refreshTimerSnapshot();
+        } catch {
+          // Ignore transient polling errors and keep the last valid timer state.
+        } finally {
+          scheduleTimerRefresh();
+        }
+      }, delay);
+    };
+
     try {
       const nextSnapshot = await invoke<ShellSnapshot>("bootstrap_shell");
       setSnapshot(nextSnapshot);
-      await refreshTimerSnapshot(true);
-      await refreshFocusRecords();
-      await refreshTodoItems();
-      await refreshAnalyticsSummary();
-      setStatusText(
-        timerSnapshot().recoveredFromLastSession
-          ? copy.sessionRecovered
-          : copy.ready
-      );
+      const criticalResults = await Promise.allSettled([
+        refreshTimerSnapshot(true),
+        refreshTodoItems(),
+      ]);
+
+      const timerResult = criticalResults[0];
+      const todoResult = criticalResults[1];
+
+      if (timerResult?.status === "rejected") {
+        throw timerResult.reason;
+      }
+
+      if (todoResult?.status === "rejected") {
+        setStatusText(copy.reviewPartial);
+      } else {
+        setStatusText(
+          timerSnapshot().recoveredFromLastSession
+            ? copy.sessionRecovered
+            : copy.reviewLoading
+        );
+      }
+
+      void refreshReviewDataInBackground();
+      scheduleTimerRefresh();
     } catch (error) {
       const message =
         error instanceof Error ? error.message : copy.shellFallback;
@@ -1442,14 +1499,11 @@ function MainShell() {
       setStatusText(copy.fallback);
     }
 
-    const timerId = window.setInterval(() => {
-      void refreshTimerSnapshot().catch(() => {
-        // Ignore transient polling errors and keep the last valid timer state.
-      });
-    }, 250);
-
     onCleanup(() => {
-      window.clearInterval(timerId);
+      disposed = true;
+      if (pollingTimerId !== null) {
+        window.clearTimeout(pollingTimerId);
+      }
     });
   });
 
