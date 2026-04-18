@@ -1,6 +1,6 @@
 [package]
 name = "focused-moment"
-version = "1.2.4"
+version = "1.2.5"
 description = "Focused Moment focused desktop assistant"
 authors = ["zhulongqihan"]
 edition = "2021"

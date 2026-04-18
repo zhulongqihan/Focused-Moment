@@ -112,6 +112,12 @@ const todoSortOptions = [
   { key: "title", label: "\u6309\u540d\u79f0" },
 ] as const;
 
+const trendWindowOptions = [
+  { days: 7, label: "\u8fd1 7 \u5929" },
+  { days: 14, label: "\u8fd1 14 \u5929" },
+  { days: 30, label: "\u8fd1 30 \u5929" },
+] as const;
+
 function getLocalDateValue() {
   const now = new Date();
   const year = now.getFullYear();
@@ -301,12 +307,23 @@ const copy = {
   insightTrendEyebrow: "\u8d8b\u52bf\u56fe\u8868",
   insightTrendTitle: "\u6700\u8fd1\u51e0\u5929\u7684\u4e13\u6ce8\u8d8b\u52bf",
   insightTrendSummary:
-    "\u4e0a\u65b9\u5148\u770b\u8fd1\u671f\u8282\u594f\u4e0e\u5cf0\u503c\uff0c\u4e0b\u65b9\u518d\u7528\u66f4\u67d4\u548c\u7684\u8d8b\u52bf\u7ebf\u548c\u6bd4\u8f83\u6761\u5feb\u901f\u5bf9\u6bd4\u6bcf\u4e00\u5929\u7684\u6c89\u6dc0\u5dee\u5f02\u3002",
+    "\u4e0a\u65b9\u5148\u770b\u8fd1\u671f\u8282\u594f\u4e0e\u5cf0\u503c\uff0c\u4e0b\u65b9\u53ef\u4ee5\u76f4\u63a5\u60ac\u505c\u6216\u70b9\u51fb\u8d8b\u52bf\u70b9\uff0c\u67e5\u770b\u6bcf\u4e00\u5929\u7684\u65f6\u957f\u3001\u6b21\u6570\u548c\u5173\u8054\u60c5\u51b5\u3002",
   insightTrendEmpty: "\u6682\u65f6\u8fd8\u6ca1\u6709\u8db3\u591f\u7684\u6309\u65e5\u6570\u636e\u6765\u7ed8\u5236\u8d8b\u52bf\u56fe\u8868\u3002",
   insightTrendPeak: "\u8fd1\u671f\u5cf0\u503c",
   insightTrendLatest: "\u6700\u65b0\u8bb0\u5f55",
   insightTrendSessions: "\u7a97\u53e3\u5185\u4e13\u6ce8\u6b21\u6570",
   insightTrendSingleDay: "\u5f53\u524d\u53ea\u6709 1 \u5929\u6570\u636e\uff0c\u5148\u7528\u805a\u7126\u5361\u7247\u5e2e\u4f60\u770b\u6e05\u8fd9\u4e00\u5929\u7684\u8282\u594f\u3002",
+  insightTrendDetail: "\u5f53\u65e5\u7ec6\u8282",
+  insightTrendDetailHint: "\u628a\u9f20\u6807\u79fb\u5230\u4e0a\u9762\u7684\u8d8b\u52bf\u70b9\u4e0a\uff0c\u6216\u8005\u70b9\u4e0b\u65b9\u7684\u65e5\u671f\u5361\uff0c\u8fd9\u91cc\u4f1a\u7acb\u523b\u5207\u6362\u6210\u5bf9\u5e94\u90a3\u4e00\u5929\u7684\u8be6\u60c5\u3002",
+  insightTrendDetailLinked: "\u5173\u8054\u4efb\u52a1",
+  insightTrendDetailIndependent: "\u72ec\u7acb\u4e8b\u4ef6",
+  insightTrendDetailDuration: "\u5f53\u65e5\u603b\u65f6\u957f",
+  insightTrendDetailSessions: "\u5f53\u65e5\u6b21\u6570",
+  insightTrendWindowLabel: "\u89c2\u5bdf\u7a97\u53e3",
+  insightTrendWindowHint:
+    "\u5929\u6570\u5c11\u65f6\uff0c\u7f29\u77ed\u89c2\u5bdf\u7a97\u53e3\u4f1a\u6bd4\u76f4\u63a5\u62c9\u6ee1\u6574\u5f20\u753b\u5e03\u66f4\u987a\u773c\u3002",
+  insightTrendSelectorHint:
+    "\u4e0b\u65b9\u65e5\u671f\u6761\u4f1a\u8ddf\u7740\u4e0a\u9762\u7684\u8d8b\u52bf\u56fe\u540c\u6b65\uff0c\u53ef\u4ee5\u7528\u6765\u5feb\u901f\u5bf9\u6bd4\u6bcf\u4e00\u5929\u7684\u8282\u594f\u3002",
   recordCompletedAt: "\u8bb0\u5f55\u65f6\u95f4",
   insightRecordsEyebrow: "\u8be6\u7ec6\u8bb0\u5f55",
   insightRecordsTitle: "\u5f53\u524d\u8303\u56f4\u5185\u7684\u6bcf\u4e00\u6761\u4e13\u6ce8",
@@ -347,8 +364,8 @@ const copy = {
 
 const emptySnapshot: ShellSnapshot = {
   productName: "Focused Moment",
-  version: "1.2.4",
-  milestone: "v1.2.4 \u4e3b\u754c\u9762\u7a7a\u95f4\u4f18\u5316\u7248",
+  version: "1.2.5",
+  milestone: "v1.2.5 \u8d8b\u52bf\u56fe\u4ea4\u4e92\u4e0e\u7f8e\u89c2\u4fee\u8ba2\u7248",
   slogan:
     "\u7528\u66f4\u8f7b\u7684\u65b9\u5f0f\u4e13\u6ce8\u3001\u5b89\u6392\u548c\u590d\u76d8\u6bcf\u4e00\u5929\u3002",
   surfaces: [],
@@ -542,6 +559,8 @@ function MainShell() {
   const [todoFilter, setTodoFilter] = createSignal<TodoFilterKey>("all");
   const [todoSort, setTodoSort] = createSignal<TodoSortKey>("smart");
   const [showCompletedTodos, setShowCompletedTodos] = createSignal(false);
+  const [activeTrendDate, setActiveTrendDate] = createSignal<string | null>(null);
+  const [activeTrendWindow, setActiveTrendWindow] = createSignal<7 | 14 | 30>(7);
 
   const timerReady = () => !bootError();
   const taskHintText = () =>
@@ -703,8 +722,11 @@ function MainShell() {
   };
   const filteredReviewSummary = () => buildReviewSummary(filteredInsightRecords());
   const latestDailyBreakdown = () =>
-    filteredReviewSummary().dailyBreakdown.slice(0, 7);
-  const orderedTrendDays = () => latestDailyBreakdown().slice().reverse();
+    filteredReviewSummary().dailyBreakdown.slice(0, 30);
+  const orderedTrendDays = () =>
+    latestDailyBreakdown()
+      .slice(0, activeTrendWindow())
+      .reverse();
   const latestTrendDay = () => {
     const days = orderedTrendDays();
     return days.length > 0 ? days[days.length - 1] : null;
@@ -735,29 +757,140 @@ function MainShell() {
   };
   const trendMaxDurationMs = () =>
     Math.max(1, ...orderedTrendDays().map((day) => day.totalDurationMs));
-  const trendPointX = (index: number, total: number) =>
-    total <= 1 ? 296 : 42 + (index * 508) / (total - 1);
-  const trendPointY = (value: number, max: number) => 164 - (value / max) * 116;
-  const trendLinePoints = () => {
+  const trendMinDurationMs = () =>
+    Math.min(...orderedTrendDays().map((day) => day.totalDurationMs));
+  const trendDomainMin = () => {
     const days = orderedTrendDays();
+    if (days.length <= 1) {
+      return 0;
+    }
+
+    const min = trendMinDurationMs();
     const max = trendMaxDurationMs();
-    return days
-      .map((day, index) =>
-        `${trendPointX(index, days.length)},${trendPointY(day.totalDurationMs, max)}`
-      )
-      .join(" ");
+    const spread = Math.max(max - min, max * 0.18);
+    return Math.max(0, min - spread * 0.55);
   };
-  const trendAreaPoints = () => {
+  const trendDomainMax = () => {
+    const max = trendMaxDurationMs();
+    const min = orderedTrendDays().length > 1 ? trendMinDurationMs() : 0;
+    const spread = Math.max(max - min, max * 0.22, 30 * 60 * 1000);
+    return max + spread * 0.4;
+  };
+  const trendChartHeight = 380;
+  const trendChartLeft = 52;
+  const trendChartRight = 34;
+  const trendChartTop = 32;
+  const trendChartBottom = 304;
+  const trendCanvasWidth = () => {
+    const count = orderedTrendDays().length;
+    if (count <= 3) {
+      return 520;
+    }
+    if (count <= 5) {
+      return 620;
+    }
+    if (count <= 7) {
+      return 760;
+    }
+    if (count <= 14) {
+      return 920;
+    }
+    return 1080;
+  };
+  const trendColumnWidth = (total: number) => {
+    if (total <= 0) {
+      return 28;
+    }
+
+    const plotWidth = trendCanvasWidth() - trendChartLeft - trendChartRight;
+    return Math.max(24, Math.min(72, plotWidth / Math.max(total * 1.55, 1)));
+  };
+  const trendPointX = (index: number, total: number) =>
+    total <= 1
+      ? (trendChartLeft + (trendCanvasWidth() - trendChartRight)) / 2
+      : trendChartLeft +
+        (index * (trendCanvasWidth() - trendChartLeft - trendChartRight)) / (total - 1);
+  const trendPointY = (value: number, min: number, max: number) =>
+    trendChartBottom -
+    ((value - min) / Math.max(1, max - min)) * (trendChartBottom - trendChartTop);
+  const trendGuideY = (ratio: number) =>
+    trendChartBottom - ratio * (trendChartBottom - trendChartTop);
+  const trendPlotPoints = () => {
     const days = orderedTrendDays();
-    if (days.length === 0) {
+    const min = trendDomainMin();
+    const max = trendDomainMax();
+    return days.map((day, index) => ({
+      day,
+      x: trendPointX(index, days.length),
+      y: trendPointY(day.totalDurationMs, min, max),
+    }));
+  };
+  const trendLinePath = () => {
+    const points = trendPlotPoints();
+    if (points.length === 0) {
       return "";
     }
 
-    const line = trendLinePoints();
-    const firstX = trendPointX(0, days.length);
-    const lastX = trendPointX(days.length - 1, days.length);
-      return `${firstX},164 ${line} ${lastX},164`;
+    if (points.length === 1) {
+      return `M ${points[0]!.x} ${points[0]!.y}`;
+    }
+
+    let path = `M ${points[0]!.x} ${points[0]!.y}`;
+    for (let index = 0; index < points.length - 1; index += 1) {
+      const current = points[index]!;
+      const next = points[index + 1]!;
+      const midX = (current.x + next.x) / 2;
+      path += ` C ${midX} ${current.y}, ${midX} ${next.y}, ${next.x} ${next.y}`;
+    }
+    return path;
+  };
+  const trendAreaPath = () => {
+    const points = trendPlotPoints();
+    if (points.length === 0) {
+      return "";
+    }
+
+    let path = `M ${points[0]!.x} ${trendChartBottom} L ${points[0]!.x} ${points[0]!.y}`;
+    for (let index = 0; index < points.length - 1; index += 1) {
+      const current = points[index]!;
+      const next = points[index + 1]!;
+      const midX = (current.x + next.x) / 2;
+      path += ` C ${midX} ${current.y}, ${midX} ${next.y}, ${next.x} ${next.y}`;
+    }
+    path += ` L ${points[points.length - 1]!.x} ${trendChartBottom} Z`;
+    return path;
+  };
+  const activeTrendDay = () => {
+    const activeDate = activeTrendDate();
+    const day =
+      orderedTrendDays().find((entry) => entry.date === activeDate) ?? null;
+    return day ?? latestTrendDay();
+  };
+  const activeTrendDayIndex = () =>
+    orderedTrendDays().findIndex((day) => day.date === activeTrendDay()?.date);
+  const activeTrendTooltipStyle = () => {
+    const day = activeTrendDay();
+    const activeIndex = activeTrendDayIndex();
+    if (!day || activeIndex < 0) {
+      return {};
+    }
+
+    const x = trendPointX(activeIndex, orderedTrendDays().length);
+    const y = trendPointY(day.totalDurationMs, trendDomainMin(), trendDomainMax());
+    const leftPercent = Math.min(
+      82,
+      Math.max(18, (x / trendCanvasWidth()) * 100)
+    );
+    const topPercent = Math.min(
+      46,
+      Math.max(10, ((y - 18) / trendChartHeight) * 100)
+    );
+
+    return {
+      left: `${leftPercent}%`,
+      top: `${topPercent}%`,
     };
+  };
 
   createEffect(() => {
     const activeLinkedTodoId = linkedTodoId();
@@ -766,6 +899,21 @@ function MainShell() {
       !linkableTodoItems().some((item) => item.id === activeLinkedTodoId)
     ) {
       setLinkedTodoId(null);
+    }
+  });
+
+  createEffect(() => {
+    const days = orderedTrendDays();
+    if (days.length === 0) {
+      if (activeTrendDate() !== null) {
+        setActiveTrendDate(null);
+      }
+      return;
+    }
+
+    const currentActiveDate = activeTrendDate();
+    if (!currentActiveDate || !days.some((day) => day.date === currentActiveDate)) {
+      setActiveTrendDate(days[days.length - 1]?.date ?? null);
     }
   });
 
@@ -1997,16 +2145,99 @@ function MainShell() {
                     }
                   >
                     <div class="trend-chart-card">
-                      <svg
-                        class="trend-chart__svg"
-                        viewBox="0 0 592 196"
-                        preserveAspectRatio="none"
-                        aria-label={copy.insightTrendTitle}
-                      >
-                        <defs>
-                          <linearGradient
-                            id="trend-area-gradient"
-                            x1="0%"
+                      <div class="trend-chart-card__detail">
+                        <div class="trend-chart-card__headline">
+                          <span class="eyebrow">{copy.insightTrendDetail}</span>
+                          <h4>
+                            {activeTrendDay()
+                              ? formatTrendDateLabel(activeTrendDay()!.date)
+                              : "--/--"}
+                          </h4>
+                          <p>{copy.insightTrendDetailHint}</p>
+                          <div class="trend-window-picker">
+                            <span>{copy.insightTrendWindowLabel}</span>
+                            <div class="trend-window-picker__chips">
+                              <For each={trendWindowOptions}>
+                                {(option) => (
+                                  <button
+                                    type="button"
+                                    classList={{
+                                      "trend-window-chip": true,
+                                      "trend-window-chip--active":
+                                        activeTrendWindow() === option.days,
+                                    }}
+                                    onClick={() =>
+                                      setActiveTrendWindow(option.days as 7 | 14 | 30)
+                                    }
+                                  >
+                                    {option.label}
+                                  </button>
+                                )}
+                              </For>
+                            </div>
+                            <small>{copy.insightTrendWindowHint}</small>
+                          </div>
+                        </div>
+                        <div class="trend-chart-card__detail-metrics">
+                          <article class="trend-detail-pill trend-detail-pill--accent">
+                            <span>{copy.insightTrendDetailDuration}</span>
+                            <strong>
+                              {activeTrendDay()?.totalDurationLabel ?? "00:00:00"}
+                            </strong>
+                          </article>
+                          <article class="trend-detail-pill">
+                            <span>{copy.insightTrendDetailSessions}</span>
+                            <strong>
+                              {activeTrendDay()?.sessionCount ?? 0}
+                            </strong>
+                          </article>
+                          <article class="trend-detail-pill">
+                            <span>{copy.insightTrendDetailLinked}</span>
+                            <strong>
+                              {activeTrendDay()?.linkedSessionCount ?? 0}
+                            </strong>
+                          </article>
+                          <article class="trend-detail-pill">
+                            <span>{copy.insightTrendDetailIndependent}</span>
+                            <strong>
+                              {activeTrendDay()?.independentSessionCount ?? 0}
+                            </strong>
+                          </article>
+                        </div>
+                      </div>
+
+                      <div class="trend-chart-card__plot">
+                        <div
+                          class="trend-chart-card__plot-inner"
+                          style={{ "max-width": `${trendCanvasWidth()}px` }}
+                        >
+                        <div
+                          class="trend-chart__tooltip"
+                          style={activeTrendTooltipStyle()}
+                        >
+                          <span class="trend-chart__tooltip-date">
+                            {activeTrendDay()
+                              ? formatTrendDateLabel(activeTrendDay()!.date)
+                              : "--/--"}
+                          </span>
+                          <strong>
+                            {activeTrendDay()?.totalDurationLabel ?? "00:00:00"}
+                          </strong>
+                          <span>
+                            {`${activeTrendDay()?.sessionCount ?? 0}${copy.insightDailySessions} · ${copy.insightDailyLinked} ${activeTrendDay()?.linkedSessionCount ?? 0}`}
+                          </span>
+                        </div>
+
+                        <svg
+                          class="trend-chart__svg"
+                          viewBox={`0 0 ${trendCanvasWidth()} ${trendChartHeight}`}
+                          preserveAspectRatio="xMidYMid meet"
+                          aria-label={copy.insightTrendTitle}
+                        >
+                          <defs>
+                            <linearGradient
+                              id="trend-area-gradient"
+                              x1="0%"
                             y1="0%"
                             x2="0%"
                             y2="100%"
@@ -2020,43 +2251,141 @@ function MainShell() {
                               stop-color="rgba(81, 104, 93, 0.02)"
                             />
                           </linearGradient>
+                          <linearGradient
+                            id="trend-line-gradient"
+                            x1="0%"
+                            y1="0%"
+                            x2="100%"
+                            y2="0%"
+                          >
+                            <stop offset="0%" stop-color="#42584e" />
+                            <stop offset="100%" stop-color="#92aa9f" />
+                          </linearGradient>
+                          <linearGradient
+                            id="trend-column-gradient"
+                            x1="0%"
+                            y1="0%"
+                            x2="0%"
+                            y2="100%"
+                          >
+                            <stop offset="0%" stop-color="rgba(98, 122, 110, 0.34)" />
+                            <stop offset="100%" stop-color="rgba(98, 122, 110, 0.08)" />
+                          </linearGradient>
                         </defs>
                         <line
-                          x1="42"
-                          y1="48"
-                          x2="550"
-                          y2="48"
+                          x1={trendChartLeft}
+                          y1={trendGuideY(1)}
+                          x2={trendCanvasWidth() - trendChartRight}
+                          y2={trendGuideY(1)}
                           class="trend-chart__guide trend-chart__guide--horizontal"
                         />
                         <line
-                          x1="42"
-                          y1="106"
-                          x2="550"
-                          y2="106"
+                          x1={trendChartLeft}
+                          y1={trendGuideY(0.5)}
+                          x2={trendCanvasWidth() - trendChartRight}
+                          y2={trendGuideY(0.5)}
                           class="trend-chart__guide trend-chart__guide--horizontal"
                         />
-                        <line x1="42" y1="164" x2="550" y2="164" class="trend-chart__axis" />
-                        <polyline
-                          class="trend-chart__area"
-                          points={trendAreaPoints()}
+                        <line
+                          x1={trendChartLeft}
+                          y1={trendGuideY(0.2)}
+                          x2={trendCanvasWidth() - trendChartRight}
+                          y2={trendGuideY(0.2)}
+                          class="trend-chart__guide trend-chart__guide--horizontal"
                         />
-                        <polyline
-                          class="trend-chart__line"
-                          points={trendLinePoints()}
+                        <line
+                          x1={trendChartLeft}
+                          y1={trendChartBottom}
+                          x2={trendCanvasWidth() - trendChartRight}
+                          y2={trendChartBottom}
+                          class="trend-chart__axis"
                         />
-                        <For each={orderedTrendDays()}>
-                          {(day, index) => {
-                            const x = () => trendPointX(index(), orderedTrendDays().length);
-                            const y = () =>
-                              trendPointY(day.totalDurationMs, trendMaxDurationMs());
+                        <For each={trendPlotPoints()}>
+                          {(point) => (
+                            <>
+                              <rect
+                                x={point.x - trendColumnWidth(orderedTrendDays().length) / 2}
+                                y={trendChartTop}
+                                width={trendColumnWidth(orderedTrendDays().length)}
+                                height={trendChartBottom - trendChartTop}
+                                rx="18"
+                                classList={{
+                                  "trend-chart__active-band": true,
+                                  "trend-chart__active-band--visible":
+                                    activeTrendDay()?.date === point.day.date,
+                                }}
+                              />
+                              <rect
+                                x={point.x - trendColumnWidth(orderedTrendDays().length) / 2}
+                                y={point.y}
+                                width={trendColumnWidth(orderedTrendDays().length)}
+                                height={trendChartBottom - point.y}
+                                rx="18"
+                                classList={{
+                                  "trend-chart__column": true,
+                                  "trend-chart__column--active":
+                                    activeTrendDay()?.date === point.day.date,
+                                }}
+                              />
+                            </>
+                          )}
+                        </For>
+                        <path class="trend-chart__area" d={trendAreaPath()} />
+                        <path class="trend-chart__line" d={trendLinePath()} />
+                        <text
+                          x={trendChartLeft}
+                          y={trendGuideY(1) - 8}
+                          class="trend-chart__scale"
+                        >
+                          {formatDurationLabel(Math.round(trendDomainMax()))}
+                        </text>
+                        <text
+                          x={trendChartLeft}
+                          y={trendGuideY(0.5) - 8}
+                          class="trend-chart__scale"
+                        >
+                          {formatDurationLabel(
+                            Math.round((trendDomainMin() + trendDomainMax()) / 2)
+                          )}
+                        </text>
+                        <For each={trendPlotPoints()}>
+                          {(point) => {
+                            const x = () => point.x;
+                            const y = () => point.y;
                             return (
-                              <>
+                              <g
+                                classList={{
+                                  "trend-chart__point": true,
+                                  "trend-chart__point--active":
+                                    activeTrendDay()?.date === point.day.date,
+                                }}
+                                onMouseEnter={() => setActiveTrendDate(point.day.date)}
+                                onClick={() => setActiveTrendDate(point.day.date)}
+                              >
                                 <line
                                   x1={x()}
-                                  y1="164"
+                                  y1={trendChartBottom}
                                   x2={x()}
                                   y2={y()}
                                   class="trend-chart__guide"
+                                />
+                                <circle
+                                  cx={x()}
+                                  cy={y()}
+                                  r="16"
+                                  class="trend-chart__hit-area"
+                                />
+                                <circle
+                                  cx={x()}
+                                  cy={y()}
+                                  r="18"
+                                  class="trend-chart__point-glow"
+                                />
+                                <circle
+                                  cx={x()}
+                                  cy={y()}
+                                  r="7"
+                                  class="trend-chart__dot-ring"
                                 />
                                 <circle
                                   cx={x()}
@@ -2066,45 +2395,48 @@ function MainShell() {
                                 />
                                 <text
                                   x={x()}
-                                  y="186"
+                                  y={trendChartBottom + 26}
                                   text-anchor="middle"
                                   class="trend-chart__label"
                                 >
-                                  {formatTrendDateLabel(day.date)}
+                                  {formatTrendDateLabel(point.day.date)}
                                 </text>
-                              </>
+                              </g>
                             );
                           }}
                         </For>
                       </svg>
+                        </div>
+                      </div>
                     </div>
                   </Show>
 
-                  <div class="trend-bars">
+                  <div class="trend-day-strip">
+                    <p class="trend-day-strip__hint">{copy.insightTrendSelectorHint}</p>
+                    <div class="trend-day-strip__grid">
                     <For each={orderedTrendDays()}>
                       {(day) => (
-                        <article class="trend-bar">
-                          <div class="trend-bar__meta">
-                            <div class="trend-bar__copy">
-                              <strong>{formatTrendDateLabel(day.date)}</strong>
-                              <span>{`${day.sessionCount}${copy.insightDailySessions}`}</span>
-                            </div>
+                        <button
+                          type="button"
+                          classList={{
+                            "trend-day-chip": true,
+                            "trend-day-chip--active": activeTrendDay()?.date === day.date,
+                          }}
+                          onMouseEnter={() => setActiveTrendDate(day.date)}
+                          onClick={() => setActiveTrendDate(day.date)}
+                        >
+                          <div class="trend-day-chip__meta">
+                            <strong>{formatTrendDateLabel(day.date)}</strong>
                             <span>{day.totalDurationLabel}</span>
                           </div>
-                          <div class="trend-bar__track">
-                            <div
-                              class="trend-bar__fill"
-                              style={{
-                                width: `${Math.max(
-                                  12,
-                                  (day.totalDurationMs / trendMaxDurationMs()) * 100
-                                )}%`,
-                              }}
-                            />
+                          <div class="trend-day-chip__summary">
+                            <span>{`${day.sessionCount}${copy.insightDailySessions}`}</span>
+                            <span>{`${copy.insightDailyLinked} ${day.linkedSessionCount}`}</span>
                           </div>
-                        </article>
+                        </button>
                       )}
                     </For>
+                    </div>
                   </div>
                 </div>
               </Show>
