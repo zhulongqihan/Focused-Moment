@@ -48,6 +48,10 @@ export async function syncContentPack() {
   return invoke<ContentPackSnapshot>("sync_content_pack");
 }
 
+export async function importContentPackJson(jsonText: string) {
+  return invoke<ContentPackSnapshot>("import_content_pack_json", { jsonText });
+}
+
 export async function deleteFocusRecord(id: number) {
   return invoke<FocusRecord[]>("delete_focus_record", { id });
 }

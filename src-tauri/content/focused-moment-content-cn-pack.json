@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "packVersion": "cn-baseline-2026.04.18.1",
+  "server": "cn",
+  "updatedAt": "2026-04-18 12:00",
+  "operatorCount": 410,
+  "bannerCount": 3,
+  "sourceLabel": "Focused Moment 内置国服基线",
+  "banners": [
+    {
+      "slot": "event",
+      "sourcePoolId": "cn-event-202604",
+      "name": "活动寻访·怒潮凛冬",
+      "summary": "内置基线卡池，6 星 UP 为怒潮凛冬，5 星 UP 为婉晴、谷芽。",
+      "startsAt": "2026-04-11 16:00",
+      "endsAt": "2026-04-25 03:59",
+      "rateUpSixNames": ["怒潮凛冬"],
+      "rateUpFiveNames": ["婉晴", "谷芽"],
+      "rateUpFourNames": ["豆苗"]
+    },
+    {
+      "slot": "standard",
+      "sourcePoolId": "cn-standard-202604",
+      "name": "标准寻访·轮换常驻",
+      "summary": "内置基线卡池，6 星 UP 为斥罪、玛恩纳。",
+      "startsAt": "2026-04-14 04:00",
+      "endsAt": "2026-04-28 03:59",
+      "rateUpSixNames": ["斥罪", "玛恩纳"],
+      "rateUpFiveNames": ["拉普兰德", "夏栎", "白面鸮"],
+      "rateUpFourNames": []
+    },
+    {
+      "slot": "kernel",
+      "sourcePoolId": "cn-kernel-202604",
+      "name": "中坚寻访·轮换精选",
+      "summary": "内置基线卡池，6 星 UP 为塞雷娅、温蒂。",
+      "startsAt": "2026-04-14 04:00",
+      "endsAt": "2026-04-28 03:59",
+      "rateUpSixNames": ["塞雷娅", "温蒂"],
+      "rateUpFiveNames": ["诗怀雅", "格劳克斯", "凛冬"],
+      "rateUpFourNames": []
+    }
+  ]
+}

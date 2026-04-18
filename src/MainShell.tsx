@@ -33,13 +33,19 @@ import {
   getFocusRecords,
   getRewardSnapshot,
   getTimerSnapshot,
+  importContentPackJson,
   pauseTimer,
   resetTimer,
   syncContentPack,
   startTimer,
   switchTimerMode,
 } from "./lib/timer";
-import { getHeadhuntSnapshot, performHeadhunt } from "./lib/headhunt";
+import {
+  getHeadhuntSnapshot,
+  performHeadhunt,
+  performPreviewHeadhunt,
+  setCurrentHeadhuntBanner,
+} from "./lib/headhunt";
 import {
   closeMainWindow,
   minimizeMainWindow,
@@ -213,15 +219,24 @@ const copy = {
   headhuntEyebrow: "\u5bfb\u8bbf\u4e2d\u5fc3",
   headhuntTitle: "\u5408\u6210\u7389\u73b0\u5728\u53ef\u4ee5\u771f\u6b63\u7528\u6765\u62bd\u5361\u4e86",
   headhuntSummary:
-    "\u8fd9\u4e00\u7248\u5148\u63a5\u5165\u6807\u51c6\u5bfb\u8bbf\u57fa\u7840\u7248\uff1a\u5355\u62bd\u3001\u5341\u8fde\u3001\u516d\u661f\u4fdd\u5e95\u9012\u589e\u3001\u672c\u5730\u62bd\u5361\u8bb0\u5f55\u90fd\u5df2\u7ecf\u8fde\u8d77\u6765\u4e86\u3002",
+    "\u73b0\u5728\u5df2\u7ecf\u63a5\u5165\u5f53\u671f\u5361\u6c60\u5217\u8868\uff0c\u652f\u6301\u5361\u6c60\u5207\u6362\u3001UP \u5c55\u793a\u4e0e\u4fdd\u5e95\u7ec4\u903b\u8f91\u3002",
   headhuntOrundumLabel: "\u5f53\u524d\u5408\u6210\u7389",
   headhuntPullsLabel: "\u7d2f\u8ba1\u5bfb\u8bbf",
   headhuntPityLabel: "\u516d\u661f\u524d\u7f6e",
   headhuntOwnedLabel: "\u5df2\u83b7\u5f97\u5e72\u5458",
   headhuntSingleAction: "\u5355\u6b21\u5bfb\u8bbf\uff08600\uff09",
   headhuntTenAction: "\u5341\u8fde\u5bfb\u8bbf\uff086000\uff09",
+  headhuntPreviewSingleAction: "\u8bd5\u62bd\u5355\u6b21",
+  headhuntPreviewTenAction: "\u8bd5\u62bd\u5341\u8fde",
   headhuntPityNote: "\u8fde\u7eed 50 \u62bd\u6ca1\u6709 6 \u661f\u540e\uff0c6 \u661f\u51fa\u73b0\u6982\u7387\u4f1a\u9010\u62bd\u63d0\u9ad8\u3002",
   headhuntBannerRateUp: "\u5f53\u524d UP",
+  headhuntBannerTypeLabel: "卡池类型",
+  headhuntBannerPeriodLabel: "开放时间",
+  headhuntPityGroupLabel: "保底组",
+  headhuntRateUpSixLabel: "6 星 UP",
+  headhuntRateUpFiveLabel: "5 星 UP",
+  headhuntRateUpFourLabel: "4 星 UP",
+  headhuntSwitchDonePrefix: "已切换卡池",
   headhuntRecentTitle: "\u672c\u8f6e\u7ed3\u679c",
   headhuntHistoryTitle: "\u6700\u8fd1\u5bfb\u8bbf\u8bb0\u5f55",
   headhuntHistoryEmpty: "\u5b8c\u6210\u7b2c\u4e00\u6b21\u5bfb\u8bbf\u540e\uff0c\u7ed3\u679c\u548c\u5386\u53f2\u5c31\u4f1a\u51fa\u73b0\u5728\u8fd9\u91cc\u3002",
@@ -234,11 +249,15 @@ const copy = {
     "\u5355\u62bd\u6d88\u8017 600 \u5408\u6210\u7389\uff0c\u5341\u8fde\u6d88\u8017 6000 \u5408\u6210\u7389\uff0c6 \u661f\u4f1a\u8bb0\u5f55\u672c\u5730\u4fdd\u5e95\u8fdb\u5ea6\u3002",
   headhuntBatchEmpty:
     "\u8fd8\u6ca1\u6709\u5f00\u59cb\u5bfb\u8bbf\uff0c\u7b49\u4f60\u5b8c\u6210\u7b2c\u4e00\u62bd\u540e\uff0c\u7ed3\u679c\u5c31\u4f1a\u51fa\u73b0\u5728\u8fd9\u91cc\u3002",
+  headhuntPreviewHint:
+    "\u8bd5\u62bd\u53ea\u7528\u4e8e\u68c0\u67e5\u5361\u6c60\u8868\u73b0\uff0c\u4e0d\u4f1a\u6263\u51cf\u771f\u5b9e\u5408\u6210\u7389\uff0c\u4e5f\u4e0d\u4f1a\u5199\u5165\u771f\u5b9e\u4fdd\u5e95\u3001\u5386\u53f2\u6216\u5e72\u5458\u6536\u85cf\u3002",
   headhuntOwnedTitle: "\u5df2\u83b7\u5f97\u5e72\u5458",
   headhuntOwnedSummary:
     "\u91cd\u590d\u5bfb\u8bbf\u4f1a\u7ee7\u7eed\u7d2f\u79ef\u62e5\u6709\u6b21\u6570\uff0c\u4e3a\u540e\u7eed\u6f5c\u80fd\u548c\u517b\u6210\u9884\u7559\u7a7a\u95f4\u3002",
   headhuntOwnedEmpty:
     "\u8fd8\u6ca1\u6709\u83b7\u5f97\u5e72\u5458\uff0c\u5b8c\u6210\u7b2c\u4e00\u6b21\u5bfb\u8bbf\u540e\u5c31\u4f1a\u5728\u8fd9\u91cc\u5f00\u59cb\u79ef\u7d2f\u3002",
+  headhuntPreviewDonePrefix: "\u8bd5\u62bd\u5b8c\u6210",
+  headhuntPreviewTag: "\u8bd5\u62bd",
   modeSwitchEyebrow: "\u8ba1\u65f6\u6a21\u5f0f",
   stopwatchMode: "\u6b63\u5411\u8ba1\u65f6",
   pomodoroMode: "\u756a\u8304\u949f",
@@ -393,9 +412,9 @@ const copy = {
   developerModulesSummary:
     "\u8fd9\u91cc\u4f1a\u96c6\u4e2d\u663e\u793a\u5df2\u63a5\u5165\u7684\u6a21\u5757\u3001\u5f53\u524d\u7684\u5f00\u53d1\u9636\u6bb5\uff0c\u4ee5\u53ca\u540e\u7eed\u6269\u5c55\u9884\u7559\u3002",
   contentPackEyebrow: "\u5185\u5bb9\u5305\u540c\u6b65",
-  contentPackTitle: "\u65b9\u821f\u8d44\u6599\u66f4\u65b0\u4e5f\u6709\u4e86\u4e00\u6761\u72ec\u7acb\u94fe\u8def",
+  contentPackTitle: "\u5185\u5bb9\u5feb\u7167\u73b0\u5728\u53ea\u8d70 Focused Moment \u56fa\u5b9a\u5185\u5bb9\u6e90",
   contentPackSummary:
-    "\u8fd9\u4e00\u7248\u5148\u628a\u5185\u5bb9\u5305\u5feb\u7167\u3001\u672c\u5730\u7f13\u5b58\u548c\u624b\u52a8\u68c0\u67e5\u66f4\u65b0\u63a5\u597d\uff0c\u540e\u7eed\u7684\u5e72\u5458\u76ee\u5f55\u548c\u5361\u6c60\u4f1a\u8d70\u8fd9\u6761\u540c\u6b65\u5c42\u3002",
+    "\u5ba2\u6237\u7aef\u4e0d\u518d\u76f4\u63a5\u8bbf\u95ee\u591a\u4e2a\u7b2c\u4e09\u65b9\u6e90\uff0c\u73b0\u5728\u53ea\u68c0\u67e5 Focused Moment \u56fa\u5b9a\u5feb\u7167\uff0c\u540c\u65f6\u4fdd\u7559\u672c\u5730\u5bfc\u5165\u515c\u5e95\u3002",
   contentPackVersionLabel: "\u5f53\u524d\u5185\u5bb9\u5305",
   contentPackVersionNote: "\u76ee\u524d\u5df2\u7ecf\u5e94\u7528\u5230\u672c\u5730\u7684\u8d44\u6599\u7248\u672c",
   contentPackCatalogLabel: "\u5168\u91cf\u76ee\u5f55",
@@ -408,11 +427,16 @@ const copy = {
   contentPackCheckedNote: "\u6700\u8fd1\u4e00\u6b21\u70b9\u51fb\u68c0\u67e5\u8d44\u6599\u66f4\u65b0\u7684\u65f6\u95f4",
   contentPackSyncedLabel: "\u4e0a\u6b21\u540c\u6b65",
   contentPackSyncedNote: "\u6700\u8fd1\u4e00\u6b21\u771f\u6b63\u628a\u65b0\u5feb\u7167\u5199\u5165\u672c\u5730\u7684\u65f6\u95f4",
-  contentPackUpdateButton: "\u68c0\u67e5\u65b9\u821f\u8d44\u6599\u66f4\u65b0",
+  contentPackUpdateButton: "\u68c0\u67e5 Focused Moment \u5185\u5bb9\u66f4\u65b0",
+  contentPackImportButton: "\u5bfc\u5165\u672c\u5730\u5185\u5bb9\u5305",
   contentPackRemotePrefix: "\u53ef\u7528\u65b0\u5feb\u7167",
   contentPackEmptyTime: "\u6682\u65e0",
   contentPackUpdatedStatus: "\u5185\u5bb9\u5305\u5df2\u66f4\u65b0",
   contentPackLatestStatus: "\u5f53\u524d\u5df2\u662f\u6700\u65b0\u8d44\u6599",
+  contentPackSyncingStatus: "\u6b63\u5728\u540e\u53f0\u68c0\u67e5 Focused Moment \u5185\u5bb9\u66f4\u65b0",
+  contentPackSyncingButton: "\u6b63\u5728\u540e\u53f0\u540c\u6b65...",
+  contentPackSyncTimeout:
+    "\u540c\u6b65\u4ecd\u5728\u540e\u53f0\u7ee7\u7eed\uff0c\u4f60\u53ef\u4ee5\u7a0d\u540e\u518d\u56de\u6765\u67e5\u770b\u3002",
   fallbackPrefix: "\u8f7d\u5165\u56de\u9000\u4fe1\u606f\uff1a",
   windows: "Windows",
   defaultError: "\u64cd\u4f5c\u6ca1\u6709\u6210\u529f\uff0c\u8bf7\u91cd\u8bd5\u3002",
@@ -420,8 +444,8 @@ const copy = {
 
 const emptySnapshot: ShellSnapshot = {
   productName: "Focused Moment",
-  version: "1.5.0",
-  milestone: "v1.5.0 \u5bfb\u8bbf\u7cfb\u7edf\u7b2c\u4e00\u7248",
+  version: "1.5.6",
+  milestone: "v1.5.6 \u7a33\u5b9a\u5185\u5bb9\u5feb\u7167\u91cd\u6784\u7248",
   slogan:
     "\u4e13\u6ce8\u4e0d\u53ea\u80fd\u7559\u4e0b\u8bb0\u5f55\uff0c\u73b0\u5728\u4e5f\u53ef\u4ee5\u628a\u5408\u6210\u7389\u771f\u6b63\u653e\u8fdb\u5bfb\u8bbf\u7cfb\u7edf\u91cc\u3002",
   surfaces: [],
@@ -470,30 +494,40 @@ const emptyRewardSnapshot: RewardSnapshot = {
 };
 
 const emptyContentPackSnapshot: ContentPackSnapshot = {
-  currentVersion: "global-baseline-2026.03.28",
-  currentServer: "Global",
-  currentUpdatedAt: "2026-03-28 10:00",
-  operatorCount: 372,
-  bannerCount: 2,
+  currentVersion: "cn-baseline-2026.04.18.1",
+  currentServer: "国服",
+  currentUpdatedAt: "2026-04-18 12:00",
+  operatorCount: 410,
+  bannerCount: 3,
   lastCheckedAt: null,
   lastSyncedAt: null,
-  sourceLabel: "应用内置全量基线",
+  sourceLabel: "Focused Moment 内置国服基线",
   statusLabel: "内容包待检查",
-  statusNote: "点击下方按钮后，会比对远端静态快照与当前本地内容包版本。",
+  statusNote: "点击下方按钮后，会检查 Focused Moment 固定内容源；如果在线失败，也可以导入本地内容包。",
   updateAvailable: false,
   remoteVersion: null,
   remoteUpdatedAt: null,
   remoteOperatorCount: null,
   remoteBannerCount: null,
+  isSyncing: false,
+  supportsManualImport: true,
 };
 
 const emptyHeadhuntSnapshot: HeadhuntSnapshot = {
   currentBanner: {
-    id: "standard-focus",
-    name: "标准寻访·启程演算",
-    summary: "先接入一套稳定的示例卡池，为后续接真实内容包目录打底。",
-    rateUpNames: ["史尔特尔", "拉普兰德", "德克萨斯"],
+    id: "cn-event-202604",
+    name: "活动寻访·怒潮凌冬",
+    summary: "国服活动卡池与 UP 干员会基于内容包快照同步展示。",
+    bannerTypeLabel: "活动寻访",
+    startsAt: "2026-04-11 16:00",
+    endsAt: "2026-04-25 03:59",
+    rateUpNames: ["怒潮凌冬", "婉晴", "谷芽", "豆苗"],
+    rateUpSixNames: ["怒潮凌冬"],
+    rateUpFiveNames: ["婉晴", "谷芽"],
+    rateUpFourNames: [],
+    pityGroupLabel: "活动 / 标准共用保底",
   },
+  availableBanners: [],
   walletOrundum: 0,
   totalPulls: 0,
   pityWithoutSixStar: 0,
@@ -675,6 +709,7 @@ function MainShell() {
   const [lastHeadhuntBatch, setLastHeadhuntBatch] = createSignal<
     HeadhuntPayload["batchResults"]
   >([]);
+  const [lastHeadhuntBatchPreview, setLastHeadhuntBatchPreview] = createSignal(false);
   const [todoItems, setTodoItems] = createSignal<TodoItem[]>([]);
   const [todoDraft, setTodoDraft] =
     createSignal<TodoDraft>(createDefaultTodoDraft());
@@ -694,6 +729,7 @@ function MainShell() {
   const [todoSearchQuery, setTodoSearchQuery] = createSignal("");
   const [todoFilter, setTodoFilter] = createSignal<TodoFilterKey>("all");
   const [todoSort, setTodoSort] = createSignal<TodoSortKey>("smart");
+  let contentPackImportInput: HTMLInputElement | undefined;
 
   const timerReady = () => !bootError();
   const taskHintText = () =>
@@ -953,6 +989,32 @@ function MainShell() {
     setHeadhuntSnapshot(nextHeadhuntSnapshot);
   }
 
+  function waitFor(milliseconds: number) {
+    return new Promise<void>((resolve) => {
+      window.setTimeout(resolve, milliseconds);
+    });
+  }
+
+  async function watchContentPackSync() {
+    for (let attempt = 0; attempt < 45; attempt += 1) {
+      await waitFor(800);
+      const nextSnapshot = await getContentPackSnapshot();
+      setContentPackSnapshot(nextSnapshot);
+
+      if (!nextSnapshot.isSyncing) {
+        await refreshHeadhuntSummary();
+        setStatusText(
+          nextSnapshot.statusLabel === copy.contentPackUpdatedStatus
+            ? `${copy.contentPackUpdatedStatus}：${nextSnapshot.currentVersion}`
+            : `${nextSnapshot.statusLabel}：${nextSnapshot.statusNote}`
+        );
+        return;
+      }
+    }
+
+    setStatusText(copy.contentPackSyncTimeout);
+  }
+
   async function refreshTodoItems() {
     const nextTodoItems = await getTodoItems();
     setTodoItems(nextTodoItems);
@@ -1102,14 +1164,49 @@ function MainShell() {
     try {
       const nextSnapshot = await syncContentPack();
       setContentPackSnapshot(nextSnapshot);
-      setStatusText(
-        nextSnapshot.statusLabel === copy.contentPackUpdatedStatus
-          ? `${copy.contentPackUpdatedStatus}：${nextSnapshot.currentVersion}`
-          : copy.contentPackLatestStatus
-      );
+      if (nextSnapshot.isSyncing) {
+        setStatusText(copy.contentPackSyncingStatus);
+        await watchContentPackSync();
+      } else {
+        await refreshHeadhuntSummary();
+        setStatusText(
+          nextSnapshot.statusLabel === copy.contentPackUpdatedStatus
+            ? `${copy.contentPackUpdatedStatus}：${nextSnapshot.currentVersion}`
+            : `${nextSnapshot.statusLabel}：${nextSnapshot.statusNote}`
+        );
+      }
     } catch (error) {
       setStatusText(getErrorMessage(error));
     } finally {
+      setContentPackBusy(false);
+    }
+  }
+
+  async function handleImportContentPack(event: Event) {
+    const input = event.currentTarget as HTMLInputElement | null;
+    const file = input?.files?.[0];
+
+    if (!file || contentPackBusy()) {
+      if (input) {
+        input.value = "";
+      }
+      return;
+    }
+
+    setContentPackBusy(true);
+
+    try {
+      const jsonText = await file.text();
+      const nextSnapshot = await importContentPackJson(jsonText);
+      setContentPackSnapshot(nextSnapshot);
+      await refreshHeadhuntSummary();
+      setStatusText(`${nextSnapshot.statusLabel}：${nextSnapshot.statusNote}`);
+    } catch (error) {
+      setStatusText(getErrorMessage(error));
+    } finally {
+      if (input) {
+        input.value = "";
+      }
       setContentPackBusy(false);
     }
   }
@@ -1125,10 +1222,51 @@ function MainShell() {
       const payload = await performHeadhunt(pulls);
       setHeadhuntSnapshot(payload.snapshot);
       setLastHeadhuntBatch(payload.batchResults);
+      setLastHeadhuntBatchPreview(false);
       await refreshRewardSummary();
       setStatusText(
         `${copy.headhuntDonePrefix}：${pulls === 10 ? "十连" : "单抽"}，消耗 ${payload.spentOrundum} 合成玉`
       );
+    } catch (error) {
+      setStatusText(getErrorMessage(error));
+    } finally {
+      setHeadhuntBusy(false);
+    }
+  }
+
+  async function handlePreviewHeadhunt(pulls: 1 | 10) {
+    if (headhuntBusy()) {
+      return;
+    }
+
+    setHeadhuntBusy(true);
+
+    try {
+      const payload = await performPreviewHeadhunt(pulls);
+      setLastHeadhuntBatch(payload.batchResults);
+      setLastHeadhuntBatchPreview(true);
+      setStatusText(
+        `${copy.headhuntPreviewDonePrefix}：${pulls === 10 ? "十连" : "单抽"}，本次不会影响真实余额和保底`
+      );
+    } catch (error) {
+      setStatusText(getErrorMessage(error));
+    } finally {
+      setHeadhuntBusy(false);
+    }
+  }
+
+  async function handleSwitchHeadhuntBanner(bannerId: string) {
+    if (headhuntBusy() || headhuntSnapshot().currentBanner.id === bannerId) {
+      return;
+    }
+
+    setHeadhuntBusy(true);
+    try {
+      const snapshot = await setCurrentHeadhuntBanner(bannerId);
+      setHeadhuntSnapshot(snapshot);
+      setLastHeadhuntBatch([]);
+      setLastHeadhuntBatchPreview(false);
+      setStatusText(`${copy.headhuntSwitchDonePrefix}：${snapshot.currentBanner.name}`);
     } catch (error) {
       setStatusText(getErrorMessage(error));
     } finally {
@@ -2592,6 +2730,25 @@ function MainShell() {
                 </p>
               </div>
 
+              <div class="review-toolbar__actions">
+                <For each={headhuntSnapshot().availableBanners}>
+                  {(banner) => (
+                    <button
+                      type="button"
+                      class="action-button"
+                      classList={{
+                        "action-button--primary":
+                          banner.id === headhuntSnapshot().currentBanner.id,
+                      }}
+                      disabled={headhuntBusy()}
+                      onClick={() => void handleSwitchHeadhuntBanner(banner.id)}
+                    >
+                      {banner.name}
+                    </button>
+                  )}
+                </For>
+              </div>
+
               <div class="record-card">
                 <div class="record-card__main">
                   <div class="record-card__copy">
@@ -2604,6 +2761,41 @@ function MainShell() {
                   </div>
                   <span>{copy.headhuntSpendHint}</span>
                 </div>
+                <div class="record-card__meta">
+                  <span class="record-pill record-pill--muted">
+                    {`${copy.headhuntBannerTypeLabel}：${headhuntSnapshot().currentBanner.bannerTypeLabel}`}
+                  </span>
+                  <span class="record-pill record-pill--muted">
+                    {`${copy.headhuntBannerPeriodLabel}：${headhuntSnapshot().currentBanner.startsAt} ~ ${headhuntSnapshot().currentBanner.endsAt}`}
+                  </span>
+                  <span class="record-pill record-pill--muted">
+                    {`${copy.headhuntPityGroupLabel}：${headhuntSnapshot().currentBanner.pityGroupLabel}`}
+                  </span>
+                </div>
+                <div class="record-card__meta">
+                  <Show when={headhuntSnapshot().currentBanner.rateUpSixNames.length > 0}>
+                    <span class="record-pill">{copy.headhuntRateUpSixLabel}</span>
+                    <For each={headhuntSnapshot().currentBanner.rateUpSixNames}>
+                      {(name) => <span class="record-pill record-pill--muted">{name}</span>}
+                    </For>
+                  </Show>
+                </div>
+                <div class="record-card__meta">
+                  <Show when={headhuntSnapshot().currentBanner.rateUpFiveNames.length > 0}>
+                    <span class="record-pill">{copy.headhuntRateUpFiveLabel}</span>
+                    <For each={headhuntSnapshot().currentBanner.rateUpFiveNames}>
+                      {(name) => <span class="record-pill record-pill--muted">{name}</span>}
+                    </For>
+                  </Show>
+                </div>
+                <Show when={headhuntSnapshot().currentBanner.rateUpFourNames.length > 0}>
+                  <div class="record-card__meta">
+                    <span class="record-pill">{copy.headhuntRateUpFourLabel}</span>
+                    <For each={headhuntSnapshot().currentBanner.rateUpFourNames}>
+                      {(name) => <span class="record-pill record-pill--muted">{name}</span>}
+                    </For>
+                  </div>
+                </Show>
               </div>
 
               <div class="metric-grid reward-wallet-grid">
@@ -2648,7 +2840,24 @@ function MainShell() {
                 >
                   {copy.headhuntTenAction}
                 </button>
+                <button
+                  type="button"
+                  class="action-button"
+                  disabled={headhuntBusy()}
+                  onClick={() => void handlePreviewHeadhunt(1)}
+                >
+                  {copy.headhuntPreviewSingleAction}
+                </button>
+                <button
+                  type="button"
+                  class="action-button"
+                  disabled={headhuntBusy()}
+                  onClick={() => void handlePreviewHeadhunt(10)}
+                >
+                  {copy.headhuntPreviewTenAction}
+                </button>
               </div>
+              <p class="metric-footnote">{copy.headhuntPreviewHint}</p>
             </section>
 
             <section class="records-panel">
@@ -2659,6 +2868,10 @@ function MainShell() {
                 </div>
                 <p class="chart-panel__summary">{copy.headhuntSpendHint}</p>
               </div>
+
+              <Show when={lastHeadhuntBatchPreview()}>
+                <span class="record-pill">{copy.headhuntPreviewTag}</span>
+              </Show>
 
               <div class="records-list">
                 <For each={latestHeadhuntBatch()}>
@@ -2690,7 +2903,11 @@ function MainShell() {
                             </span>
                           </div>
                         </div>
-                        <span>{`${result.costOrundum} 合成玉`}</span>
+                        <span>
+                          {lastHeadhuntBatchPreview()
+                            ? copy.headhuntPreviewTag
+                            : `${result.costOrundum} 合成玉`}
+                        </span>
                       </div>
                     </article>
                   )}
@@ -2854,8 +3071,27 @@ function MainShell() {
                     disabled={contentPackBusy()}
                     onClick={() => void handleSyncContentPack()}
                   >
-                    {contentPackBusy() ? copy.loading : copy.contentPackUpdateButton}
+                    {contentPackBusy()
+                      ? copy.contentPackSyncingButton
+                      : copy.contentPackUpdateButton}
                   </button>
+                  <Show when={contentPackSnapshot().supportsManualImport}>
+                    <button
+                      type="button"
+                      class="action-button"
+                      disabled={contentPackBusy()}
+                      onClick={() => contentPackImportInput?.click()}
+                    >
+                      {copy.contentPackImportButton}
+                    </button>
+                  </Show>
+                  <input
+                    ref={contentPackImportInput}
+                    type="file"
+                    accept=".json,application/json"
+                    style={{ display: "none" }}
+                    onChange={(event) => void handleImportContentPack(event)}
+                  />
                 </div>
               </div>
             </section>

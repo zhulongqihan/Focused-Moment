@@ -119,6 +119,8 @@ export interface ContentPackSnapshot {
   remoteUpdatedAt: string | null;
   remoteOperatorCount: number | null;
   remoteBannerCount: number | null;
+  isSyncing: boolean;
+  supportsManualImport: boolean;
 }
 
 export interface HeadhuntBannerSnapshot {
@@ -126,6 +128,13 @@ export interface HeadhuntBannerSnapshot {
   name: string;
   summary: string;
   rateUpNames: string[];
+  bannerTypeLabel: string;
+  startsAt: string;
+  endsAt: string;
+  rateUpSixNames: string[];
+  rateUpFiveNames: string[];
+  rateUpFourNames: string[];
+  pityGroupLabel: string;
 }
 
 export interface HeadhuntPullResult {
@@ -151,6 +160,7 @@ export interface HeadhuntOwnedOperator {
 
 export interface HeadhuntSnapshot {
   currentBanner: HeadhuntBannerSnapshot;
+  availableBanners: HeadhuntBannerSnapshot[];
   walletOrundum: number;
   totalPulls: number;
   pityWithoutSixStar: number;
@@ -165,6 +175,7 @@ export interface HeadhuntPayload {
   snapshot: HeadhuntSnapshot;
   batchResults: HeadhuntPullResult[];
   spentOrundum: number;
+  isPreview: boolean;
 }
 
 export type TodoImportance = "low" | "medium" | "high";
