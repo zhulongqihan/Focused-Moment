@@ -3,11 +3,20 @@ import type {
   AnalyticsSnapshot,
   CompletionPayload,
   FocusRecord,
+  TimerPreferences,
   TimerSnapshot,
 } from "./contracts";
 
 export async function getTimerSnapshot() {
   return invoke<TimerSnapshot>("get_timer_snapshot");
+}
+
+export async function getTimerPreferences() {
+  return invoke<TimerPreferences>("get_timer_preferences");
+}
+
+export async function updateTimerPreferences(preferences: TimerPreferences) {
+  return invoke<TimerPreferences>("update_timer_preferences", { preferences });
 }
 
 export async function startTimer() {

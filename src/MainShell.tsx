@@ -1,10 +1,12 @@
 ﻿import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow, UserAttentionType } from "@tauri-apps/api/window";
 import { For, Show, createEffect, createSignal, onCleanup, onMount } from "solid-js";
 import type {
   AnalyticsSnapshot,
   DailyInsight,
   FocusRecord,
   ShellSnapshot,
+  TimerPreferences,
   TimerSnapshot,
   TodoDraft,
   TodoImportance,
@@ -25,11 +27,13 @@ import {
   exportFocusRecordsCsv,
   getAnalyticsSnapshot,
   getFocusRecords,
+  getTimerPreferences,
   getTimerSnapshot,
   pauseTimer,
   resetTimer,
   startTimer,
   switchTimerMode,
+  updateTimerPreferences,
   updateTimerContext,
 } from "./lib/timer";
 import {
@@ -222,6 +226,35 @@ const copy = {
     "\u756a\u8304\u949f\u4f1a\u5728 25 \u5206\u949f\u4e13\u6ce8\u548c 5 \u5206\u949f\u77ed\u4f11\u606f\u4e4b\u95f4\u5207\u6362\u3002\u8fdb\u5165\u4f11\u606f\u9636\u6bb5\u540e\uff0c\u4ecd\u53ef\u8865\u8bb0\u521a\u7ed3\u675f\u7684\u4e0a\u4e00\u8f6e\u4e13\u6ce8\u3002",
   sessionRecovered:
     "\u5df2\u6062\u590d\u4e0a\u6b21\u672a\u7ed3\u675f\u7684\u4e13\u6ce8\u72b6\u6001\uff0c\u53ef\u4ee5\u76f4\u63a5\u7ee7\u7eed\u6216\u5148\u91cd\u7f6e\u3002",
+  settingsEyebrow: "\u8ba1\u65f6\u8bbe\u7f6e",
+  settingsTitle: "\u628a\u63d0\u9192\u548c\u8282\u594f\u8c03\u6210\u4f60\u4f20\u7edf\u4f7f\u7528\u7684\u65b9\u5f0f",
+  settingsSummary:
+    "\u8fd9\u91cc\u53ea\u6536\u4e00\u7ec4\u7d27\u51d1\u8bbe\u7f6e\uff0c\u6539\u5b8c\u4f1a\u76f4\u63a5\u4fdd\u5b58\u5230\u672c\u5730\u3002",
+  pomodoroMinimumHint: "\u756a\u8304\u4e13\u6ce8\u6700\u4f4e\u4e0d\u80fd\u4f4e\u4e8e 5 \u5206\u949f\u3002",
+  modeSwitchLockedHint:
+    "\u5f53\u524d\u8fd9\u8f6e\u4e13\u6ce8\u8fd8\u6ca1\u6709\u63d0\u4ea4\uff0c\u8bf7\u5148\u5b8c\u6210\u8bb0\u5f55\u6216\u91cd\u7f6e\uff0c\u518d\u5207\u6362\u6a21\u5f0f\u3002",
+  settingsToggleOpen: "\u5c55\u5f00\u8ba1\u65f6\u8bbe\u7f6e",
+  settingsToggleClose: "\u6536\u8d77\u8ba1\u65f6\u8bbe\u7f6e",
+  pomodoroFocusMinutesLabel: "\u756a\u8304\u4e13\u6ce8\uff08\u5206\u949f\uff09",
+  pomodoroBreakMinutesLabel: "\u756a\u8304\u4f11\u606f\uff08\u5206\u949f\uff09",
+  stopwatchReminderMinutesLabel: "\u6b63\u5411\u63d0\u9192\uff08\u5206\u949f\uff0c\u53ef\u9009\uff09",
+  stopwatchReminderMinutesHint:
+    "\u7559\u7a7a\u4ee3\u8868\u5173\u95ed\u6b63\u5411\u8ba1\u65f6\u7684\u5230\u70b9\u63d0\u9192\u3002",
+  toastReminderLabel: "\u7cfb\u7edf\u901a\u77e5",
+  windowAttentionReminderLabel: "\u7a97\u53e3/\u4efb\u52a1\u680f\u63d0\u9192",
+  settingsSave: "\u4fdd\u5b58\u8bbe\u7f6e",
+  settingsSaved: "\u8ba1\u65f6\u8bbe\u7f6e\u5df2\u4fdd\u5b58",
+  breakMinimumHint: "\u756a\u8304\u4f11\u606f\u65f6\u957f\u9700\u8981\u5728 1 \u5230 30 \u5206\u949f\u4e4b\u95f4\u3002",
+  reminderMinimumHint:
+    "\u6b63\u5411\u8ba1\u65f6\u63d0\u9192\u9700\u8981\u5728 1 \u5230 720 \u5206\u949f\u4e4b\u95f4\uff0c\u6216\u8005\u7559\u7a7a\u5173\u95ed\u3002",
+  alertFocusComplete: "\u756a\u8304\u4e13\u6ce8\u5df2\u7ed3\u675f",
+  alertBreakComplete: "\u77ed\u4f11\u606f\u5df2\u7ed3\u675f",
+  alertStopwatchReached: "\u6b63\u5411\u8ba1\u65f6\u5df2\u5230\u8fbe\u76ee\u6807",
+  alertWindowAttentionFallback:
+    "\u5df2\u89e6\u53d1\u7a97\u53e3\u63d0\u9192\uff0c\u4f60\u53ef\u4ee5\u56de\u6765\u7ee7\u7eed\u8fd9\u4e00\u8f6e\u4e13\u6ce8\u3002",
+  roundProgressLabel: "\u756a\u8304\u8f6e\u6b21",
+  roundProgressFocusCount: "\u5df2\u5b8c\u6210\u4e13\u6ce8",
+  roundProgressBreakCount: "\u5df2\u5b8c\u6210\u4f11\u606f",
   engineOwner: "\u5f15\u64ce\u5f52\u5c5e",
   engineOwnerNote: "\u65f6\u95f4\u7d2f\u8ba1\u4e0d\u4f9d\u8d56\u524d\u7aef\u5b9a\u65f6\u5668",
   currentStatus: "\u5f53\u524d\u72b6\u6001",
@@ -371,8 +404,8 @@ const copy = {
 
 const emptySnapshot: ShellSnapshot = {
   productName: "Focused Moment",
-  version: "1.2.8",
-  milestone: "v1.2.8 \u56fe\u6807\u4e0e Windows \u6253\u5305\u6536\u5c3e\u7248",
+  version: "1.3.0",
+  milestone: "v1.3.0 \u8ba1\u65f6\u8bbe\u7f6e\u4e0e\u63d0\u9192\u57fa\u7840\u7248",
   slogan:
     "\u7528\u66f4\u8f7b\u7684\u65b9\u5f0f\u4e13\u6ce8\u3001\u5b89\u6392\u548c\u590d\u76d8\u6bcf\u4e00\u5929\u3002",
   surfaces: [],
@@ -396,7 +429,20 @@ const emptyTimerSnapshot: TimerSnapshot = {
   completedFocusCount: 0,
   completedBreakCount: 0,
   recoveredFromLastSession: false,
+  modeSwitchLocked: false,
+  modeSwitchHint: null,
   alertSequence: 0,
+  alertKey: null,
+  alertTitle: null,
+  alertMessage: null,
+};
+
+const defaultTimerPreferences: TimerPreferences = {
+  pomodoroFocusMinutes: 25,
+  pomodoroBreakMinutes: 5,
+  stopwatchReminderMinutes: null,
+  toastReminderEnabled: true,
+  windowAttentionReminderEnabled: true,
 };
 
 const emptyAnalyticsSnapshot: AnalyticsSnapshot = {
@@ -550,6 +596,10 @@ function MainShell() {
   const [snapshot, setSnapshot] = createSignal<ShellSnapshot>(emptySnapshot);
   const [timerSnapshot, setTimerSnapshot] =
     createSignal<TimerSnapshot>(emptyTimerSnapshot);
+  const [timerPreferences, setTimerPreferences] =
+    createSignal<TimerPreferences>(defaultTimerPreferences);
+  const [timerPreferencesDraft, setTimerPreferencesDraft] =
+    createSignal<TimerPreferences>(defaultTimerPreferences);
   const [currentTaskTitle, setCurrentTaskTitle] = createSignal("");
   const [linkedTodoId, setLinkedTodoId] = createSignal<number | null>(null);
   const [records, setRecords] = createSignal<FocusRecord[]>([]);
@@ -564,7 +614,11 @@ function MainShell() {
   const [statusText, setStatusText] = createSignal<string>(copy.loading);
   const [bootError, setBootError] = createSignal<string | null>(null);
   const [timerBusy, setTimerBusy] = createSignal(false);
+  const [timerPreferencesBusy, setTimerPreferencesBusy] = createSignal(false);
+  const [timerPreferencesFeedback, setTimerPreferencesFeedback] =
+    createSignal<string | null>(null);
   const [todoBusy, setTodoBusy] = createSignal(false);
+  const [showTimerSettings, setShowTimerSettings] = createSignal(false);
   const [activeView, setActiveView] = createSignal<ViewKey>("focus");
   const [reviewRange, setReviewRange] = createSignal<ReviewRangeKey>("7d");
   const [customStartDate, setCustomStartDate] = createSignal(getLocalDateValue());
@@ -577,12 +631,24 @@ function MainShell() {
   const [activeTrendWindow, setActiveTrendWindow] = createSignal<7 | 14 | 30>(7);
   const [todoItemsHydrated, setTodoItemsHydrated] = createSignal(false);
   let timerContextHydrated = false;
+  let handledAlertSequence = 0;
 
   const timerReady = () => !bootError();
   const taskHintText = () =>
     timerSnapshot().modeKey === "pomodoro"
       ? copy.pomodoroTaskHint
       : copy.currentTaskHint;
+  const pomodoroHintText = () =>
+    `番茄钟会在 ${timerPreferences().pomodoroFocusMinutes} 分钟专注和 ${timerPreferences().pomodoroBreakMinutes} 分钟短休息之间切换。进入休息阶段后，仍可补记刚结束的上一轮专注。`;
+  const isModeSwitchLocked = () =>
+    timerSnapshot().modeSwitchLocked ||
+    timerSnapshot().isRunning ||
+    timerSnapshot().elapsedMs > 0 ||
+    timerSnapshot().phaseKey === "break" ||
+    timerSnapshot().completedFocusCount > 0 ||
+    timerSnapshot().completedBreakCount > 0;
+  const modeSwitchLockedHint = () =>
+    timerSnapshot().modeSwitchHint || copy.modeSwitchLockedHint;
   const pendingTodoCount = () =>
     todoItems().filter((item) => !item.isCompleted).length;
   const completedTodoCount = () =>
@@ -1145,6 +1211,7 @@ function MainShell() {
   ) {
     setTimerSnapshot(nextTimerSnapshot);
     if (syncDraft) {
+      handledAlertSequence = nextTimerSnapshot.alertSequence;
       setCurrentTaskTitle(nextTimerSnapshot.activeTaskTitle);
       setLinkedTodoId(nextTimerSnapshot.linkedTodoId);
       timerContextHydrated = true;
@@ -1154,6 +1221,12 @@ function MainShell() {
   async function refreshTimerSnapshot(syncDraft = false) {
     const nextTimerSnapshot = await getTimerSnapshot();
     applyTimerSnapshot(nextTimerSnapshot, syncDraft);
+  }
+
+  async function refreshTimerPreferences() {
+    const nextPreferences = await getTimerPreferences();
+    setTimerPreferences(nextPreferences);
+    setTimerPreferencesDraft(nextPreferences);
   }
 
   async function refreshFocusRecords() {
@@ -1188,6 +1261,62 @@ function MainShell() {
           : copy.ready
       );
     }
+  }
+
+  async function handleSaveTimerPreferences() {
+    if (timerPreferencesBusy()) {
+      return;
+    }
+
+    const draft = timerPreferencesDraft();
+    if (draft.pomodoroFocusMinutes < 5 || draft.pomodoroFocusMinutes > 90) {
+      setTimerPreferencesFeedback(copy.pomodoroMinimumHint);
+      return;
+    }
+
+    if (draft.pomodoroBreakMinutes < 1 || draft.pomodoroBreakMinutes > 30) {
+      setTimerPreferencesFeedback(copy.breakMinimumHint);
+      return;
+    }
+
+    if (
+      draft.stopwatchReminderMinutes !== null &&
+      (draft.stopwatchReminderMinutes < 1 || draft.stopwatchReminderMinutes > 720)
+    ) {
+      setTimerPreferencesFeedback(copy.reminderMinimumHint);
+      return;
+    }
+
+    setTimerPreferencesBusy(true);
+    setTimerPreferencesFeedback(null);
+
+    try {
+      const nextPreferences = await updateTimerPreferences(draft);
+      setTimerPreferences(nextPreferences);
+      setTimerPreferencesDraft(nextPreferences);
+      await refreshTimerSnapshot();
+      setStatusText(copy.settingsSaved);
+      setTimerPreferencesFeedback(copy.settingsSaved);
+    } catch (error) {
+      const message = getErrorMessage(error);
+      setStatusText(message);
+      setTimerPreferencesFeedback(message);
+    } finally {
+      setTimerPreferencesBusy(false);
+    }
+  }
+
+  function handleModeSwitch(nextMode: "stopwatch" | "pomodoro") {
+    if (timerBusy()) {
+      return;
+    }
+
+    if (isModeSwitchLocked()) {
+      setStatusText(modeSwitchLockedHint());
+      return;
+    }
+
+    void runTimerAction(() => switchTimerMode(nextMode));
   }
 
   async function runTimerAction(action: () => Promise<TimerSnapshot>) {
@@ -1338,6 +1467,7 @@ function MainShell() {
       setEditingTodoDraft(createDefaultTodoDraft());
       setTodoDraft(createDefaultTodoDraft());
       await refreshTimerSnapshot();
+      await refreshTimerPreferences();
       await refreshFocusRecords();
       await refreshTodoItems();
       await refreshAnalyticsSummary();
@@ -1444,6 +1574,54 @@ function MainShell() {
     });
   }
 
+  async function fireTimerAlert(snapshot: TimerSnapshot) {
+    if (!snapshot.alertKey || !snapshot.alertTitle) {
+      return;
+    }
+
+    const preferences = timerPreferences();
+    const alertMessage = snapshot.alertMessage ?? copy.alertWindowAttentionFallback;
+
+    if (
+      preferences.toastReminderEnabled &&
+      typeof Notification !== "undefined"
+    ) {
+      try {
+        if (Notification.permission === "default") {
+          await Notification.requestPermission();
+        }
+
+        if (Notification.permission === "granted") {
+          new Notification(snapshot.alertTitle, {
+            body: alertMessage,
+          });
+        }
+      } catch {
+        // Ignore notification permission/runtime errors and keep the app usable.
+      }
+    }
+
+    if (preferences.windowAttentionReminderEnabled) {
+      try {
+        await getCurrentWindow().requestUserAttention(
+          UserAttentionType.Informational
+        );
+      } catch {
+        // Ignore transient attention request failures.
+      }
+    }
+  }
+
+  createEffect(() => {
+    const snapshot = timerSnapshot();
+    if (snapshot.alertSequence <= handledAlertSequence) {
+      return;
+    }
+
+    handledAlertSequence = snapshot.alertSequence;
+    void fireTimerAlert(snapshot);
+  });
+
   onMount(async () => {
     let pollingTimerId: number | null = null;
     let disposed = false;
@@ -1471,16 +1649,18 @@ function MainShell() {
       const criticalResults = await Promise.allSettled([
         refreshTimerSnapshot(true),
         refreshTodoItems(),
+        refreshTimerPreferences(),
       ]);
 
       const timerResult = criticalResults[0];
       const todoResult = criticalResults[1];
+      const preferencesResult = criticalResults[2];
 
       if (timerResult?.status === "rejected") {
         throw timerResult.reason;
       }
 
-      if (todoResult?.status === "rejected") {
+      if (todoResult?.status === "rejected" || preferencesResult?.status === "rejected") {
         setStatusText(copy.reviewPartial);
       } else {
         setStatusText(
@@ -1633,8 +1813,8 @@ function MainShell() {
                       "mode-chip": true,
                       "mode-chip--active": timerSnapshot().modeKey === "stopwatch",
                     }}
-                    disabled={timerBusy()}
-                    onClick={() => void runTimerAction(() => switchTimerMode("stopwatch"))}
+                    disabled={timerBusy() || isModeSwitchLocked()}
+                    onClick={() => handleModeSwitch("stopwatch")}
                   >
                     {copy.stopwatchMode}
                   </button>
@@ -1644,13 +1824,142 @@ function MainShell() {
                       "mode-chip": true,
                       "mode-chip--active": timerSnapshot().modeKey === "pomodoro",
                     }}
-                    disabled={timerBusy()}
-                    onClick={() => void runTimerAction(() => switchTimerMode("pomodoro"))}
+                    disabled={timerBusy() || isModeSwitchLocked()}
+                    onClick={() => handleModeSwitch("pomodoro")}
                   >
                     {copy.pomodoroMode}
                   </button>
                 </div>
+                <Show when={isModeSwitchLocked()}>
+                  <p class="mode-switch__hint">{modeSwitchLockedHint()}</p>
+                </Show>
               </div>
+
+              <section class="timer-settings">
+                <div class="timer-settings__header">
+                  <div>
+                    <span class="eyebrow">{copy.settingsEyebrow}</span>
+                    <h3>{copy.settingsTitle}</h3>
+                    <p>{copy.settingsSummary}</p>
+                  </div>
+                  <button
+                    type="button"
+                    class="mode-chip timer-settings__toggle"
+                    onClick={() => setShowTimerSettings((current) => !current)}
+                  >
+                    {showTimerSettings()
+                      ? copy.settingsToggleClose
+                      : copy.settingsToggleOpen}
+                  </button>
+                </div>
+
+                <Show when={showTimerSettings()}>
+                  <div class="timer-settings__body">
+                    <div class="timer-settings__grid">
+                      <label class="todo-form-field">
+                        <span>{copy.pomodoroFocusMinutesLabel}</span>
+                        <input
+                          class="task-input"
+                          type="number"
+                          min="5"
+                          max="90"
+                          value={timerPreferencesDraft().pomodoroFocusMinutes}
+                          onInput={(event) =>
+                            setTimerPreferencesDraft((current) => ({
+                              ...current,
+                              pomodoroFocusMinutes: Number(event.currentTarget.value || 0),
+                            }))
+                          }
+                          onBlur={() => setTimerPreferencesFeedback(null)}
+                        />
+                        <small>{copy.pomodoroMinimumHint}</small>
+                      </label>
+
+                      <label class="todo-form-field">
+                        <span>{copy.pomodoroBreakMinutesLabel}</span>
+                        <input
+                          class="task-input"
+                          type="number"
+                          min="1"
+                          max="30"
+                          value={timerPreferencesDraft().pomodoroBreakMinutes}
+                          onInput={(event) =>
+                            setTimerPreferencesDraft((current) => ({
+                              ...current,
+                              pomodoroBreakMinutes: Number(event.currentTarget.value || 0),
+                            }))
+                          }
+                          onBlur={() => setTimerPreferencesFeedback(null)}
+                        />
+                      </label>
+
+                      <label class="todo-form-field timer-settings__field--wide">
+                        <span>{copy.stopwatchReminderMinutesLabel}</span>
+                        <input
+                          class="task-input"
+                          type="number"
+                          min="1"
+                          max="720"
+                          placeholder={copy.stopwatchReminderMinutesHint}
+                          value={timerPreferencesDraft().stopwatchReminderMinutes ?? ""}
+                          onInput={(event) =>
+                            setTimerPreferencesDraft((current) => ({
+                              ...current,
+                              stopwatchReminderMinutes: event.currentTarget.value.trim()
+                                ? Number(event.currentTarget.value)
+                                : null,
+                            }))
+                          }
+                          onBlur={() => setTimerPreferencesFeedback(null)}
+                        />
+                        <small>{copy.stopwatchReminderMinutesHint}</small>
+                      </label>
+                    </div>
+
+                    <div class="timer-settings__toggles">
+                      <label class="toggle-chip">
+                        <input
+                          type="checkbox"
+                          checked={timerPreferencesDraft().toastReminderEnabled}
+                          onChange={(event) =>
+                            setTimerPreferencesDraft((current) => ({
+                              ...current,
+                              toastReminderEnabled: event.currentTarget.checked,
+                            }))
+                          }
+                        />
+                        <span>{copy.toastReminderLabel}</span>
+                      </label>
+
+                      <label class="toggle-chip">
+                        <input
+                          type="checkbox"
+                          checked={timerPreferencesDraft().windowAttentionReminderEnabled}
+                          onChange={(event) =>
+                            setTimerPreferencesDraft((current) => ({
+                              ...current,
+                              windowAttentionReminderEnabled: event.currentTarget.checked,
+                            }))
+                          }
+                        />
+                        <span>{copy.windowAttentionReminderLabel}</span>
+                      </label>
+                    </div>
+
+                    <button
+                      type="button"
+                      class="action-button"
+                      disabled={timerPreferencesBusy()}
+                      onClick={() => void handleSaveTimerPreferences()}
+                    >
+                      {copy.settingsSave}
+                    </button>
+                    <Show when={timerPreferencesFeedback()}>
+                      <p class="timer-settings__feedback">{timerPreferencesFeedback()}</p>
+                    </Show>
+                  </div>
+                </Show>
+              </section>
 
               <div class="task-entry">
                 <div class="task-entry__copy">
@@ -1727,7 +2036,23 @@ function MainShell() {
               )}
               <div class="timer-display">{timerSnapshot().elapsedLabel}</div>
               {timerSnapshot().modeKey === "pomodoro" && (
-                <p class="timer-mode-hint">{copy.pomodoroHint}</p>
+                <div class="timer-mode-meta">
+                  <p class="timer-mode-hint">{pomodoroHintText()}</p>
+                  <div class="timer-round-grid">
+                    <article class="timer-round-card">
+                      <span>{copy.roundProgressLabel}</span>
+                      <strong>{`第 ${timerSnapshot().currentRound} 轮`}</strong>
+                    </article>
+                    <article class="timer-round-card">
+                      <span>{copy.roundProgressFocusCount}</span>
+                      <strong>{timerSnapshot().completedFocusCount}</strong>
+                    </article>
+                    <article class="timer-round-card">
+                      <span>{copy.roundProgressBreakCount}</span>
+                      <strong>{timerSnapshot().completedBreakCount}</strong>
+                    </article>
+                  </div>
+                </div>
               )}
 
               <div class="timer-actions">

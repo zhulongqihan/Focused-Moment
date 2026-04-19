@@ -15,10 +15,17 @@ use tauri::menu::{MenuBuilder, MenuItemBuilder};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Manager, Window, WindowEvent};
 
-const POMODORO_FOCUS_MS: u64 = 25 * 60 * 1000;
-const POMODORO_BREAK_MS: u64 = 5 * 60 * 1000;
 const TRAY_SHOW_ID: &str = "tray_show_main";
 const TRAY_QUIT_ID: &str = "tray_quit_app";
+
+const DEFAULT_POMODORO_FOCUS_MINUTES: u64 = 25;
+const DEFAULT_POMODORO_BREAK_MINUTES: u64 = 5;
+const MIN_POMODORO_FOCUS_MINUTES: u64 = 5;
+const MAX_POMODORO_FOCUS_MINUTES: u64 = 90;
+const MIN_POMODORO_BREAK_MINUTES: u64 = 1;
+const MAX_POMODORO_BREAK_MINUTES: u64 = 30;
+const MIN_STOPWATCH_REMINDER_MINUTES: u64 = 1;
+const MAX_STOPWATCH_REMINDER_MINUTES: u64 = 12 * 60;
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -82,7 +89,159 @@ struct TimerSnapshot {
     completed_focus_count: u64,
     completed_break_count: u64,
     recovered_from_last_session: bool,
+    mode_switch_locked: bool,
+    mode_switch_hint: Option<String>,
     alert_sequence: u64,
+    alert_key: Option<&'static str>,
+    alert_title: Option<&'static str>,
+    alert_message: Option<String>,
+}
+
+#[derive(Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TimerPreferences {
+    pomodoro_focus_minutes: u64,
+    pomodoro_break_minutes: u64,
+    stopwatch_reminder_minutes: Option<u64>,
+    toast_reminder_enabled: bool,
+    window_attention_reminder_enabled: bool,
+}
+
+impl Default for TimerPreferences {
+    fn default() -> Self {
+        Self {
+            pomodoro_focus_minutes: DEFAULT_POMODORO_FOCUS_MINUTES,
+            pomodoro_break_minutes: DEFAULT_POMODORO_BREAK_MINUTES,
+            stopwatch_reminder_minutes: None,
+            toast_reminder_enabled: true,
+            window_attention_reminder_enabled: true,
+        }
+    }
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TimerPreferencesSnapshot {
+    pomodoro_focus_minutes: u64,
+    pomodoro_break_minutes: u64,
+    stopwatch_reminder_minutes: Option<u64>,
+    toast_reminder_enabled: bool,
+    window_attention_reminder_enabled: bool,
+}
+
+#[derive(Clone, Copy, Eq, PartialEq)]
+enum AlertKind {
+    PomodoroFocusComplete,
+    PomodoroBreakComplete,
+    StopwatchTargetReached,
+}
+
+impl AlertKind {
+    fn key(self) -> &'static str {
+        match self {
+            AlertKind::PomodoroFocusComplete => "pomodoro_focus_complete",
+            AlertKind::PomodoroBreakComplete => "pomodoro_break_complete",
+            AlertKind::StopwatchTargetReached => "stopwatch_target_reached",
+        }
+    }
+
+    fn title(self) -> &'static str {
+        match self {
+            AlertKind::PomodoroFocusComplete => "本轮番茄已完成",
+            AlertKind::PomodoroBreakComplete => "休息时间结束了",
+            AlertKind::StopwatchTargetReached => "正向计时已到达目标",
+        }
+    }
+
+    fn message(self, preferences: TimerPreferences) -> String {
+        match self {
+            AlertKind::PomodoroFocusComplete => format!(
+                "已经完成一轮 {} 分钟专注，可以休息一下，或者直接补记这轮专注。",
+                preferences.pomodoro_focus_minutes
+            ),
+            AlertKind::PomodoroBreakComplete => format!(
+                "{} 分钟休息已经结束，可以回来继续下一轮专注了。",
+                preferences.pomodoro_break_minutes
+            ),
+            AlertKind::StopwatchTargetReached => {
+                if let Some(minutes) = preferences.stopwatch_reminder_minutes {
+                    format!("已经达到你设置的 {} 分钟提醒目标。", minutes)
+                } else {
+                    "已经达到这轮正向计时的提醒目标。".to_string()
+                }
+            }
+        }
+    }
+}
+
+impl TimerPreferences {
+    fn snapshot(self) -> TimerPreferencesSnapshot {
+        TimerPreferencesSnapshot {
+            pomodoro_focus_minutes: self.pomodoro_focus_minutes,
+            pomodoro_break_minutes: self.pomodoro_break_minutes,
+            stopwatch_reminder_minutes: self.stopwatch_reminder_minutes,
+            toast_reminder_enabled: self.toast_reminder_enabled,
+            window_attention_reminder_enabled: self.window_attention_reminder_enabled,
+        }
+    }
+
+    fn normalized(self) -> Result<Self, String> {
+        let focus_minutes = self
+            .pomodoro_focus_minutes
+            .clamp(MIN_POMODORO_FOCUS_MINUTES, MAX_POMODORO_FOCUS_MINUTES);
+        let break_minutes = self
+            .pomodoro_break_minutes
+            .clamp(MIN_POMODORO_BREAK_MINUTES, MAX_POMODORO_BREAK_MINUTES);
+        let stopwatch_reminder_minutes = match self.stopwatch_reminder_minutes {
+            Some(minutes) if minutes == 0 => None,
+            Some(minutes) => Some(minutes.clamp(
+                MIN_STOPWATCH_REMINDER_MINUTES,
+                MAX_STOPWATCH_REMINDER_MINUTES,
+            )),
+            None => None,
+        };
+
+        if self.pomodoro_focus_minutes < MIN_POMODORO_FOCUS_MINUTES
+            || self.pomodoro_focus_minutes > MAX_POMODORO_FOCUS_MINUTES
+        {
+            return Err("番茄专注时长需要在 5 到 90 分钟之间。".to_string());
+        }
+
+        if self.pomodoro_break_minutes < MIN_POMODORO_BREAK_MINUTES
+            || self.pomodoro_break_minutes > MAX_POMODORO_BREAK_MINUTES
+        {
+            return Err("番茄休息时长需要在 1 到 30 分钟之间。".to_string());
+        }
+
+        if let Some(minutes) = self.stopwatch_reminder_minutes {
+            if !(MIN_STOPWATCH_REMINDER_MINUTES..=MAX_STOPWATCH_REMINDER_MINUTES)
+                .contains(&minutes)
+            {
+                return Err("正向计时提醒需要在 1 到 720 分钟之间，或留空关闭。".to_string());
+            }
+        }
+
+        Ok(Self {
+            pomodoro_focus_minutes: focus_minutes,
+            pomodoro_break_minutes: break_minutes,
+            stopwatch_reminder_minutes,
+            toast_reminder_enabled: self.toast_reminder_enabled,
+            window_attention_reminder_enabled: self.window_attention_reminder_enabled,
+        })
+    }
+
+    fn pomodoro_focus_ms(self) -> u64 {
+        self.pomodoro_focus_minutes.saturating_mul(60_000)
+    }
+
+    fn pomodoro_break_ms(self) -> u64 {
+        self.pomodoro_break_minutes.saturating_mul(60_000)
+    }
+
+    fn stopwatch_reminder_ms(self) -> Option<u64> {
+        self.stopwatch_reminder_minutes
+            .map(|minutes| minutes.saturating_mul(60_000))
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -191,6 +350,7 @@ struct RunAnchor {
 
 struct TimerEngineState {
     timer: Mutex<TimerEngine>,
+    timer_preferences: Mutex<TimerPreferences>,
     focus_records: Mutex<Vec<FocusRecord>>,
     next_record_id: Mutex<u64>,
     todo_items: Mutex<Vec<TodoItem>>,
@@ -211,6 +371,12 @@ struct TimerEngine {
     completed_focus_count: u64,
     completed_break_count: u64,
     recovered_from_last_session: bool,
+    pomodoro_focus_ms: u64,
+    pomodoro_break_ms: u64,
+    stopwatch_reminder_ms: Option<u64>,
+    stopwatch_target_alerted: bool,
+    alert_sequence: u64,
+    active_alert_kind: Option<AlertKind>,
 }
 
 struct CompletedSession {
@@ -260,12 +426,19 @@ impl TimerEngineState {
             next_record_id,
             mut todo_items,
             next_todo_id,
+            timer_preferences,
         } = persisted;
 
         sort_focus_records(&mut focus_records);
         sort_todo_items(&mut todo_items);
 
-        let mut timer = TimerEngine::from_persisted_runtime(persisted_runtime);
+        let normalized_preferences = timer_preferences
+            .normalized()
+            .unwrap_or_else(|_| TimerPreferences::default());
+        let mut timer = TimerEngine::from_persisted_runtime(
+            persisted_runtime,
+            normalized_preferences,
+        );
         if let Some(linked_todo_id) = timer.linked_todo_id {
             if !todo_items.iter().any(|item| item.id == linked_todo_id) {
                 timer.linked_todo_id = None;
@@ -274,6 +447,7 @@ impl TimerEngineState {
 
         Self {
             timer: Mutex::new(timer),
+            timer_preferences: Mutex::new(normalized_preferences),
             next_record_id: Mutex::new(next_record_id.max(next_focus_record_id(&focus_records))),
             focus_records: Mutex::new(focus_records),
             next_todo_id: Mutex::new(next_todo_id.max(next_todo_id_value(&todo_items))),
@@ -310,6 +484,10 @@ impl TimerEngineState {
                 .clone(),
             next_todo_id: *self.next_todo_id.lock().map_err(|_| {
                 "\u{4efb}\u{52a1}\u{7f16}\u{53f7}\u{72b6}\u{6001}\u{9501}\u{5b9a}\u{5931}\u{8d25}"
+                    .to_string()
+            })?,
+            timer_preferences: *self.timer_preferences.lock().map_err(|_| {
+                "\u{8ba1}\u{65f6}\u{8bbe}\u{7f6e}\u{72b6}\u{6001}\u{9501}\u{5b9a}\u{5931}\u{8d25}"
                     .to_string()
             })?,
         };
@@ -381,6 +559,14 @@ impl TimerEngineState {
             *next_todo_id = 0;
         }
 
+        {
+            let mut preferences = self.timer_preferences.lock().map_err(|_| {
+                "\u{8ba1}\u{65f6}\u{8bbe}\u{7f6e}\u{72b6}\u{6001}\u{9501}\u{5b9a}\u{5931}\u{8d25}"
+                    .to_string()
+            })?;
+            *preferences = TimerPreferences::default();
+        }
+
         self.persist()?;
 
         if let Some(store) = &self.persistence {
@@ -392,7 +578,10 @@ impl TimerEngineState {
 }
 
 impl TimerEngine {
-    fn from_persisted_runtime(runtime: PersistedRuntimeState) -> Self {
+    fn from_persisted_runtime(
+        runtime: PersistedRuntimeState,
+        preferences: TimerPreferences,
+    ) -> Self {
         let mode = parse_mode_key_value(&runtime.mode_key).unwrap_or_default();
         let pomodoro_phase = parse_phase_key_value(&runtime.pomodoro_phase_key).unwrap_or_default();
         let has_task_title = !runtime.current_task_title.trim().is_empty();
@@ -415,6 +604,15 @@ impl TimerEngine {
             linked_todo_id: runtime.linked_todo_id,
             completed_focus_count: runtime.completed_focus_count,
             completed_break_count: runtime.completed_break_count,
+            pomodoro_focus_ms: preferences.pomodoro_focus_ms(),
+            pomodoro_break_ms: preferences.pomodoro_break_ms(),
+            stopwatch_reminder_ms: preferences.stopwatch_reminder_ms(),
+            stopwatch_target_alerted: runtime.stopwatch_target_alerted,
+            alert_sequence: runtime.alert_sequence,
+            active_alert_kind: runtime
+                .active_alert_key
+                .as_deref()
+                .and_then(parse_alert_key_value),
             recovered_from_last_session: runtime.is_running
                 || runtime.stopwatch_elapsed_ms > 0
                 || runtime.pomodoro_elapsed_ms > 0
@@ -440,6 +638,26 @@ impl TimerEngine {
             linked_todo_id: self.linked_todo_id,
             completed_focus_count: self.completed_focus_count,
             completed_break_count: self.completed_break_count,
+            alert_sequence: self.alert_sequence,
+            active_alert_key: self.active_alert_kind.map(|kind| kind.key().to_string()),
+            stopwatch_target_alerted: self.stopwatch_target_alerted,
+        }
+    }
+
+    fn apply_preferences(&mut self, preferences: TimerPreferences) {
+        self.pomodoro_focus_ms = preferences.pomodoro_focus_ms();
+        self.pomodoro_break_ms = preferences.pomodoro_break_ms();
+        self.stopwatch_reminder_ms = preferences.stopwatch_reminder_ms();
+        if self.stopwatch_reminder_ms.is_none() {
+            self.stopwatch_target_alerted = false;
+        } else if self.mode == TimerMode::Stopwatch {
+            let target_ms = self.stopwatch_reminder_ms.unwrap_or(0);
+            if self.stopwatch_elapsed_ms < target_ms {
+                self.stopwatch_target_alerted = false;
+            } else if !self.stopwatch_target_alerted {
+                self.stopwatch_target_alerted = true;
+                self.mark_alert(AlertKind::StopwatchTargetReached);
+            }
         }
     }
 
@@ -457,6 +675,15 @@ impl TimerEngine {
         self.recovered_from_last_session = false;
     }
 
+    fn clear_alert(&mut self) {
+        self.active_alert_kind = None;
+    }
+
+    fn mark_alert(&mut self, alert_kind: AlertKind) {
+        self.alert_sequence = self.alert_sequence.saturating_add(1);
+        self.active_alert_kind = Some(alert_kind);
+    }
+
     fn current_round(&self) -> u64 {
         match self.mode {
             TimerMode::Stopwatch => 1,
@@ -464,6 +691,23 @@ impl TimerEngine {
                 PomodoroPhase::Focus => self.completed_focus_count + 1,
                 PomodoroPhase::Break => self.completed_focus_count.max(1),
             },
+        }
+    }
+
+    fn has_unsubmitted_progress(&self) -> bool {
+        self.running_anchor.is_some()
+            || self.stopwatch_elapsed_ms > 0
+            || self.pomodoro_elapsed_ms > 0
+            || self.pending_pomodoro_record_ms.is_some()
+            || self.completed_focus_count > 0
+            || self.completed_break_count > 0
+    }
+
+    fn mode_switch_hint(&self) -> Option<String> {
+        if self.has_unsubmitted_progress() {
+            Some("当前这轮专注还有未提交进度，请先完成记录或重置后再切换模式。".to_string())
+        } else {
+            None
         }
     }
 
@@ -486,6 +730,8 @@ impl TimerEngine {
         self.clear_context();
         self.completed_focus_count = 0;
         self.completed_break_count = 0;
+        self.stopwatch_target_alerted = false;
+        self.clear_alert();
         self.clear_recovery_flag();
 
         match self.mode {
@@ -509,6 +755,8 @@ impl TimerEngine {
         self.clear_context();
         self.completed_focus_count = 0;
         self.completed_break_count = 0;
+        self.stopwatch_target_alerted = false;
+        self.clear_alert();
         self.clear_recovery_flag();
 
         match self.mode {
@@ -534,6 +782,8 @@ impl TimerEngine {
                 self.stopwatch_elapsed_ms = 0;
                 self.running_anchor = None;
                 self.clear_context();
+                self.stopwatch_target_alerted = false;
+                self.clear_alert();
                 self.clear_recovery_flag();
 
                 Ok(CompletedSession {
@@ -545,6 +795,7 @@ impl TimerEngine {
             }
             TimerMode::Pomodoro => {
                 if let Some(elapsed_ms) = self.pending_pomodoro_record_ms.take() {
+                    self.clear_alert();
                     return Ok(CompletedSession {
                         duration_ms: elapsed_ms,
                         mode_key: "pomodoro",
@@ -573,6 +824,7 @@ impl TimerEngine {
                 self.running_anchor = None;
                 self.completed_focus_count = self.completed_focus_count.saturating_add(1);
                 self.clear_context();
+                self.clear_alert();
                 self.clear_recovery_flag();
 
                 Ok(CompletedSession {
@@ -604,6 +856,8 @@ impl TimerEngine {
             "\u{5df2}\u{6682}\u{505c}"
         };
 
+        let active_alert_kind = self.active_alert_kind;
+        let mode_switch_hint = self.mode_switch_hint();
         TimerSnapshot {
             mode_key: "stopwatch",
             phase_key: "stopwatch",
@@ -621,7 +875,13 @@ impl TimerEngine {
             completed_focus_count: self.completed_focus_count,
             completed_break_count: self.completed_break_count,
             recovered_from_last_session: self.recovered_from_last_session,
-            alert_sequence: 0,
+            mode_switch_locked: mode_switch_hint.is_some(),
+            mode_switch_hint,
+            alert_sequence: self.alert_sequence,
+            alert_key: active_alert_kind.map(|kind| kind.key()),
+            alert_title: active_alert_kind.map(|kind| kind.title()),
+            alert_message: active_alert_kind
+                .map(|kind| kind.message(self.active_preferences())),
         }
     }
 
@@ -650,6 +910,8 @@ impl TimerEngine {
             PomodoroPhase::Break => "\u{4f11}\u{606f}\u{5269}\u{4f59}\u{65f6}\u{95f4}",
         };
 
+        let active_alert_kind = self.active_alert_kind;
+        let mode_switch_hint = self.mode_switch_hint();
         TimerSnapshot {
             mode_key: "pomodoro",
             phase_key: match self.pomodoro_phase {
@@ -671,14 +933,32 @@ impl TimerEngine {
             completed_focus_count: self.completed_focus_count,
             completed_break_count: self.completed_break_count,
             recovered_from_last_session: self.recovered_from_last_session,
-            alert_sequence: 0,
+            mode_switch_locked: mode_switch_hint.is_some(),
+            mode_switch_hint,
+            alert_sequence: self.alert_sequence,
+            alert_key: active_alert_kind.map(|kind| kind.key()),
+            alert_title: active_alert_kind.map(|kind| kind.title()),
+            alert_message: active_alert_kind
+                .map(|kind| kind.message(self.active_preferences())),
         }
     }
 
     fn current_pomodoro_duration_ms(&self) -> u64 {
         match self.pomodoro_phase {
-            PomodoroPhase::Focus => POMODORO_FOCUS_MS,
-            PomodoroPhase::Break => POMODORO_BREAK_MS,
+            PomodoroPhase::Focus => self.pomodoro_focus_ms,
+            PomodoroPhase::Break => self.pomodoro_break_ms,
+        }
+    }
+
+    fn active_preferences(&self) -> TimerPreferences {
+        TimerPreferences {
+            pomodoro_focus_minutes: (self.pomodoro_focus_ms / 60_000).max(1),
+            pomodoro_break_minutes: (self.pomodoro_break_ms / 60_000).max(1),
+            stopwatch_reminder_minutes: self
+                .stopwatch_reminder_ms
+                .map(|milliseconds| (milliseconds / 60_000).max(1)),
+            toast_reminder_enabled: true,
+            window_attention_reminder_enabled: true,
         }
     }
 
@@ -694,7 +974,17 @@ impl TimerEngine {
 
         match self.mode {
             TimerMode::Stopwatch => {
+                let previous_elapsed_ms = self.stopwatch_elapsed_ms;
                 self.stopwatch_elapsed_ms = self.stopwatch_elapsed_ms.saturating_add(delta_ms);
+                if let Some(target_ms) = self.stopwatch_reminder_ms {
+                    if previous_elapsed_ms < target_ms
+                        && self.stopwatch_elapsed_ms >= target_ms
+                        && !self.stopwatch_target_alerted
+                    {
+                        self.stopwatch_target_alerted = true;
+                        self.mark_alert(AlertKind::StopwatchTargetReached);
+                    }
+                }
             }
             TimerMode::Pomodoro => {
                 let mut total_elapsed = self.pomodoro_elapsed_ms.saturating_add(delta_ms);
@@ -711,12 +1001,14 @@ impl TimerEngine {
                         self.pending_pomodoro_record_ms = Some(phase_duration);
                         self.completed_focus_count =
                             self.completed_focus_count.saturating_add(1);
+                        self.mark_alert(AlertKind::PomodoroFocusComplete);
                     }
                     self.pomodoro_phase = match self.pomodoro_phase {
                         PomodoroPhase::Focus => PomodoroPhase::Break,
                         PomodoroPhase::Break => {
                             self.completed_break_count =
                                 self.completed_break_count.saturating_add(1);
+                            self.mark_alert(AlertKind::PomodoroBreakComplete);
                             PomodoroPhase::Focus
                         }
                     };
@@ -797,6 +1089,15 @@ fn parse_phase_key_value(value: &str) -> Result<PomodoroPhase, String> {
         "focus" => Ok(PomodoroPhase::Focus),
         "break" => Ok(PomodoroPhase::Break),
         _ => Err("\u{4e0d}\u{652f}\u{6301}\u{7684}\u{756a}\u{8304}\u{95f4}\u{9694}\u{9636}\u{6bb5}".to_string()),
+    }
+}
+
+fn parse_alert_key_value(value: &str) -> Option<AlertKind> {
+    match value {
+        "pomodoro_focus_complete" => Some(AlertKind::PomodoroFocusComplete),
+        "pomodoro_break_complete" => Some(AlertKind::PomodoroBreakComplete),
+        "stopwatch_target_reached" => Some(AlertKind::StopwatchTargetReached),
+        _ => None,
     }
 }
 
@@ -1053,8 +1354,8 @@ fn resolve_export_directory() -> Result<PathBuf, String> {
 fn bootstrap_shell() -> ShellSnapshot {
     ShellSnapshot {
         product_name: "Focused Moment",
-        version: "1.2.8",
-        milestone: "v1.2.8 \u{56fe}\u{6807}\u{4e0e} Windows \u{6253}\u{5305}\u{6536}\u{5c3e}\u{7248}",
+        version: "1.3.0",
+        milestone: "v1.3.0 \u{8ba1}\u{65f6}\u{8bbe}\u{7f6e}\u{4e0e}\u{63d0}\u{9192}\u{57fa}\u{7840}\u{7248}",
         slogan: "\u{7528}\u{66f4}\u{8f7b}\u{7684}\u{65b9}\u{5f0f}\u{4e13}\u{6ce8}\u{3001}\u{5b89}\u{6392}\u{548c}\u{590d}\u{76d8}\u{6bcf}\u{4e00}\u{5929}\u{3002}",
         surfaces: vec![
             ShellPanel {
@@ -1090,9 +1391,9 @@ fn bootstrap_shell() -> ShellSnapshot {
             ShellPanel {
                 id: "focus-reminders",
                 title: "\u{4e13}\u{6ce8}\u{63d0}\u{9192}",
-                phase: "\u{9884}\u{7559}",
-                status: "\u{672a}\u{6765}\u{6269}\u{5c55}",
-                summary: "\u{4e3a}\u{756a}\u{8304}\u{7ed3}\u{675f}\u{3001}\u{6b63}\u{5411}\u{8ba1}\u{65f6}\u{5230}\u{70b9}\u{548c}\u{7a97}\u{53e3}\u{5524}\u{8d77}\u{4fdd}\u{7559}\u{7a33}\u{5b9a}\u{7684}\u{63d0}\u{9192}\u{63a5}\u{5165}\u{4f4d}\u{7f6e}\u{3002}",
+                phase: "v1.3.0",
+                status: "\u{5df2}\u{63a5}\u{5165}",
+                summary: "\u{756a}\u{8304}\u{4e13}\u{6ce8}\u{7ed3}\u{675f}\u{3001}\u{4f11}\u{606f}\u{7ed3}\u{675f}\u{4e0e}\u{6b63}\u{5411}\u{8ba1}\u{65f6}\u{5230}\u{70b9}\u{73b0}\u{5728}\u{90fd}\u{53ef}\u{4ee5}\u{89e6}\u{53d1}\u{7cfb}\u{7edf}\u{901a}\u{77e5}\u{6216}\u{7a97}\u{53e3}\u{63d0}\u{9192}\u{3002}",
             },
             ShellPanel {
                 id: "session-recovery",
@@ -1115,6 +1416,42 @@ fn bootstrap_shell() -> ShellSnapshot {
 #[tauri::command]
 fn get_timer_snapshot(state: tauri::State<'_, TimerEngineState>) -> Result<TimerSnapshot, String> {
     with_timer_engine(&state, |engine| Ok(engine.snapshot()))
+}
+
+#[tauri::command]
+fn get_timer_preferences(
+    state: tauri::State<'_, TimerEngineState>,
+) -> Result<TimerPreferencesSnapshot, String> {
+    let preferences = *state.timer_preferences.lock().map_err(|_| {
+        "计时设置状态锁定失败".to_string()
+    })?;
+
+    Ok(preferences.snapshot())
+}
+
+#[tauri::command]
+fn update_timer_preferences(
+    state: tauri::State<'_, TimerEngineState>,
+    preferences: TimerPreferences,
+) -> Result<TimerPreferencesSnapshot, String> {
+    let normalized_preferences = preferences.normalized()?;
+
+    {
+        let mut engine = state.timer.lock().map_err(|_| {
+            "计时引擎状态锁定失败".to_string()
+        })?;
+        engine.apply_preferences(normalized_preferences);
+    }
+
+    {
+        let mut stored_preferences = state.timer_preferences.lock().map_err(|_| {
+            "计时设置状态锁定失败".to_string()
+        })?;
+        *stored_preferences = normalized_preferences;
+    }
+
+    state.persist_all()?;
+    Ok(normalized_preferences.snapshot())
 }
 
 #[tauri::command]
@@ -1153,6 +1490,12 @@ fn switch_timer_mode(
 ) -> Result<TimerSnapshot, String> {
     let next_mode = parse_mode(&mode)?;
     let snapshot = with_timer_engine(&state, |engine| {
+        if engine.mode != next_mode && engine.has_unsubmitted_progress() {
+            return Err(
+                "当前计时还有未提交的进度，请先完成记录或重置后再切换模式。"
+                    .to_string(),
+            );
+        }
         engine.switch_mode(next_mode);
         Ok(engine.snapshot())
     })?;
@@ -1674,6 +2017,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             bootstrap_shell,
             get_timer_snapshot,
+            get_timer_preferences,
+            update_timer_preferences,
             update_timer_context,
             switch_timer_mode,
             get_focus_records,

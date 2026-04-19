@@ -32,7 +32,20 @@ export interface TimerSnapshot {
   completedFocusCount: number;
   completedBreakCount: number;
   recoveredFromLastSession: boolean;
+  modeSwitchLocked: boolean;
+  modeSwitchHint: string | null;
   alertSequence: number;
+  alertKey: string | null;
+  alertTitle: string | null;
+  alertMessage: string | null;
+}
+
+export interface TimerPreferences {
+  pomodoroFocusMinutes: number;
+  pomodoroBreakMinutes: number;
+  stopwatchReminderMinutes: number | null;
+  toastReminderEnabled: boolean;
+  windowAttentionReminderEnabled: boolean;
 }
 
 export interface FocusRecord {

@@ -397,10 +397,93 @@ body {
   gap: 10px;
 }
 
+.timer-settings {
+  display: grid;
+  gap: 12px;
+  padding: 16px 18px;
+  border: 1px solid rgba(32, 40, 47, 0.06);
+  border-radius: 24px;
+  background: rgba(255, 252, 247, 0.76);
+}
+
+.timer-settings__header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.timer-settings__header h3 {
+  margin: 8px 0 6px;
+  font-size: 1.1rem;
+  letter-spacing: -0.03em;
+}
+
+.timer-settings__header p,
+.timer-settings__field--wide small {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.timer-settings__toggle {
+  flex-shrink: 0;
+}
+
+.timer-settings__body {
+  display: grid;
+  gap: 14px;
+}
+
+.timer-settings__feedback {
+  margin: 0;
+  color: var(--accent-strong);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.timer-settings__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.timer-settings__field--wide {
+  grid-column: 1 / -1;
+}
+
+.timer-settings__toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.toggle-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: rgba(255, 252, 247, 0.88);
+  color: var(--text-main);
+}
+
+.toggle-chip input {
+  margin: 0;
+  accent-color: var(--accent-strong);
+}
+
 .mode-switch__actions {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.mode-switch__hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.6;
 }
 
 .mode-chip {
@@ -564,6 +647,35 @@ body {
 .timer-focus-copy {
   font-size: 0.95rem;
   color: var(--accent-strong);
+}
+
+.timer-mode-meta {
+  display: grid;
+  gap: 12px;
+}
+
+.timer-round-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.timer-round-card {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid rgba(32, 40, 47, 0.06);
+  border-radius: 20px;
+  background: rgba(255, 252, 247, 0.82);
+}
+
+.timer-round-card span {
+  color: var(--text-soft);
+  font-size: 0.82rem;
+}
+
+.timer-round-card strong {
+  font-size: 1.08rem;
 }
 
 .timer-actions {
@@ -1883,6 +1995,10 @@ body {
   .trend-chart-card__detail {
     flex-direction: column;
   }
+
+  .timer-settings__header {
+    flex-direction: column;
+  }
 }
 
 @media (max-width: 820px) {
@@ -1967,7 +2083,9 @@ body {
   }
 
   .task-entry__controls,
-  .todo-form-grid {
+  .todo-form-grid,
+  .timer-settings__grid,
+  .timer-round-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 
