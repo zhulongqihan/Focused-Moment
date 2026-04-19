@@ -1354,8 +1354,8 @@ fn resolve_export_directory() -> Result<PathBuf, String> {
 fn bootstrap_shell() -> ShellSnapshot {
     ShellSnapshot {
         product_name: "Focused Moment",
-        version: "1.3.1",
-        milestone: "v1.3.1 \u{7a33}\u{5b9a}\u{6027}\u{4e0e}\u{4e3b}\u{754c}\u{9762}\u{51cf}\u{8d1f}\u{7248}",
+        version: "1.3.2",
+        milestone: "v1.3.2 \u{4e3b}\u{754c}\u{9762}\u{4fe1}\u{606f}\u{5206}\u{5c42}\u{7248}",
         slogan: "\u{7528}\u{66f4}\u{8f7b}\u{7684}\u{65b9}\u{5f0f}\u{4e13}\u{6ce8}\u{3001}\u{5b89}\u{6392}\u{548c}\u{590d}\u{76d8}\u{6bcf}\u{4e00}\u{5929}\u{3002}",
         surfaces: vec![
             ShellPanel {
@@ -1391,7 +1391,7 @@ fn bootstrap_shell() -> ShellSnapshot {
             ShellPanel {
                 id: "focus-reminders",
                 title: "\u{4e13}\u{6ce8}\u{63d0}\u{9192}",
-                phase: "v1.3.0-v1.3.1",
+                phase: "v1.3.0-v1.3.2",
                 status: "\u{5df2}\u{63a5}\u{5165}",
                 summary: "\u{756a}\u{8304}\u{4e13}\u{6ce8}\u{7ed3}\u{675f}\u{3001}\u{4f11}\u{606f}\u{7ed3}\u{675f}\u{4e0e}\u{6b63}\u{5411}\u{8ba1}\u{65f6}\u{5230}\u{70b9}\u{73b0}\u{5728}\u{90fd}\u{53ef}\u{4ee5}\u{89e6}\u{53d1}\u{7cfb}\u{7edf}\u{901a}\u{77e5}\u{6216}\u{7a97}\u{53e3}\u{63d0}\u{9192}\u{3002}",
             },
@@ -1405,7 +1405,7 @@ fn bootstrap_shell() -> ShellSnapshot {
             ShellPanel {
                 id: "data-backup",
                 title: "\u{6570}\u{636e}\u{5907}\u{4efd}\u{4e0e}\u{6062}\u{590d}",
-                phase: "v1.3.1",
+                phase: "v1.3.1-v1.3.2",
                 status: "\u{5df2}\u{63a5}\u{5165}",
                 summary: "主状态和运行中会话现在都会在写入前自动生成本地备份，为后续回退和排查留下一层保护。",
             },

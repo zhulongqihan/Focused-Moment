@@ -406,13 +406,19 @@ const copy = {
   windows: "Windows",
   focusSummarySlimHint:
     "\u4e3b\u754c\u9762\u73b0\u5728\u53ea\u4fdd\u7559\u8fd0\u884c\u6240\u5fc5\u9700\u7684\u4fe1\u606f\uff0c\u66f4\u5b8c\u6574\u7684\u6570\u636e\u53ef\u4ee5\u53bb\u201c\u67e5\u770b\u590d\u76d8\u201d\u3002",
+  focusDetailsEyebrow: "\u4e13\u6ce8\u8be6\u60c5",
+  focusDetailsTitle: "\u628a\u6709\u7528\u7684\u4fe1\u606f\u6536\u5230\u8fd9\u91cc",
+  focusDetailsSummary:
+    "\u6258\u76d8\u8bf4\u660e\u3001\u5f53\u524d\u6982\u51b5\u3001\u756a\u8304\u8f6e\u6b21\u548c\u6700\u8fd1\u8bb0\u5f55\u90fd\u6536\u5728\u8fd9\u4e2a\u5206\u533a\uff0c\u9700\u8981\u65f6\u518d\u5c55\u5f00\u3002",
+  focusDetailsToggleOpen: "\u5c55\u5f00\u4e13\u6ce8\u8be6\u60c5",
+  focusDetailsToggleClose: "\u6536\u8d77\u4e13\u6ce8\u8be6\u60c5",
   defaultError: "\u64cd\u4f5c\u6ca1\u6709\u6210\u529f\uff0c\u8bf7\u91cd\u8bd5\u3002",
 } as const;
 
 const emptySnapshot: ShellSnapshot = {
   productName: "Focused Moment",
-  version: "1.3.1",
-  milestone: "v1.3.1 \u7a33\u5b9a\u6027\u4e0e\u4e3b\u754c\u9762\u51cf\u8d1f\u7248",
+  version: "1.3.2",
+  milestone: "v1.3.2 \u4e3b\u754c\u9762\u4fe1\u606f\u5206\u5c42\u7248",
   slogan:
     "\u7528\u66f4\u8f7b\u7684\u65b9\u5f0f\u4e13\u6ce8\u3001\u5b89\u6392\u548c\u590d\u76d8\u6bcf\u4e00\u5929\u3002",
   surfaces: [],
@@ -627,6 +633,7 @@ function MainShell() {
   const [todoBusy, setTodoBusy] = createSignal(false);
   const [showTimerSettings, setShowTimerSettings] = createSignal(false);
   const [showRecentRecords, setShowRecentRecords] = createSignal(false);
+  const [showFocusDetails, setShowFocusDetails] = createSignal(false);
   const [activeView, setActiveView] = createSignal<ViewKey>("focus");
   const [reviewRange, setReviewRange] = createSignal<ReviewRangeKey>("7d");
   const [customStartDate, setCustomStartDate] = createSignal(getLocalDateValue());
@@ -1811,25 +1818,9 @@ function MainShell() {
               <span class="eyebrow">{copy.focusEyebrow}</span>
               <h1>{copy.focusTitle}</h1>
               <p class="hero-text">{snapshot().slogan}</p>
-              <p class="hero-subtext">{copy.focusSummary}</p>
               <p class="hero-subtext hero-subtext--compact">
                 {copy.focusSummarySlimHint}
               </p>
-            </div>
-
-            <p class="tray-copy">{copy.trayHint}</p>
-
-            <div class="metric-grid">
-              <article class="metric-card">
-                <span class="metric-label">{copy.focusPendingLabel}</span>
-                <strong>{pendingTodoCount()}</strong>
-                <span class="metric-footnote">{copy.focusPendingNote}</span>
-              </article>
-              <article class="metric-card">
-                <span class="metric-label">{copy.focusModeLabel}</span>
-                <strong>{timerSnapshot().mode}</strong>
-                <span class="metric-footnote">{copy.focusModeNote}</span>
-              </article>
             </div>
 
             <section class="timer-panel">
@@ -2036,9 +2027,6 @@ function MainShell() {
                 </div>
 
                 <p class="task-link-hint">{taskLinkSummary()}</p>
-                <Show when={timerSnapshot().recoveredFromLastSession}>
-                  <p class="task-recovery-hint">{copy.sessionRecovered}</p>
-                </Show>
               </div>
 
               <div class="timer-panel__header">
@@ -2064,26 +2052,6 @@ function MainShell() {
                 </p>
               )}
               <div class="timer-display">{timerSnapshot().elapsedLabel}</div>
-              {timerSnapshot().modeKey === "pomodoro" && (
-                <div class="timer-mode-meta">
-                  <p class="timer-mode-hint">{pomodoroHintText()}</p>
-                  <div class="timer-round-grid">
-                    <article class="timer-round-card">
-                      <span>{copy.roundProgressLabel}</span>
-                      <strong>{`第 ${timerSnapshot().currentRound} 轮`}</strong>
-                    </article>
-                    <article class="timer-round-card">
-                      <span>{copy.roundProgressFocusCount}</span>
-                      <strong>{timerSnapshot().completedFocusCount}</strong>
-                    </article>
-                    <article class="timer-round-card">
-                      <span>{copy.roundProgressBreakCount}</span>
-                      <strong>{timerSnapshot().completedBreakCount}</strong>
-                    </article>
-                  </div>
-                </div>
-              )}
-
               <div class="timer-actions">
                 <button
                   type="button"
@@ -2127,70 +2095,132 @@ function MainShell() {
                 </button>
               </div>
 
-              <section class="records-panel">
+              <section class="records-panel records-panel--collapsible">
                 <div class="records-panel__header">
                   <div>
-                    <span class="eyebrow">{copy.recordsEyebrow}</span>
-                    <h3>{copy.recordsTitle}</h3>
+                    <span class="eyebrow">{copy.focusDetailsEyebrow}</span>
+                    <h3>{copy.focusDetailsTitle}</h3>
                   </div>
                   <div class="records-panel__actions">
-                    <p class="records-panel__summary">{copy.recordsLazyHint}</p>
+                    <p class="records-panel__summary">{copy.focusDetailsSummary}</p>
                     <button
                       type="button"
                       class="mode-chip"
-                      onClick={() => setShowRecentRecords((current) => !current)}
+                      onClick={() => setShowFocusDetails((current) => !current)}
                     >
-                      {showRecentRecords()
-                        ? copy.recordsToggleClose
-                        : copy.recordsToggleOpen}
+                      {showFocusDetails()
+                        ? copy.focusDetailsToggleClose
+                        : copy.focusDetailsToggleOpen}
                     </button>
                   </div>
                 </div>
 
-                <Show when={showRecentRecords()}>
-                  <Show
-                    when={!reviewDataBusy()}
-                    fallback={<p class="records-empty">{copy.recordsLoading}</p>}
-                  >
-                    <div class="records-list">
-                      <For each={recentFocusRecords()}>
-                        {(record) => (
-                          <article class="record-card">
-                            <div class="record-card__main">
-                              <div class="record-card__copy">
-                                <strong>{record.title}</strong>
-                                <div class="record-card__meta">
-                                  <span class="record-pill">{record.phaseLabel}</span>
-                                  <span
-                                    classList={{
-                                      "record-pill": true,
-                                      "record-pill--muted": !record.linkedTodoTitle,
-                                    }}
-                                  >
-                                    {record.linkedTodoTitle
-                                      ? `${copy.recordLinkedPrefix}${record.linkedTodoTitle}`
-                                      : copy.recordIndependent}
-                                  </span>
-                                  {record.completedAt && (
-                                    <span class="record-pill record-pill--muted">
-                                      {`${copy.recordCompletedAt}\uff1a${record.completedDate} ${record.completedTime}`}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                              <span>{record.durationLabel}</span>
-                            </div>
-                          </article>
-                        )}
-                      </For>
-                      {records().length === 0 && (
-                        <p class="records-empty">{copy.recordsEmpty}</p>
-                      )}
-                      {records().length > 0 && recentFocusRecords().length === 0 && (
-                        <p class="records-empty">{copy.recordsRecentEmpty}</p>
-                      )}
+                <Show when={showFocusDetails()}>
+                  <div class="focus-detail-grid">
+                    <article class="metric-card">
+                      <span class="metric-label">{copy.focusPendingLabel}</span>
+                      <strong>{pendingTodoCount()}</strong>
+                      <span class="metric-footnote">{copy.focusPendingNote}</span>
+                    </article>
+                    <article class="metric-card">
+                      <span class="metric-label">{copy.focusModeLabel}</span>
+                      <strong>{timerSnapshot().mode}</strong>
+                      <span class="metric-footnote">{copy.focusModeNote}</span>
+                    </article>
+                  </div>
+
+                  <p class="tray-copy">{copy.trayHint}</p>
+
+                  <Show when={timerSnapshot().recoveredFromLastSession}>
+                    <p class="task-recovery-hint">{copy.sessionRecovered}</p>
+                  </Show>
+
+                  <Show when={timerSnapshot().modeKey === "pomodoro"}>
+                    <div class="timer-mode-meta">
+                      <p class="timer-mode-hint">{pomodoroHintText()}</p>
+                      <div class="timer-round-grid">
+                        <article class="timer-round-card">
+                          <span>{copy.roundProgressLabel}</span>
+                          <strong>{`第 ${timerSnapshot().currentRound} 轮`}</strong>
+                        </article>
+                        <article class="timer-round-card">
+                          <span>{copy.roundProgressFocusCount}</span>
+                          <strong>{timerSnapshot().completedFocusCount}</strong>
+                        </article>
+                        <article class="timer-round-card">
+                          <span>{copy.roundProgressBreakCount}</span>
+                          <strong>{timerSnapshot().completedBreakCount}</strong>
+                        </article>
+                      </div>
                     </div>
                   </Show>
+
+                  <section class="records-panel records-panel--nested">
+                    <div class="records-panel__header">
+                      <div>
+                        <span class="eyebrow">{copy.recordsEyebrow}</span>
+                        <h3>{copy.recordsTitle}</h3>
+                      </div>
+                      <div class="records-panel__actions">
+                        <p class="records-panel__summary">{copy.recordsLazyHint}</p>
+                        <button
+                          type="button"
+                          class="mode-chip"
+                          onClick={() => setShowRecentRecords((current) => !current)}
+                        >
+                          {showRecentRecords()
+                            ? copy.recordsToggleClose
+                            : copy.recordsToggleOpen}
+                        </button>
+                      </div>
+                    </div>
+
+                    <Show when={showRecentRecords()}>
+                      <Show
+                        when={!reviewDataBusy()}
+                        fallback={<p class="records-empty">{copy.recordsLoading}</p>}
+                      >
+                        <div class="records-list">
+                          <For each={recentFocusRecords()}>
+                            {(record) => (
+                              <article class="record-card">
+                                <div class="record-card__main">
+                                  <div class="record-card__copy">
+                                    <strong>{record.title}</strong>
+                                    <div class="record-card__meta">
+                                      <span class="record-pill">{record.phaseLabel}</span>
+                                      <span
+                                        classList={{
+                                          "record-pill": true,
+                                          "record-pill--muted": !record.linkedTodoTitle,
+                                        }}
+                                      >
+                                        {record.linkedTodoTitle
+                                          ? `${copy.recordLinkedPrefix}${record.linkedTodoTitle}`
+                                          : copy.recordIndependent}
+                                      </span>
+                                      {record.completedAt && (
+                                        <span class="record-pill record-pill--muted">
+                                          {`${copy.recordCompletedAt}\uff1a${record.completedDate} ${record.completedTime}`}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <span>{record.durationLabel}</span>
+                                </div>
+                              </article>
+                            )}
+                          </For>
+                          {records().length === 0 && (
+                            <p class="records-empty">{copy.recordsEmpty}</p>
+                          )}
+                          {records().length > 0 && recentFocusRecords().length === 0 && (
+                            <p class="records-empty">{copy.recordsRecentEmpty}</p>
+                          )}
+                        </div>
+                      </Show>
+                    </Show>
+                  </section>
                 </Show>
               </section>
             </section>
