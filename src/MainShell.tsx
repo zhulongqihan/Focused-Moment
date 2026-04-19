@@ -180,7 +180,7 @@ const copy = {
   loading: "\u6b63\u5728\u8f7d\u5165 Focused Moment...",
   ready: "\u51c6\u5907\u597d\u4e86\uff0c\u4f60\u53ef\u4ee5\u968f\u65f6\u5f00\u59cb\u4e00\u8f6e\u4e13\u6ce8\u3002",
   reviewLoading:
-    "\u4e3b\u754c\u9762\u5df2\u5c31\u7eea\uff0c\u590d\u76d8\u8bb0\u5f55\u6b63\u5728\u540e\u53f0\u8865\u9f50\u3002",
+    "\u4e3b\u754c\u9762\u5df2\u5c31\u7eea\uff0c\u9700\u8981\u65f6\u53ef\u4ee5\u518d\u8fdb\u5165\u590d\u76d8\u9875\u52a0\u8f7d\u5b8c\u6574\u6570\u636e\u3002",
   reviewPartial:
     "\u4e3b\u754c\u9762\u5df2\u6253\u5f00\uff0c\u4f46\u590d\u76d8\u6570\u636e\u6682\u65f6\u6ca1\u6709\u5168\u90e8\u52a0\u8f7d\u5b8c\uff0c\u53ef\u4ee5\u7a0d\u540e\u518d\u770b\u3002",
   fallback: "\u5e94\u7528\u5df2\u4f7f\u7528\u56de\u9000\u6570\u636e\u542f\u52a8\u3002",
@@ -265,6 +265,11 @@ const copy = {
   timingCorrectionNote: "\u5df2\u8003\u8651\u540e\u53f0\u8fd0\u884c\u548c\u7cfb\u7edf\u4f11\u7720\u540e\u7684\u65f6\u95f4\u5dee\u503c",
   recordsEyebrow: "\u4e13\u6ce8\u8bb0\u5f55",
   recordsTitle: "\u6700\u8fd1\u8bb0\u4e0b\u6765\u7684\u4e13\u6ce8",
+  recordsToggleOpen: "\u5c55\u5f00\u6700\u8fd1\u8bb0\u5f55",
+  recordsToggleClose: "\u6536\u8d77\u6700\u8fd1\u8bb0\u5f55",
+  recordsLazyHint:
+    "\u8fd9\u5757\u8bb0\u5f55\u6539\u4e3a\u6309\u9700\u52a0\u8f7d\uff0c\u9ed8\u8ba4\u4e0d\u5728\u542f\u52a8\u65f6\u62a2\u5360\u8d44\u6e90\u3002",
+  recordsLoading: "\u6b63\u5728\u52a0\u8f7d\u6700\u8fd1\u8bb0\u5f55...",
   recordsEmpty: "\u8fd8\u6ca1\u6709\u4e13\u6ce8\u8bb0\u5f55\uff0c\u5b8c\u6210\u7b2c\u4e00\u8f6e\u540e\u5c31\u4f1a\u51fa\u73b0\u5728\u8fd9\u91cc\u3002",
   recordsWindowNote: "\u9ed8\u8ba4\u53ea\u663e\u793a\u8fd1 7 \u5929\u5185\u7684\u6700\u65b0 6 \u6761\u8bb0\u5f55\uff0c\u66f4\u65e9\u7684\u5185\u5bb9\u53ef\u4ee5\u5728\u201c\u67e5\u770b\u590d\u76d8\u201d\u91cc\u7ee7\u7eed\u770b\u3002",
   recordsRecentEmpty: "\u6700\u8fd1 7 \u5929\u6682\u65f6\u8fd8\u6ca1\u6709\u65b0\u7684\u4e13\u6ce8\u8bb0\u5f55\uff0c\u66f4\u65e9\u7684\u5386\u53f2\u53ef\u4ee5\u5728\u201c\u67e5\u770b\u590d\u76d8\u201d\u91cc\u67e5\u770b\u3002",
@@ -399,13 +404,15 @@ const copy = {
     "\u8fd9\u91cc\u4f1a\u96c6\u4e2d\u663e\u793a\u5df2\u63a5\u5165\u7684\u6a21\u5757\u3001\u5f53\u524d\u7684\u5f00\u53d1\u9636\u6bb5\uff0c\u4ee5\u53ca\u540e\u7eed\u4e13\u6ce8\u63d0\u9192\u3001\u4f1a\u8bdd\u6062\u590d\u548c\u6570\u636e\u5907\u4efd\u65b9\u5411\u7684\u9884\u7559\u3002",
   fallbackPrefix: "\u8f7d\u5165\u56de\u9000\u4fe1\u606f\uff1a",
   windows: "Windows",
+  focusSummarySlimHint:
+    "\u4e3b\u754c\u9762\u73b0\u5728\u53ea\u4fdd\u7559\u8fd0\u884c\u6240\u5fc5\u9700\u7684\u4fe1\u606f\uff0c\u66f4\u5b8c\u6574\u7684\u6570\u636e\u53ef\u4ee5\u53bb\u201c\u67e5\u770b\u590d\u76d8\u201d\u3002",
   defaultError: "\u64cd\u4f5c\u6ca1\u6709\u6210\u529f\uff0c\u8bf7\u91cd\u8bd5\u3002",
 } as const;
 
 const emptySnapshot: ShellSnapshot = {
   productName: "Focused Moment",
-  version: "1.3.0",
-  milestone: "v1.3.0 \u8ba1\u65f6\u8bbe\u7f6e\u4e0e\u63d0\u9192\u57fa\u7840\u7248",
+  version: "1.3.1",
+  milestone: "v1.3.1 \u7a33\u5b9a\u6027\u4e0e\u4e3b\u754c\u9762\u51cf\u8d1f\u7248",
   slogan:
     "\u7528\u66f4\u8f7b\u7684\u65b9\u5f0f\u4e13\u6ce8\u3001\u5b89\u6392\u548c\u590d\u76d8\u6bcf\u4e00\u5929\u3002",
   surfaces: [],
@@ -603,7 +610,7 @@ function MainShell() {
   const [currentTaskTitle, setCurrentTaskTitle] = createSignal("");
   const [linkedTodoId, setLinkedTodoId] = createSignal<number | null>(null);
   const [records, setRecords] = createSignal<FocusRecord[]>([]);
-  const [analyticsSnapshot, setAnalyticsSnapshot] =
+  const [, setAnalyticsSnapshot] =
     createSignal<AnalyticsSnapshot>(emptyAnalyticsSnapshot);
   const [todoItems, setTodoItems] = createSignal<TodoItem[]>([]);
   const [todoDraft, setTodoDraft] =
@@ -619,6 +626,7 @@ function MainShell() {
     createSignal<string | null>(null);
   const [todoBusy, setTodoBusy] = createSignal(false);
   const [showTimerSettings, setShowTimerSettings] = createSignal(false);
+  const [showRecentRecords, setShowRecentRecords] = createSignal(false);
   const [activeView, setActiveView] = createSignal<ViewKey>("focus");
   const [reviewRange, setReviewRange] = createSignal<ReviewRangeKey>("7d");
   const [customStartDate, setCustomStartDate] = createSignal(getLocalDateValue());
@@ -630,6 +638,8 @@ function MainShell() {
   const [activeTrendDate, setActiveTrendDate] = createSignal<string | null>(null);
   const [activeTrendWindow, setActiveTrendWindow] = createSignal<7 | 14 | 30>(7);
   const [todoItemsHydrated, setTodoItemsHydrated] = createSignal(false);
+  const [reviewDataHydrated, setReviewDataHydrated] = createSignal(false);
+  const [reviewDataBusy, setReviewDataBusy] = createSignal(false);
   let timerContextHydrated = false;
   let handledAlertSequence = 0;
 
@@ -727,7 +737,6 @@ function MainShell() {
   const displayedTodoCount = () =>
     visiblePendingTodoItems().length +
     (isCompletedTodoSectionExpanded() ? visibleCompletedTodoItems().length : 0);
-  const storedRecordCount = () => analyticsSnapshot().sessionCount;
   const linkedTodoItem = () =>
     linkableTodoItems().find((item) => item.id === linkedTodoId()) ?? null;
   const linkedTodoValue = () =>
@@ -805,6 +814,8 @@ function MainShell() {
   const filteredReviewSummary = () => buildReviewSummary(filteredInsightRecords());
   const latestDailyBreakdown = () =>
     filteredReviewSummary().dailyBreakdown.slice(0, 30);
+  const shouldLoadReviewData = () =>
+    activeView() === "insights" || showRecentRecords();
   const orderedTrendDays = () =>
     latestDailyBreakdown()
       .slice(0, activeTrendWindow())
@@ -1246,6 +1257,11 @@ function MainShell() {
   }
 
   async function refreshReviewDataInBackground() {
+    if (reviewDataBusy()) {
+      return;
+    }
+
+    setReviewDataBusy(true);
     const results = await Promise.allSettled([
       refreshFocusRecords(),
       refreshAnalyticsSummary(),
@@ -1254,13 +1270,26 @@ function MainShell() {
     const hasFailure = results.some((result) => result.status === "rejected");
     if (hasFailure) {
       setStatusText(copy.reviewPartial);
-    } else if (statusText() === copy.reviewLoading) {
-      setStatusText(
-        timerSnapshot().recoveredFromLastSession
-          ? copy.sessionRecovered
-          : copy.ready
-      );
+    } else {
+      setReviewDataHydrated(true);
+      if (statusText() === copy.reviewLoading) {
+        setStatusText(
+          timerSnapshot().recoveredFromLastSession
+            ? copy.sessionRecovered
+            : copy.ready
+        );
+      }
     }
+
+    setReviewDataBusy(false);
+  }
+
+  async function ensureReviewDataLoaded() {
+    if (reviewDataHydrated() || reviewDataBusy()) {
+      return;
+    }
+
+    await refreshReviewDataInBackground();
   }
 
   async function handleSaveTimerPreferences() {
@@ -1622,6 +1651,14 @@ function MainShell() {
     void fireTimerAlert(snapshot);
   });
 
+  createEffect(() => {
+    if (!shouldLoadReviewData()) {
+      return;
+    }
+
+    void ensureReviewDataLoaded();
+  });
+
   onMount(async () => {
     let pollingTimerId: number | null = null;
     let disposed = false;
@@ -1666,11 +1703,10 @@ function MainShell() {
         setStatusText(
           timerSnapshot().recoveredFromLastSession
             ? copy.sessionRecovered
-            : copy.reviewLoading
+            : copy.ready
         );
       }
 
-      void refreshReviewDataInBackground();
       scheduleTimerRefresh();
     } catch (error) {
       const message =
@@ -1776,21 +1812,14 @@ function MainShell() {
               <h1>{copy.focusTitle}</h1>
               <p class="hero-text">{snapshot().slogan}</p>
               <p class="hero-subtext">{copy.focusSummary}</p>
+              <p class="hero-subtext hero-subtext--compact">
+                {copy.focusSummarySlimHint}
+              </p>
             </div>
 
             <p class="tray-copy">{copy.trayHint}</p>
 
             <div class="metric-grid">
-              <article class="metric-card">
-                <span class="metric-label">{copy.focusTodayLabel}</span>
-                <strong>{analyticsSnapshot().todayFocusDurationLabel}</strong>
-                <span class="metric-footnote">{copy.focusTodayNote}</span>
-              </article>
-              <article class="metric-card">
-                <span class="metric-label">{copy.focusRecordsLabel}</span>
-                <strong>{storedRecordCount()}</strong>
-                <span class="metric-footnote">{copy.focusRecordsNote}</span>
-              </article>
               <article class="metric-card">
                 <span class="metric-label">{copy.focusPendingLabel}</span>
                 <strong>{pendingTodoCount()}</strong>
@@ -2104,47 +2133,65 @@ function MainShell() {
                     <span class="eyebrow">{copy.recordsEyebrow}</span>
                     <h3>{copy.recordsTitle}</h3>
                   </div>
-                  <p class="records-panel__summary">{copy.recordsWindowNote}</p>
+                  <div class="records-panel__actions">
+                    <p class="records-panel__summary">{copy.recordsLazyHint}</p>
+                    <button
+                      type="button"
+                      class="mode-chip"
+                      onClick={() => setShowRecentRecords((current) => !current)}
+                    >
+                      {showRecentRecords()
+                        ? copy.recordsToggleClose
+                        : copy.recordsToggleOpen}
+                    </button>
+                  </div>
                 </div>
 
-                <div class="records-list">
-                  <For each={recentFocusRecords()}>
-                    {(record) => (
-                      <article class="record-card">
-                        <div class="record-card__main">
-                          <div class="record-card__copy">
-                            <strong>{record.title}</strong>
-                            <div class="record-card__meta">
-                              <span class="record-pill">{record.phaseLabel}</span>
-                              <span
-                                classList={{
-                                  "record-pill": true,
-                                  "record-pill--muted": !record.linkedTodoTitle,
-                                }}
-                              >
-                                {record.linkedTodoTitle
-                                  ? `${copy.recordLinkedPrefix}${record.linkedTodoTitle}`
-                                  : copy.recordIndependent}
-                              </span>
-                              {record.completedAt && (
-                                <span class="record-pill record-pill--muted">
-                                  {`${copy.recordCompletedAt}\uff1a${record.completedDate} ${record.completedTime}`}
-                                </span>
-                              )}
+                <Show when={showRecentRecords()}>
+                  <Show
+                    when={!reviewDataBusy()}
+                    fallback={<p class="records-empty">{copy.recordsLoading}</p>}
+                  >
+                    <div class="records-list">
+                      <For each={recentFocusRecords()}>
+                        {(record) => (
+                          <article class="record-card">
+                            <div class="record-card__main">
+                              <div class="record-card__copy">
+                                <strong>{record.title}</strong>
+                                <div class="record-card__meta">
+                                  <span class="record-pill">{record.phaseLabel}</span>
+                                  <span
+                                    classList={{
+                                      "record-pill": true,
+                                      "record-pill--muted": !record.linkedTodoTitle,
+                                    }}
+                                  >
+                                    {record.linkedTodoTitle
+                                      ? `${copy.recordLinkedPrefix}${record.linkedTodoTitle}`
+                                      : copy.recordIndependent}
+                                  </span>
+                                  {record.completedAt && (
+                                    <span class="record-pill record-pill--muted">
+                                      {`${copy.recordCompletedAt}\uff1a${record.completedDate} ${record.completedTime}`}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <span>{record.durationLabel}</span>
                             </div>
-                          </div>
-                          <span>{record.durationLabel}</span>
-                        </div>
-                      </article>
-                    )}
-                  </For>
-                  {records().length === 0 && (
-                    <p class="records-empty">{copy.recordsEmpty}</p>
-                  )}
-                  {records().length > 0 && recentFocusRecords().length === 0 && (
-                    <p class="records-empty">{copy.recordsRecentEmpty}</p>
-                  )}
-                </div>
+                          </article>
+                        )}
+                      </For>
+                      {records().length === 0 && (
+                        <p class="records-empty">{copy.recordsEmpty}</p>
+                      )}
+                      {records().length > 0 && recentFocusRecords().length === 0 && (
+                        <p class="records-empty">{copy.recordsRecentEmpty}</p>
+                      )}
+                    </div>
+                  </Show>
+                </Show>
               </section>
             </section>
           </section>

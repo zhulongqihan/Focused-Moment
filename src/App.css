@@ -425,6 +425,12 @@ body {
   color: var(--text-muted);
 }
 
+.hero-subtext--compact {
+  max-width: 58ch;
+  color: var(--text-soft);
+  font-size: 0.96rem;
+}
+
 .timer-settings__toggle {
   flex-shrink: 0;
 }
@@ -484,6 +490,12 @@ body {
   color: var(--text-muted);
   font-size: 0.9rem;
   line-height: 1.6;
+}
+
+.records-panel__actions {
+  display: grid;
+  justify-items: end;
+  gap: 10px;
 }
 
 .mode-chip {

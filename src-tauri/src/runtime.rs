@@ -1354,8 +1354,8 @@ fn resolve_export_directory() -> Result<PathBuf, String> {
 fn bootstrap_shell() -> ShellSnapshot {
     ShellSnapshot {
         product_name: "Focused Moment",
-        version: "1.3.0",
-        milestone: "v1.3.0 \u{8ba1}\u{65f6}\u{8bbe}\u{7f6e}\u{4e0e}\u{63d0}\u{9192}\u{57fa}\u{7840}\u{7248}",
+        version: "1.3.1",
+        milestone: "v1.3.1 \u{7a33}\u{5b9a}\u{6027}\u{4e0e}\u{4e3b}\u{754c}\u{9762}\u{51cf}\u{8d1f}\u{7248}",
         slogan: "\u{7528}\u{66f4}\u{8f7b}\u{7684}\u{65b9}\u{5f0f}\u{4e13}\u{6ce8}\u{3001}\u{5b89}\u{6392}\u{548c}\u{590d}\u{76d8}\u{6bcf}\u{4e00}\u{5929}\u{3002}",
         surfaces: vec![
             ShellPanel {
@@ -1391,23 +1391,23 @@ fn bootstrap_shell() -> ShellSnapshot {
             ShellPanel {
                 id: "focus-reminders",
                 title: "\u{4e13}\u{6ce8}\u{63d0}\u{9192}",
-                phase: "v1.3.0",
+                phase: "v1.3.0-v1.3.1",
                 status: "\u{5df2}\u{63a5}\u{5165}",
                 summary: "\u{756a}\u{8304}\u{4e13}\u{6ce8}\u{7ed3}\u{675f}\u{3001}\u{4f11}\u{606f}\u{7ed3}\u{675f}\u{4e0e}\u{6b63}\u{5411}\u{8ba1}\u{65f6}\u{5230}\u{70b9}\u{73b0}\u{5728}\u{90fd}\u{53ef}\u{4ee5}\u{89e6}\u{53d1}\u{7cfb}\u{7edf}\u{901a}\u{77e5}\u{6216}\u{7a97}\u{53e3}\u{63d0}\u{9192}\u{3002}",
             },
             ShellPanel {
                 id: "session-recovery",
                 title: "\u{4f1a}\u{8bdd}\u{6062}\u{590d}",
-                phase: "v1.2.6",
-                status: "\u{6b63}\u{5728}\u{63a5}\u{5165}",
-                summary: "\u{5f53}\u{524d}\u{7248}\u{672c}\u{4f1a}\u{628a}\u{8fd0}\u{884c}\u{4e2d}\u{7684}\u{8ba1}\u{65f6}\u{3001}\u{4e8b}\u{52a1}\u{8349}\u{7a3f}\u{548c}\u{5173}\u{8054}\u{72b6}\u{6001}\u{72ec}\u{7acb}\u{843d}\u{76d8}\u{ff0c}\u{7528}\u{4e8e}\u{610f}\u{5916}\u{9000}\u{51fa}\u{540e}\u{6062}\u{590d}\u{3002}",
+                phase: "v1.2.6-v1.3.1",
+                status: "\u{5df2}\u{589e}\u{5f3a}",
+                summary: "运行中的会话会独立落盘并保留快照备份，启动时优先恢复核心计时与任务上下文。",
             },
             ShellPanel {
                 id: "data-backup",
                 title: "\u{6570}\u{636e}\u{5907}\u{4efd}\u{4e0e}\u{6062}\u{590d}",
-                phase: "\u{9884}\u{7559}",
-                status: "\u{672a}\u{6765}\u{6269}\u{5c55}",
-                summary: "\u{540e}\u{7eed}\u{4f1a}\u{628a}\u{4efb}\u{52a1}\u{3001}\u{4e13}\u{6ce8}\u{8bb0}\u{5f55}\u{548c}\u{8fd0}\u{884c}\u{4e2d}\u{4f1a}\u{8bdd}\u{62c6}\u{6210}\u{66f4}\u{7a33}\u{7684}\u{5907}\u{4efd}/\u{6062}\u{590d}\u{80fd}\u{529b}\u{3002}",
+                phase: "v1.3.1",
+                status: "\u{5df2}\u{63a5}\u{5165}",
+                summary: "主状态和运行中会话现在都会在写入前自动生成本地备份，为后续回退和排查留下一层保护。",
             },
         ],
     }
