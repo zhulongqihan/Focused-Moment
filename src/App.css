@@ -74,6 +74,14 @@ body {
   -webkit-backdrop-filter: blur(22px);
 }
 
+.shell--lite::before {
+  background: linear-gradient(180deg, rgba(246, 242, 235, 0.98), rgba(232, 226, 216, 0.9));
+}
+
+.shell--lite::after {
+  display: none;
+}
+
 .window-chrome,
 .workspace {
   position: relative;
@@ -93,6 +101,13 @@ body {
   box-shadow: var(--shadow-card);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
+}
+
+.shell--lite .window-chrome {
+  background: rgba(255, 252, 247, 0.9);
+  box-shadow: 0 10px 24px rgba(67, 54, 36, 0.08);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .brand-lockup {
@@ -162,6 +177,10 @@ body {
   -webkit-user-select: none;
   app-region: drag;
   -webkit-app-region: drag;
+}
+
+.shell--lite .window-drag-region {
+  background: rgba(255, 252, 247, 0.9);
 }
 
 .window-drag-region:active {
@@ -254,6 +273,13 @@ body {
   box-shadow: var(--shadow-soft);
   backdrop-filter: blur(26px);
   -webkit-backdrop-filter: blur(26px);
+}
+
+.shell--lite .panel {
+  background: rgba(255, 252, 247, 0.9);
+  box-shadow: 0 10px 24px rgba(67, 54, 36, 0.08);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .view-switcher,
@@ -802,6 +828,11 @@ body {
   font-size: 0.88rem;
   line-height: 1.6;
   text-align: right;
+}
+
+.records-panel__summary--left {
+  max-width: none;
+  text-align: left;
 }
 
 .records-list {

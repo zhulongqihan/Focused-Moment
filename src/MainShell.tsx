@@ -49,6 +49,7 @@ type ViewKey = "focus" | "tasks" | "insights" | "lab";
 type ReviewRangeKey = "today" | "7d" | "30d" | "all" | "custom";
 type TodoFilterKey = "all" | "pending" | "completed" | "today" | "high";
 type TodoSortKey = "smart" | "schedule" | "importance" | "newest" | "title";
+type VisualMode = "lite" | "rich";
 
 type ReviewSummary = {
   totalFocusDurationMs: number;
@@ -134,6 +135,19 @@ function getLocalDateValue() {
 function formatScheduledTimeLabel(value: string) {
   const normalized = value.trim();
   return normalized ? normalized : "\u672a\u8bbe\u7f6e";
+}
+
+function readVisualModePreference(): VisualMode {
+  if (typeof window === "undefined") {
+    return "lite";
+  }
+
+  try {
+    const stored = window.localStorage.getItem("focused-moment-visual-mode");
+    return stored === "rich" ? "rich" : "lite";
+  } catch {
+    return "lite";
+  }
 }
 
 function getTodoScheduleSortValue(
@@ -412,13 +426,22 @@ const copy = {
     "\u6258\u76d8\u8bf4\u660e\u3001\u5f53\u524d\u6982\u51b5\u3001\u756a\u8304\u8f6e\u6b21\u548c\u6700\u8fd1\u8bb0\u5f55\u90fd\u6536\u5728\u8fd9\u4e2a\u5206\u533a\uff0c\u9700\u8981\u65f6\u518d\u5c55\u5f00\u3002",
   focusDetailsToggleOpen: "\u5c55\u5f00\u4e13\u6ce8\u8be6\u60c5",
   focusDetailsToggleClose: "\u6536\u8d77\u4e13\u6ce8\u8be6\u60c5",
+  renderModeEyebrow: "\u7a33\u5b9a\u6e32\u67d3",
+  renderModeTitle: "\u628a\u89c6\u89c9\u6548\u679c\u8c03\u6210\u66f4\u7a33\u5b9a\u7684\u5f62\u6001",
+  renderModeSummary:
+    "\u9ed8\u8ba4\u4f1a\u4f18\u5148\u4f7f\u7528\u8f7b\u91cf\u89c6\u89c9\u6a21\u5f0f\uff0c\u51cf\u5c11\u6a21\u7cca\u3001\u6bdb\u73bb\u7483\u548c\u591a\u5c42\u9634\u5f71\u5bf9 Windows \u684c\u9762\u7684\u538b\u529b\u3002",
+  renderModeLite: "\u7a33\u5b9a\u4f18\u5148",
+  renderModeRich: "\u6807\u51c6\u89c6\u89c9",
+  renderModeNote:
+    "\u5982\u679c\u4f60\u9047\u5230\u767d\u5c4f\u3001\u9ed1\u5c4f\u6216\u6253\u5f00\u540e\u5361\u4f4f\uff0c\u5efa\u8bae\u4fdd\u6301\u201c\u7a33\u5b9a\u4f18\u5148\u201d\u3002",
+  renderModeSaved: "\u6e32\u67d3\u6a21\u5f0f\u5df2\u5207\u6362",
   defaultError: "\u64cd\u4f5c\u6ca1\u6709\u6210\u529f\uff0c\u8bf7\u91cd\u8bd5\u3002",
 } as const;
 
 const emptySnapshot: ShellSnapshot = {
   productName: "Focused Moment",
-  version: "1.3.2",
-  milestone: "v1.3.2 \u4e3b\u754c\u9762\u4fe1\u606f\u5206\u5c42\u7248",
+  version: "1.3.3",
+  milestone: "v1.3.3 \u7a33\u5b9a\u6e32\u67d3\u4fdd\u62a4\u7248",
   slogan:
     "\u7528\u66f4\u8f7b\u7684\u65b9\u5f0f\u4e13\u6ce8\u3001\u5b89\u6392\u548c\u590d\u76d8\u6bcf\u4e00\u5929\u3002",
   surfaces: [],
@@ -634,6 +657,9 @@ function MainShell() {
   const [showTimerSettings, setShowTimerSettings] = createSignal(false);
   const [showRecentRecords, setShowRecentRecords] = createSignal(false);
   const [showFocusDetails, setShowFocusDetails] = createSignal(false);
+  const [visualMode, setVisualMode] = createSignal<VisualMode>(
+    readVisualModePreference()
+  );
   const [activeView, setActiveView] = createSignal<ViewKey>("focus");
   const [reviewRange, setReviewRange] = createSignal<ReviewRangeKey>("7d");
   const [customStartDate, setCustomStartDate] = createSignal(getLocalDateValue());
@@ -823,6 +849,7 @@ function MainShell() {
     filteredReviewSummary().dailyBreakdown.slice(0, 30);
   const shouldLoadReviewData = () =>
     activeView() === "insights" || showRecentRecords();
+  const isLiteVisualMode = () => visualMode() === "lite" || Boolean(bootError());
   const orderedTrendDays = () =>
     latestDailyBreakdown()
       .slice(0, activeTrendWindow())
@@ -1299,6 +1326,18 @@ function MainShell() {
     await refreshReviewDataInBackground();
   }
 
+  function handleVisualModeChange(nextMode: VisualMode) {
+    setVisualMode(nextMode);
+
+    try {
+      window.localStorage.setItem("focused-moment-visual-mode", nextMode);
+    } catch {
+      // Ignore local storage failures and keep the in-memory preference.
+    }
+
+    setStatusText(copy.renderModeSaved);
+  }
+
   async function handleSaveTimerPreferences() {
     if (timerPreferencesBusy()) {
       return;
@@ -1731,7 +1770,12 @@ function MainShell() {
   });
 
   return (
-    <div class="shell">
+    <div
+      class="shell"
+      classList={{
+        "shell--lite": isLiteVisualMode(),
+      }}
+    >
       <header class="window-chrome">
         <div class="brand-lockup">
           <div class="brand-mark">
@@ -3093,6 +3137,43 @@ function MainShell() {
                 <span class="metric-footnote">{copy.developerStorageNote}</span>
               </article>
             </div>
+
+            <section class="records-panel">
+              <div class="records-panel__header">
+                <div>
+                  <span class="eyebrow">{copy.renderModeEyebrow}</span>
+                  <h3>{copy.renderModeTitle}</h3>
+                </div>
+                <p class="chart-panel__summary">{copy.renderModeSummary}</p>
+              </div>
+
+              <div class="mode-switch__actions">
+                <button
+                  type="button"
+                  classList={{
+                    "mode-chip": true,
+                    "mode-chip--active": visualMode() === "lite",
+                  }}
+                  onClick={() => handleVisualModeChange("lite")}
+                >
+                  {copy.renderModeLite}
+                </button>
+                <button
+                  type="button"
+                  classList={{
+                    "mode-chip": true,
+                    "mode-chip--active": visualMode() === "rich",
+                  }}
+                  onClick={() => handleVisualModeChange("rich")}
+                >
+                  {copy.renderModeRich}
+                </button>
+              </div>
+
+              <p class="records-panel__summary records-panel__summary--left">
+                {copy.renderModeNote}
+              </p>
+            </section>
 
             <section class="records-panel">
               <div class="records-panel__header">
