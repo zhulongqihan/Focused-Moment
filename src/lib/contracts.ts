@@ -68,6 +68,30 @@ export interface CompletionPayload {
   records: FocusRecord[];
 }
 
+export interface BackupListItem {
+  fileName: string;
+  exportedAt: string;
+  appVersion: string;
+  formatVersion: number;
+  focusRecordCount: number;
+  todoCount: number;
+  hasRuntimeSession: boolean;
+}
+
+export interface BackupExportResult {
+  fileName: string;
+  filePath: string;
+  exportedAt: string;
+}
+
+export interface BackupImportResult {
+  importedFileName: string;
+  rollbackFileName: string;
+  focusRecordCount: number;
+  todoCount: number;
+  restoredRuntimeSession: boolean;
+}
+
 export interface DailyInsight {
   date: string;
   totalDurationMs: number;

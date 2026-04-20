@@ -10,7 +10,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use chrono::Local;
 use serde::{Deserialize, Serialize};
-use storage::{PersistedRuntimeState, PersistedState, PersistenceStore};
+use storage::{AppBackupFile, PersistedRuntimeState, PersistedState, PersistenceStore};
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Manager, Window, WindowEvent};
@@ -26,6 +26,10 @@ const MIN_POMODORO_BREAK_MINUTES: u64 = 1;
 const MAX_POMODORO_BREAK_MINUTES: u64 = 30;
 const MIN_STOPWATCH_REMINDER_MINUTES: u64 = 1;
 const MAX_STOPWATCH_REMINDER_MINUTES: u64 = 12 * 60;
+const APP_VERSION: &str = "1.4.1";
+const APP_MILESTONE: &str = "v1.4.1 备份目录调整版";
+const APP_BACKUP_KIND: &str = "focused-moment-backup";
+const APP_BACKUP_FORMAT_VERSION: u64 = 1;
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -273,6 +277,36 @@ struct CompletionPayload {
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+struct BackupListItem {
+    file_name: String,
+    exported_at: String,
+    app_version: String,
+    format_version: u64,
+    focus_record_count: usize,
+    todo_count: usize,
+    has_runtime_session: bool,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct BackupExportResult {
+    file_name: String,
+    file_path: String,
+    exported_at: String,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct BackupImportResult {
+    imported_file_name: String,
+    rollback_file_name: String,
+    focus_record_count: usize,
+    todo_count: usize,
+    restored_runtime_session: bool,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct DailyInsight {
     date: String,
     total_duration_ms: u64,
@@ -456,41 +490,155 @@ impl TimerEngineState {
         }
     }
 
+    fn snapshot_state(&self) -> Result<PersistedState, String> {
+        Ok(PersistedState {
+            focus_records: self
+                .focus_records
+                .lock()
+                .map_err(|_| "记录列表状态锁定失败".to_string())?
+                .clone(),
+            next_record_id: *self
+                .next_record_id
+                .lock()
+                .map_err(|_| "记录编号状态锁定失败".to_string())?,
+            todo_items: self
+                .todo_items
+                .lock()
+                .map_err(|_| "任务列表状态锁定失败".to_string())?
+                .clone(),
+            next_todo_id: *self
+                .next_todo_id
+                .lock()
+                .map_err(|_| "任务编号状态锁定失败".to_string())?,
+            timer_preferences: *self
+                .timer_preferences
+                .lock()
+                .map_err(|_| "计时设置状态锁定失败".to_string())?,
+        })
+    }
+
+    fn snapshot_runtime_state(&self) -> Result<PersistedRuntimeState, String> {
+        let persisted = self.timer
+            .lock()
+            .map_err(|_| "计时引擎状态锁定失败".to_string())?
+            .persisted_runtime_state();
+        Ok(persisted)
+    }
+
+    fn export_backup_file(&self) -> Result<AppBackupFile, String> {
+        Ok(AppBackupFile {
+            kind: APP_BACKUP_KIND.to_string(),
+            format_version: APP_BACKUP_FORMAT_VERSION,
+            app_version: APP_VERSION.to_string(),
+            exported_at: Local::now().to_rfc3339(),
+            state: self.snapshot_state()?,
+            runtime: self.snapshot_runtime_state()?,
+        })
+    }
+
+    fn apply_backup_file(&self, backup: AppBackupFile) -> Result<BackupImportResult, String> {
+        let AppBackupFile {
+            kind,
+            format_version,
+            app_version: _,
+            exported_at: _,
+            state,
+            runtime,
+        } = backup;
+
+        if kind != APP_BACKUP_KIND {
+            return Err("这不是 Focused Moment 的完整备份文件。".to_string());
+        }
+
+        if format_version != APP_BACKUP_FORMAT_VERSION {
+            return Err("当前版本暂不支持这个备份格式。".to_string());
+        }
+
+        let normalized_preferences = state
+            .timer_preferences
+            .normalized()
+            .map_err(|_| "备份中的计时设置不合法，无法恢复。".to_string())?;
+        let mut focus_records = state.focus_records;
+        let mut todo_items = state.todo_items;
+        sort_focus_records(&mut focus_records);
+        sort_todo_items(&mut todo_items);
+        let mut normalized_runtime =
+            normalize_imported_runtime(runtime, &todo_items, normalized_preferences);
+
+        {
+            let mut timer = self
+                .timer
+                .lock()
+                .map_err(|_| "计时引擎状态锁定失败".to_string())?;
+            *timer = TimerEngine::from_persisted_runtime(
+                normalized_runtime.clone(),
+                normalized_preferences,
+            );
+            normalized_runtime = timer.persisted_runtime_state();
+        }
+
+        {
+            let mut preferences = self
+                .timer_preferences
+                .lock()
+                .map_err(|_| "计时设置状态锁定失败".to_string())?;
+            *preferences = normalized_preferences;
+        }
+
+        {
+            let mut records = self
+                .focus_records
+                .lock()
+                .map_err(|_| "记录列表状态锁定失败".to_string())?;
+            *records = focus_records.clone();
+        }
+
+        {
+            let mut next_record_id = self
+                .next_record_id
+                .lock()
+                .map_err(|_| "记录编号状态锁定失败".to_string())?;
+            *next_record_id = state.next_record_id.max(next_focus_record_id(&focus_records));
+        }
+
+        {
+            let mut items = self
+                .todo_items
+                .lock()
+                .map_err(|_| "任务列表状态锁定失败".to_string())?;
+            *items = todo_items.clone();
+        }
+
+        {
+            let mut next_todo_id = self
+                .next_todo_id
+                .lock()
+                .map_err(|_| "任务编号状态锁定失败".to_string())?;
+            *next_todo_id = state.next_todo_id.max(next_todo_id_value(&todo_items));
+        }
+
+        self.persist_all()?;
+
+        Ok(BackupImportResult {
+            imported_file_name: String::new(),
+            rollback_file_name: String::new(),
+            focus_record_count: focus_records.len(),
+            todo_count: todo_items.len(),
+            restored_runtime_session: normalized_runtime.is_running
+                || normalized_runtime.stopwatch_elapsed_ms > 0
+                || normalized_runtime.pomodoro_elapsed_ms > 0
+                || normalized_runtime.pending_pomodoro_record_ms.is_some()
+                || !normalized_runtime.current_task_title.trim().is_empty()
+                || normalized_runtime.linked_todo_id.is_some(),
+        })
+    }
+
     fn persist(&self) -> Result<(), String> {
         let Some(store) = &self.persistence else {
             return Ok(());
         };
 
-        let persisted = PersistedState {
-            focus_records: self
-                .focus_records
-                .lock()
-                .map_err(|_| {
-                    "\u{8bb0}\u{5f55}\u{5217}\u{8868}\u{72b6}\u{6001}\u{9501}\u{5b9a}\u{5931}\u{8d25}"
-                        .to_string()
-                })?
-                .clone(),
-            next_record_id: *self.next_record_id.lock().map_err(|_| {
-                "\u{8bb0}\u{5f55}\u{7f16}\u{53f7}\u{72b6}\u{6001}\u{9501}\u{5b9a}\u{5931}\u{8d25}"
-                    .to_string()
-            })?,
-            todo_items: self
-                .todo_items
-                .lock()
-                .map_err(|_| {
-                    "\u{4efb}\u{52a1}\u{5217}\u{8868}\u{72b6}\u{6001}\u{9501}\u{5b9a}\u{5931}\u{8d25}"
-                        .to_string()
-                })?
-                .clone(),
-            next_todo_id: *self.next_todo_id.lock().map_err(|_| {
-                "\u{4efb}\u{52a1}\u{7f16}\u{53f7}\u{72b6}\u{6001}\u{9501}\u{5b9a}\u{5931}\u{8d25}"
-                    .to_string()
-            })?,
-            timer_preferences: *self.timer_preferences.lock().map_err(|_| {
-                "\u{8ba1}\u{65f6}\u{8bbe}\u{7f6e}\u{72b6}\u{6001}\u{9501}\u{5b9a}\u{5931}\u{8d25}"
-                    .to_string()
-            })?,
-        };
+        let persisted = self.snapshot_state()?;
 
         store.save(&persisted)
     }
@@ -1350,12 +1498,49 @@ fn resolve_export_directory() -> Result<PathBuf, String> {
     Ok(export_dir)
 }
 
+fn create_backup_file_name(prefix: &str) -> String {
+    let timestamp = Local::now().format("%Y%m%d-%H%M%S").to_string();
+    format!("{prefix}{timestamp}.json")
+}
+
+fn normalize_imported_runtime(
+    mut runtime: PersistedRuntimeState,
+    todo_items: &[TodoItem],
+    preferences: TimerPreferences,
+) -> PersistedRuntimeState {
+    if runtime.is_running {
+        runtime.anchor_wall_clock_ms = Some(system_time_to_epoch_ms(SystemTime::now()));
+    } else {
+        runtime.anchor_wall_clock_ms = None;
+    }
+
+    if let Some(linked_todo_id) = runtime.linked_todo_id {
+        if !todo_items
+            .iter()
+            .any(|item| item.id == linked_todo_id && !item.is_completed)
+        {
+            runtime.linked_todo_id = None;
+        }
+    }
+
+    if parse_mode_key_value(&runtime.mode_key).is_err() {
+        runtime.mode_key = TimerMode::default().key().to_string();
+    }
+
+    if parse_phase_key_value(&runtime.pomodoro_phase_key).is_err() {
+        runtime.pomodoro_phase_key = PomodoroPhase::default().key().to_string();
+    }
+
+    let mut engine = TimerEngine::from_persisted_runtime(runtime, preferences);
+    engine.persisted_runtime_state()
+}
+
 #[tauri::command]
 fn bootstrap_shell() -> ShellSnapshot {
     ShellSnapshot {
         product_name: "Focused Moment",
-        version: "1.3.3",
-        milestone: "v1.3.3 \u{7a33}\u{5b9a}\u{6e32}\u{67d3}\u{4fdd}\u{62a4}\u{7248}",
+        version: APP_VERSION,
+        milestone: APP_MILESTONE,
         slogan: "\u{7528}\u{66f4}\u{8f7b}\u{7684}\u{65b9}\u{5f0f}\u{4e13}\u{6ce8}\u{3001}\u{5b89}\u{6392}\u{548c}\u{590d}\u{76d8}\u{6bcf}\u{4e00}\u{5929}\u{3002}",
         surfaces: vec![
             ShellPanel {
@@ -1405,7 +1590,7 @@ fn bootstrap_shell() -> ShellSnapshot {
             ShellPanel {
                 id: "data-backup",
                 title: "\u{6570}\u{636e}\u{5907}\u{4efd}\u{4e0e}\u{6062}\u{590d}",
-                phase: "v1.3.1-v1.3.3",
+                phase: "v1.4.0",
                 status: "\u{5df2}\u{63a5}\u{5165}",
                 summary: "主状态和运行中会话现在都会在写入前自动生成本地备份，为后续回退和排查留下一层保护。",
             },
@@ -1586,6 +1771,76 @@ fn get_analytics_snapshot(
 #[tauri::command]
 fn clear_app_data(state: tauri::State<'_, TimerEngineState>) -> Result<(), String> {
     state.clear_all()
+}
+
+#[tauri::command]
+fn list_app_backups(state: tauri::State<'_, TimerEngineState>) -> Result<Vec<BackupListItem>, String> {
+    let store = state
+        .persistence
+        .as_ref()
+        .ok_or_else(|| "当前环境暂时无法访问本地备份目录。".to_string())?;
+
+    let backups = store.list_user_backups()?;
+    Ok(backups
+        .into_iter()
+        .filter(|(_, backup)| {
+            backup.kind == APP_BACKUP_KIND && backup.format_version == APP_BACKUP_FORMAT_VERSION
+        })
+        .map(|(file_name, backup)| BackupListItem {
+            file_name,
+            exported_at: backup.exported_at,
+            app_version: backup.app_version,
+            format_version: backup.format_version,
+            focus_record_count: backup.state.focus_records.len(),
+            todo_count: backup.state.todo_items.len(),
+            has_runtime_session: backup.runtime.is_running
+                || backup.runtime.stopwatch_elapsed_ms > 0
+                || backup.runtime.pomodoro_elapsed_ms > 0
+                || backup.runtime.pending_pomodoro_record_ms.is_some()
+                || !backup.runtime.current_task_title.trim().is_empty()
+                || backup.runtime.linked_todo_id.is_some(),
+        })
+        .collect())
+}
+
+#[tauri::command]
+fn export_app_backup(state: tauri::State<'_, TimerEngineState>) -> Result<BackupExportResult, String> {
+    let store = state
+        .persistence
+        .as_ref()
+        .ok_or_else(|| "当前环境暂时无法创建本地备份。".to_string())?;
+
+    let backup = state.export_backup_file()?;
+    let file_name = create_backup_file_name("focused-moment-backup-v1-");
+    let exported_at = backup.exported_at.clone();
+    let backup_path = store.save_user_backup(&file_name, &backup)?;
+
+    Ok(BackupExportResult {
+        file_name,
+        file_path: backup_path.display().to_string(),
+        exported_at,
+    })
+}
+
+#[tauri::command]
+fn import_app_backup(
+    state: tauri::State<'_, TimerEngineState>,
+    file_name: String,
+) -> Result<BackupImportResult, String> {
+    let store = state
+        .persistence
+        .as_ref()
+        .ok_or_else(|| "当前环境暂时无法访问本地备份目录。".to_string())?;
+
+    let backup = store.load_user_backup(&file_name)?;
+    let rollback = state.export_backup_file()?;
+    let rollback_file_name = create_backup_file_name("focused-moment-backup-v1-rollback-before-import-");
+    store.save_user_backup(&rollback_file_name, &rollback)?;
+
+    let mut result = state.apply_backup_file(backup)?;
+    result.imported_file_name = file_name;
+    result.rollback_file_name = rollback_file_name;
+    Ok(result)
 }
 
 #[tauri::command]
@@ -2033,6 +2288,9 @@ pub fn run() {
             delete_focus_records,
             get_analytics_snapshot,
             clear_app_data,
+            list_app_backups,
+            export_app_backup,
+            import_app_backup,
             export_focus_records_csv,
             get_todo_items,
             create_todo_item,

@@ -985,6 +985,10 @@ body {
   gap: 10px;
 }
 
+.backup-panel {
+  gap: 18px;
+}
+
 .trend-shell {
   display: grid;
   gap: 18px;

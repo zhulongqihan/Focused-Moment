@@ -1,6 +1,9 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
   AnalyticsSnapshot,
+  BackupExportResult,
+  BackupImportResult,
+  BackupListItem,
   CompletionPayload,
   FocusRecord,
   TimerPreferences,
@@ -61,8 +64,16 @@ export async function deleteFocusRecords(ids: number[]) {
   return invoke<FocusRecord[]>("delete_focus_records", { ids });
 }
 
-export async function exportFocusRecordsCsv(ids: number[]) {
-  return invoke<string>("export_focus_records_csv", { ids });
+export async function listAppBackups() {
+  return invoke<BackupListItem[]>("list_app_backups");
+}
+
+export async function exportAppBackup() {
+  return invoke<BackupExportResult>("export_app_backup");
+}
+
+export async function importAppBackup(fileName: string) {
+  return invoke<BackupImportResult>("import_app_backup", { fileName });
 }
 
 export async function clearAppData() {

@@ -11,6 +11,9 @@ const STORAGE_FILE_NAME: &str = "focused-moment-state.json";
 const RUNTIME_FILE_NAME: &str = "focused-moment-runtime.json";
 const STATE_BACKUP_FILE_NAME: &str = "focused-moment-state.backup.json";
 const RUNTIME_BACKUP_FILE_NAME: &str = "focused-moment-runtime.backup.json";
+const USER_BACKUP_DIR_NAME: &str = "Focused Moment Backups";
+const USER_BACKUP_PREFIX: &str = "focused-moment-backup-v1-";
+const USER_BACKUP_SUFFIX: &str = ".json";
 
 #[derive(Clone)]
 pub struct PersistenceStore {
@@ -18,6 +21,27 @@ pub struct PersistenceStore {
     runtime_path: PathBuf,
     state_backup_path: PathBuf,
     runtime_backup_path: PathBuf,
+}
+
+fn resolve_app_directory() -> Result<PathBuf, String> {
+    if let Ok(executable_path) = env::current_exe() {
+        if let Some(parent) = executable_path.parent() {
+            return Ok(parent.to_path_buf());
+        }
+    }
+
+    env::current_dir().map_err(|error| error.to_string())
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AppBackupFile {
+    pub kind: String,
+    pub format_version: u64,
+    pub app_version: String,
+    pub exported_at: String,
+    pub state: PersistedState,
+    pub runtime: PersistedRuntimeState,
 }
 
 #[derive(Clone, Default, Serialize, Deserialize)]
@@ -140,6 +164,77 @@ impl PersistenceStore {
         }
 
         Ok(())
+    }
+
+    pub fn user_backup_dir(&self) -> Result<PathBuf, String> {
+        let backup_dir = resolve_app_directory()?.join(USER_BACKUP_DIR_NAME);
+        fs::create_dir_all(&backup_dir).map_err(|error| error.to_string())?;
+        Ok(backup_dir)
+    }
+
+    pub fn save_user_backup(
+        &self,
+        file_name: &str,
+        backup: &AppBackupFile,
+    ) -> Result<PathBuf, String> {
+        let backup_dir = self.user_backup_dir()?;
+        let backup_path = backup_dir.join(file_name);
+        let serialized =
+            serde_json::to_string_pretty(backup).map_err(|error| error.to_string())?;
+        fs::write(&backup_path, serialized).map_err(|error| error.to_string())?;
+        Ok(backup_path)
+    }
+
+    pub fn load_user_backup(&self, file_name: &str) -> Result<AppBackupFile, String> {
+        if !Self::is_supported_backup_file_name(file_name) {
+            return Err("备份文件名不合法。".to_string());
+        }
+
+        let backup_path = self.user_backup_dir()?.join(file_name);
+        let raw = fs::read_to_string(&backup_path).map_err(|error| error.to_string())?;
+        serde_json::from_str(&raw).map_err(|error| error.to_string())
+    }
+
+    pub fn list_user_backups(&self) -> Result<Vec<(String, AppBackupFile)>, String> {
+        let backup_dir = self.user_backup_dir()?;
+        let mut backups = Vec::new();
+
+        for entry in fs::read_dir(&backup_dir).map_err(|error| error.to_string())? {
+            let entry = entry.map_err(|error| error.to_string())?;
+            let path = entry.path();
+            if !path.is_file() {
+                continue;
+            }
+
+            let Some(file_name) = path.file_name().and_then(|value| value.to_str()) else {
+                continue;
+            };
+
+            if !Self::is_supported_backup_file_name(file_name) {
+                continue;
+            }
+
+            let raw = match fs::read_to_string(&path) {
+                Ok(raw) => raw,
+                Err(_) => continue,
+            };
+
+            let backup = match serde_json::from_str::<AppBackupFile>(&raw) {
+                Ok(backup) => backup,
+                Err(_) => continue,
+            };
+
+            backups.push((file_name.to_string(), backup));
+        }
+
+        backups.sort_by(|left, right| right.0.cmp(&left.0));
+        Ok(backups)
+    }
+
+    pub fn is_supported_backup_file_name(file_name: &str) -> bool {
+        file_name.starts_with(USER_BACKUP_PREFIX)
+            && file_name.ends_with(USER_BACKUP_SUFFIX)
+            && !file_name.contains(['\\', '/', ':'])
     }
 
     fn load_backup_state(&self) -> Result<PersistedState, String> {

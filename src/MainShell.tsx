@@ -3,6 +3,7 @@ import { getCurrentWindow, UserAttentionType } from "@tauri-apps/api/window";
 import { For, Show, createEffect, createSignal, onCleanup, onMount } from "solid-js";
 import type {
   AnalyticsSnapshot,
+  BackupListItem,
   DailyInsight,
   FocusRecord,
   ShellSnapshot,
@@ -24,9 +25,11 @@ import {
   completeFocusSession,
   deleteFocusRecord,
   deleteFocusRecords,
-  exportFocusRecordsCsv,
+  exportAppBackup,
   getAnalyticsSnapshot,
   getFocusRecords,
+  importAppBackup,
+  listAppBackups,
   getTimerPreferences,
   getTimerSnapshot,
   pauseTimer,
@@ -388,8 +391,6 @@ const copy = {
   insightRecordsTitle: "\u5f53\u524d\u8303\u56f4\u5185\u7684\u6bcf\u4e00\u6761\u4e13\u6ce8",
   insightRecordsEmpty: "\u5f53\u524d\u8303\u56f4\u91cc\u8fd8\u6ca1\u6709\u4e13\u6ce8\u8bb0\u5f55\u3002",
   recordDelete: "\u5220\u9664\u8fd9\u6761",
-  exportCsv: "\u5bfc\u51fa\u5f53\u524d\u8303\u56f4 CSV",
-  exportDonePrefix: "CSV \u5df2\u5bfc\u51fa\u5230",
   clearRange: "\u6e05\u7406\u5f53\u524d\u8303\u56f4",
   clearRangeConfirm:
     "\u8fd9\u4f1a\u5220\u6389\u5f53\u524d\u7b5b\u9009\u8303\u56f4\u5185\u7684\u4e13\u6ce8\u8bb0\u5f55\uff0c\u4f46\u4e0d\u4f1a\u78b0\u5f85\u529e\u4efb\u52a1\uff0c\u786e\u5b9a\u7ee7\u7eed\u5417\uff1f",
@@ -398,6 +399,25 @@ const copy = {
   clearDataConfirm:
     "\u8fd9\u4f1a\u6e05\u7a7a\u672c\u5730\u7684\u4efb\u52a1\u3001\u4e13\u6ce8\u8bb0\u5f55\u548c\u7edf\u8ba1\u7ed3\u679c\uff0c\u786e\u5b9a\u7ee7\u7eed\u5417\uff1f",
   clearDataDone: "\u5df2\u6e05\u7a7a\u672c\u5730\u6570\u636e",
+  backupEyebrow: "\u6570\u636e\u5907\u4efd",
+  backupTitle: "\u628a\u672c\u5730\u6570\u636e\u5b89\u5168\u5730\u7559\u4e0b\u6765",
+  backupSummary:
+    "\u8fd9\u91cc\u53ef\u4ee5\u5bfc\u51fa\u5b8c\u6574\u672c\u5730\u5907\u4efd\uff0c\u4e5f\u53ef\u4ee5\u4ece\u73b0\u6709\u5907\u4efd\u6062\u590d\u3002\u6062\u590d\u524d\u4f1a\u5148\u81ea\u52a8\u751f\u6210\u4e00\u4efd\u56de\u6eda\u5907\u4efd\u3002",
+  backupExport: "\u5bfc\u51fa\u5b8c\u6574\u5907\u4efd",
+  backupRefresh: "\u5237\u65b0\u5907\u4efd\u5217\u8868",
+  backupRefreshed: "\u5907\u4efd\u5217\u8868\u5df2\u5237\u65b0",
+  backupExportDonePrefix: "\u5b8c\u6574\u5907\u4efd\u5df2\u5bfc\u51fa\u5230",
+  backupListEmpty:
+    "\u6682\u65f6\u8fd8\u6ca1\u6709\u627e\u5230\u53ef\u7528\u7684\u5b8c\u6574\u5907\u4efd\uff0c\u53ef\u4ee5\u5148\u5bfc\u51fa\u4e00\u4efd\u3002",
+  backupCountLabel: "\u4e13\u6ce8\u8bb0\u5f55",
+  backupTodoLabel: "\u5f85\u529e\u4efb\u52a1",
+  backupRuntimeYes: "\u542b\u8fd0\u884c\u4e2d\u4f1a\u8bdd",
+  backupRuntimeNo: "\u4ec5\u542b\u957f\u671f\u6570\u636e",
+  backupRestore: "\u6062\u590d\u8fd9\u4efd\u5907\u4efd",
+  backupRestoreConfirm:
+    "\u8fd9\u4f1a\u7528\u9009\u4e2d\u7684\u5907\u4efd\u8986\u76d6\u5f53\u524d\u672c\u5730\u6570\u636e\uff0c\u4f46\u6062\u590d\u524d\u4f1a\u5148\u81ea\u52a8\u751f\u6210\u4e00\u4efd\u56de\u6eda\u5907\u4efd\uff0c\u786e\u5b9a\u7ee7\u7eed\u5417\uff1f",
+  backupRestoreDonePrefix: "\u5df2\u6062\u590d\u5907\u4efd",
+  backupRollbackPrefix: "\u6062\u590d\u524d\u5df2\u81ea\u52a8\u751f\u6210\u56de\u6eda\u5907\u4efd",
   developerEyebrow: "\u5f00\u53d1\u8005\u4fe1\u606f",
   developerTitle: "\u8fd9\u4e9b\u5185\u90e8\u4fe1\u606f\u90fd\u6536\u5728\u8fd9\u91cc",
   developerSummary:
@@ -440,8 +460,8 @@ const copy = {
 
 const emptySnapshot: ShellSnapshot = {
   productName: "Focused Moment",
-  version: "1.3.3",
-  milestone: "v1.3.3 \u7a33\u5b9a\u6e32\u67d3\u4fdd\u62a4\u7248",
+  version: "1.4.1",
+  milestone: "v1.4.1 \u5907\u4efd\u76ee\u5f55\u8c03\u6574\u7248",
   slogan:
     "\u7528\u66f4\u8f7b\u7684\u65b9\u5f0f\u4e13\u6ce8\u3001\u5b89\u6392\u548c\u590d\u76d8\u6bcf\u4e00\u5929\u3002",
   surfaces: [],
@@ -511,6 +531,22 @@ function formatDurationLabel(durationMs: number) {
   const minutes = `${Math.floor((totalSeconds % 3600) / 60)}`.padStart(2, "0");
   const seconds = `${totalSeconds % 60}`.padStart(2, "0");
   return `${hours}:${minutes}:${seconds}`;
+}
+
+function formatBackupTimestamp(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleString("zh-CN", {
+    hour12: false,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function isIsoDateValue(value: string) {
@@ -639,6 +675,7 @@ function MainShell() {
   const [currentTaskTitle, setCurrentTaskTitle] = createSignal("");
   const [linkedTodoId, setLinkedTodoId] = createSignal<number | null>(null);
   const [records, setRecords] = createSignal<FocusRecord[]>([]);
+  const [backups, setBackups] = createSignal<BackupListItem[]>([]);
   const [, setAnalyticsSnapshot] =
     createSignal<AnalyticsSnapshot>(emptyAnalyticsSnapshot);
   const [todoItems, setTodoItems] = createSignal<TodoItem[]>([]);
@@ -654,6 +691,7 @@ function MainShell() {
   const [timerPreferencesFeedback, setTimerPreferencesFeedback] =
     createSignal<string | null>(null);
   const [todoBusy, setTodoBusy] = createSignal(false);
+  const [backupBusy, setBackupBusy] = createSignal(false);
   const [showTimerSettings, setShowTimerSettings] = createSignal(false);
   const [showRecentRecords, setShowRecentRecords] = createSignal(false);
   const [showFocusDetails, setShowFocusDetails] = createSignal(false);
@@ -1290,6 +1328,11 @@ function MainShell() {
     setTodoItemsHydrated(true);
   }
 
+  async function refreshAppBackups() {
+    const nextBackups = await listAppBackups();
+    setBackups(nextBackups);
+  }
+
   async function refreshReviewDataInBackground() {
     if (reviewDataBusy()) {
       return;
@@ -1609,26 +1652,79 @@ function MainShell() {
     }
   }
 
-  async function handleExportRangeRecords() {
-    if (timerBusy()) {
+  async function handleExportBackup() {
+    if (backupBusy() || timerBusy() || todoBusy()) {
       return;
     }
 
-    const ids = filteredInsightRecords().map((record) => record.id);
-    if (ids.length === 0) {
-      setStatusText(copy.insightRecordsEmpty);
-      return;
-    }
-
-    setTimerBusy(true);
+    setBackupBusy(true);
 
     try {
-      const exportPath = await exportFocusRecordsCsv(ids);
-      setStatusText(`${copy.exportDonePrefix} ${exportPath}`);
+      const result = await exportAppBackup();
+      await refreshAppBackups();
+      setStatusText(`${copy.backupExportDonePrefix} ${result.filePath}`);
     } catch (error) {
       setStatusText(getErrorMessage(error));
     } finally {
+      setBackupBusy(false);
+    }
+  }
+
+  async function handleRefreshBackups() {
+    if (backupBusy()) {
+      return;
+    }
+
+    setBackupBusy(true);
+
+    try {
+      await refreshAppBackups();
+      setStatusText(copy.backupRefreshed);
+    } catch (error) {
+      setStatusText(getErrorMessage(error));
+    } finally {
+      setBackupBusy(false);
+    }
+  }
+
+  async function handleImportBackup(fileName: string) {
+    if (backupBusy() || timerBusy() || todoBusy()) {
+      return;
+    }
+
+    const shouldImport = window.confirm(copy.backupRestoreConfirm);
+    if (!shouldImport) {
+      return;
+    }
+
+    setBackupBusy(true);
+    setTimerBusy(true);
+    setTodoBusy(true);
+
+    try {
+      const result = await importAppBackup(fileName);
+      setCurrentTaskTitle("");
+      setLinkedTodoId(null);
+      setEditingTodoId(null);
+      setEditingTodoDraft(createDefaultTodoDraft());
+      setTodoDraft(createDefaultTodoDraft());
+      await Promise.all([
+        refreshTimerSnapshot(true),
+        refreshTimerPreferences(),
+        refreshFocusRecords(),
+        refreshTodoItems(),
+        refreshAnalyticsSummary(),
+        refreshAppBackups(),
+      ]);
+      setStatusText(
+        `${copy.backupRestoreDonePrefix} ${result.importedFileName}；${copy.backupRollbackPrefix} ${result.rollbackFileName}`
+      );
+    } catch (error) {
+      setStatusText(getErrorMessage(error));
+    } finally {
+      setBackupBusy(false);
       setTimerBusy(false);
+      setTodoBusy(false);
     }
   }
 
@@ -1733,17 +1829,23 @@ function MainShell() {
         refreshTimerSnapshot(true),
         refreshTodoItems(),
         refreshTimerPreferences(),
+        refreshAppBackups(),
       ]);
 
       const timerResult = criticalResults[0];
       const todoResult = criticalResults[1];
       const preferencesResult = criticalResults[2];
+      const backupResult = criticalResults[3];
 
       if (timerResult?.status === "rejected") {
         throw timerResult.reason;
       }
 
-      if (todoResult?.status === "rejected" || preferencesResult?.status === "rejected") {
+      if (
+        todoResult?.status === "rejected" ||
+        preferencesResult?.status === "rejected" ||
+        backupResult?.status === "rejected"
+      ) {
         setStatusText(copy.reviewPartial);
       } else {
         setStatusText(
@@ -2552,14 +2654,6 @@ function MainShell() {
                     type="button"
                     class="action-button"
                     disabled={timerBusy() || filteredInsightRecords().length === 0}
-                    onClick={() => void handleExportRangeRecords()}
-                  >
-                    {copy.exportCsv}
-                  </button>
-                  <button
-                    type="button"
-                    class="action-button"
-                    disabled={timerBusy() || filteredInsightRecords().length === 0}
                     onClick={() => void handleClearRangeRecords()}
                   >
                     {copy.clearRange}
@@ -2573,6 +2667,83 @@ function MainShell() {
                     {copy.clearData}
                   </button>
                 </div>
+              </div>
+            </section>
+
+            <section class="panel chart-panel backup-panel">
+              <div class="records-panel__header">
+                <div>
+                  <span class="eyebrow">{copy.backupEyebrow}</span>
+                  <h3>{copy.backupTitle}</h3>
+                </div>
+                <p class="chart-panel__summary">{copy.backupSummary}</p>
+              </div>
+
+              <div class="review-toolbar__actions">
+                <button
+                  type="button"
+                  class="action-button"
+                  disabled={backupBusy() || timerBusy() || todoBusy()}
+                  onClick={() => void handleExportBackup()}
+                >
+                  {copy.backupExport}
+                </button>
+                <button
+                  type="button"
+                  class="action-button"
+                  disabled={backupBusy()}
+                  onClick={() => void handleRefreshBackups()}
+                >
+                  {copy.backupRefresh}
+                </button>
+              </div>
+
+              <div class="records-list">
+                <For each={backups()}>
+                  {(backup) => (
+                    <article class="record-card">
+                      <div class="record-card__main">
+                        <div class="record-card__copy">
+                          <strong>{backup.fileName}</strong>
+                          <div class="record-card__meta">
+                            <span class="record-pill">
+                              {formatBackupTimestamp(backup.exportedAt)}
+                            </span>
+                            <span class="record-pill record-pill--muted">
+                              {`v${backup.appVersion}`}
+                            </span>
+                            <span class="record-pill record-pill--muted">
+                              {`${copy.backupCountLabel}：${backup.focusRecordCount}`}
+                            </span>
+                            <span class="record-pill record-pill--muted">
+                              {`${copy.backupTodoLabel}：${backup.todoCount}`}
+                            </span>
+                            <span class="record-pill record-pill--muted">
+                              {backup.hasRuntimeSession
+                                ? copy.backupRuntimeYes
+                                : copy.backupRuntimeNo}
+                            </span>
+                          </div>
+                        </div>
+                        <div class="record-card__actions">
+                          <span>{`格式 v${backup.formatVersion}`}</span>
+                          <button
+                            type="button"
+                            class="action-button"
+                            disabled={backupBusy() || timerBusy() || todoBusy()}
+                            onClick={() => void handleImportBackup(backup.fileName)}
+                          >
+                            {copy.backupRestore}
+                          </button>
+                        </div>
+                      </div>
+                    </article>
+                  )}
+                </For>
+
+                {backups().length === 0 && (
+                  <p class="records-empty">{copy.backupListEmpty}</p>
+                )}
               </div>
             </section>
 
