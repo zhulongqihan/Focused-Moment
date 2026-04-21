@@ -53,6 +53,7 @@ type ReviewRangeKey = "today" | "7d" | "30d" | "all" | "custom";
 type TodoFilterKey = "all" | "pending" | "completed" | "today" | "high";
 type TodoSortKey = "smart" | "schedule" | "importance" | "newest" | "title";
 type VisualMode = "lite" | "rich";
+type AmbientState = "idle" | "focus" | "break";
 
 type ReviewSummary = {
   totalFocusDurationMs: number;
@@ -460,8 +461,8 @@ const copy = {
 
 const emptySnapshot: ShellSnapshot = {
   productName: "Focused Moment",
-  version: "1.4.1",
-  milestone: "v1.4.1 \u5907\u4efd\u76ee\u5f55\u8c03\u6574\u7248",
+  version: "1.5.0",
+  milestone: "v1.5.0 琉璃印刻前端重构版",
   slogan:
     "\u7528\u66f4\u8f7b\u7684\u65b9\u5f0f\u4e13\u6ce8\u3001\u5b89\u6392\u548c\u590d\u76d8\u6bcf\u4e00\u5929\u3002",
   surfaces: [],
@@ -888,6 +889,22 @@ function MainShell() {
   const shouldLoadReviewData = () =>
     activeView() === "insights" || showRecentRecords();
   const isLiteVisualMode = () => visualMode() === "lite" || Boolean(bootError());
+  const activeViewItem = () =>
+    viewItems.find((item) => item.key === activeView()) ?? viewItems[0];
+  const isZenFocusMode = () =>
+    activeView() === "focus" && timerSnapshot().isRunning;
+  const ambientState = (): AmbientState => {
+    const snapshot = timerSnapshot();
+    if (snapshot.phaseKey === "break") {
+      return "break";
+    }
+
+    if (snapshot.isRunning) {
+      return "focus";
+    }
+
+    return "idle";
+  };
   const orderedTrendDays = () =>
     latestDailyBreakdown()
       .slice(0, activeTrendWindow())
@@ -1876,8 +1893,21 @@ function MainShell() {
       class="shell"
       classList={{
         "shell--lite": isLiteVisualMode(),
+        "shell--ambient-idle": ambientState() === "idle",
+        "shell--ambient-focus": ambientState() === "focus",
+        "shell--ambient-break": ambientState() === "break",
+        "shell--ambient-fallback": Boolean(bootError()),
+        "shell--view-focus": activeView() === "focus",
+        "shell--view-tasks": activeView() === "tasks",
+        "shell--view-insights": activeView() === "insights",
+        "shell--view-lab": activeView() === "lab",
+        "shell--zen-focus": isZenFocusMode(),
       }}
     >
+      <div class="shell__ambient" aria-hidden="true" />
+      <div class="shell__vellum" aria-hidden="true" />
+      <div class="shell__noise" aria-hidden="true" />
+
       <header class="window-chrome">
         <div class="brand-lockup">
           <div class="brand-mark">
@@ -1932,18 +1962,18 @@ function MainShell() {
       </header>
 
       <main class="workspace workspace--single">
-        <section class="panel view-switcher">
-          <div class="view-switcher__copy">
+        <section class="view-switcher">
+          <div class="view-switcher__meta">
             <span class="eyebrow">{copy.switcherEyebrow}</span>
-            <h2>{copy.switcherTitle}</h2>
-            <p>{copy.switcherSummary}</p>
+            <p>{activeViewItem().summary}</p>
           </div>
 
-          <div class="view-switcher__actions">
+          <nav class="view-switcher__actions" aria-label={copy.switcherTitle}>
             <For each={viewItems}>
               {(item) => (
                 <button
                   type="button"
+                  title={item.summary}
                   classList={{
                     "view-chip": true,
                     "view-chip--active": activeView() === item.key,
@@ -1951,15 +1981,19 @@ function MainShell() {
                   onClick={() => setActiveView(item.key)}
                 >
                   <strong>{item.label}</strong>
-                  <span>{item.summary}</span>
                 </button>
               )}
             </For>
-          </div>
+          </nav>
         </section>
 
         <Show when={activeView() === "focus"}>
-          <section class="hero-panel panel">
+          <section
+            class="hero-panel"
+            classList={{
+              "hero-panel--zen": isZenFocusMode(),
+            }}
+          >
             <div class="hero-copy timer-hero">
               <span class="eyebrow">{copy.focusEyebrow}</span>
               <h1>{copy.focusTitle}</h1>
@@ -1969,7 +2003,12 @@ function MainShell() {
               </p>
             </div>
 
-            <section class="timer-panel">
+            <section
+              class="timer-panel"
+              classList={{
+                "timer-panel--zen": isZenFocusMode(),
+              }}
+            >
               <div class="mode-switch">
                 <span class="eyebrow">{copy.modeSwitchEyebrow}</span>
                 <div class="mode-switch__actions">
@@ -2175,70 +2214,72 @@ function MainShell() {
                 <p class="task-link-hint">{taskLinkSummary()}</p>
               </div>
 
-              <div class="timer-panel__header">
-                <div>
-                  <span class="eyebrow">{copy.modeEyebrow}</span>
-                  <h2>{timerSnapshot().phaseLabel}</h2>
+              <div class="timer-stage">
+                <div class="timer-panel__header">
+                  <div>
+                    <span class="eyebrow">{copy.modeEyebrow}</span>
+                    <h2>{timerSnapshot().phaseLabel}</h2>
+                  </div>
+                  <span
+                    classList={{
+                      "timer-status": true,
+                      "timer-status--running": timerSnapshot().isRunning,
+                    }}
+                  >
+                    {timerSnapshot().status}
+                  </span>
                 </div>
-                <span
-                  classList={{
-                    "timer-status": true,
-                    "timer-status--running": timerSnapshot().isRunning,
-                  }}
-                >
-                  {timerSnapshot().status}
-                </span>
-              </div>
 
-              <p class="timer-secondary">{timerSnapshot().secondaryLabel}</p>
-              {currentTaskTitle().trim() && (
-                <p class="timer-focus-copy">
-                  {copy.currentFocusLabel}
-                  {`\uff1a${currentTaskTitle().trim()}`}
-                </p>
-              )}
-              <div class="timer-display">{timerSnapshot().elapsedLabel}</div>
-              <div class="timer-actions">
-                <button
-                  type="button"
-                  class="action-button action-button--primary"
-                  disabled={timerBusy() || timerSnapshot().isRunning || !timerReady()}
-                  onClick={() => void runTimerAction(startTimer)}
-                >
-                  {copy.start}
-                </button>
-                <button
-                  type="button"
-                  class="action-button"
-                  disabled={timerBusy() || !timerSnapshot().isRunning || !timerReady()}
-                  onClick={() => void runTimerAction(pauseTimer)}
-                >
-                  {copy.pause}
-                </button>
-                <button
-                  type="button"
-                  class="action-button"
-                  disabled={
-                    timerBusy() ||
-                    (timerSnapshot().elapsedMs === 0 && !timerSnapshot().isRunning) ||
-                    !timerReady()
-                  }
-                  onClick={() => void runTimerAction(resetTimer)}
-                >
-                  {copy.reset}
-                </button>
-                <button
-                  type="button"
-                  class="action-button action-button--success"
-                  disabled={
-                    timerBusy() ||
-                    !canCompleteAction() ||
-                    !timerReady()
-                  }
-                  onClick={() => void handleCompleteSession()}
-                >
-                  {completionLabel()}
-                </button>
+                <p class="timer-secondary">{timerSnapshot().secondaryLabel}</p>
+                {currentTaskTitle().trim() && (
+                  <p class="timer-focus-copy">
+                    {copy.currentFocusLabel}
+                    {`\uff1a${currentTaskTitle().trim()}`}
+                  </p>
+                )}
+                <div class="timer-display">{timerSnapshot().elapsedLabel}</div>
+                <div class="timer-actions">
+                  <button
+                    type="button"
+                    class="action-button action-button--primary"
+                    disabled={timerBusy() || timerSnapshot().isRunning || !timerReady()}
+                    onClick={() => void runTimerAction(startTimer)}
+                  >
+                    {copy.start}
+                  </button>
+                  <button
+                    type="button"
+                    class="action-button"
+                    disabled={timerBusy() || !timerSnapshot().isRunning || !timerReady()}
+                    onClick={() => void runTimerAction(pauseTimer)}
+                  >
+                    {copy.pause}
+                  </button>
+                  <button
+                    type="button"
+                    class="action-button"
+                    disabled={
+                      timerBusy() ||
+                      (timerSnapshot().elapsedMs === 0 && !timerSnapshot().isRunning) ||
+                      !timerReady()
+                    }
+                    onClick={() => void runTimerAction(resetTimer)}
+                  >
+                    {copy.reset}
+                  </button>
+                  <button
+                    type="button"
+                    class="action-button action-button--success"
+                    disabled={
+                      timerBusy() ||
+                      !canCompleteAction() ||
+                      !timerReady()
+                    }
+                    onClick={() => void handleCompleteSession()}
+                  >
+                    {completionLabel()}
+                  </button>
+                </div>
               </div>
 
               <section class="records-panel records-panel--collapsible">
@@ -2374,7 +2415,7 @@ function MainShell() {
         </Show>
 
         <Show when={activeView() === "tasks"}>
-          <section class="panel section-panel">
+          <section class="section-panel section-panel--tasks">
           <div class="section-heading">
             <div>
               <span class="eyebrow">{copy.todoEyebrow}</span>
@@ -2583,7 +2624,7 @@ function MainShell() {
         </Show>
 
         <Show when={activeView() === "insights"}>
-          <section class="panel insights-panel">
+          <section class="insights-panel insights-panel--review">
             <div class="section-heading">
               <div>
                 <span class="eyebrow">{copy.insightEyebrow}</span>
@@ -2592,7 +2633,7 @@ function MainShell() {
               <p>{copy.insightSummary}</p>
             </div>
 
-            <section class="panel chart-panel review-toolbar">
+            <section class="chart-panel review-toolbar">
               <div class="records-panel__header">
                 <div>
                   <span class="eyebrow">{copy.insightFilterEyebrow}</span>
@@ -2670,7 +2711,7 @@ function MainShell() {
               </div>
             </section>
 
-            <section class="panel chart-panel backup-panel">
+            <section class="chart-panel backup-panel">
               <div class="records-panel__header">
                 <div>
                   <span class="eyebrow">{copy.backupEyebrow}</span>
@@ -2801,7 +2842,7 @@ function MainShell() {
               </article>
             </div>
 
-            <section class="panel chart-panel">
+            <section class="chart-panel">
               <div class="records-panel__header">
                 <div>
                   <span class="eyebrow">{copy.insightTrendEyebrow}</span>
@@ -3271,7 +3312,7 @@ function MainShell() {
         </Show>
 
         <Show when={activeView() === "lab"}>
-          <section class="panel insights-panel developer-panel">
+          <section class="insights-panel insights-panel--developer developer-panel">
             <div class="section-heading">
               <div>
                 <span class="eyebrow">{copy.developerEyebrow}</span>

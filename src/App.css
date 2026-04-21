@@ -53,39 +53,228 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  isolation: isolate;
+  background: #ece7df;
+  --ambient-main-duration: 30s;
+  --ambient-focus-duration: 28s;
+  --ambient-break-duration: 26s;
+  --ambient-vellum-duration: 32s;
+  --ambient-base-filter: saturate(0.95) brightness(1.02);
+  --ambient-focus-opacity: 0;
+  --ambient-break-opacity: 0;
+  --vellum-glow-opacity: 0.14;
+  --noise-opacity: 0.055;
 }
 
-.shell::before,
-.shell::after {
-  content: "";
+.shell__ambient,
+.shell__vellum,
+.shell__noise {
   position: absolute;
   inset: 0;
   pointer-events: none;
 }
 
-.shell::before {
+.shell__ambient {
+  inset: -14%;
+  z-index: 0;
+  opacity: 0.98;
+  filter: var(--ambient-base-filter);
   background:
-    radial-gradient(circle at 10% 14%, rgba(238, 233, 224, 0.96), transparent 24%),
-    radial-gradient(circle at 90% 12%, rgba(224, 234, 229, 0.72), transparent 20%);
+    radial-gradient(circle at 14% 18%, rgba(255, 255, 255, 0.94) 0%, rgba(255, 255, 255, 0.38) 16%, transparent 38%),
+    radial-gradient(circle at 84% 16%, rgba(216, 224, 231, 0.72) 0%, rgba(216, 224, 231, 0.24) 18%, transparent 36%),
+    radial-gradient(circle at 62% 80%, rgba(233, 227, 219, 0.76) 0%, rgba(233, 227, 219, 0.22) 20%, transparent 40%),
+    linear-gradient(135deg, #f3eee6 0%, #e6e0d8 48%, #ebe7e0 100%);
+  transform-origin: center;
+  animation: ambient-drift-a var(--ambient-main-duration) ease-in-out infinite alternate;
+  transition:
+    filter 700ms ease,
+    opacity 700ms ease;
 }
 
-.shell::after {
-  backdrop-filter: blur(22px);
-  -webkit-backdrop-filter: blur(22px);
+.shell__ambient::before,
+.shell__ambient::after,
+.shell__vellum::before {
+  content: "";
+  position: absolute;
+  inset: -8%;
+  pointer-events: none;
+  transition:
+    opacity 700ms ease,
+    filter 700ms ease;
 }
 
-.shell--lite::before {
-  background: linear-gradient(180deg, rgba(246, 242, 235, 0.98), rgba(232, 226, 216, 0.9));
+.shell__ambient::before {
+  z-index: 0;
+  opacity: var(--ambient-focus-opacity);
+  filter: saturate(1.04);
+  background:
+    radial-gradient(circle at 18% 34%, rgba(28, 56, 96, 0.38) 0%, rgba(28, 56, 96, 0.14) 20%, transparent 40%),
+    radial-gradient(circle at 80% 20%, rgba(190, 142, 78, 0.24) 0%, rgba(190, 142, 78, 0.1) 18%, transparent 34%),
+    radial-gradient(circle at 58% 74%, rgba(65, 82, 118, 0.24) 0%, rgba(65, 82, 118, 0.1) 20%, transparent 38%),
+    linear-gradient(145deg, rgba(18, 36, 63, 0.16), rgba(80, 92, 119, 0.08) 45%, rgba(233, 188, 127, 0.08) 100%);
+  transform-origin: 35% 35%;
+  animation: ambient-drift-b var(--ambient-focus-duration) ease-in-out infinite alternate;
 }
 
-.shell--lite::after {
-  display: none;
+.shell__ambient::after {
+  z-index: 0;
+  opacity: var(--ambient-break-opacity);
+  filter: saturate(1.02);
+  background:
+    radial-gradient(circle at 24% 26%, rgba(176, 228, 211, 0.34) 0%, rgba(176, 228, 211, 0.14) 20%, transparent 38%),
+    radial-gradient(circle at 82% 22%, rgba(124, 190, 177, 0.28) 0%, rgba(124, 190, 177, 0.1) 18%, transparent 34%),
+    radial-gradient(circle at 60% 76%, rgba(220, 245, 240, 0.32) 0%, rgba(220, 245, 240, 0.12) 18%, transparent 38%),
+    linear-gradient(150deg, rgba(216, 246, 235, 0.16), rgba(147, 210, 190, 0.08) 45%, rgba(242, 252, 249, 0.08) 100%);
+  transform-origin: 68% 42%;
+  animation: ambient-drift-c var(--ambient-break-duration) ease-in-out infinite alternate;
+}
+
+.shell__vellum {
+  z-index: 1;
+  background:
+    linear-gradient(180deg, rgba(255, 253, 249, 0.46), rgba(249, 246, 239, 0.34) 34%, rgba(243, 238, 232, 0.3) 100%);
+  backdrop-filter: blur(28px) saturate(1.16);
+  -webkit-backdrop-filter: blur(28px) saturate(1.16);
+}
+
+.shell__vellum::before {
+  inset: -10%;
+  z-index: 0;
+  opacity: var(--vellum-glow-opacity);
+  background:
+    radial-gradient(circle at 14% 16%, rgba(255, 255, 255, 0.62) 0%, rgba(255, 255, 255, 0.18) 18%, transparent 44%),
+    radial-gradient(circle at 76% 18%, rgba(245, 247, 252, 0.42) 0%, rgba(245, 247, 252, 0.14) 16%, transparent 38%),
+    radial-gradient(circle at 42% 82%, rgba(252, 248, 241, 0.38) 0%, rgba(252, 248, 241, 0.1) 18%, transparent 40%);
+  transform-origin: center;
+  animation: ambient-drift-d var(--ambient-vellum-duration) ease-in-out infinite alternate;
+}
+
+.shell__noise {
+  z-index: 2;
+  opacity: var(--noise-opacity);
+  mix-blend-mode: multiply;
+  background-image:
+    radial-gradient(rgba(24, 33, 39, 0.12) 0.55px, transparent 0.7px),
+    radial-gradient(rgba(255, 255, 255, 0.14) 0.45px, transparent 0.65px);
+  background-size: 16px 16px, 23px 23px;
+  background-position: 0 0, 8px 11px;
+}
+
+.shell--ambient-idle {
+  --ambient-main-duration: 30s;
+  --ambient-focus-duration: 28s;
+  --ambient-break-duration: 26s;
+  --ambient-vellum-duration: 32s;
+  --ambient-base-filter: saturate(0.95) brightness(1.02);
+  --ambient-focus-opacity: 0;
+  --ambient-break-opacity: 0;
+  --vellum-glow-opacity: 0.14;
+  --noise-opacity: 0.055;
+}
+
+.shell--ambient-focus {
+  --ambient-main-duration: 22s;
+  --ambient-focus-duration: 20s;
+  --ambient-break-duration: 24s;
+  --ambient-vellum-duration: 24s;
+  --ambient-base-filter: saturate(1.03) brightness(0.98);
+  --ambient-focus-opacity: 0.94;
+  --ambient-break-opacity: 0.04;
+  --vellum-glow-opacity: 0.18;
+  --noise-opacity: 0.05;
+}
+
+.shell--ambient-break {
+  --ambient-main-duration: 24s;
+  --ambient-focus-duration: 26s;
+  --ambient-break-duration: 22s;
+  --ambient-vellum-duration: 26s;
+  --ambient-base-filter: saturate(1.01) brightness(1.04);
+  --ambient-focus-opacity: 0.06;
+  --ambient-break-opacity: 0.92;
+  --vellum-glow-opacity: 0.2;
+  --noise-opacity: 0.048;
+}
+
+.shell--ambient-fallback {
+  --ambient-main-duration: 48s;
+  --ambient-focus-duration: 48s;
+  --ambient-break-duration: 48s;
+  --ambient-vellum-duration: 52s;
+  --ambient-base-filter: saturate(0.92) brightness(1.01);
+}
+
+.shell--ambient-idle.shell--ambient-fallback {
+  --vellum-glow-opacity: 0.08;
+  --noise-opacity: 0.04;
+}
+
+.shell--ambient-focus.shell--ambient-fallback {
+  --ambient-focus-opacity: 0.68;
+  --ambient-break-opacity: 0;
+  --vellum-glow-opacity: 0.1;
+  --noise-opacity: 0.04;
+}
+
+.shell--ambient-break.shell--ambient-fallback {
+  --ambient-focus-opacity: 0.04;
+  --ambient-break-opacity: 0.68;
+  --vellum-glow-opacity: 0.1;
+  --noise-opacity: 0.04;
 }
 
 .window-chrome,
 .workspace {
   position: relative;
-  z-index: 1;
+  z-index: 3;
+}
+
+@keyframes ambient-drift-a {
+  0% {
+    transform: translate3d(-2%, -1%, 0) scale(1.02) rotate(-1deg);
+  }
+  50% {
+    transform: translate3d(1.5%, 1%, 0) scale(1.07) rotate(1.2deg);
+  }
+  100% {
+    transform: translate3d(3%, -1.5%, 0) scale(1.04) rotate(3deg);
+  }
+}
+
+@keyframes ambient-drift-b {
+  0% {
+    transform: translate3d(-1%, 0%, 0) scale(1) rotate(-1deg);
+  }
+  50% {
+    transform: translate3d(2%, 1.5%, 0) scale(1.06) rotate(1deg);
+  }
+  100% {
+    transform: translate3d(4%, -1%, 0) scale(1.04) rotate(2.5deg);
+  }
+}
+
+@keyframes ambient-drift-c {
+  0% {
+    transform: translate3d(1%, -1%, 0) scale(1.01) rotate(1deg);
+  }
+  50% {
+    transform: translate3d(-1.5%, 1.5%, 0) scale(1.05) rotate(-1.2deg);
+  }
+  100% {
+    transform: translate3d(-3%, -2%, 0) scale(1.03) rotate(-2.8deg);
+  }
+}
+
+@keyframes ambient-drift-d {
+  0% {
+    transform: translate3d(0%, 0%, 0) scale(1) rotate(0deg);
+  }
+  50% {
+    transform: translate3d(1.5%, -1%, 0) scale(1.03) rotate(1deg);
+  }
+  100% {
+    transform: translate3d(-1.5%, 1%, 0) scale(1.04) rotate(-1deg);
+  }
 }
 
 .window-chrome {
@@ -229,14 +418,14 @@ body {
   flex: 1;
   min-height: 0;
   display: grid;
-  gap: 16px;
+  gap: 26px;
   grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
   grid-template-areas:
     "hero surfaces"
     "roadmap roadmap";
   overflow-y: auto;
   overflow-x: hidden;
-  padding-right: 6px;
+  padding: 4px 8px 44px 0;
   align-content: start;
 }
 
@@ -282,47 +471,64 @@ body {
   -webkit-backdrop-filter: none;
 }
 
-.view-switcher,
-.insights-panel {
-  display: grid;
-  gap: 22px;
-  padding: 28px;
+.view-switcher {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 6px 0 12px;
   animation: rise-in 420ms ease;
 }
 
-.view-switcher__copy {
+.insights-panel {
   display: grid;
-  gap: 10px;
+  gap: 28px;
+  padding: 4px 0 18px;
+  animation: rise-in 420ms ease;
 }
 
-.view-switcher__copy h2 {
-  margin: 0;
-  font-size: clamp(1.6rem, 2vw, 2.2rem);
-  letter-spacing: -0.04em;
+.view-switcher__meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
 }
 
-.view-switcher__copy p {
+.view-switcher__meta p {
   margin: 0;
-  color: var(--text-muted);
-  max-width: 44rem;
+  color: var(--text-soft);
+  font-size: 0.9rem;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .view-switcher__actions {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
 }
 
 .view-chip {
-  display: grid;
-  gap: 6px;
-  text-align: left;
-  border: 1px solid var(--border);
-  border-radius: 24px;
-  padding: 16px 18px;
-  background: rgba(255, 252, 247, 0.84);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  text-align: center;
+  border: 1px solid rgba(27, 39, 49, 0.08);
+  border-radius: 999px;
+  padding: 0 18px;
+  background: rgba(255, 252, 247, 0.36);
   color: var(--text-main);
   font: inherit;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   cursor: pointer;
   transition:
     transform 180ms ease,
@@ -332,39 +538,33 @@ body {
 }
 
 .view-chip strong {
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 600;
-}
-
-.view-chip span {
-  color: var(--text-muted);
-  font-size: 0.88rem;
+  letter-spacing: -0.02em;
 }
 
 .view-chip:hover {
   transform: translateY(-1px);
-  border-color: var(--border-strong);
+  border-color: rgba(27, 39, 49, 0.14);
+  background: rgba(255, 252, 247, 0.5);
 }
 
 .view-chip--active {
-  border-color: rgba(81, 104, 93, 0.26);
-  background: rgba(81, 104, 93, 0.12);
-  box-shadow: var(--shadow-card);
+  border-color: rgba(32, 58, 92, 0.18);
+  background: rgba(255, 252, 247, 0.72);
+  box-shadow: 0 12px 28px rgba(44, 52, 63, 0.08);
 }
 
 .hero-panel {
   grid-area: hero;
   display: grid;
-  gap: 28px;
-  padding: 34px;
-  background:
-    linear-gradient(145deg, rgba(255, 251, 245, 0.92), rgba(245, 240, 232, 0.68)),
-    radial-gradient(circle at top right, rgba(215, 227, 221, 0.6), transparent 32%);
+  gap: 32px;
+  padding: 8px 0 18px;
   animation: rise-in 420ms ease;
 }
 
 .hero-copy {
-  max-width: 34rem;
+  max-width: 50rem;
 }
 
 .timer-hero {
@@ -373,14 +573,16 @@ body {
 
 .hero-copy h1 {
   margin: 10px 0 12px;
-  font-size: clamp(2.5rem, 4vw, 4rem);
-  line-height: 0.94;
-  letter-spacing: -0.04em;
+  max-width: 10ch;
+  font-size: clamp(3.4rem, 7vw, 6.6rem);
+  line-height: 0.88;
+  letter-spacing: -0.065em;
 }
 
 .hero-text {
   margin: 0 0 10px;
-  font-size: 1.12rem;
+  max-width: 42rem;
+  font-size: 1.08rem;
   color: var(--accent-strong);
 }
 
@@ -781,8 +983,10 @@ body {
   padding: 18px;
   border: 1px solid rgba(32, 40, 47, 0.06);
   border-radius: 22px;
-  background: var(--bg-strong);
-  box-shadow: var(--shadow-card);
+  background: rgba(255, 252, 247, 0.52);
+  box-shadow: 0 14px 30px rgba(67, 54, 36, 0.06);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
 }
 
 .metric-label {
@@ -803,7 +1007,9 @@ body {
   padding: 18px;
   border: 1px solid rgba(32, 40, 47, 0.06);
   border-radius: 24px;
-  background: rgba(255, 252, 247, 0.74);
+  background: rgba(255, 252, 247, 0.48);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
 }
 
 .records-panel--collapsible {
@@ -812,7 +1018,7 @@ body {
 
 .records-panel--nested {
   padding: 20px 22px;
-  background: rgba(255, 252, 247, 0.66);
+  background: rgba(255, 252, 247, 0.38);
 }
 
 .records-panel__header {
@@ -848,7 +1054,9 @@ body {
   padding: 14px 16px;
   border: 1px solid var(--border);
   border-radius: 18px;
-  background: rgba(255, 252, 247, 0.92);
+  background: rgba(255, 252, 247, 0.8);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
 .record-card__main {
@@ -912,8 +1120,10 @@ body {
   border: 1px solid rgba(32, 40, 47, 0.06);
   border-radius: 24px;
   background:
-    linear-gradient(180deg, rgba(255, 252, 247, 0.9), rgba(248, 244, 238, 0.76)),
-    radial-gradient(circle at top right, rgba(210, 224, 216, 0.36), transparent 28%);
+    linear-gradient(180deg, rgba(255, 252, 247, 0.62), rgba(248, 244, 238, 0.42)),
+    radial-gradient(circle at top right, rgba(210, 224, 216, 0.26), transparent 28%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 
 .chart-panel__summary {
@@ -1431,15 +1641,16 @@ body {
 .section-panel {
   grid-area: surfaces;
   display: grid;
-  gap: 22px;
-  padding: 28px;
+  gap: 26px;
+  padding: 4px 0 18px;
   animation: rise-in 520ms ease;
   align-content: start;
 }
 
 .section-heading {
   display: grid;
-  gap: 10px;
+  gap: 12px;
+  max-width: 52rem;
 }
 
 .section-heading__side {
@@ -1462,9 +1673,10 @@ body {
 
 .section-heading h2,
 .split-panel__intro h2 {
-  margin: 10px 0 0;
-  font-size: 1.5rem;
-  letter-spacing: -0.03em;
+  margin: 8px 0 0;
+  font-size: clamp(2rem, 4vw, 3.15rem);
+  letter-spacing: -0.055em;
+  line-height: 0.92;
 }
 
 .card-grid {
@@ -2021,6 +2233,588 @@ body {
   font-size: 0.78rem;
 }
 
+/* Luminous Editorial final pass */
+
+.shell .window-chrome {
+  margin-bottom: 10px;
+  border-color: rgba(20, 31, 39, 0.08);
+  border-radius: 28px;
+  background: rgba(255, 252, 247, 0.3);
+  box-shadow: none;
+  backdrop-filter: blur(16px) saturate(1.06);
+  -webkit-backdrop-filter: blur(16px) saturate(1.06);
+}
+
+.shell .window-drag-region {
+  min-height: 52px;
+  border-color: rgba(20, 31, 39, 0.06);
+  background: rgba(255, 252, 247, 0.18);
+  backdrop-filter: blur(14px) saturate(1.04);
+  -webkit-backdrop-filter: blur(14px) saturate(1.04);
+}
+
+.shell .window-button,
+.shell .action-button,
+.shell .mode-chip,
+.shell .trend-window-chip {
+  border-color: rgba(20, 31, 39, 0.08);
+  background: rgba(255, 252, 247, 0.28);
+  box-shadow: none;
+  backdrop-filter: blur(14px) saturate(1.04);
+  -webkit-backdrop-filter: blur(14px) saturate(1.04);
+}
+
+.shell .window-button:hover,
+.shell .action-button:hover:not(:disabled),
+.shell .mode-chip:hover:not(:disabled),
+.shell .trend-window-chip:hover {
+  background: rgba(255, 252, 247, 0.46);
+}
+
+.shell .action-button--primary {
+  background: linear-gradient(135deg, rgba(22, 39, 61, 0.88), rgba(74, 93, 120, 0.72));
+  border-color: rgba(22, 39, 61, 0.12);
+  color: #f8f5ee;
+}
+
+.shell .action-button--success,
+.shell .mode-chip--active,
+.shell .trend-window-chip--active {
+  background: rgba(255, 252, 247, 0.54);
+  border-color: rgba(32, 58, 92, 0.14);
+  color: var(--accent-strong);
+}
+
+.shell .brand-copy strong {
+  font-size: 1.02rem;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+.shell .brand-copy__eyebrow,
+.shell .eyebrow {
+  color: rgba(82, 91, 98, 0.82);
+  letter-spacing: 0.18em;
+  font-size: 0.66rem;
+}
+
+.shell .hero-panel,
+.shell .section-panel,
+.shell .insights-panel,
+.shell .developer-panel {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.shell .section-heading,
+.shell .hero-copy {
+  position: relative;
+}
+
+.shell .section-heading p,
+.shell .hero-subtext,
+.shell .hero-text,
+.shell .task-entry__copy p,
+.shell .records-panel__summary,
+.shell .chart-panel__summary {
+  max-width: 42rem;
+  color: rgba(73, 82, 88, 0.88);
+  line-height: 1.7;
+}
+
+.shell .timer-panel {
+  display: grid;
+  gap: 22px;
+  max-width: 84rem;
+}
+
+.shell .timer-stage {
+  display: grid;
+  gap: 12px;
+}
+
+.shell .timer-panel__header h2 {
+  margin-top: 10px;
+  font-size: clamp(2rem, 4vw, 3.4rem);
+  letter-spacing: -0.065em;
+  line-height: 0.92;
+}
+
+.shell .timer-status {
+  min-height: 34px;
+  padding: 0 12px;
+  background: rgba(255, 252, 247, 0.42);
+  color: rgba(82, 91, 98, 0.88);
+  letter-spacing: 0.05em;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.shell .timer-status--running {
+  background: rgba(27, 47, 74, 0.12);
+  color: #203a5c;
+}
+
+.shell .timer-secondary {
+  margin: 0;
+  color: rgba(82, 91, 98, 0.84);
+  font-size: 0.76rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.shell .timer-focus-copy {
+  margin: 0;
+  max-width: 34rem;
+  color: var(--accent-strong);
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+.shell .timer-display {
+  padding: 6px 0 10px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  font-size: clamp(5rem, 12vw, 9rem);
+  font-weight: 650;
+  line-height: 0.88;
+  letter-spacing: -0.11em;
+  text-align: left;
+}
+
+.shell .timer-actions {
+  gap: 14px;
+}
+
+.shell .timer-settings,
+.shell .records-panel,
+.shell .chart-panel,
+.shell .metric-card,
+.shell .todo-metric-card,
+.shell .todo-card,
+.shell .todo-collapse-toggle,
+.shell .stack-card,
+.shell .trend-highlight-card,
+.shell .trend-chart-card,
+.shell .trend-single-day,
+.shell .trend-detail-pill,
+.shell .toggle-chip,
+.shell .record-card {
+  border-color: rgba(20, 31, 39, 0.06);
+  background: rgba(255, 252, 247, 0.24);
+  box-shadow: none;
+  backdrop-filter: blur(16px) saturate(1.04);
+  -webkit-backdrop-filter: blur(16px) saturate(1.04);
+}
+
+.shell .records-panel--nested {
+  background: rgba(255, 252, 247, 0.16);
+}
+
+.shell .todo-metric-card,
+.shell .metric-card,
+.shell .trend-highlight-card {
+  background: rgba(255, 252, 247, 0.3);
+}
+
+.shell .trend-highlight-card--accent,
+.shell .trend-detail-pill--accent {
+  background: linear-gradient(145deg, rgba(27, 47, 74, 0.12), rgba(255, 252, 247, 0.34));
+}
+
+.shell .task-input,
+.shell .toggle-chip,
+.shell .todo-toggle,
+.shell .todo-status-pill,
+.shell .todo-attribute,
+.shell .record-pill,
+.shell .trend-single-day__date,
+.shell .stack-card__phase {
+  border-color: rgba(20, 31, 39, 0.06);
+  background: rgba(255, 252, 247, 0.26);
+  backdrop-filter: blur(12px) saturate(1.04);
+  -webkit-backdrop-filter: blur(12px) saturate(1.04);
+}
+
+.shell .task-input {
+  border-radius: 22px;
+  background: rgba(255, 252, 247, 0.32);
+}
+
+.shell .task-input:focus {
+  border-color: rgba(27, 47, 74, 0.16);
+  box-shadow: 0 0 0 4px rgba(27, 47, 74, 0.05);
+}
+
+.shell .todo-card {
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background-color 180ms ease;
+}
+
+.shell .todo-card:hover,
+.shell .record-card:hover,
+.shell .stack-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(20, 31, 39, 0.1);
+  background: rgba(255, 252, 247, 0.36);
+}
+
+.shell .todo-card__title-row strong,
+.shell .record-card__main strong,
+.shell .stack-card h3 {
+  letter-spacing: -0.03em;
+}
+
+.shell .trend-chart-card__detail h4 {
+  font-size: clamp(1.6rem, 3vw, 2.4rem);
+  letter-spacing: -0.05em;
+}
+
+.shell .trend-chart__line {
+  filter: drop-shadow(0 10px 18px rgba(34, 53, 74, 0.14));
+}
+
+.shell .split-panel {
+  padding: 10px 0 22px;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.shell .view-switcher,
+.shell .hero-copy,
+.shell .mode-switch,
+.shell .timer-settings,
+.shell .task-entry,
+.shell .records-panel--collapsible,
+.shell .window-chrome {
+  transition:
+    opacity 700ms ease,
+    transform 700ms ease,
+    max-height 700ms ease,
+    padding 700ms ease,
+    margin 700ms ease,
+    border-color 300ms ease,
+    background-color 300ms ease;
+}
+
+.shell--zen-focus .window-chrome {
+  opacity: 0.42;
+}
+
+.shell--zen-focus .window-chrome:hover {
+  opacity: 1;
+}
+
+.shell--zen-focus .view-switcher,
+.shell--zen-focus .hero-copy,
+.shell--zen-focus .mode-switch,
+.shell--zen-focus .timer-settings,
+.shell--zen-focus .task-entry,
+.shell--zen-focus .records-panel--collapsible {
+  opacity: 0;
+  transform: translateY(-24px);
+  pointer-events: none;
+  max-height: 0;
+  overflow: hidden;
+  margin: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  border-width: 0;
+}
+
+.shell--zen-focus .hero-panel {
+  min-height: calc(100vh - 156px);
+  align-content: center;
+  padding-top: 0;
+}
+
+.shell--zen-focus .timer-panel {
+  min-height: calc(100vh - 200px);
+  align-content: center;
+  justify-items: center;
+  gap: 30px;
+}
+
+.shell--zen-focus .timer-stage {
+  width: min(960px, 100%);
+  justify-items: center;
+  text-align: center;
+  gap: 16px;
+}
+
+.shell--zen-focus .timer-panel__header {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+}
+
+.shell--zen-focus .timer-panel__header h2 {
+  font-size: clamp(2.6rem, 6vw, 4.8rem);
+}
+
+.shell--zen-focus .timer-secondary {
+  font-size: 0.8rem;
+  letter-spacing: 0.2em;
+}
+
+.shell--zen-focus .timer-focus-copy {
+  max-width: 34rem;
+  font-size: clamp(1rem, 2vw, 1.28rem);
+}
+
+.shell--zen-focus .timer-display {
+  padding: 0;
+  font-size: clamp(7rem, 19vw, 12.5rem);
+  line-height: 0.82;
+  letter-spacing: -0.125em;
+  text-align: center;
+}
+
+.shell--zen-focus .timer-actions {
+  justify-content: center;
+}
+
+.shell--view-tasks .section-panel--tasks {
+  grid-template-columns: minmax(0, 1.08fr) minmax(320px, 0.92fr);
+  gap: 30px 26px;
+  align-items: start;
+}
+
+.shell--view-tasks .section-panel--tasks > .section-heading,
+.shell--view-insights .insights-panel--review > .section-heading,
+.shell--view-lab .insights-panel--developer > .section-heading {
+  grid-column: 1 / -1;
+  max-width: 58rem;
+}
+
+.shell--view-tasks .todo-creation {
+  grid-column: 1;
+  padding: 8px 0 0;
+}
+
+.shell--view-tasks .todo-metrics {
+  grid-column: 2;
+  align-self: start;
+  position: sticky;
+  top: 84px;
+}
+
+.shell--view-tasks .todo-tools-panel {
+  grid-column: 2;
+  align-self: start;
+  position: sticky;
+  top: 250px;
+}
+
+.shell--view-tasks .todo-list {
+  grid-column: 1;
+  gap: 14px;
+}
+
+.shell--view-tasks .todo-creation,
+.shell--view-tasks .todo-list,
+.shell--view-tasks .todo-tools-panel,
+.shell--view-insights .review-toolbar,
+.shell--view-insights .backup-panel,
+.shell--view-lab .developer-panel .records-panel {
+  border-top: 1px solid rgba(20, 31, 39, 0.06);
+  padding-top: 18px;
+}
+
+.shell .todo-creation {
+  gap: 16px;
+}
+
+.shell .todo-form-grid,
+.shell .timer-settings__grid,
+.shell .date-range-inputs {
+  gap: 14px;
+}
+
+.shell .todo-tools-panel__controls {
+  gap: 16px;
+}
+
+.shell .todo-list,
+.shell .records-list,
+.shell .stack-list {
+  gap: 14px;
+}
+
+.shell .review-range-group,
+.shell .review-toolbar__actions,
+.shell .mode-switch__actions,
+.shell .timer-actions {
+  gap: 12px;
+}
+
+.shell .filter-chip {
+  background: rgba(255, 252, 247, 0.26);
+  border-color: rgba(20, 31, 39, 0.07);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.shell .filter-chip--active {
+  background: rgba(255, 252, 247, 0.54);
+  border-color: rgba(32, 58, 92, 0.14);
+  color: var(--accent-strong);
+}
+
+.shell .todo-metrics,
+.shell .metric-grid {
+  gap: 14px;
+}
+
+.shell .todo-metric-card strong,
+.shell .metric-card strong {
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  letter-spacing: -0.05em;
+}
+
+.shell .todo-metric-card,
+.shell .metric-card {
+  min-height: 124px;
+  align-content: start;
+}
+
+.shell .records-panel__header {
+  align-items: start;
+}
+
+.shell .records-panel__header > div {
+  display: grid;
+  gap: 8px;
+}
+
+.shell .records-panel__summary {
+  max-width: 30rem;
+}
+
+.shell .task-entry__copy h2,
+.shell .records-panel__header h3 {
+  font-size: clamp(1.45rem, 3vw, 2.3rem);
+  letter-spacing: -0.05em;
+  line-height: 0.94;
+}
+
+.shell .timer-settings__header h3 {
+  font-size: clamp(1.28rem, 2.2vw, 1.7rem);
+  letter-spacing: -0.045em;
+}
+
+.shell .todo-card,
+.shell .record-card {
+  border-radius: 26px;
+}
+
+.shell .todo-card {
+  padding: 18px 20px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.shell .todo-card__body {
+  gap: 10px;
+}
+
+.shell .todo-card__title-row strong {
+  font-size: 1.08rem;
+}
+
+.shell .todo-status-pill,
+.shell .todo-attribute,
+.shell .record-pill,
+.shell .stack-card__phase,
+.shell .trend-single-day__date {
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+}
+
+.shell .todo-completed-section {
+  gap: 14px;
+}
+
+.shell .todo-collapse-toggle {
+  border-radius: 28px;
+  padding: 18px 20px;
+}
+
+.shell .review-toolbar,
+.shell .backup-panel,
+.shell .chart-panel,
+.shell .records-panel,
+.shell .timer-settings {
+  border-radius: 30px;
+  padding: 22px;
+}
+
+.shell .trend-shell {
+  gap: 22px;
+}
+
+.shell .trend-highlights {
+  gap: 14px;
+}
+
+.shell .trend-highlight-card {
+  min-height: 138px;
+  align-content: start;
+}
+
+.shell .trend-highlight-card strong {
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
+}
+
+.shell .trend-chart-card,
+.shell .trend-single-day {
+  border-radius: 34px;
+}
+
+.shell .trend-chart-card {
+  padding: 26px 26px 18px;
+}
+
+.shell .trend-chart__tooltip {
+  background: rgba(255, 252, 247, 0.72);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.shell .trend-detail-pill strong {
+  font-size: 1.08rem;
+}
+
+.shell .developer-panel .metric-grid,
+.shell .developer-panel .stack-list {
+  gap: 14px;
+}
+
+.shell .developer-panel .records-panel {
+  background: rgba(255, 252, 247, 0.2);
+}
+
+.shell .stack-card {
+  border-radius: 28px;
+  padding: 22px;
+  grid-template-columns: 132px minmax(0, 1fr);
+}
+
+.shell .stack-card h3 {
+  font-size: 1.12rem;
+}
+
 @keyframes rise-in {
   from {
     opacity: 0;
@@ -2042,8 +2836,13 @@ body {
       "roadmap";
   }
 
+  .view-switcher {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
   .view-switcher__actions {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    justify-content: flex-start;
   }
 
   .split-panel {
@@ -2060,6 +2859,19 @@ body {
 
   .timer-settings__header {
     flex-direction: column;
+  }
+
+  .shell--view-tasks .section-panel--tasks {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .shell--view-tasks .todo-creation,
+  .shell--view-tasks .todo-metrics,
+  .shell--view-tasks .todo-tools-panel,
+  .shell--view-tasks .todo-list {
+    grid-column: 1;
+    position: static;
+    top: auto;
   }
 }
 
@@ -2091,6 +2903,32 @@ body {
     min-height: 48px;
   }
 
+  .shell .timer-display {
+    font-size: clamp(4.4rem, 16vw, 7rem);
+    letter-spacing: -0.1em;
+  }
+
+  .shell--zen-focus .timer-display {
+    font-size: clamp(5.6rem, 22vw, 8.4rem);
+  }
+
+  .view-switcher {
+    gap: 12px;
+  }
+
+  .view-switcher__meta {
+    width: 100%;
+  }
+
+  .view-switcher__meta p {
+    white-space: normal;
+  }
+
+  .view-switcher__actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
   .metric-grid {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -2118,7 +2956,6 @@ body {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .view-switcher__actions,
   .todo-creation,
   .todo-card {
     grid-template-columns: minmax(0, 1fr);
@@ -2148,6 +2985,10 @@ body {
   .todo-form-grid,
   .timer-settings__grid,
   .timer-round-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .shell .stack-card {
     grid-template-columns: minmax(0, 1fr);
   }
 
