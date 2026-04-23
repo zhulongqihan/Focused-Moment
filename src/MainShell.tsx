@@ -69,6 +69,17 @@ type ReviewSummary = {
   dailyBreakdown: DailyInsight[];
 };
 
+type PointerParticle = {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  size: number;
+  age: number;
+  life: number;
+  color: string;
+};
+
 const viewItems = [
   {
     key: "focus",
@@ -461,8 +472,8 @@ const copy = {
 
 const emptySnapshot: ShellSnapshot = {
   productName: "Focused Moment",
-  version: "1.5.0",
-  milestone: "v1.5.0 琉璃印刻前端重构版",
+  version: "1.5.1",
+  milestone: "v1.5.1 浅色玻璃卡片前端版",
   slogan:
     "\u7528\u66f4\u8f7b\u7684\u65b9\u5f0f\u4e13\u6ce8\u3001\u5b89\u6392\u548c\u590d\u76d8\u6bcf\u4e00\u5929\u3002",
   surfaces: [],
@@ -666,6 +677,8 @@ function buildReviewSummary(records: FocusRecord[]): ReviewSummary {
 }
 
 function MainShell() {
+  let shellElement!: HTMLDivElement;
+  let particleCanvasElement!: HTMLCanvasElement;
   const [snapshot, setSnapshot] = createSignal<ShellSnapshot>(emptySnapshot);
   const [timerSnapshot, setTimerSnapshot] =
     createSignal<TimerSnapshot>(emptyTimerSnapshot);
@@ -886,6 +899,10 @@ function MainShell() {
   const filteredReviewSummary = () => buildReviewSummary(filteredInsightRecords());
   const latestDailyBreakdown = () =>
     filteredReviewSummary().dailyBreakdown.slice(0, 30);
+  const todaySummary = () =>
+    buildReviewSummary(
+      records().filter((record) => record.completedDate === getLocalDateValue())
+    );
   const shouldLoadReviewData = () =>
     activeView() === "insights" || showRecentRecords();
   const isLiteVisualMode = () => visualMode() === "lite" || Boolean(bootError());
@@ -1888,9 +1905,192 @@ function MainShell() {
     });
   });
 
+  onMount(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const canvas = particleCanvasElement;
+    const shell = shellElement;
+    const context = canvas?.getContext("2d");
+
+    if (!canvas || !shell || !context) {
+      return;
+    }
+
+    const particles: PointerParticle[] = [];
+    const maxParticles = 56;
+    let frameId = 0;
+    let lastFrameTime = performance.now();
+    let lastSpawnTime = 0;
+    let lastPointerX = 0;
+    let lastPointerY = 0;
+    let pointerActive = false;
+    let bounds = shell.getBoundingClientRect();
+
+    const syncCanvasSize = () => {
+      bounds = shell.getBoundingClientRect();
+      const pixelRatio = window.devicePixelRatio || 1;
+      canvas.width = Math.max(1, Math.floor(bounds.width * pixelRatio));
+      canvas.height = Math.max(1, Math.floor(bounds.height * pixelRatio));
+      canvas.style.width = `${bounds.width}px`;
+      canvas.style.height = `${bounds.height}px`;
+      context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    };
+
+    const pickParticleColor = () => {
+      if (timerSnapshot().phaseKey === "break") {
+        return Math.random() > 0.5 ? "137, 207, 240" : "183, 232, 222";
+      }
+
+      if (timerSnapshot().isRunning && activeView() === "focus") {
+        return Math.random() > 0.5 ? "214, 175, 55" : "152, 198, 255";
+      }
+
+      return Math.random() > 0.58
+        ? "212, 175, 55"
+        : Math.random() > 0.45
+          ? "137, 207, 240"
+          : "255, 255, 255";
+    };
+
+    const pushParticle = (x: number, y: number, deltaX: number, deltaY: number) => {
+      if (particles.length >= maxParticles) {
+        particles.splice(0, particles.length - maxParticles + 1);
+      }
+
+      const intensity =
+        activeView() === "focus" && timerSnapshot().isRunning ? 1.15 : 0.9;
+
+      particles.push({
+        x,
+        y,
+        vx: deltaX * 0.024 + (Math.random() - 0.5) * 0.55 * intensity,
+        vy: deltaY * 0.018 - (0.45 + Math.random() * 0.35) * intensity,
+        size: 1.4 + Math.random() * 2.8,
+        age: 0,
+        life: 900 + Math.random() * 1100,
+        color: pickParticleColor(),
+      });
+    };
+
+    const handlePointerMove = (event: PointerEvent) => {
+      const x = event.clientX - bounds.left;
+      const y = event.clientY - bounds.top;
+
+      if (x < 0 || x > bounds.width || y < 0 || y > bounds.height) {
+        pointerActive = false;
+        return;
+      }
+
+      if (!pointerActive) {
+        pointerActive = true;
+        lastPointerX = x;
+        lastPointerY = y;
+        return;
+      }
+
+      const now = performance.now();
+      const deltaX = x - lastPointerX;
+      const deltaY = y - lastPointerY;
+
+      lastPointerX = x;
+      lastPointerY = y;
+
+      if (now - lastSpawnTime < 22) {
+        return;
+      }
+
+      const spawnCount =
+        activeView() === "focus" && timerSnapshot().isRunning ? 2 : 1;
+
+      for (let index = 0; index < spawnCount; index += 1) {
+        pushParticle(
+          x + (Math.random() - 0.5) * 6,
+          y + (Math.random() - 0.5) * 6,
+          deltaX,
+          deltaY
+        );
+      }
+
+      lastSpawnTime = now;
+    };
+
+    const handlePointerLeave = () => {
+      pointerActive = false;
+    };
+
+    const renderParticles = (timestamp: number) => {
+      const delta = Math.min(34, timestamp - lastFrameTime || 16);
+      lastFrameTime = timestamp;
+
+      context.clearRect(0, 0, bounds.width, bounds.height);
+
+      const alphaBoost =
+        activeView() === "focus" && timerSnapshot().isRunning ? 0.68 : 0.52;
+
+      for (let index = particles.length - 1; index >= 0; index -= 1) {
+        const particle = particles[index];
+        particle.age += delta;
+
+        if (particle.age >= particle.life) {
+          particles.splice(index, 1);
+          continue;
+        }
+
+        const progress = particle.age / particle.life;
+        const velocityScale = delta / 16;
+        particle.x += particle.vx * velocityScale;
+        particle.y += particle.vy * velocityScale;
+        particle.vx *= 0.987;
+        particle.vy -= 0.0035 * velocityScale;
+
+        const alpha = Math.max(0, 1 - progress) * alphaBoost;
+        const glowSize = particle.size * (2.4 - progress * 0.7);
+
+        context.beginPath();
+        context.fillStyle = `rgba(${particle.color}, ${alpha * 0.18})`;
+        context.arc(particle.x, particle.y, glowSize, 0, Math.PI * 2);
+        context.fill();
+
+        context.beginPath();
+        context.fillStyle = `rgba(${particle.color}, ${alpha})`;
+        context.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+        context.fill();
+      }
+
+      frameId = window.requestAnimationFrame(renderParticles);
+    };
+
+    syncCanvasSize();
+
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() => syncCanvasSize())
+        : null;
+    resizeObserver?.observe(shell);
+
+    window.addEventListener("pointermove", handlePointerMove, { passive: true });
+    window.addEventListener("pointerleave", handlePointerLeave, { passive: true });
+    window.addEventListener("blur", handlePointerLeave);
+    window.addEventListener("resize", syncCanvasSize);
+
+    frameId = window.requestAnimationFrame(renderParticles);
+
+    onCleanup(() => {
+      window.cancelAnimationFrame(frameId);
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerleave", handlePointerLeave);
+      window.removeEventListener("blur", handlePointerLeave);
+      window.removeEventListener("resize", syncCanvasSize);
+      resizeObserver?.disconnect();
+    });
+  });
+
   return (
     <div
-      class="shell"
+      ref={shellElement}
+      class="shell app-shell"
       classList={{
         "shell--lite": isLiteVisualMode(),
         "shell--ambient-idle": ambientState() === "idle",
@@ -1907,8 +2107,13 @@ function MainShell() {
       <div class="shell__ambient" aria-hidden="true" />
       <div class="shell__vellum" aria-hidden="true" />
       <div class="shell__noise" aria-hidden="true" />
+      <canvas
+        ref={particleCanvasElement}
+        class="shell__particle-canvas"
+        aria-hidden="true"
+      />
 
-      <header class="window-chrome">
+      <header class="window-chrome topbar-card">
         <div class="brand-lockup">
           <div class="brand-mark">
             <span class="brand-mark__dot" />
@@ -1961,8 +2166,8 @@ function MainShell() {
         </div>
       </header>
 
-      <main class="workspace workspace--single">
-        <section class="view-switcher">
+      <main class="workspace workspace--single app-shell__main">
+        <section class="view-switcher view-tabs-card">
           <div class="view-switcher__meta">
             <span class="eyebrow">{copy.switcherEyebrow}</span>
             <p>{activeViewItem().summary}</p>
@@ -1988,28 +2193,46 @@ function MainShell() {
         </section>
 
         <Show when={activeView() === "focus"}>
+          <div class="page-shell page-shell--focus">
           <section
-            class="hero-panel"
+            class="hero-panel focus-layout"
             classList={{
               "hero-panel--zen": isZenFocusMode(),
             }}
           >
-            <div class="hero-copy timer-hero">
+            <div class="hero-copy timer-hero page-card focus-overview-card">
               <span class="eyebrow">{copy.focusEyebrow}</span>
               <h1>{copy.focusTitle}</h1>
               <p class="hero-text">{snapshot().slogan}</p>
               <p class="hero-subtext hero-subtext--compact">
                 {copy.focusSummarySlimHint}
               </p>
+              <div class="focus-overview-card__metrics">
+                <article class="metric-card focus-overview-metric">
+                  <span class="metric-label">{copy.focusTodayLabel}</span>
+                  <strong>{todaySummary().totalFocusDurationLabel}</strong>
+                  <span class="metric-footnote">{copy.focusTodayNote}</span>
+                </article>
+                <article class="metric-card focus-overview-metric">
+                  <span class="metric-label">{copy.focusRecordsLabel}</span>
+                  <strong>{records().length}</strong>
+                  <span class="metric-footnote">{copy.focusRecordsNote}</span>
+                </article>
+                <article class="metric-card focus-overview-metric">
+                  <span class="metric-label">{copy.focusPendingLabel}</span>
+                  <strong>{pendingTodoCount()}</strong>
+                  <span class="metric-footnote">{copy.focusPendingNote}</span>
+                </article>
+              </div>
             </div>
 
             <section
-              class="timer-panel"
+              class="timer-panel focus-timer-panel"
               classList={{
                 "timer-panel--zen": isZenFocusMode(),
               }}
             >
-              <div class="mode-switch">
+              <div class="mode-switch page-card focus-subcard">
                 <span class="eyebrow">{copy.modeSwitchEyebrow}</span>
                 <div class="mode-switch__actions">
                   <button
@@ -2040,7 +2263,7 @@ function MainShell() {
                 </Show>
               </div>
 
-              <section class="timer-settings">
+              <section class="timer-settings page-card focus-subcard">
                 <div class="timer-settings__header">
                   <div>
                     <span class="eyebrow">{copy.settingsEyebrow}</span>
@@ -2166,7 +2389,7 @@ function MainShell() {
                 </Show>
               </section>
 
-              <div class="task-entry">
+              <div class="task-entry page-card focus-subcard">
                 <div class="task-entry__copy">
                   <span class="eyebrow">{copy.currentTaskEyebrow}</span>
                   <h2>{copy.currentTaskTitle}</h2>
@@ -2214,7 +2437,7 @@ function MainShell() {
                 <p class="task-link-hint">{taskLinkSummary()}</p>
               </div>
 
-              <div class="timer-stage">
+              <div class="timer-stage page-card focus-stage-card">
                 <div class="timer-panel__header">
                   <div>
                     <span class="eyebrow">{copy.modeEyebrow}</span>
@@ -2282,7 +2505,7 @@ function MainShell() {
                 </div>
               </div>
 
-              <section class="records-panel records-panel--collapsible">
+              <section class="records-panel records-panel--collapsible page-card focus-subcard focus-details-card">
                 <div class="records-panel__header">
                   <div>
                     <span class="eyebrow">{copy.focusDetailsEyebrow}</span>
@@ -2412,11 +2635,13 @@ function MainShell() {
               </section>
             </section>
           </section>
+          </div>
         </Show>
 
         <Show when={activeView() === "tasks"}>
-          <section class="section-panel section-panel--tasks">
-          <div class="section-heading">
+          <div class="page-shell page-shell--tasks">
+          <section class="section-panel section-panel--tasks task-page-shell">
+          <div class="section-heading section-heading--card">
             <div>
               <span class="eyebrow">{copy.todoEyebrow}</span>
               <h2>{copy.todoTitle}</h2>
@@ -2424,7 +2649,8 @@ function MainShell() {
             <p>{copy.todoSummary}</p>
           </div>
 
-          <div class="todo-creation">
+          <div class="task-page-grid">
+          <div class="todo-creation page-card todo-create-card">
             <input
               class="task-input"
               type="text"
@@ -2496,7 +2722,7 @@ function MainShell() {
             </button>
           </div>
 
-          <div class="todo-metrics">
+          <div class="todo-metrics page-card todo-metrics-card">
             <article class="todo-metric-card">
               <span class="metric-label">{copy.todoPendingCount}</span>
               <strong>{pendingTodoCount()}</strong>
@@ -2511,7 +2737,7 @@ function MainShell() {
             </article>
           </div>
 
-          <section class="records-panel todo-tools-panel">
+          <section class="records-panel todo-tools-panel page-card">
             <div class="records-panel__header">
               <div>
                 <span class="eyebrow">{copy.todoToolsEyebrow}</span>
@@ -2568,7 +2794,7 @@ function MainShell() {
             </div>
           </section>
 
-          <div class="todo-list">
+          <section class="todo-list page-card todo-list-card">
             <For each={visiblePendingTodoItems()}>
               {(item) => renderTodoCard(item)}
             </For>
@@ -2619,13 +2845,16 @@ function MainShell() {
             {todoItems().length > 0 && visibleTodoItems().length === 0 && (
               <p class="records-empty">{copy.todoFilteredEmpty}</p>
             )}
+          </section>
           </div>
         </section>
+        </div>
         </Show>
 
         <Show when={activeView() === "insights"}>
-          <section class="insights-panel insights-panel--review">
-            <div class="section-heading">
+          <div class="page-shell page-shell--insights">
+          <section class="insights-panel insights-panel--review review-page-shell">
+            <div class="section-heading section-heading--card">
               <div>
                 <span class="eyebrow">{copy.insightEyebrow}</span>
                 <h2>{copy.insightTitle}</h2>
@@ -2633,7 +2862,8 @@ function MainShell() {
               <p>{copy.insightSummary}</p>
             </div>
 
-            <section class="chart-panel review-toolbar">
+            <div class="insights-page-grid">
+            <section class="chart-panel review-toolbar page-card">
               <div class="records-panel__header">
                 <div>
                   <span class="eyebrow">{copy.insightFilterEyebrow}</span>
@@ -2711,7 +2941,7 @@ function MainShell() {
               </div>
             </section>
 
-            <section class="chart-panel backup-panel">
+            <section class="chart-panel backup-panel page-card">
               <div class="records-panel__header">
                 <div>
                   <span class="eyebrow">{copy.backupEyebrow}</span>
@@ -2788,7 +3018,7 @@ function MainShell() {
               </div>
             </section>
 
-            <div class="metric-grid">
+            <div class="metric-grid insights-metric-grid">
               <article class="metric-card">
                 <span class="metric-label">{copy.insightTotalFocus}</span>
                 <strong>{filteredReviewSummary().totalFocusDurationLabel}</strong>
@@ -2811,7 +3041,7 @@ function MainShell() {
               </article>
             </div>
 
-            <div class="metric-grid">
+            <div class="metric-grid insights-metric-grid">
               <article class="metric-card">
                 <span class="metric-label">{copy.insightStopwatch}</span>
                 <strong>{filteredReviewSummary().stopwatchSessionCount}</strong>
@@ -2842,7 +3072,7 @@ function MainShell() {
               </article>
             </div>
 
-            <section class="chart-panel">
+            <section class="chart-panel page-card trend-panel">
               <div class="records-panel__header">
                 <div>
                   <span class="eyebrow">{copy.insightTrendEyebrow}</span>
@@ -3308,12 +3538,15 @@ function MainShell() {
                 )}
               </div>
             </section>
+            </div>
           </section>
+          </div>
         </Show>
 
         <Show when={activeView() === "lab"}>
-          <section class="insights-panel insights-panel--developer developer-panel">
-            <div class="section-heading">
+          <div class="page-shell page-shell--lab">
+          <section class="insights-panel insights-panel--developer developer-panel developer-page-shell">
+            <div class="section-heading section-heading--card">
               <div>
                 <span class="eyebrow">{copy.developerEyebrow}</span>
                 <h2>{copy.developerTitle}</h2>
@@ -3327,7 +3560,7 @@ function MainShell() {
               )}
             </div>
 
-            <div class="metric-grid developer-metric-grid">
+            <div class="metric-grid developer-metric-grid developer-metric-grid--cards">
               <article class="metric-card">
                 <span class="metric-label">{copy.developerVersionLabel}</span>
                 <strong>{snapshot().version}</strong>
@@ -3350,7 +3583,7 @@ function MainShell() {
               </article>
             </div>
 
-            <section class="records-panel">
+            <section class="records-panel page-card developer-render-card">
               <div class="records-panel__header">
                 <div>
                   <span class="eyebrow">{copy.renderModeEyebrow}</span>
@@ -3387,7 +3620,7 @@ function MainShell() {
               </p>
             </section>
 
-            <section class="records-panel">
+            <section class="records-panel page-card developer-info-card">
               <div class="records-panel__header">
                 <div>
                   <span class="eyebrow">{copy.developerInfoEyebrow}</span>
@@ -3427,7 +3660,7 @@ function MainShell() {
               </div>
             </section>
 
-            <section class="records-panel">
+            <section class="records-panel page-card developer-modules-card">
               <div class="records-panel__header">
                 <div>
                   <span class="eyebrow">{copy.developerModulesEyebrow}</span>
@@ -3462,6 +3695,7 @@ function MainShell() {
               </div>
             </section>
           </section>
+          </div>
         </Show>
       </main>
     </div>

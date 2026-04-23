@@ -26,8 +26,8 @@ const MIN_POMODORO_BREAK_MINUTES: u64 = 1;
 const MAX_POMODORO_BREAK_MINUTES: u64 = 30;
 const MIN_STOPWATCH_REMINDER_MINUTES: u64 = 1;
 const MAX_STOPWATCH_REMINDER_MINUTES: u64 = 12 * 60;
-const APP_VERSION: &str = "1.5.0";
-const APP_MILESTONE: &str = "v1.5.0 琉璃印刻前端重构版";
+const APP_VERSION: &str = "1.5.1";
+const APP_MILESTONE: &str = "v1.5.1 浅色玻璃卡片前端版";
 const APP_BACKUP_KIND: &str = "focused-moment-backup";
 const APP_BACKUP_FORMAT_VERSION: u64 = 1;
 

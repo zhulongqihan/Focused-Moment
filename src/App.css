@@ -66,6 +66,806 @@ body {
   --noise-opacity: 0.055;
 }
 
+/* Light Glass Grid override */
+.shell.app-shell {
+  --glass-surface: rgba(255, 255, 255, 0.78);
+  --glass-surface-strong: rgba(255, 255, 255, 0.9);
+  --glass-surface-soft: rgba(255, 255, 255, 0.62);
+  --glass-border: rgba(255, 255, 255, 0.8);
+  --glass-outline: rgba(148, 163, 184, 0.14);
+  --glass-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.02),
+    0 10px 15px -3px rgba(0, 0, 0, 0.03),
+    0 20px 25px -5px rgba(0, 0, 0, 0.02);
+  --glass-shadow-hover:
+    0 10px 18px -8px rgba(15, 23, 42, 0.08),
+    0 24px 40px -18px rgba(15, 23, 42, 0.12);
+  --text-primary: #111827;
+  --text-secondary: #374151;
+  --text-muted: #6b7280;
+  --text-soft: #94a3b8;
+  --accent-cool: #89cff0;
+  --accent-warm: #d4af37;
+  --accent-mint: #b7e4d8;
+  padding: 18px;
+  color: var(--text-primary);
+  background: linear-gradient(180deg, #fafafc 0%, #f3f4f6 100%);
+}
+
+.shell.app-shell.shell--ambient-idle {
+  --ambient-main-duration: 30s;
+  --ambient-focus-duration: 26s;
+  --ambient-break-duration: 26s;
+  --ambient-vellum-duration: 34s;
+  --ambient-focus-opacity: 0;
+  --ambient-break-opacity: 0;
+  --vellum-glow-opacity: 0.14;
+  --noise-opacity: 0.018;
+}
+
+.shell.app-shell.shell--ambient-focus {
+  --ambient-main-duration: 24s;
+  --ambient-focus-duration: 20s;
+  --ambient-break-duration: 26s;
+  --ambient-vellum-duration: 24s;
+  --ambient-focus-opacity: 0.82;
+  --ambient-break-opacity: 0.06;
+  --vellum-glow-opacity: 0.18;
+  --noise-opacity: 0.02;
+}
+
+.shell.app-shell.shell--ambient-break {
+  --ambient-main-duration: 26s;
+  --ambient-focus-duration: 26s;
+  --ambient-break-duration: 22s;
+  --ambient-vellum-duration: 24s;
+  --ambient-focus-opacity: 0.08;
+  --ambient-break-opacity: 0.78;
+  --vellum-glow-opacity: 0.18;
+  --noise-opacity: 0.02;
+}
+
+.shell.app-shell.shell--ambient-fallback {
+  --ambient-main-duration: 46s;
+  --ambient-focus-duration: 46s;
+  --ambient-break-duration: 46s;
+  --ambient-vellum-duration: 50s;
+}
+
+.shell.app-shell .shell__ambient {
+  inset: -10%;
+  opacity: 1;
+  filter: saturate(1.02);
+  background:
+    radial-gradient(circle at 12% 18%, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0.48) 18%, transparent 40%),
+    radial-gradient(circle at 84% 12%, rgba(221, 230, 239, 0.52) 0%, rgba(221, 230, 239, 0.16) 18%, transparent 36%),
+    radial-gradient(circle at 58% 82%, rgba(246, 239, 230, 0.62) 0%, rgba(246, 239, 230, 0.16) 20%, transparent 40%),
+    linear-gradient(160deg, #fbfbfc 0%, #f4f5f7 52%, #f7f8fb 100%);
+  animation: light-grid-breathe var(--ambient-main-duration) ease-in-out infinite alternate;
+}
+
+.shell.app-shell .shell__ambient::before {
+  opacity: var(--ambient-focus-opacity);
+  background:
+    radial-gradient(circle at 20% 28%, rgba(186, 217, 255, 0.46) 0%, rgba(186, 217, 255, 0.16) 20%, transparent 42%),
+    radial-gradient(circle at 82% 18%, rgba(222, 194, 149, 0.28) 0%, rgba(222, 194, 149, 0.08) 18%, transparent 34%),
+    linear-gradient(160deg, rgba(232, 242, 255, 0.26), rgba(248, 250, 252, 0.06) 65%, rgba(244, 236, 223, 0.12) 100%);
+  animation: light-grid-focus var(--ambient-focus-duration) ease-in-out infinite alternate;
+}
+
+.shell.app-shell .shell__ambient::after {
+  opacity: var(--ambient-break-opacity);
+  background:
+    radial-gradient(circle at 22% 26%, rgba(191, 238, 224, 0.44) 0%, rgba(191, 238, 224, 0.16) 22%, transparent 40%),
+    radial-gradient(circle at 78% 24%, rgba(183, 220, 244, 0.28) 0%, rgba(183, 220, 244, 0.1) 18%, transparent 34%),
+    linear-gradient(150deg, rgba(235, 250, 246, 0.24), rgba(247, 250, 252, 0.08) 70%, rgba(223, 244, 237, 0.12) 100%);
+  animation: light-grid-break var(--ambient-break-duration) ease-in-out infinite alternate;
+}
+
+.shell.app-shell .shell__vellum {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.2) 38%, rgba(248, 250, 252, 0.18) 100%);
+  backdrop-filter: blur(22px) saturate(1.05);
+  -webkit-backdrop-filter: blur(22px) saturate(1.05);
+}
+
+.shell.app-shell .shell__vellum::before {
+  opacity: var(--vellum-glow-opacity);
+  background:
+    radial-gradient(circle at 14% 14%, rgba(255, 255, 255, 0.74) 0%, rgba(255, 255, 255, 0.18) 18%, transparent 44%),
+    radial-gradient(circle at 76% 18%, rgba(246, 248, 252, 0.56) 0%, rgba(246, 248, 252, 0.12) 18%, transparent 38%);
+  animation: light-grid-vellum var(--ambient-vellum-duration) ease-in-out infinite alternate;
+}
+
+.shell.app-shell .shell__noise {
+  opacity: var(--noise-opacity);
+  mix-blend-mode: soft-light;
+  background-image:
+    radial-gradient(rgba(15, 23, 42, 0.12) 0.35px, transparent 0.55px),
+    radial-gradient(rgba(255, 255, 255, 0.22) 0.3px, transparent 0.5px);
+  background-size: 18px 18px, 24px 24px;
+}
+
+.shell.app-shell .shell__particle-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+}
+
+@keyframes light-grid-breathe {
+  0% {
+    transform: translate3d(-1.5%, -1%, 0) scale(1.01);
+  }
+  50% {
+    transform: translate3d(1.5%, 1%, 0) scale(1.04);
+  }
+  100% {
+    transform: translate3d(2.5%, -1.5%, 0) scale(1.02);
+  }
+}
+
+@keyframes light-grid-focus {
+  0% {
+    transform: translate3d(-1%, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(1.2%, 1.4%, 0) scale(1.03);
+  }
+  100% {
+    transform: translate3d(2.4%, -0.8%, 0) scale(1.02);
+  }
+}
+
+@keyframes light-grid-break {
+  0% {
+    transform: translate3d(1%, -1%, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(-1.4%, 1.2%, 0) scale(1.03);
+  }
+  100% {
+    transform: translate3d(-2.2%, -1.4%, 0) scale(1.02);
+  }
+}
+
+@keyframes light-grid-vellum {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(1%, -1%, 0) scale(1.02);
+  }
+  100% {
+    transform: translate3d(-1%, 1%, 0) scale(1.03);
+  }
+}
+
+.shell.app-shell .topbar-card,
+.shell.app-shell .view-tabs-card,
+.shell.app-shell .section-heading--card,
+.shell.app-shell .page-card,
+.shell.app-shell .metric-card,
+.shell.app-shell .todo-metric-card,
+.shell.app-shell .record-card,
+.shell.app-shell .todo-card,
+.shell.app-shell .detail-card,
+.shell.app-shell .stack-card,
+.shell.app-shell .trend-highlight-card,
+.shell.app-shell .trend-detail-pill,
+.shell.app-shell .trend-day-chip {
+  border: 1px solid var(--glass-border);
+  outline: 1px solid var(--glass-outline);
+  outline-offset: -1px;
+  border-radius: 24px;
+  background: var(--glass-surface);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(24px) saturate(1.08);
+  -webkit-backdrop-filter: blur(24px) saturate(1.08);
+  transition:
+    transform 0.3s ease-in-out,
+    box-shadow 0.3s ease-in-out,
+    border-color 0.3s ease-in-out,
+    background-color 0.3s ease-in-out;
+}
+
+.shell.app-shell .page-card:hover,
+.shell.app-shell .metric-card:hover,
+.shell.app-shell .todo-metric-card:hover,
+.shell.app-shell .record-card:hover,
+.shell.app-shell .todo-card:hover,
+.shell.app-shell .detail-card:hover,
+.shell.app-shell .stack-card:hover,
+.shell.app-shell .trend-highlight-card:hover,
+.shell.app-shell .trend-detail-pill:hover,
+.shell.app-shell .trend-day-chip:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--glass-shadow-hover);
+}
+
+.shell.app-shell .app-shell__main {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 2px 4px 28px;
+}
+
+.shell.app-shell .topbar-card {
+  margin-bottom: 0;
+  padding: 12px 16px;
+  gap: 14px;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.shell.app-shell .brand-copy strong,
+.shell.app-shell .window-drag-hint,
+.shell.app-shell .window-button,
+.shell.app-shell .view-chip,
+.shell.app-shell .mode-chip,
+.shell.app-shell .filter-chip,
+.shell.app-shell .action-button,
+.shell.app-shell .task-input,
+.shell.app-shell .task-select {
+  font-weight: 500;
+}
+
+.shell.app-shell .brand-copy strong,
+.shell.app-shell .section-heading h2,
+.shell.app-shell .hero-copy h1,
+.shell.app-shell .timer-panel__header h2,
+.shell.app-shell .task-entry__copy h2,
+.shell.app-shell .records-panel__header h3,
+.shell.app-shell .timer-settings__header h3 {
+  color: var(--text-primary);
+}
+
+.shell.app-shell .eyebrow,
+.shell.app-shell .brand-copy__eyebrow {
+  color: var(--text-soft);
+}
+
+.shell.app-shell .hero-text,
+.shell.app-shell .hero-subtext,
+.shell.app-shell .section-heading p,
+.shell.app-shell .timer-settings__header p,
+.shell.app-shell .task-entry__copy p,
+.shell.app-shell .records-panel__summary,
+.shell.app-shell .chart-panel__summary,
+.shell.app-shell .metric-footnote,
+.shell.app-shell .record-card__main span,
+.shell.app-shell .window-drag-subhint {
+  color: var(--text-muted);
+}
+
+.shell.app-shell .window-drag-region {
+  min-height: 52px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(246, 248, 252, 0.7));
+}
+
+.shell.app-shell .window-button,
+.shell.app-shell .view-chip,
+.shell.app-shell .mode-chip,
+.shell.app-shell .filter-chip,
+.shell.app-shell .action-button {
+  border-radius: 14px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.86));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  color: var(--text-secondary);
+  transition:
+    transform 0.28s ease-in-out,
+    box-shadow 0.28s ease-in-out,
+    border-color 0.28s ease-in-out,
+    background-color 0.28s ease-in-out;
+}
+
+.shell.app-shell .window-button:hover,
+.shell.app-shell .view-chip:hover,
+.shell.app-shell .mode-chip:hover:not(:disabled),
+.shell.app-shell .filter-chip:hover,
+.shell.app-shell .action-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: rgba(191, 219, 254, 0.95);
+  box-shadow:
+    0 10px 22px -14px rgba(14, 165, 233, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.86);
+}
+
+.shell.app-shell .window-button:active,
+.shell.app-shell .view-chip:active,
+.shell.app-shell .mode-chip:active,
+.shell.app-shell .filter-chip:active,
+.shell.app-shell .action-button:active {
+  transform: scale(0.98);
+}
+
+.shell.app-shell .view-chip--active,
+.shell.app-shell .mode-chip--active,
+.shell.app-shell .filter-chip--active {
+  color: var(--text-primary);
+  border-color: rgba(137, 207, 240, 0.55);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 1), rgba(232, 244, 252, 0.92));
+  box-shadow:
+    0 12px 26px -16px rgba(56, 189, 248, 0.36),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+
+.shell.app-shell .action-button--primary {
+  color: #0f172a;
+  border-color: rgba(137, 207, 240, 0.52);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(232, 245, 252, 0.95)),
+    linear-gradient(135deg, rgba(137, 207, 240, 0.22), rgba(255, 255, 255, 0.14));
+  box-shadow:
+    0 14px 30px -18px rgba(56, 189, 248, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.94);
+}
+
+.shell.app-shell .action-button--success {
+  color: #0f172a;
+  border-color: rgba(183, 228, 216, 0.75);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(238, 250, 246, 0.94)),
+    linear-gradient(135deg, rgba(183, 228, 216, 0.24), rgba(255, 255, 255, 0.12));
+  box-shadow:
+    0 14px 30px -20px rgba(16, 185, 129, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.94);
+}
+
+.shell.app-shell .task-input,
+.shell.app-shell .task-select {
+  min-height: 48px;
+  border-radius: 16px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--text-primary);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
+}
+
+.shell.app-shell .task-input::placeholder {
+  color: #9ca3af;
+}
+
+.shell.app-shell .task-input:focus,
+.shell.app-shell .task-select:focus {
+  border-color: rgba(137, 207, 240, 0.86);
+  box-shadow:
+    0 0 0 4px rgba(137, 207, 240, 0.16),
+    0 16px 30px -22px rgba(56, 189, 248, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.96);
+}
+
+.shell.app-shell .view-tabs-card,
+.shell.app-shell .section-heading--card {
+  padding: 20px 24px;
+}
+
+.shell.app-shell .view-tabs-card {
+  display: grid;
+  grid-template-columns: minmax(220px, auto) minmax(0, 1fr);
+  align-items: center;
+  gap: 18px;
+}
+
+.shell.app-shell .view-switcher__meta p {
+  margin: 0;
+  font-size: 0.96rem;
+}
+
+.shell.app-shell .view-switcher__actions,
+.shell.app-shell .mode-switch__actions,
+.shell.app-shell .timer-actions,
+.shell.app-shell .review-range-group,
+.shell.app-shell .review-toolbar__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.shell.app-shell .page-shell {
+  display: block;
+}
+
+.shell.app-shell .focus-layout,
+.shell.app-shell .task-page-shell,
+.shell.app-shell .review-page-shell,
+.shell.app-shell .developer-page-shell {
+  display: grid;
+  gap: 20px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+.shell.app-shell .focus-layout {
+  grid-template-columns: minmax(300px, 0.92fr) minmax(0, 1.55fr);
+  align-items: start;
+}
+
+.shell.app-shell .focus-overview-card,
+.shell.app-shell .focus-timer-panel {
+  min-height: 0;
+}
+
+.shell.app-shell .focus-overview-card {
+  padding: 28px;
+  display: grid;
+  gap: 18px;
+}
+
+.shell.app-shell .hero-copy h1,
+.shell.app-shell .section-heading h2 {
+  margin: 0;
+  font-size: clamp(1.85rem, 2.4vw, 2rem);
+  line-height: 1.12;
+  font-weight: 600;
+}
+
+.shell.app-shell .hero-text {
+  margin: 0;
+  font-size: 1.02rem;
+}
+
+.shell.app-shell .focus-overview-card__metrics {
+  display: grid;
+  gap: 12px;
+}
+
+.shell.app-shell .focus-overview-metric,
+.shell.app-shell .todo-metric-card,
+.shell.app-shell .metric-card {
+  padding: 18px 20px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.82));
+}
+
+.shell.app-shell .focus-overview-metric strong,
+.shell.app-shell .metric-card strong,
+.shell.app-shell .todo-metric-card strong {
+  display: block;
+  margin: 8px 0 4px;
+  font-size: 1.45rem;
+  line-height: 1.1;
+  color: var(--text-primary);
+}
+
+.shell.app-shell .focus-timer-panel {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 16px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+.shell.app-shell .focus-timer-panel > .mode-switch,
+.shell.app-shell .focus-timer-panel > .task-entry {
+  grid-column: span 5;
+}
+
+.shell.app-shell .focus-timer-panel > .timer-settings,
+.shell.app-shell .focus-timer-panel > .timer-stage {
+  grid-column: span 7;
+}
+
+.shell.app-shell .focus-timer-panel > .focus-details-card {
+  grid-column: 1 / -1;
+}
+
+.shell.app-shell .page-card,
+.shell.app-shell .focus-details-card,
+.shell.app-shell .todo-list-card,
+.shell.app-shell .review-toolbar,
+.shell.app-shell .backup-panel,
+.shell.app-shell .trend-panel,
+.shell.app-shell .developer-render-card,
+.shell.app-shell .developer-info-card,
+.shell.app-shell .developer-modules-card {
+  padding: 24px 26px;
+}
+
+.shell.app-shell .timer-panel__header,
+.shell.app-shell .records-panel__header,
+.shell.app-shell .section-heading {
+  align-items: start;
+  gap: 12px;
+}
+
+.shell.app-shell .timer-panel__header h2,
+.shell.app-shell .task-entry__copy h2 {
+  margin: 6px 0 0;
+  font-size: 1.4rem;
+  font-weight: 600;
+}
+
+.shell.app-shell .timer-status {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+}
+
+.shell.app-shell .timer-stage {
+  display: grid;
+  gap: 16px;
+}
+
+.shell.app-shell .timer-secondary,
+.shell.app-shell .timer-focus-copy,
+.shell.app-shell .task-link-hint,
+.shell.app-shell .mode-switch__hint {
+  color: var(--text-muted);
+}
+
+.shell.app-shell .timer-display {
+  font-size: clamp(4.2rem, 8vw, 6.4rem);
+  line-height: 0.96;
+  letter-spacing: -0.05em;
+  color: #0f172a;
+}
+
+.shell.app-shell .task-entry,
+.shell.app-shell .timer-settings,
+.shell.app-shell .mode-switch {
+  display: grid;
+  gap: 16px;
+}
+
+.shell.app-shell .task-entry__controls,
+.shell.app-shell .timer-settings__grid,
+.shell.app-shell .timer-settings__toggles,
+.shell.app-shell .todo-form-grid,
+.shell.app-shell .todo-tools-panel__controls,
+.shell.app-shell .date-range-inputs {
+  display: grid;
+  gap: 14px;
+}
+
+.shell.app-shell .timer-settings__grid,
+.shell.app-shell .todo-form-grid,
+.shell.app-shell .date-range-inputs {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.shell.app-shell .task-entry__controls {
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.88fr);
+}
+
+.shell.app-shell .task-page-shell {
+  gap: 20px;
+}
+
+.shell.app-shell .task-page-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.shell.app-shell .todo-create-card {
+  grid-column: span 7;
+  display: grid;
+  gap: 16px;
+}
+
+.shell.app-shell .todo-tools-panel {
+  grid-column: span 5;
+}
+
+.shell.app-shell .todo-metrics-card {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  padding: 18px;
+}
+
+.shell.app-shell .todo-list-card {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 14px;
+}
+
+.shell.app-shell .todo-card,
+.shell.app-shell .record-card {
+  padding: 18px 20px;
+}
+
+.shell.app-shell .todo-card {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.84));
+}
+
+.shell.app-shell .todo-card--completed {
+  opacity: 0.76;
+}
+
+.shell.app-shell .todo-toggle {
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(244, 248, 252, 0.88));
+}
+
+.shell.app-shell .review-page-shell,
+.shell.app-shell .developer-page-shell {
+  gap: 20px;
+}
+
+.shell.app-shell .insights-page-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.shell.app-shell .review-toolbar {
+  grid-column: span 7;
+}
+
+.shell.app-shell .backup-panel {
+  grid-column: span 5;
+}
+
+.shell.app-shell .insights-metric-grid {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.shell.app-shell .trend-panel {
+  grid-column: 1 / -1;
+}
+
+.shell.app-shell .insight-daily-card {
+  grid-column: span 5;
+}
+
+.shell.app-shell .insight-records-card {
+  grid-column: span 7;
+}
+
+.shell.app-shell .trend-chart-card,
+.shell.app-shell .records-panel--nested {
+  padding: 20px 22px;
+  border-radius: 22px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(248, 250, 252, 0.52));
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  box-shadow: none;
+}
+
+.shell.app-shell .developer-metric-grid--cards {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.shell.app-shell .developer-info-card .card-grid,
+.shell.app-shell .developer-modules-card .stack-list {
+  display: grid;
+  gap: 14px;
+}
+
+.shell.app-shell .developer-info-card .card-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.shell.app-shell .detail-card,
+.shell.app-shell .stack-card {
+  padding: 18px 20px;
+}
+
+.shell.app-shell .detail-card h3,
+.shell.app-shell .stack-card h3,
+.shell.app-shell .record-card__main strong {
+  margin: 8px 0 0;
+  color: var(--text-primary);
+}
+
+.shell.app-shell .record-pill {
+  border-radius: 999px;
+  background: rgba(248, 250, 252, 0.82);
+  border: 1px solid rgba(226, 232, 240, 0.88);
+  color: var(--text-secondary);
+}
+
+.shell.app-shell .record-pill--muted {
+  color: var(--text-muted);
+}
+
+.shell.app-shell.shell--zen-focus .topbar-card,
+.shell.app-shell.shell--zen-focus .view-tabs-card,
+.shell.app-shell.shell--zen-focus .focus-overview-card {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-12px);
+  max-height: 0;
+  margin: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  overflow: hidden;
+}
+
+.shell.app-shell.shell--zen-focus .focus-layout {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.shell.app-shell.shell--zen-focus .focus-timer-panel > .timer-stage {
+  min-height: calc(100vh - 160px);
+  align-content: center;
+}
+
+@media (max-width: 1180px) {
+  .shell.app-shell .focus-layout,
+  .shell.app-shell .task-page-grid,
+  .shell.app-shell .insights-page-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .shell.app-shell .focus-overview-card,
+  .shell.app-shell .focus-timer-panel,
+  .shell.app-shell .todo-create-card,
+  .shell.app-shell .todo-tools-panel,
+  .shell.app-shell .review-toolbar,
+  .shell.app-shell .backup-panel,
+  .shell.app-shell .insight-daily-card,
+  .shell.app-shell .insight-records-card {
+    grid-column: 1 / -1;
+  }
+
+  .shell.app-shell .focus-timer-panel > .mode-switch,
+  .shell.app-shell .focus-timer-panel > .task-entry,
+  .shell.app-shell .focus-timer-panel > .timer-settings,
+  .shell.app-shell .focus-timer-panel > .timer-stage,
+  .shell.app-shell .focus-timer-panel > .focus-details-card {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 900px) {
+  .shell.app-shell .topbar-card,
+  .shell.app-shell .view-tabs-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .shell.app-shell .view-switcher__actions,
+  .shell.app-shell .window-actions {
+    justify-content: flex-start;
+  }
+
+  .shell.app-shell .timer-settings__grid,
+  .shell.app-shell .task-entry__controls,
+  .shell.app-shell .todo-form-grid,
+  .shell.app-shell .date-range-inputs,
+  .shell.app-shell .insights-metric-grid,
+  .shell.app-shell .developer-metric-grid--cards,
+  .shell.app-shell .developer-info-card .card-grid,
+  .shell.app-shell .todo-metrics-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .shell.app-shell {
+    padding: 12px;
+  }
+
+  .shell.app-shell .topbar-card,
+  .shell.app-shell .view-tabs-card,
+  .shell.app-shell .section-heading--card,
+  .shell.app-shell .page-card,
+  .shell.app-shell .todo-list-card {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+
+  .shell.app-shell .hero-copy h1,
+  .shell.app-shell .section-heading h2 {
+    font-size: 1.72rem;
+  }
+
+  .shell.app-shell .timer-display {
+    font-size: clamp(3.2rem, 16vw, 4.4rem);
+  }
+}
+
 .shell__ambient,
 .shell__vellum,
 .shell__noise {
