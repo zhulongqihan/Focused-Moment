@@ -466,8 +466,8 @@ const copy = {
 
 const emptySnapshot: ShellSnapshot = {
   productName: "Focused Moment",
-  version: "1.5.2",
-  milestone: "v1.5.2 \u4e13\u6ce8\u9a7e\u9a76\u8231\u754c\u9762\u7248",
+  version: "1.5.3",
+  milestone: "v1.5.3 \u6e05\u723d\u79d1\u6280\u7c92\u5b50\u7248",
   slogan:
     "\u7528\u66f4\u8f7b\u7684\u65b9\u5f0f\u4e13\u6ce8\u3001\u5b89\u6392\u548c\u590d\u76d8\u6bcf\u4e00\u5929\u3002",
   surfaces: [],
@@ -717,6 +717,7 @@ function MainShell() {
   const [todoItemsHydrated, setTodoItemsHydrated] = createSignal(false);
   const [reviewDataHydrated, setReviewDataHydrated] = createSignal(false);
   const [reviewDataBusy, setReviewDataBusy] = createSignal(false);
+  let particleCanvasRef: HTMLCanvasElement | undefined;
   let timerContextHydrated = false;
   let handledAlertSequence = 0;
 
@@ -1807,6 +1808,199 @@ function MainShell() {
     void ensureReviewDataLoaded();
   });
 
+  onMount(() => {
+    const canvas = particleCanvasRef;
+    const context = canvas?.getContext("2d");
+    const canAnimate =
+      typeof window !== "undefined" &&
+      !window.matchMedia("(prefers-reduced-motion: reduce)").matches &&
+      window.matchMedia("(pointer: fine)").matches;
+
+    if (!canvas || !context || !canAnimate) {
+      return;
+    }
+
+    type PointerParticle = {
+      x: number;
+      y: number;
+      previousX: number;
+      previousY: number;
+      vx: number;
+      vy: number;
+      age: number;
+      ttl: number;
+      size: number;
+      rotation: number;
+      kind: "node" | "dash";
+    };
+
+    const particles: PointerParticle[] = [];
+    const maxParticles = 52;
+    const pointerPulse = {
+      x: 0,
+      y: 0,
+      age: 999,
+    };
+    let animationFrameId = 0;
+    let lastPointerStamp = 0;
+    let viewportWidth = window.innerWidth;
+    let viewportHeight = window.innerHeight;
+    let deviceScale = Math.min(window.devicePixelRatio || 1, 2);
+
+    const resizeCanvas = () => {
+      viewportWidth = window.innerWidth;
+      viewportHeight = window.innerHeight;
+      deviceScale = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.floor(viewportWidth * deviceScale);
+      canvas.height = Math.floor(viewportHeight * deviceScale);
+      canvas.style.width = `${viewportWidth}px`;
+      canvas.style.height = `${viewportHeight}px`;
+      context.setTransform(deviceScale, 0, 0, deviceScale, 0, 0);
+    };
+
+    const cyan = (alpha: number) => `rgba(38, 183, 218, ${alpha})`;
+    const steel = (alpha: number) => `rgba(42, 83, 116, ${alpha})`;
+
+    const drawCrosshair = (x: number, y: number, size: number, alpha: number) => {
+      context.strokeStyle = cyan(alpha);
+      context.lineWidth = 1;
+      context.beginPath();
+      context.moveTo(x - size, y);
+      context.lineTo(x + size, y);
+      context.moveTo(x, y - size);
+      context.lineTo(x, y + size);
+      context.stroke();
+    };
+
+    const pushParticle = (x: number, y: number) => {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 0.22 + Math.random() * 0.42;
+      const offsetX = (Math.random() - 0.5) * 8;
+      const offsetY = (Math.random() - 0.5) * 8;
+      const startX = x + offsetX;
+      const startY = y + offsetY;
+
+      particles.push({
+        x: startX,
+        y: startY,
+        previousX: startX,
+        previousY: startY,
+        vx: Math.cos(angle) * speed * 0.62,
+        vy: Math.sin(angle) * speed * 0.62 - 0.18,
+        age: 0,
+        ttl: 42 + Math.random() * 30,
+        size: 1.4 + Math.random() * 2.2,
+        rotation: angle,
+        kind: Math.random() > 0.62 ? "dash" : "node",
+      });
+
+      if (particles.length > maxParticles) {
+        particles.splice(0, particles.length - maxParticles);
+      }
+    };
+
+    const handlePointerMove = (event: PointerEvent) => {
+      if (event.pointerType && event.pointerType !== "mouse" && event.pointerType !== "pen") {
+        return;
+      }
+
+      if (event.timeStamp - lastPointerStamp < 18) {
+        return;
+      }
+
+      lastPointerStamp = event.timeStamp;
+      pointerPulse.x = event.clientX;
+      pointerPulse.y = event.clientY;
+      pointerPulse.age = 0;
+      pushParticle(event.clientX, event.clientY);
+
+      if (Math.random() > 0.48) {
+        pushParticle(
+          event.clientX + (Math.random() - 0.5) * 14,
+          event.clientY + (Math.random() - 0.5) * 14
+        );
+      }
+    };
+
+    const draw = () => {
+      context.clearRect(0, 0, viewportWidth, viewportHeight);
+      pointerPulse.age += 1;
+
+      if (pointerPulse.age < 28) {
+        const pulseLife = 1 - pointerPulse.age / 28;
+        const radius = 7 + pointerPulse.age * 0.42;
+
+        context.strokeStyle = cyan(0.34 * pulseLife);
+        context.lineWidth = 1;
+        context.beginPath();
+        context.arc(pointerPulse.x, pointerPulse.y, radius, 0, Math.PI * 2);
+        context.stroke();
+
+        drawCrosshair(pointerPulse.x, pointerPulse.y, 5 + pointerPulse.age * 0.08, 0.28 * pulseLife);
+      }
+
+      for (let index = particles.length - 1; index >= 0; index -= 1) {
+        const particle = particles[index];
+        particle.age += 1;
+
+        if (particle.age >= particle.ttl) {
+          particles.splice(index, 1);
+          continue;
+        }
+
+        particle.previousX = particle.x;
+        particle.previousY = particle.y;
+        particle.x += particle.vx;
+        particle.y += particle.vy;
+        particle.vx *= 0.976;
+        particle.vy *= 0.976;
+
+        const life = 1 - particle.age / particle.ttl;
+        const alpha = Math.max(0, life * 0.68);
+
+        context.strokeStyle = steel(alpha * 0.42);
+        context.lineWidth = 1;
+        context.beginPath();
+        context.moveTo(particle.previousX, particle.previousY);
+        context.lineTo(particle.x, particle.y);
+        context.stroke();
+
+        if (particle.kind === "dash") {
+          const dashLength = 9 + particle.size * 2.4;
+          const dx = Math.cos(particle.rotation) * dashLength;
+          const dy = Math.sin(particle.rotation) * dashLength;
+
+          context.strokeStyle = cyan(alpha * 0.88);
+          context.beginPath();
+          context.moveTo(particle.x - dx * 0.5, particle.y - dy * 0.5);
+          context.lineTo(particle.x + dx * 0.5, particle.y + dy * 0.5);
+          context.stroke();
+        } else {
+          context.fillStyle = cyan(alpha * 0.94);
+          context.fillRect(
+            particle.x - particle.size * 0.5,
+            particle.y - particle.size * 0.5,
+            particle.size,
+            particle.size
+          );
+          drawCrosshair(particle.x, particle.y, particle.size + 2, alpha * 0.26);
+        }
+      }
+      animationFrameId = window.requestAnimationFrame(draw);
+    };
+
+    resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
+    window.addEventListener("pointermove", handlePointerMove, { passive: true });
+    animationFrameId = window.requestAnimationFrame(draw);
+
+    onCleanup(() => {
+      window.cancelAnimationFrame(animationFrameId);
+      window.removeEventListener("resize", resizeCanvas);
+      window.removeEventListener("pointermove", handlePointerMove);
+    });
+  });
+
   onMount(async () => {
     let pollingTimerId: number | null = null;
     let disposed = false;
@@ -1885,6 +2079,13 @@ function MainShell() {
         "shell--cockpit": true,
       }}
     >
+      <canvas
+        ref={(element) => {
+          particleCanvasRef = element;
+        }}
+        class="pointer-particle-canvas"
+        aria-hidden="true"
+      />
       <header class="window-chrome">
         <div class="brand-lockup">
           <div class="brand-mark">
