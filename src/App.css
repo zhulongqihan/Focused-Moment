@@ -3153,6 +3153,206 @@ textarea,
   filter: saturate(0.94) contrast(0.98);
 }
 
+/* v1.5.6 runtime ambience: subtle focus/break atmosphere from existing timer state. */
+.shell--cockpit.shell--focus-view {
+  transition:
+    background 520ms var(--ease-standard),
+    color 520ms var(--ease-standard);
+}
+
+.shell--cockpit.shell--focus-view.shell--timer-running {
+  --runtime-accent: rgba(49, 92, 113, 0.82);
+  --runtime-accent-solid: #315c71;
+  --runtime-accent-soft: rgba(49, 92, 113, 0.24);
+  --runtime-accent-line: rgba(49, 92, 113, 0.3);
+  --runtime-glow: rgba(49, 92, 113, 0.16);
+  background:
+    radial-gradient(circle at 82% 12%, rgba(76, 128, 154, 0.3), transparent 34%),
+    radial-gradient(circle at 12% 92%, rgba(81, 113, 108, 0.2), transparent 30%),
+    linear-gradient(180deg, #f5f3ee 0%, #e8e3d9 100%);
+}
+
+.shell--cockpit.shell--focus-view.shell--timer-break {
+  --runtime-accent: rgba(32, 135, 116, 0.82);
+  --runtime-accent-solid: #208774;
+  --runtime-accent-soft: rgba(32, 135, 116, 0.24);
+  --runtime-accent-line: rgba(32, 135, 116, 0.3);
+  --runtime-glow: rgba(32, 135, 116, 0.15);
+  background:
+    radial-gradient(circle at 80% 10%, rgba(101, 190, 166, 0.34), transparent 34%),
+    radial-gradient(circle at 8% 94%, rgba(174, 229, 211, 0.34), transparent 30%),
+    linear-gradient(180deg, #f4f5ef 0%, #e4e7dc 100%);
+}
+
+.shell--cockpit.shell--focus-view.shell--timer-running::before {
+  opacity: 1;
+  background:
+    radial-gradient(circle at 18% 18%, rgba(255, 255, 255, 0.78), transparent 28%),
+    radial-gradient(circle at 78% 28%, var(--runtime-accent-soft), transparent 38%),
+    radial-gradient(circle at 50% 90%, rgba(255, 252, 247, 0.6), transparent 38%);
+  animation: runtime-ambient-breathe 10s ease-in-out infinite;
+}
+
+.shell--cockpit.shell--focus-view.shell--timer-running .window-chrome,
+.shell--cockpit.shell--focus-view.shell--timer-running .app-sidebar,
+.shell--cockpit.shell--focus-view.shell--timer-running .hero-panel {
+  border-color: var(--runtime-accent-line);
+}
+
+.shell--cockpit.shell--focus-view.shell--timer-running .hero-panel {
+  background:
+    linear-gradient(135deg, rgba(255, 252, 247, 0.92), rgba(246, 243, 236, 0.8)),
+    radial-gradient(circle at 92% 12%, var(--runtime-accent-soft), transparent 34%);
+}
+
+.shell--cockpit.shell--focus-view.shell--timer-running .timer-panel {
+  position: relative;
+  overflow: hidden;
+  border-color: var(--runtime-accent-line);
+  background:
+    linear-gradient(180deg, rgba(255, 252, 247, 0.96), rgba(248, 244, 238, 0.84)),
+    radial-gradient(circle at 50% 42%, var(--runtime-accent-soft), transparent 48%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.52),
+    0 20px 46px var(--runtime-glow),
+    0 0 0 1px var(--runtime-accent-line);
+}
+
+.shell--cockpit.shell--focus-view.shell--timer-running .timer-panel::before {
+  content: "";
+  position: absolute;
+  inset: -26%;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 50%, var(--runtime-accent-soft), transparent 38%),
+    conic-gradient(from 90deg, transparent, rgba(255, 255, 255, 0.42), transparent, var(--runtime-accent-soft), transparent);
+  z-index: 0;
+  opacity: 0.62;
+  animation: runtime-panel-orbit 18s linear infinite;
+}
+
+.shell--cockpit.shell--focus-view.shell--timer-running .timer-panel::after {
+  content: "";
+  position: absolute;
+  inset: 14px 16px auto;
+  z-index: 0;
+  height: 4px;
+  border-radius: 999px;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, transparent, var(--runtime-accent), rgba(255, 255, 255, 0.76), var(--runtime-accent), transparent);
+  box-shadow: 0 0 20px var(--runtime-glow);
+  opacity: 0.72;
+}
+
+.shell--cockpit.shell--focus-view.shell--timer-running .timer-panel > * {
+  position: relative;
+  z-index: 1;
+}
+
+.shell--cockpit.shell--focus-view.shell--timer-running .timer-status {
+  background: var(--runtime-accent-solid);
+  color: #fffaf0;
+  box-shadow: 0 0 0 4px var(--runtime-accent-soft);
+}
+
+.shell--cockpit.shell--focus-view.shell--timer-running .timer-instrument {
+  --timer-accent: var(--runtime-accent-solid);
+  --timer-accent-soft: var(--runtime-accent-soft);
+  border-color: var(--runtime-accent-line);
+  background:
+    radial-gradient(circle at center, rgba(255, 252, 247, 0.98) 0 29%, transparent 30%),
+    radial-gradient(circle at 50% 48%, var(--runtime-accent-soft), transparent 48%),
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.66), transparent 32%),
+    linear-gradient(180deg, rgba(255, 252, 247, 0.94), rgba(232, 241, 240, 0.82));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.56),
+    0 18px 42px var(--runtime-glow),
+    0 0 0 1px rgba(255, 255, 255, 0.44);
+}
+
+.shell--cockpit.shell--focus-view.shell--timer-running .timer-instrument__scan {
+  border-color: var(--runtime-accent-line);
+  animation: runtime-scan-pulse 4.8s ease-in-out infinite;
+}
+
+.shell--cockpit.shell--focus-view.shell--timer-running .timer-instrument__label,
+.shell--cockpit.shell--focus-view.shell--timer-running .timer-instrument__meta span {
+  background: rgba(255, 252, 247, 0.9);
+  color: var(--runtime-accent-solid);
+}
+
+.shell--cockpit.shell--focus-view.shell--timer-running .timer-display {
+  color: #112735;
+  text-shadow: 0 10px 32px rgba(49, 68, 58, 0.1);
+}
+
+.shell--cockpit.shell--focus-view.shell--timer-running .action-button--primary {
+  box-shadow:
+    0 12px 26px rgba(49, 68, 58, 0.18),
+    0 0 0 4px var(--runtime-accent-soft);
+}
+
+.shell--cockpit.shell--focus-view.shell--timer-running .mode-switch,
+.shell--cockpit.shell--focus-view.shell--timer-paused .mode-switch {
+  order: 6;
+}
+
+.shell--cockpit.shell--focus-view.shell--timer-running .timer-settings,
+.shell--cockpit.shell--focus-view.shell--timer-paused .timer-settings {
+  order: 7;
+}
+
+.shell--cockpit.shell--focus-view.shell--timer-running .task-entry,
+.shell--cockpit.shell--focus-view.shell--timer-paused .task-entry {
+  order: 8;
+}
+
+.shell--cockpit.shell--focus-view.shell--timer-running .timer-panel__header,
+.shell--cockpit.shell--focus-view.shell--timer-paused .timer-panel__header {
+  order: 1;
+}
+
+.shell--cockpit.shell--focus-view.shell--timer-running .timer-secondary,
+.shell--cockpit.shell--focus-view.shell--timer-paused .timer-secondary {
+  order: 2;
+}
+
+.shell--cockpit.shell--focus-view.shell--timer-running .timer-focus-copy,
+.shell--cockpit.shell--focus-view.shell--timer-paused .timer-focus-copy {
+  order: 3;
+}
+
+.shell--cockpit.shell--focus-view.shell--timer-running .timer-instrument,
+.shell--cockpit.shell--focus-view.shell--timer-paused .timer-instrument {
+  order: 4;
+  min-height: clamp(280px, 40vh, 360px);
+}
+
+.shell--cockpit.shell--focus-view.shell--timer-running .timer-actions,
+.shell--cockpit.shell--focus-view.shell--timer-paused .timer-actions {
+  order: 5;
+  justify-content: flex-start;
+  padding: 2px 0 10px;
+}
+
+.shell--cockpit.shell--focus-view.shell--timer-paused .timer-panel {
+  border-style: dashed;
+}
+
+.shell--cockpit.shell--focus-view.shell--timer-paused .timer-status {
+  background: rgba(154, 119, 63, 0.12);
+  color: #806137;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shell--cockpit.shell--focus-view.shell--timer-running::before,
+  .shell--cockpit.shell--focus-view.shell--timer-running .timer-panel::before,
+  .shell--cockpit.shell--focus-view.shell--timer-running .timer-instrument__scan {
+    animation: none;
+  }
+}
+
 @media (max-width: 1180px) {
   .app-layout {
     grid-template-columns: 176px minmax(0, 1fr);
@@ -3309,5 +3509,41 @@ textarea,
 
   50% {
     transform: translateY(-50%) scale(1.35);
+  }
+}
+
+@keyframes runtime-ambient-breathe {
+  0%,
+  100% {
+    transform: scale(1) translate3d(0, 0, 0);
+    opacity: 0.82;
+  }
+
+  50% {
+    transform: scale(1.04) translate3d(-1.2%, 1%, 0);
+    opacity: 1;
+  }
+}
+
+@keyframes runtime-panel-orbit {
+  from {
+    transform: rotate(0deg) scale(1);
+  }
+
+  to {
+    transform: rotate(360deg) scale(1);
+  }
+}
+
+@keyframes runtime-scan-pulse {
+  0%,
+  100% {
+    opacity: 0.62;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.035);
   }
 }

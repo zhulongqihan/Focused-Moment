@@ -466,8 +466,8 @@ const copy = {
 
 const emptySnapshot: ShellSnapshot = {
   productName: "Focused Moment",
-  version: "1.5.5",
-  milestone: "v1.5.5 \u89c6\u89c9\u7cfb\u7edf\u7cbe\u4fee\u7248",
+  version: "1.5.6",
+  milestone: "v1.5.6 \u4e13\u6ce8\u8fd0\u884c\u6001\u6c1b\u56f4\u7248",
   slogan:
     "\u7528\u66f4\u8f7b\u7684\u65b9\u5f0f\u4e13\u6ce8\u3001\u5b89\u6392\u548c\u590d\u76d8\u6bcf\u4e00\u5929\u3002",
   surfaces: [],
@@ -2146,6 +2146,14 @@ function MainShell() {
       classList={{
         "shell--lite": isLiteVisualMode(),
         "shell--cockpit": true,
+        "shell--focus-view": activeView() === "focus",
+        "shell--timer-running": timerSnapshot().isRunning,
+        "shell--timer-focus": timerSnapshot().isRunning && timerSnapshot().phaseKey !== "break",
+        "shell--timer-break": timerSnapshot().phaseKey === "break",
+        "shell--timer-paused":
+          timerSnapshot().elapsedMs > 0 &&
+          !timerSnapshot().isRunning &&
+          timerSnapshot().phaseKey !== "break",
       }}
     >
       <canvas
