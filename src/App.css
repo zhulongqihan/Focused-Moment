@@ -469,6 +469,36 @@ body {
   color: var(--text-muted);
 }
 
+.timer-settings__side {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  min-width: min(100%, 420px);
+}
+
+.timer-settings__quick {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.timer-settings__quick span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  border-radius: 999px;
+  padding: 0 10px;
+  background: rgba(239, 235, 227, 0.72);
+  color: var(--text-soft);
+  white-space: nowrap;
+}
+
 .hero-subtext--compact {
   max-width: 58ch;
   color: var(--text-soft);
@@ -715,6 +745,156 @@ body {
 .timer-status--running {
   background: rgba(81, 104, 93, 0.14);
   color: var(--accent-strong);
+}
+
+.timer-instrument {
+  --timer-progress: 0deg;
+  --timer-accent: rgba(49, 68, 58, 0.86);
+  --timer-accent-soft: rgba(81, 104, 93, 0.18);
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 320px;
+  border: 1px solid rgba(32, 40, 47, 0.07);
+  border-radius: 30px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at center, rgba(255, 252, 247, 0.98) 0 34%, transparent 35%),
+    radial-gradient(circle at 28% 18%, rgba(255, 255, 255, 0.88), transparent 32%),
+    linear-gradient(180deg, rgba(255, 252, 247, 0.88), rgba(239, 235, 227, 0.7));
+}
+
+.timer-instrument::before {
+  content: "";
+  position: absolute;
+  inset: 22px;
+  border-radius: 50%;
+  background:
+    conic-gradient(
+      from -90deg,
+      var(--timer-accent) 0 var(--timer-progress),
+      rgba(32, 40, 47, 0.075) var(--timer-progress) 360deg
+    );
+  mask: radial-gradient(circle, transparent 0 57%, #000 58% 100%);
+  -webkit-mask: radial-gradient(circle, transparent 0 57%, #000 58% 100%);
+}
+
+.timer-instrument::after {
+  content: "";
+  position: absolute;
+  inset: 46px;
+  border-radius: 50%;
+  border: 1px solid rgba(32, 40, 47, 0.07);
+  background:
+    repeating-conic-gradient(
+      from -90deg,
+      rgba(49, 68, 58, 0.2) 0deg 1.6deg,
+      transparent 1.6deg 12deg
+    );
+  mask: radial-gradient(circle, transparent 0 72%, #000 73% 100%);
+  -webkit-mask: radial-gradient(circle, transparent 0 72%, #000 73% 100%);
+  opacity: 0.58;
+}
+
+.timer-instrument--break {
+  --timer-accent: rgba(38, 155, 132, 0.82);
+  --timer-accent-soft: rgba(38, 155, 132, 0.17);
+}
+
+.timer-instrument--free {
+  --timer-accent: rgba(42, 83, 116, 0.72);
+  --timer-accent-soft: rgba(42, 83, 116, 0.14);
+}
+
+.timer-instrument--running {
+  background:
+    radial-gradient(circle at center, rgba(255, 252, 247, 0.98) 0 33%, transparent 34%),
+    radial-gradient(circle at 52% 50%, var(--timer-accent-soft), transparent 46%),
+    linear-gradient(180deg, rgba(255, 252, 247, 0.94), rgba(236, 241, 238, 0.76));
+}
+
+.timer-instrument--running::before {
+  animation: timer-ring-breathe 2.8s ease-in-out infinite;
+}
+
+.timer-instrument__ring {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.timer-instrument__scan {
+  position: absolute;
+  inset: 70px;
+  border-radius: 50%;
+  border: 1px solid rgba(32, 40, 47, 0.055);
+}
+
+.timer-instrument__orb {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--timer-accent);
+  box-shadow: 0 0 18px var(--timer-accent);
+  opacity: 0.78;
+}
+
+.timer-instrument__orb--primary {
+  top: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.timer-instrument__orb--secondary {
+  right: 36px;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0.44;
+}
+
+.timer-instrument--running .timer-instrument__orb--primary {
+  animation: timer-orb-primary-pulse 1.8s ease-in-out infinite;
+}
+
+.timer-instrument--running .timer-instrument__orb--secondary {
+  animation: timer-orb-secondary-pulse 2.2s ease-in-out infinite;
+}
+
+.timer-instrument__core {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 14px;
+  justify-items: center;
+  width: min(82%, 520px);
+}
+
+.timer-instrument__label {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0 12px;
+  background: rgba(255, 252, 247, 0.74);
+  color: var(--accent-strong);
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+}
+
+.timer-instrument__meta {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+.timer-instrument__meta span {
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: rgba(255, 252, 247, 0.68);
 }
 
 .timer-display {
@@ -2142,6 +2322,17 @@ body {
     flex-direction: column;
   }
 
+  .timer-settings__side {
+    width: 100%;
+    min-width: 0;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+
+  .timer-settings__quick {
+    justify-content: flex-start;
+  }
+
   .hero-copy--with-art,
   .records-panel__header--with-art {
     flex-direction: column;
@@ -2475,7 +2666,7 @@ body {
 }
 
 .shell--cockpit .timer-settings {
-  order: 7;
+  order: 2;
   padding: 14px 16px;
   border-radius: 18px;
   background: rgba(250, 247, 241, 0.72);
@@ -2485,12 +2676,16 @@ body {
   align-items: center;
 }
 
+.shell--cockpit .timer-settings__side {
+  min-width: min(100%, 520px);
+}
+
 .shell--cockpit .content-illustration--compact {
-  width: 76px;
+  display: none;
 }
 
 .shell--cockpit .task-entry {
-  order: 2;
+  order: 3;
   gap: 14px;
   padding: 16px;
   border-radius: 20px;
@@ -2503,7 +2698,7 @@ body {
 }
 
 .shell--cockpit .timer-panel__header {
-  order: 3;
+  order: 4;
   padding-top: 6px;
 }
 
@@ -2513,22 +2708,26 @@ body {
 }
 
 .shell--cockpit .timer-secondary {
-  order: 4;
-}
-
-.shell--cockpit .timer-focus-copy {
   order: 5;
 }
 
-.shell--cockpit .timer-display {
+.shell--cockpit .timer-focus-copy {
   order: 6;
+}
+
+.shell--cockpit .timer-instrument {
+  order: 7;
   width: 100%;
   box-sizing: border-box;
-  padding: 36px 18px 40px;
-  border-radius: 22px;
-  background:
-    linear-gradient(180deg, rgba(255, 252, 247, 0.9), rgba(239, 235, 227, 0.68)),
-    rgba(255, 252, 247, 0.84);
+  min-height: 360px;
+}
+
+.shell--cockpit .timer-display {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
   font-size: 5.7rem;
   font-weight: 650;
   letter-spacing: 0;
@@ -2622,7 +2821,46 @@ body {
     min-height: 58px;
   }
 
+  .shell--cockpit .timer-instrument {
+    min-height: 280px;
+  }
+
   .shell--cockpit .timer-display {
     font-size: 4rem;
+  }
+}
+
+@keyframes timer-ring-breathe {
+  0%,
+  100% {
+    filter: saturate(1);
+    opacity: 0.9;
+  }
+
+  50% {
+    filter: saturate(1.24);
+    opacity: 1;
+  }
+}
+
+@keyframes timer-orb-primary-pulse {
+  0%,
+  100% {
+    transform: translateX(-50%) scale(1);
+  }
+
+  50% {
+    transform: translateX(-50%) scale(1.45);
+  }
+}
+
+@keyframes timer-orb-secondary-pulse {
+  0%,
+  100% {
+    transform: translateY(-50%) scale(1);
+  }
+
+  50% {
+    transform: translateY(-50%) scale(1.35);
   }
 }

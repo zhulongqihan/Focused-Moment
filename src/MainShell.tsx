@@ -466,8 +466,8 @@ const copy = {
 
 const emptySnapshot: ShellSnapshot = {
   productName: "Focused Moment",
-  version: "1.5.3",
-  milestone: "v1.5.3 \u6e05\u723d\u79d1\u6280\u7c92\u5b50\u7248",
+  version: "1.5.4",
+  milestone: "v1.5.4 \u52a8\u6001\u4e13\u6ce8\u4eea\u8868\u76d8\u7248",
   slogan:
     "\u7528\u66f4\u8f7b\u7684\u65b9\u5f0f\u4e13\u6ce8\u3001\u5b89\u6392\u548c\u590d\u76d8\u6bcf\u4e00\u5929\u3002",
   surfaces: [],
@@ -537,6 +537,14 @@ function formatDurationLabel(durationMs: number) {
   const minutes = `${Math.floor((totalSeconds % 3600) / 60)}`.padStart(2, "0");
   const seconds = `${totalSeconds % 60}`.padStart(2, "0");
   return `${hours}:${minutes}:${seconds}`;
+}
+
+function clampRatio(value: number) {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+
+  return Math.min(1, Math.max(0, value));
 }
 
 function formatBackupTimestamp(value: string) {
@@ -841,6 +849,67 @@ function MainShell() {
       timerSnapshot().elapsedMs === 0 &&
       !timerSnapshot().isRunning
     );
+  const timerInstrumentTargetMs = () => {
+    const snapshot = timerSnapshot();
+
+    if (snapshot.modeKey === "pomodoro") {
+      const minutes =
+        snapshot.phaseKey === "break"
+          ? timerPreferences().pomodoroBreakMinutes
+          : timerPreferences().pomodoroFocusMinutes;
+
+      return minutes * 60 * 1000;
+    }
+
+    return timerPreferences().stopwatchReminderMinutes === null
+      ? null
+      : timerPreferences().stopwatchReminderMinutes * 60 * 1000;
+  };
+  const timerInstrumentHasTarget = () => timerInstrumentTargetMs() !== null;
+  const timerInstrumentRatio = () => {
+    const targetMs = timerInstrumentTargetMs();
+
+    if (targetMs !== null) {
+      return clampRatio(timerSnapshot().elapsedMs / Math.max(1, targetMs));
+    }
+
+    if (timerSnapshot().elapsedMs === 0) {
+      return 0.18;
+    }
+
+    return timerSnapshot().isRunning ? 0.72 : 0.48;
+  };
+  const timerInstrumentProgress = () =>
+    `${Math.round(timerInstrumentRatio() * 360)}deg`;
+  const timerInstrumentPercent = () => `${Math.round(timerInstrumentRatio() * 100)}%`;
+  const timerInstrumentTargetLabel = () => {
+    const targetMs = timerInstrumentTargetMs();
+
+    if (timerSnapshot().modeKey === "pomodoro") {
+      return timerSnapshot().phaseKey === "break"
+        ? `${timerPreferences().pomodoroBreakMinutes} 分钟休息`
+        : `${timerPreferences().pomodoroFocusMinutes} 分钟专注`;
+    }
+
+    return targetMs === null
+      ? "自由计时"
+      : `提醒目标 ${timerPreferences().stopwatchReminderMinutes} 分钟`;
+  };
+  const timerInstrumentStateLabel = () => {
+    if (timerSnapshot().phaseKey === "break") {
+      return "休息";
+    }
+
+    if (timerSnapshot().isRunning) {
+      return "运行中";
+    }
+
+    if (timerSnapshot().elapsedMs > 0) {
+      return "已暂停";
+    }
+
+    return "待开始";
+  };
   const normalizedCustomRange = () =>
     normalizeCustomRange(customStartDate(), customEndDate());
   const reviewRangeLabel = () => {
@@ -2223,15 +2292,26 @@ function MainShell() {
                     <h3>{copy.settingsTitle}</h3>
                     <p>{copy.settingsSummary}</p>
                   </div>
-                  <button
-                    type="button"
-                    class="mode-chip timer-settings__toggle"
-                    onClick={() => setShowTimerSettings((current) => !current)}
-                  >
-                    {showTimerSettings()
-                      ? copy.settingsToggleClose
-                      : copy.settingsToggleOpen}
-                  </button>
+                  <div class="timer-settings__side">
+                    <div class="timer-settings__quick">
+                      <span>{`专注 ${timerPreferences().pomodoroFocusMinutes} 分钟`}</span>
+                      <span>{`休息 ${timerPreferences().pomodoroBreakMinutes} 分钟`}</span>
+                      <span>
+                        {timerPreferences().stopwatchReminderMinutes === null
+                          ? "正向提醒关闭"
+                          : `正向提醒 ${timerPreferences().stopwatchReminderMinutes} 分钟`}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      class="mode-chip timer-settings__toggle"
+                      onClick={() => setShowTimerSettings((current) => !current)}
+                    >
+                      {showTimerSettings()
+                        ? copy.settingsToggleClose
+                        : copy.settingsToggleOpen}
+                    </button>
+                  </div>
                 </div>
 
                 <figure class="content-illustration content-illustration--inline content-illustration--compact">
@@ -2416,7 +2496,29 @@ function MainShell() {
                   {`\uff1a${currentTaskTitle().trim()}`}
                 </p>
               )}
-              <div class="timer-display">{timerSnapshot().elapsedLabel}</div>
+              <div
+                classList={{
+                  "timer-instrument": true,
+                  "timer-instrument--running": timerSnapshot().isRunning,
+                  "timer-instrument--break": timerSnapshot().phaseKey === "break",
+                  "timer-instrument--free": !timerInstrumentHasTarget(),
+                }}
+                style={`--timer-progress: ${timerInstrumentProgress()};`}
+              >
+                <div class="timer-instrument__ring" aria-hidden="true">
+                  <span class="timer-instrument__scan" />
+                  <span class="timer-instrument__orb timer-instrument__orb--primary" />
+                  <span class="timer-instrument__orb timer-instrument__orb--secondary" />
+                </div>
+                <div class="timer-instrument__core">
+                  <span class="timer-instrument__label">{timerInstrumentStateLabel()}</span>
+                  <div class="timer-display">{timerSnapshot().elapsedLabel}</div>
+                  <div class="timer-instrument__meta">
+                    <span>{timerInstrumentTargetLabel()}</span>
+                    <span>{timerInstrumentHasTarget() ? timerInstrumentPercent() : timerSnapshot().mode}</span>
+                  </div>
+                </div>
+              </div>
               <div class="timer-actions">
                 <button
                   type="button"
