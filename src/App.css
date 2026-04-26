@@ -15,14 +15,29 @@
   --panel-strong: rgba(255, 252, 247, 0.88);
   --border: rgba(32, 40, 47, 0.08);
   --border-strong: rgba(32, 40, 47, 0.12);
-  --shadow-soft: 0 24px 60px rgba(67, 54, 36, 0.12);
-  --shadow-card: 0 12px 32px rgba(67, 54, 36, 0.08);
+  --border-warm: rgba(104, 91, 68, 0.08);
+  --surface-soft: rgba(255, 252, 247, 0.68);
+  --surface-raised: rgba(255, 252, 247, 0.88);
+  --surface-muted: rgba(246, 242, 235, 0.72);
+  --shadow-soft: 0 18px 48px rgba(67, 54, 36, 0.09);
+  --shadow-card: 0 10px 26px rgba(67, 54, 36, 0.065);
+  --shadow-tight: 0 6px 16px rgba(67, 54, 36, 0.045);
   --text-main: #182127;
   --text-muted: #5e645f;
   --text-soft: #7d817b;
   --accent: #51685d;
   --accent-strong: #31443a;
   --danger: #844c4c;
+  --radius-panel: 24px;
+  --radius-card: 20px;
+  --radius-control: 16px;
+  --radius-pill: 999px;
+  --space-shell: 14px;
+  --space-panel: 22px;
+  --space-card: 16px;
+  --space-tight: 10px;
+  --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --focus-ring: 0 0 0 4px rgba(81, 104, 93, 0.1);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -30,6 +45,12 @@
   -webkit-text-size-adjust: 100%;
   line-height: 1.5;
   font-weight: 400;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
 html,
@@ -42,6 +63,30 @@ body,
 body {
   min-height: 100vh;
   overflow: hidden;
+  font-variant-numeric: tabular-nums;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button,
+input,
+select,
+textarea,
+.panel,
+.view-chip,
+.records-panel,
+.record-card,
+.todo-card,
+.metric-card,
+.chart-panel {
+  writing-mode: horizontal-tb;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .shell {
@@ -2780,6 +2825,334 @@ body {
   width: 72px;
 }
 
+/* v1.5.5 visual system polish: unify density, surfaces, and interaction states. */
+.shell--cockpit {
+  gap: var(--space-shell);
+  padding: var(--space-shell);
+  background:
+    radial-gradient(circle at 6% 0%, rgba(255, 255, 255, 0.72), transparent 30%),
+    radial-gradient(circle at 94% 8%, rgba(216, 226, 219, 0.44), transparent 28%),
+    linear-gradient(180deg, #f6f2eb 0%, #ebe5da 100%);
+}
+
+.shell--cockpit .window-chrome,
+.shell--cockpit .app-sidebar,
+.shell--cockpit .hero-panel,
+.shell--cockpit .section-panel,
+.shell--cockpit .insights-panel {
+  border-color: var(--border-warm);
+  box-shadow: var(--shadow-card);
+}
+
+.shell--cockpit .window-chrome {
+  background: rgba(255, 252, 247, 0.78);
+}
+
+.shell--cockpit .window-drag-region {
+  background:
+    linear-gradient(135deg, rgba(255, 252, 247, 0.72), rgba(236, 242, 237, 0.46));
+  border-color: rgba(81, 104, 93, 0.1);
+}
+
+.app-layout {
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: var(--space-shell);
+}
+
+.shell--cockpit .app-sidebar {
+  padding: 16px;
+  background: rgba(255, 252, 247, 0.74);
+}
+
+.shell--cockpit .cockpit-workspace {
+  gap: var(--space-shell);
+  scrollbar-gutter: stable;
+}
+
+.shell--cockpit .hero-panel {
+  min-height: min(700px, calc(100vh - 104px));
+  grid-template-columns: minmax(300px, 0.74fr) minmax(430px, 1.26fr);
+  gap: var(--space-panel);
+  padding: var(--space-panel);
+}
+
+.shell--cockpit .hero-copy--with-art,
+.shell--cockpit .timer-panel,
+.shell--cockpit .timer-settings,
+.shell--cockpit .task-entry,
+.shell--cockpit .records-panel,
+.shell--cockpit .chart-panel,
+.shell--cockpit .trend-chart-card,
+.shell--cockpit .trend-single-day,
+.shell--cockpit .metric-card,
+.shell--cockpit .todo-metric-card,
+.shell--cockpit .trend-highlight-card,
+.shell--cockpit .todo-card,
+.shell--cockpit .record-card,
+.shell--cockpit .detail-card,
+.shell--cockpit .stack-card,
+.shell--cockpit .timer-round-card {
+  border-color: var(--border-warm);
+  border-radius: var(--radius-card);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-tight);
+}
+
+.shell--cockpit .timer-panel,
+.shell--cockpit .hero-copy--with-art,
+.shell--cockpit .section-panel,
+.shell--cockpit .insights-panel {
+  background:
+    linear-gradient(180deg, rgba(255, 252, 247, 0.94), rgba(248, 244, 238, 0.82)),
+    var(--surface-raised);
+}
+
+.shell--cockpit .section-panel,
+.shell--cockpit .insights-panel {
+  padding: var(--space-panel);
+}
+
+.shell--cockpit .view-chip,
+.shell--cockpit .mode-chip,
+.shell--cockpit .filter-chip,
+.shell--cockpit .trend-window-chip,
+.shell--cockpit .action-button,
+.shell--cockpit .window-button,
+.shell--cockpit .todo-collapse-toggle,
+.shell--cockpit .todo-toggle {
+  transition:
+    transform 220ms var(--ease-standard),
+    border-color 220ms var(--ease-standard),
+    background-color 220ms var(--ease-standard),
+    color 220ms var(--ease-standard),
+    box-shadow 220ms var(--ease-standard);
+}
+
+.shell--cockpit .view-chip,
+.shell--cockpit .mode-chip,
+.shell--cockpit .filter-chip,
+.shell--cockpit .trend-window-chip,
+.shell--cockpit .window-button {
+  background: rgba(255, 252, 247, 0.78);
+}
+
+.shell--cockpit .view-chip {
+  min-height: 72px;
+  border-radius: 17px;
+}
+
+.shell--cockpit .view-chip:hover {
+  transform: translateX(2px);
+  background: rgba(255, 252, 247, 0.92);
+}
+
+.shell--cockpit .view-chip--active {
+  background:
+    linear-gradient(135deg, rgba(81, 104, 93, 0.15), rgba(255, 252, 247, 0.9)),
+    var(--surface-raised);
+}
+
+.shell--cockpit .task-input {
+  min-height: 46px;
+  border-radius: var(--radius-control);
+  border-color: var(--border-warm);
+  padding: 12px 15px;
+  background: rgba(255, 252, 247, 0.92);
+}
+
+.shell--cockpit .task-input:hover:not(:disabled) {
+  border-color: rgba(81, 104, 93, 0.18);
+}
+
+.shell--cockpit .task-input:focus {
+  border-color: rgba(81, 104, 93, 0.36);
+  box-shadow: var(--focus-ring);
+}
+
+.shell--cockpit .action-button,
+.shell--cockpit .mode-chip,
+.shell--cockpit .filter-chip,
+.shell--cockpit .trend-window-chip {
+  min-height: 42px;
+  border-radius: var(--radius-control);
+  padding: 10px 16px;
+}
+
+.shell--cockpit .action-button:hover:not(:disabled),
+.shell--cockpit .mode-chip:hover:not(:disabled),
+.shell--cockpit .filter-chip:hover,
+.shell--cockpit .trend-window-chip:hover,
+.shell--cockpit .todo-collapse-toggle:hover,
+.shell--cockpit .todo-card:hover,
+.shell--cockpit .record-card:hover,
+.shell--cockpit .detail-card:hover,
+.shell--cockpit .stack-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(81, 104, 93, 0.2);
+  box-shadow: var(--shadow-card);
+}
+
+.shell--cockpit .action-button:active:not(:disabled),
+.shell--cockpit .mode-chip:active:not(:disabled),
+.shell--cockpit .filter-chip:active,
+.shell--cockpit .trend-window-chip:active {
+  transform: translateY(0);
+}
+
+.shell--cockpit .action-button:focus-visible,
+.shell--cockpit .mode-chip:focus-visible,
+.shell--cockpit .filter-chip:focus-visible,
+.shell--cockpit .trend-window-chip:focus-visible,
+.shell--cockpit .window-button:focus-visible,
+.shell--cockpit .view-chip:focus-visible,
+.shell--cockpit .todo-toggle:focus-visible,
+.shell--cockpit .todo-collapse-toggle:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.shell--cockpit .action-button--primary {
+  background:
+    linear-gradient(135deg, rgba(49, 68, 58, 0.96), rgba(80, 104, 92, 0.88)),
+    var(--accent-strong);
+  box-shadow: 0 10px 22px rgba(49, 68, 58, 0.16);
+}
+
+.shell--cockpit .action-button--success,
+.shell--cockpit .mode-chip--active,
+.shell--cockpit .filter-chip--active,
+.shell--cockpit .trend-window-chip--active {
+  background:
+    linear-gradient(135deg, rgba(81, 104, 93, 0.14), rgba(255, 252, 247, 0.9)),
+    var(--surface-raised);
+  border-color: rgba(81, 104, 93, 0.22);
+  color: var(--accent-strong);
+}
+
+.shell--cockpit .timer-settings,
+.shell--cockpit .task-entry {
+  padding: var(--space-card);
+}
+
+.shell--cockpit .timer-settings__header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 14px;
+}
+
+.shell--cockpit .timer-settings__header > div:first-child {
+  min-width: 0;
+  max-width: 46rem;
+}
+
+.shell--cockpit .timer-settings__header h3,
+.shell--cockpit .timer-settings__header p {
+  writing-mode: horizontal-tb;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+.shell--cockpit .timer-settings__side {
+  width: 100%;
+  min-width: 0;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.shell--cockpit .timer-settings__quick {
+  flex: 1 1 280px;
+  justify-content: flex-start;
+}
+
+.shell--cockpit .timer-settings__toggle {
+  flex: 0 0 auto;
+}
+
+.shell--cockpit .timer-settings__quick span,
+.shell--cockpit .timer-instrument__meta span,
+.shell--cockpit .record-pill,
+.shell--cockpit .todo-attribute,
+.shell--cockpit .todo-status-pill,
+.shell--cockpit .status-pill,
+.shell--cockpit .timer-status {
+  background: rgba(81, 104, 93, 0.09);
+  color: var(--accent-strong);
+}
+
+.shell--cockpit .timer-instrument {
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at center, rgba(255, 252, 247, 0.98) 0 31%, transparent 32%),
+    radial-gradient(circle at 50% 48%, var(--timer-accent-soft), transparent 45%),
+    linear-gradient(180deg, rgba(255, 252, 247, 0.94), rgba(239, 235, 227, 0.8));
+}
+
+.shell--cockpit .timer-display {
+  max-width: 100%;
+  overflow: visible;
+  font-size: clamp(4rem, 7.2vw, 5.7rem);
+}
+
+.shell--cockpit .timer-actions {
+  gap: 10px;
+}
+
+.shell--cockpit .records-panel__header,
+.shell--cockpit .timer-panel__header,
+.shell--cockpit .section-heading--with-art,
+.shell--cockpit .records-panel__header--with-art {
+  align-items: flex-start;
+}
+
+.shell--cockpit .records-panel__actions {
+  min-width: min(100%, 260px);
+}
+
+.shell--cockpit .records-panel__summary {
+  line-height: 1.7;
+}
+
+.shell--cockpit .record-card,
+.shell--cockpit .todo-card {
+  padding: 15px;
+}
+
+.shell--cockpit .record-card__copy,
+.shell--cockpit .todo-card__body {
+  min-width: 0;
+}
+
+.shell--cockpit .record-card__main > span {
+  flex-shrink: 0;
+}
+
+.shell--cockpit .todo-card__title-row strong,
+.shell--cockpit .record-card__main strong {
+  line-height: 1.45;
+}
+
+.shell--cockpit .metric-grid,
+.shell--cockpit .todo-metrics,
+.shell--cockpit .trend-highlights {
+  gap: 10px;
+}
+
+.shell--cockpit .metric-card,
+.shell--cockpit .todo-metric-card,
+.shell--cockpit .trend-highlight-card {
+  padding: 16px;
+}
+
+.shell--cockpit .trend-chart-card__detail {
+  align-items: flex-start;
+}
+
+.shell--cockpit .content-illustration img {
+  filter: saturate(0.94) contrast(0.98);
+}
+
 @media (max-width: 1180px) {
   .app-layout {
     grid-template-columns: 176px minmax(0, 1fr);
@@ -2827,6 +3200,80 @@ body {
 
   .shell--cockpit .timer-display {
     font-size: 4rem;
+  }
+
+  .shell--cockpit .window-actions,
+  .shell--cockpit .timer-actions,
+  .shell--cockpit .review-toolbar__actions,
+  .shell--cockpit .mode-switch__actions {
+    gap: 8px;
+  }
+
+  .shell--cockpit .records-panel__header,
+  .shell--cockpit .timer-settings__side,
+  .shell--cockpit .review-toolbar__footer,
+  .shell--cockpit .record-card,
+  .shell--cockpit .record-card__main {
+    align-items: stretch;
+  }
+
+  .shell--cockpit .records-panel__actions {
+    min-width: 0;
+    justify-items: start;
+  }
+
+  .shell--cockpit .records-panel__summary {
+    max-width: none;
+    text-align: left;
+  }
+
+  .shell--cockpit .timer-settings__quick {
+    width: 100%;
+  }
+
+  .shell--cockpit .action-button,
+  .shell--cockpit .mode-chip,
+  .shell--cockpit .filter-chip,
+  .shell--cockpit .trend-window-chip {
+    min-height: 40px;
+    padding: 9px 13px;
+  }
+}
+
+@media (max-width: 640px) {
+  .shell--cockpit .window-actions,
+  .shell--cockpit .timer-actions,
+  .shell--cockpit .review-toolbar__actions,
+  .shell--cockpit .mode-switch__actions,
+  .shell--cockpit .trend-window-picker__chips,
+  .shell--cockpit .review-range-group {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+  }
+
+  .shell--cockpit .view-switcher__actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .shell--cockpit .hero-copy h1 {
+    font-size: 2.1rem;
+  }
+
+  .shell--cockpit .timer-display {
+    font-size: clamp(3rem, 17vw, 3.7rem);
+  }
+
+  .shell--cockpit .timer-instrument {
+    min-height: 240px;
+  }
+
+  .shell--cockpit .timer-instrument__core {
+    width: min(90%, 420px);
+  }
+
+  .shell--cockpit .timer-instrument__meta {
+    font-size: 0.8rem;
   }
 }
 
