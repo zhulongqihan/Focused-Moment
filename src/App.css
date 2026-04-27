@@ -1786,6 +1786,93 @@ textarea,
   gap: 12px;
 }
 
+.todo-flow-board {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.9fr) repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  align-items: stretch;
+}
+
+.todo-flow-board__intro,
+.todo-flow-card {
+  min-width: 0;
+  border: 1px solid rgba(32, 40, 47, 0.07);
+  border-radius: 24px;
+  background:
+    linear-gradient(145deg, rgba(255, 252, 247, 0.95), rgba(248, 244, 238, 0.78)),
+    var(--surface-raised);
+  box-shadow: var(--shadow-tight);
+}
+
+.todo-flow-board__intro {
+  display: grid;
+  align-content: center;
+  gap: 8px;
+  padding: 18px;
+}
+
+.todo-flow-board__intro h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  letter-spacing: -0.03em;
+  line-height: 1.25;
+}
+
+.todo-flow-card {
+  position: relative;
+  display: grid;
+  align-content: space-between;
+  gap: 10px;
+  min-height: 148px;
+  padding: 18px;
+  overflow: hidden;
+}
+
+.todo-flow-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: rgba(81, 104, 93, 0.18);
+}
+
+.todo-flow-card--today::before {
+  background: rgba(49, 92, 113, 0.5);
+}
+
+.todo-flow-card--next {
+  grid-column: span 2;
+}
+
+.todo-flow-card--next::before {
+  background: rgba(81, 104, 93, 0.58);
+}
+
+.todo-flow-card strong {
+  font-size: clamp(1.8rem, 3vw, 2.7rem);
+  line-height: 0.98;
+  letter-spacing: -0.05em;
+}
+
+.todo-flow-card p,
+.todo-flow-card__empty,
+.todo-flow-card__task span {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+.todo-flow-card__task {
+  display: grid;
+  gap: 8px;
+}
+
+.todo-flow-card__task strong {
+  font-size: clamp(1.25rem, 2.3vw, 2rem);
+  letter-spacing: -0.04em;
+  word-break: break-word;
+}
+
 .todo-form-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1801,6 +1888,40 @@ textarea,
 
 .todo-form-field span {
   color: var(--text-soft);
+}
+
+.time-confirm-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.time-confirm-button {
+  min-height: 46px;
+  border: 1px solid rgba(81, 104, 93, 0.18);
+  border-radius: 16px;
+  padding: 0 14px;
+  background: rgba(81, 104, 93, 0.1);
+  color: var(--accent-strong);
+  font: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background-color 180ms ease;
+}
+
+.time-confirm-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(81, 104, 93, 0.28);
+  background: rgba(81, 104, 93, 0.15);
+}
+
+.time-confirm-button:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
 }
 
 .task-select {
@@ -2479,6 +2600,7 @@ textarea,
 
   .task-entry__controls,
   .todo-form-grid,
+  .time-confirm-field,
   .timer-settings__grid,
   .timer-round-grid {
     grid-template-columns: minmax(0, 1fr);
@@ -2881,6 +3003,8 @@ textarea,
 .shell--cockpit .timer-settings,
 .shell--cockpit .task-entry,
 .shell--cockpit .records-panel,
+.shell--cockpit .todo-flow-board__intro,
+.shell--cockpit .todo-flow-card,
 .shell--cockpit .chart-panel,
 .shell--cockpit .trend-chart-card,
 .shell--cockpit .trend-single-day,
@@ -3139,6 +3263,14 @@ textarea,
   gap: 10px;
 }
 
+.shell--cockpit .todo-flow-board {
+  gap: 10px;
+}
+
+.shell--cockpit .todo-flow-card {
+  min-height: 132px;
+}
+
 .shell--cockpit .metric-card,
 .shell--cockpit .todo-metric-card,
 .shell--cockpit .trend-highlight-card {
@@ -3366,6 +3498,15 @@ textarea,
   .shell--cockpit .hero-copy--with-art {
     min-height: 220px;
   }
+
+  .todo-flow-board {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .todo-flow-board__intro,
+  .todo-flow-card--next {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 860px) {
@@ -3429,6 +3570,14 @@ textarea,
 
   .shell--cockpit .timer-settings__quick {
     width: 100%;
+  }
+
+  .todo-flow-board {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .todo-flow-card--next {
+    grid-column: auto;
   }
 
   .shell--cockpit .action-button,

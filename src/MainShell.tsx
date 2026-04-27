@@ -43,7 +43,6 @@ import {
   closeMainWindow,
   minimizeMainWindow,
   quitApplication,
-  startDraggingMainWindow,
   toggleMaximizeMainWindow,
 } from "./lib/window-controls";
 import "./App.css";
@@ -309,12 +308,24 @@ const copy = {
   todoToolsTitle: "\u66f4\u5feb\u627e\u5230\u4f60\u73b0\u5728\u60f3\u5904\u7406\u7684\u4efb\u52a1",
   todoToolsSummary:
     "\u53ef\u4ee5\u5148\u641c\u7d22\uff0c\u518d\u6309\u72b6\u6001\u6216\u91cd\u8981\u7a0b\u5ea6\u7b5b\u9009\uff0c\u6700\u540e\u7528\u6392\u5e8f\u628a\u4efb\u52a1\u5217\u8868\u8c03\u6210\u66f4\u987a\u624b\u7684\u89c6\u56fe\u3002",
+  todoFlowEyebrow: "今日执行流",
+  todoFlowTitle: "先看今天该怎么推进",
+  todoFlowToday: "今天待办",
+  todoFlowTodayNote: "安排在今天且还没完成",
+  todoFlowNext: "下一件事",
+  todoFlowNextEmpty: "还没有待推进任务，先添加一项今天想完成的事。",
+  todoFlowHigh: "高优先级",
+  todoFlowHighNote: "未完成的高优先级任务",
+  todoFlowDone: "已沉淀",
+  todoFlowDoneNote: "已经完成的任务",
   todoFilterLabel: "\u7b5b\u9009",
   todoSortLabel: "\u6392\u5e8f",
   todoVisibleCount: "\u5f53\u524d\u53ef\u89c1",
   todoFilteredEmpty: "\u8fd9\u4e2a\u7b5b\u9009\u7ec4\u5408\u4e0b\u8fd8\u6ca1\u6709\u5339\u914d\u7684\u4efb\u52a1\uff0c\u53ef\u4ee5\u6362\u4e2a\u6761\u4ef6\u8bd5\u8bd5\u3002",
   todoDateLabel: "\u65e5\u671f",
   todoTimeLabel: "\u5f00\u59cb\u65f6\u95f4\uff08\u53ef\u9009\uff09",
+  todoTimeConfirm: "确定时间",
+  todoTimeConfirmed: "开始时间已确认",
   todoImportanceLabel: "\u91cd\u8981\u7a0b\u5ea6",
   todoCreate: "\u6dfb\u52a0\u4efb\u52a1",
   todoEmpty: "\u8fd8\u6ca1\u6709\u4efb\u52a1\uff0c\u5148\u6dfb\u52a0\u4e00\u9879\u4eca\u5929\u60f3\u63a8\u8fdb\u7684\u4e8b\u60c5\u5427\u3002",
@@ -466,8 +477,8 @@ const copy = {
 
 const emptySnapshot: ShellSnapshot = {
   productName: "Focused Moment",
-  version: "1.5.6",
-  milestone: "v1.5.6 \u4e13\u6ce8\u8fd0\u884c\u6001\u6c1b\u56f4\u7248",
+  version: "1.5.7",
+  milestone: "v1.5.7 待办执行流视觉版",
   slogan:
     "\u7528\u66f4\u8f7b\u7684\u65b9\u5f0f\u4e13\u6ce8\u3001\u5b89\u6392\u548c\u590d\u76d8\u6bcf\u4e00\u5929\u3002",
   surfaces: [],
@@ -726,6 +737,7 @@ function MainShell() {
   const [reviewDataHydrated, setReviewDataHydrated] = createSignal(false);
   const [reviewDataBusy, setReviewDataBusy] = createSignal(false);
   let particleCanvasRef: HTMLCanvasElement | undefined;
+  let todoTimeInputRef: HTMLInputElement | undefined;
   let timerContextHydrated = false;
   let handledAlertSequence = 0;
 
@@ -749,6 +761,16 @@ function MainShell() {
     todoItems().filter((item) => !item.isCompleted).length;
   const completedTodoCount = () =>
     todoItems().filter((item) => item.isCompleted).length;
+  const todayPendingTodoCount = () => {
+    const today = getLocalDateValue();
+    return todoItems().filter(
+      (item) => !item.isCompleted && item.scheduledDate === today
+    ).length;
+  };
+  const highPriorityPendingTodoCount = () =>
+    todoItems().filter(
+      (item) => !item.isCompleted && item.importanceKey === "high"
+    ).length;
   const linkableTodoItems = () =>
     todoItems().filter((item) => !item.isCompleted);
   const recentFocusRecords = () => {
@@ -816,6 +838,22 @@ function MainShell() {
     visibleTodoItems().filter((item) => !item.isCompleted);
   const visibleCompletedTodoItems = () =>
     visibleTodoItems().filter((item) => item.isCompleted);
+  const nextTodoItem = () =>
+    visiblePendingTodoItems()[0] ?? linkableTodoItems()[0] ?? null;
+  const nextTodoMetaLabel = () => {
+    const item = nextTodoItem();
+    if (!item) {
+      return "";
+    }
+
+    return [
+      item.scheduledDate,
+      formatScheduledTimeLabel(item.scheduledTime),
+      getImportanceLabel(item.importanceKey),
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  };
   const shouldShowCompletedTodoSection = () =>
     visibleCompletedTodoItems().length > 0;
   const isCompletedTodoSectionExpanded = () =>
@@ -1532,7 +1570,7 @@ function MainShell() {
 
   async function runTodoAction(action: () => Promise<TodoItem[]>) {
     if (todoBusy()) {
-      return;
+      return false;
     }
 
     setTodoBusy(true);
@@ -1541,11 +1579,18 @@ function MainShell() {
       const nextTodoItems = await action();
       setTodoItems(nextTodoItems);
       await refreshAnalyticsSummary();
+      return true;
     } catch (error) {
       setStatusText(getErrorMessage(error));
+      return false;
     } finally {
       setTodoBusy(false);
     }
+  }
+
+  function confirmTodoTime() {
+    todoTimeInputRef?.blur();
+    setStatusText(copy.todoTimeConfirmed);
   }
 
   async function handleCreateTodo() {
@@ -1555,13 +1600,20 @@ function MainShell() {
       return;
     }
 
-    await runTodoAction(() =>
+    const created = await runTodoAction(() =>
       createTodoItem({
         ...draft,
         title: normalizedTitle,
       })
     );
+    if (!created) {
+      return;
+    }
+
     patchTodoDraft({ title: "" });
+    setTodoFilter("all");
+    setTodoSort("smart");
+    setShowCompletedTodos(false);
     setStatusText(`\u5df2\u6dfb\u52a0\u4efb\u52a1\uff1a${normalizedTitle}`);
   }
 
@@ -1570,7 +1622,10 @@ function MainShell() {
   }
 
   async function handleDeleteTodo(id: number) {
-    await runTodoAction(() => deleteTodoItem(id));
+    const deleted = await runTodoAction(() => deleteTodoItem(id));
+    if (!deleted) {
+      return;
+    }
 
     if (editingTodoId() === id) {
       setEditingTodoId(null);
@@ -1604,12 +1659,16 @@ function MainShell() {
       return;
     }
 
-    await runTodoAction(() =>
+    const saved = await runTodoAction(() =>
       updateTodoItem(id, {
         ...draft,
         title: normalizedTitle,
       })
     );
+    if (!saved) {
+      return;
+    }
+
     setEditingTodoId(null);
     setEditingTodoDraft(createDefaultTodoDraft());
     setStatusText(`\u5df2\u66f4\u65b0\u4efb\u52a1\uff1a${normalizedTitle}`);
@@ -1802,23 +1861,6 @@ function MainShell() {
       setTimerBusy(false);
       setTodoBusy(false);
     }
-  }
-
-  function handleWindowDragRegionPointerDown(event: MouseEvent) {
-    const target = event.target as HTMLElement | null;
-    if (
-      !target ||
-      target.closest("button") ||
-      target.closest("input") ||
-      target.closest("select") ||
-      target.closest("textarea")
-    ) {
-      return;
-    }
-
-    void startDraggingMainWindow().catch(() => {
-      // Ignore transient drag errors and keep the current interaction.
-    });
   }
 
   async function fireTimerAlert(snapshot: TimerSnapshot) {
@@ -2177,7 +2219,6 @@ function MainShell() {
         <div
           class="window-drag-region"
           data-tauri-drag-region
-          onMouseDown={handleWindowDragRegionPointerDown}
           onDblClick={() => void toggleMaximizeMainWindow()}
         >
           <div class="window-drag-hint">{copy.dragHint}</div>
@@ -2703,7 +2744,7 @@ function MainShell() {
         </Show>
 
         <Show when={activeView() === "tasks"}>
-          <section class="panel section-panel">
+          <section class="panel section-panel todo-execution-page">
           <div class="section-heading section-heading--with-art">
             <div class="section-heading__copy">
               <div>
@@ -2716,6 +2757,48 @@ function MainShell() {
               <img src={todoIllustration} alt="管理待办主题插画" />
             </figure>
           </div>
+
+          <section class="todo-flow-board" aria-label={copy.todoFlowTitle}>
+            <div class="todo-flow-board__intro">
+              <span class="eyebrow">{copy.todoFlowEyebrow}</span>
+              <h3>{copy.todoFlowTitle}</h3>
+            </div>
+
+            <article class="todo-flow-card todo-flow-card--today">
+              <span class="metric-label">{copy.todoFlowToday}</span>
+              <strong>{todayPendingTodoCount()}</strong>
+              <p>{copy.todoFlowTodayNote}</p>
+            </article>
+
+            <article class="todo-flow-card todo-flow-card--next">
+              <span class="metric-label">{copy.todoFlowNext}</span>
+              <Show
+                when={nextTodoItem()}
+                fallback={<p class="todo-flow-card__empty">{copy.todoFlowNextEmpty}</p>}
+              >
+                {(item) => (
+                  <div class="todo-flow-card__task">
+                    <strong>{item().title}</strong>
+                    <span>
+                      {nextTodoMetaLabel()}
+                    </span>
+                  </div>
+                )}
+              </Show>
+            </article>
+
+            <article class="todo-flow-card">
+              <span class="metric-label">{copy.todoFlowHigh}</span>
+              <strong>{highPriorityPendingTodoCount()}</strong>
+              <p>{copy.todoFlowHighNote}</p>
+            </article>
+
+            <article class="todo-flow-card">
+              <span class="metric-label">{copy.todoFlowDone}</span>
+              <strong>{completedTodoCount()}</strong>
+              <p>{copy.todoFlowDoneNote}</p>
+            </article>
+          </section>
 
           <div class="todo-creation">
             <input
@@ -2749,15 +2832,26 @@ function MainShell() {
               </label>
               <label class="todo-form-field">
                 <span>{copy.todoTimeLabel}</span>
-                <input
-                  class="task-input"
-                  type="time"
-                  value={todoDraft().scheduledTime}
-                  disabled={todoBusy()}
-                  onInput={(event) =>
-                    patchTodoDraft({ scheduledTime: event.currentTarget.value })
-                  }
-                />
+                <div class="time-confirm-field">
+                  <input
+                    ref={todoTimeInputRef}
+                    class="task-input"
+                    type="time"
+                    value={todoDraft().scheduledTime}
+                    disabled={todoBusy()}
+                    onInput={(event) =>
+                      patchTodoDraft({ scheduledTime: event.currentTarget.value })
+                    }
+                  />
+                  <button
+                    type="button"
+                    class="time-confirm-button"
+                    disabled={todoBusy()}
+                    onClick={confirmTodoTime}
+                  >
+                    {copy.todoTimeConfirm}
+                  </button>
+                </div>
               </label>
               <label class="todo-form-field">
                 <span>{copy.todoImportanceLabel}</span>
