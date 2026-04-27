@@ -352,6 +352,19 @@ const copy = {
   insightTitle: "\u770b\u770b\u8fd9\u6bb5\u65f6\u95f4\u7684\u4e13\u6ce8\u8282\u594f",
   insightSummary:
     "\u5728\u8fd9\u91cc\u770b\u603b\u65f6\u957f\u3001\u8fdb\u5ea6\u548c\u8fd1\u671f\u53d8\u5316\uff0c\u4f60\u4f1a\u66f4\u5bb9\u6613\u77e5\u9053\u81ea\u5df1\u6700\u8fd1\u7684\u72b6\u6001\u600e\u4e48\u6837\u3002",
+  insightStoryEyebrow: "\u590d\u76d8\u4e00\u53e5\u8bdd",
+  insightStoryTitle: "\u628a\u8fd9\u6bb5\u72b6\u6001\u8bb2\u6e05\u695a",
+  insightStoryEmpty: "\u5f53\u524d\u8303\u56f4\u8fd8\u6ca1\u6709\u4e13\u6ce8\u8bb0\u5f55\uff0c\u5148\u5b8c\u6210\u4e00\u8f6e\u540e\uff0c\u8fd9\u91cc\u4f1a\u81ea\u52a8\u751f\u6210\u8282\u594f\u6458\u8981\u3002",
+  insightStoryRange: "\u89c2\u5bdf\u8303\u56f4",
+  insightStoryTotal: "\u7d2f\u8ba1\u6295\u5165",
+  insightStoryMode: "\u4e3b\u8981\u65b9\u5f0f",
+  insightStoryRelation: "\u8bb0\u5f55\u7ed3\u6784",
+  insightStoryStopwatch: "\u66f4\u504f\u6b63\u5411\u8ba1\u65f6",
+  insightStoryPomodoro: "\u66f4\u504f\u756a\u8304\u949f",
+  insightStoryBalanced: "\u4e24\u79cd\u8282\u594f\u6bd4\u8f83\u5747\u8861",
+  insightStoryLinked: "\u5173\u8054\u4efb\u52a1\u5360\u4e3b\u8981\u6bd4\u4f8b",
+  insightStoryIndependent: "\u72ec\u7acb\u8bb0\u5f55\u5360\u4e3b\u8981\u6bd4\u4f8b",
+  insightStoryMixed: "\u4efb\u52a1\u5173\u8054\u4e0e\u72ec\u7acb\u8bb0\u5f55\u5e76\u884c",
   insightFilterEyebrow: "\u590d\u76d8\u8303\u56f4",
   insightFilterTitle: "\u5148\u9009\u4e00\u4e2a\u4f60\u60f3\u770b\u7684\u65f6\u95f4\u6bb5",
   insightFilterSummary:
@@ -477,8 +490,8 @@ const copy = {
 
 const emptySnapshot: ShellSnapshot = {
   productName: "Focused Moment",
-  version: "1.5.7",
-  milestone: "v1.5.7 待办执行流视觉版",
+  version: "1.5.8",
+  milestone: "v1.5.8 \u590d\u76d8\u6570\u636e\u53d9\u4e8b\u7248",
   slogan:
     "\u7528\u66f4\u8f7b\u7684\u65b9\u5f0f\u4e13\u6ce8\u3001\u5b89\u6392\u548c\u590d\u76d8\u6bcf\u4e00\u5929\u3002",
   surfaces: [],
@@ -997,6 +1010,34 @@ function MainShell() {
     });
   };
   const filteredReviewSummary = () => buildReviewSummary(filteredInsightRecords());
+  const insightStoryLead = () => {
+    const summary = filteredReviewSummary();
+    if (summary.sessionCount === 0) {
+      return copy.insightStoryEmpty;
+    }
+
+    return `${reviewRangeLabel()}记录了 ${summary.sessionCount} 次专注，累计 ${summary.totalFocusDurationLabel}，分布在 ${summary.activeDays} 个活跃日，日均 ${summary.averageDailyDurationLabel}。`;
+  };
+  const insightDominantModeLabel = () => {
+    const summary = filteredReviewSummary();
+    if (summary.stopwatchSessionCount === summary.pomodoroSessionCount) {
+      return copy.insightStoryBalanced;
+    }
+
+    return summary.stopwatchSessionCount > summary.pomodoroSessionCount
+      ? copy.insightStoryStopwatch
+      : copy.insightStoryPomodoro;
+  };
+  const insightRelationStoryLabel = () => {
+    const summary = filteredReviewSummary();
+    if (summary.linkedSessionCount === summary.independentSessionCount) {
+      return copy.insightStoryMixed;
+    }
+
+    return summary.linkedSessionCount > summary.independentSessionCount
+      ? copy.insightStoryLinked
+      : copy.insightStoryIndependent;
+  };
   const latestDailyBreakdown = () =>
     filteredReviewSummary().dailyBreakdown.slice(0, 30);
   const shouldLoadReviewData = () =>
@@ -3025,6 +3066,34 @@ function MainShell() {
               </figure>
             </div>
 
+            <section class="insight-story-board" aria-label={copy.insightStoryTitle}>
+              <article class="insight-story-card insight-story-card--lead">
+                <span class="eyebrow">{copy.insightStoryEyebrow}</span>
+                <h3>{copy.insightStoryTitle}</h3>
+                <p>{insightStoryLead()}</p>
+              </article>
+
+              <article class="insight-story-card">
+                <span>{copy.insightStoryRange}</span>
+                <strong>{reviewRangeLabel()}</strong>
+              </article>
+
+              <article class="insight-story-card">
+                <span>{copy.insightStoryTotal}</span>
+                <strong>{filteredReviewSummary().totalFocusDurationLabel}</strong>
+              </article>
+
+              <article class="insight-story-card">
+                <span>{copy.insightStoryMode}</span>
+                <strong>{insightDominantModeLabel()}</strong>
+              </article>
+
+              <article class="insight-story-card">
+                <span>{copy.insightStoryRelation}</span>
+                <strong>{insightRelationStoryLabel()}</strong>
+              </article>
+            </section>
+
             <section class="panel chart-panel review-toolbar">
               <div class="records-panel__header">
                 <div>
@@ -3185,7 +3254,7 @@ function MainShell() {
               </div>
             </section>
 
-            <div class="metric-grid">
+            <div class="metric-grid insight-metric-grid">
               <article class="metric-card">
                 <span class="metric-label">{copy.insightTotalFocus}</span>
                 <strong>{filteredReviewSummary().totalFocusDurationLabel}</strong>
@@ -3208,7 +3277,7 @@ function MainShell() {
               </article>
             </div>
 
-            <div class="metric-grid">
+            <div class="metric-grid insight-metric-grid insight-metric-grid--secondary">
               <article class="metric-card">
                 <span class="metric-label">{copy.insightStopwatch}</span>
                 <strong>{filteredReviewSummary().stopwatchSessionCount}</strong>
