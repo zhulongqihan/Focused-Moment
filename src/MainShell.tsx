@@ -295,6 +295,21 @@ const copy = {
   recordsEmpty: "\u8fd8\u6ca1\u6709\u4e13\u6ce8\u8bb0\u5f55\uff0c\u5b8c\u6210\u7b2c\u4e00\u8f6e\u540e\u5c31\u4f1a\u51fa\u73b0\u5728\u8fd9\u91cc\u3002",
   recordsWindowNote: "\u9ed8\u8ba4\u53ea\u663e\u793a\u8fd1 7 \u5929\u5185\u7684\u6700\u65b0 6 \u6761\u8bb0\u5f55\uff0c\u66f4\u65e9\u7684\u5185\u5bb9\u53ef\u4ee5\u5728\u201c\u67e5\u770b\u590d\u76d8\u201d\u91cc\u7ee7\u7eed\u770b\u3002",
   recordsRecentEmpty: "\u6700\u8fd1 7 \u5929\u6682\u65f6\u8fd8\u6ca1\u6709\u65b0\u7684\u4e13\u6ce8\u8bb0\u5f55\uff0c\u66f4\u65e9\u7684\u5386\u53f2\u53ef\u4ee5\u5728\u201c\u67e5\u770b\u590d\u76d8\u201d\u91cc\u67e5\u770b\u3002",
+  emptyStartFocusAction: "\u53bb\u5f00\u59cb\u4e13\u6ce8",
+  emptyReviewAction: "\u53bb\u67e5\u770b\u590d\u76d8",
+  emptyBackupAction: "\u5148\u5bfc\u51fa\u4e00\u4efd\u5907\u4efd",
+  emptyTodoTitle: "\u4eca\u5929\u7684\u5f85\u529e\u8fd8\u5f88\u5b89\u9759",
+  emptyTodoSummary: "\u5728\u4e0a\u65b9\u5199\u4e0b\u7b2c\u4e00\u4ef6\u60f3\u63a8\u8fdb\u7684\u4e8b\uff0c\u5b83\u4f1a\u7acb\u523b\u51fa\u73b0\u5728\u8fd9\u91cc\uff0c\u5e76\u53ef\u4ee5\u5728\u4e13\u6ce8\u65f6\u76f4\u63a5\u5173\u8054\u3002",
+  emptyTodoFilteredTitle: "\u8fd9\u4e2a\u89c6\u56fe\u6682\u65f6\u6ca1\u6709\u5339\u914d\u4efb\u52a1",
+  emptyTodoFilteredSummary: "\u53ef\u4ee5\u5207\u56de\u201c\u5168\u90e8\u201d\uff0c\u6216\u6539\u4e00\u4e0b\u641c\u7d22\u5173\u952e\u8bcd\u3001\u72b6\u6001\u548c\u6392\u5e8f\u6761\u4ef6\u3002",
+  emptyRecordsTitle: "\u8fd8\u6ca1\u6709\u7559\u4e0b\u4e13\u6ce8\u8bb0\u5f55",
+  emptyRecordsSummary: "\u5148\u5b8c\u6210\u4e00\u8f6e\u6b63\u5411\u8ba1\u65f6\u6216\u756a\u8304\u949f\uff0c\u5b83\u4f1a\u81ea\u52a8\u6c89\u6dc0\u5230\u8fd9\u91cc\u3002",
+  emptyRecentTitle: "\u6700\u8fd1 7 \u5929\u8fd8\u6ca1\u6709\u65b0\u8bb0\u5f55",
+  emptyRecentSummary: "\u5982\u679c\u4f60\u60f3\u770b\u66f4\u65e9\u7684\u5386\u53f2\uff0c\u53ef\u4ee5\u53bb\u590d\u76d8\u9875\u5207\u5230\u66f4\u5927\u7684\u65f6\u95f4\u8303\u56f4\u3002",
+  emptyInsightsTitle: "\u8fd9\u4e2a\u8303\u56f4\u8fd8\u6ca1\u6709\u6570\u636e",
+  emptyInsightsSummary: "\u5207\u6362\u5230\u66f4\u5927\u7684\u8303\u56f4\uff0c\u6216\u5b8c\u6210\u4e00\u8f6e\u4e13\u6ce8\u540e\u518d\u56de\u6765\uff0c\u8d8b\u52bf\u548c\u8bb0\u5f55\u5c31\u4f1a\u5f00\u59cb\u51fa\u73b0\u3002",
+  emptyBackupTitle: "\u8fd8\u6ca1\u6709\u627e\u5230\u5907\u4efd",
+  emptyBackupSummary: "\u5efa\u8bae\u5728\u5f00\u59cb\u957f\u671f\u4f7f\u7528\u524d\u5148\u5bfc\u51fa\u4e00\u4efd\u5907\u4efd\uff0c\u540e\u7eed\u6062\u590d\u548c\u56de\u6eda\u4f1a\u66f4\u5b89\u5fc3\u3002",
   unnamedTask: "\u672a\u547d\u540d\u4e8b\u52a1",
   recordIndependent: "\u72ec\u7acb\u4e8b\u4ef6",
   recordLinkedPrefix: "\u5173\u8054\u4efb\u52a1\uff1a",
@@ -490,8 +505,8 @@ const copy = {
 
 const emptySnapshot: ShellSnapshot = {
   productName: "Focused Moment",
-  version: "1.5.8",
-  milestone: "v1.5.8 \u590d\u76d8\u6570\u636e\u53d9\u4e8b\u7248",
+  version: "1.5.9",
+  milestone: "v1.5.9 \u7a7a\u72b6\u6001\u4e0e\u9996\u6b21\u4f7f\u7528\u4f53\u9a8c\u7248",
   slogan:
     "\u7528\u66f4\u8f7b\u7684\u65b9\u5f0f\u4e13\u6ce8\u3001\u5b89\u6392\u548c\u590d\u76d8\u6bcf\u4e00\u5929\u3002",
   surfaces: [],
@@ -882,6 +897,31 @@ function MainShell() {
     linkedTodoItem()
       ? `${copy.linkTodoPrefix}${linkedTodoItem()?.title ?? ""}`
       : copy.linkTodoHint;
+  const renderEmptyState = (options: {
+    title: string;
+    summary: string;
+    actionLabel?: string;
+    onAction?: () => void;
+  }) => (
+    <div class="empty-state-card">
+      <div class="empty-state-card__mark" aria-hidden="true">
+        <span />
+      </div>
+      <div class="empty-state-card__copy">
+        <strong>{options.title}</strong>
+        <p>{options.summary}</p>
+      </div>
+      <Show when={options.actionLabel && options.onAction}>
+        <button
+          type="button"
+          class="action-button"
+          onClick={() => options.onAction?.()}
+        >
+          {options.actionLabel}
+        </button>
+      </Show>
+    </div>
+  );
   const completionLabel = () => {
     if (timerSnapshot().modeKey !== "pomodoro") {
       return copy.complete;
@@ -2768,12 +2808,21 @@ function MainShell() {
                               </article>
                             )}
                           </For>
-                          {records().length === 0 && (
-                            <p class="records-empty">{copy.recordsEmpty}</p>
-                          )}
-                          {records().length > 0 && recentFocusRecords().length === 0 && (
-                            <p class="records-empty">{copy.recordsRecentEmpty}</p>
-                          )}
+                          {records().length === 0 &&
+                            renderEmptyState({
+                              title: copy.emptyRecordsTitle,
+                              summary: copy.emptyRecordsSummary,
+                              actionLabel: copy.emptyStartFocusAction,
+                              onAction: () => setActiveView("focus"),
+                            })}
+                          {records().length > 0 &&
+                            recentFocusRecords().length === 0 &&
+                            renderEmptyState({
+                              title: copy.emptyRecentTitle,
+                              summary: copy.emptyRecentSummary,
+                              actionLabel: copy.emptyReviewAction,
+                              onAction: () => setActiveView("insights"),
+                            })}
                         </div>
                       </Show>
                     </Show>
@@ -3040,13 +3089,18 @@ function MainShell() {
               </section>
             </Show>
 
-            {todoItems().length === 0 && (
-              <p class="records-empty">{copy.todoEmpty}</p>
-            )}
+            {todoItems().length === 0 &&
+              renderEmptyState({
+                title: copy.emptyTodoTitle,
+                summary: copy.emptyTodoSummary,
+              })}
 
-            {todoItems().length > 0 && visibleTodoItems().length === 0 && (
-              <p class="records-empty">{copy.todoFilteredEmpty}</p>
-            )}
+            {todoItems().length > 0 &&
+              visibleTodoItems().length === 0 &&
+              renderEmptyState({
+                title: copy.emptyTodoFilteredTitle,
+                summary: copy.emptyTodoFilteredSummary,
+              })}
           </div>
         </section>
         </Show>
@@ -3248,9 +3302,13 @@ function MainShell() {
                   )}
                 </For>
 
-                {backups().length === 0 && (
-                  <p class="records-empty">{copy.backupListEmpty}</p>
-                )}
+                {backups().length === 0 &&
+                  renderEmptyState({
+                    title: copy.emptyBackupTitle,
+                    summary: copy.emptyBackupSummary,
+                    actionLabel: copy.emptyBackupAction,
+                    onAction: () => void handleExportBackup(),
+                  })}
               </div>
             </section>
 
@@ -3708,9 +3766,13 @@ function MainShell() {
                   )}
                 </For>
 
-                {latestDailyBreakdown().length === 0 && (
-                  <p class="records-empty">{copy.insightDailyEmpty}</p>
-                )}
+                {latestDailyBreakdown().length === 0 &&
+                  renderEmptyState({
+                    title: copy.emptyInsightsTitle,
+                    summary: copy.emptyInsightsSummary,
+                    actionLabel: copy.emptyStartFocusAction,
+                    onAction: () => setActiveView("focus"),
+                  })}
               </div>
             </section>
 
@@ -3769,9 +3831,13 @@ function MainShell() {
                   )}
                 </For>
 
-                {filteredInsightRecords().length === 0 && (
-                  <p class="records-empty">{copy.insightRecordsEmpty}</p>
-                )}
+                {filteredInsightRecords().length === 0 &&
+                  renderEmptyState({
+                    title: copy.emptyInsightsTitle,
+                    summary: copy.emptyInsightsSummary,
+                    actionLabel: copy.emptyStartFocusAction,
+                    onAction: () => setActiveView("focus"),
+                  })}
               </div>
             </section>
           </section>
