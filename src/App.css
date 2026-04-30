@@ -476,6 +476,201 @@ textarea,
   letter-spacing: 0.03em;
 }
 
+.focus-atlas {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(240px, 0.9fr) minmax(280px, 1.1fr);
+  gap: 20px;
+  align-items: center;
+  min-height: 320px;
+  padding: 24px;
+  overflow: hidden;
+  border: 1px solid rgba(32, 40, 47, 0.07);
+  border-radius: 30px;
+  background:
+    radial-gradient(circle at 72% 42%, rgba(38, 183, 218, 0.14), transparent 28%),
+    radial-gradient(circle at 12% 88%, rgba(81, 104, 93, 0.14), transparent 32%),
+    linear-gradient(145deg, rgba(255, 252, 247, 0.98), rgba(240, 235, 227, 0.74));
+  box-shadow: var(--shadow-tight);
+}
+
+.focus-atlas::before {
+  content: "";
+  position: absolute;
+  inset: 18px;
+  border: 1px solid rgba(81, 104, 93, 0.08);
+  border-radius: 26px;
+  pointer-events: none;
+}
+
+.focus-atlas__copy,
+.focus-atlas__metrics,
+.focus-atlas__hint {
+  position: relative;
+  z-index: 1;
+}
+
+.focus-atlas__copy {
+  display: grid;
+  gap: 10px;
+  align-self: stretch;
+  align-content: center;
+}
+
+.focus-atlas__copy h2 {
+  margin: 0;
+  max-width: 18rem;
+  font-size: clamp(1.8rem, 3.2vw, 3rem);
+  line-height: 1.02;
+  letter-spacing: -0.07em;
+}
+
+.focus-atlas__copy p,
+.focus-atlas__hint {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.7;
+}
+
+.focus-atlas__orbit {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  justify-self: center;
+  width: min(100%, 340px);
+  aspect-ratio: 1;
+}
+
+.focus-atlas__ring,
+.focus-atlas__node,
+.focus-atlas__core {
+  position: absolute;
+}
+
+.focus-atlas__ring {
+  inset: 0;
+  border: 1px solid rgba(81, 104, 93, 0.18);
+  border-radius: 999px;
+}
+
+.focus-atlas__ring--outer {
+  background:
+    conic-gradient(from 140deg, rgba(81, 104, 93, 0.36), transparent 22%, rgba(38, 183, 218, 0.28), transparent 58%, rgba(81, 104, 93, 0.28), transparent);
+  mask: radial-gradient(circle, transparent 61%, #000 62%);
+  animation: focus-atlas-spin 24s linear infinite;
+}
+
+.focus-atlas__ring--inner {
+  inset: 18%;
+  border-style: dashed;
+  opacity: 0.62;
+  animation: focus-atlas-spin 32s linear reverse infinite;
+}
+
+.focus-atlas__node {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: #557166;
+  box-shadow: 0 0 0 8px rgba(81, 104, 93, 0.1);
+}
+
+.focus-atlas__node--one {
+  top: 16%;
+  right: 22%;
+}
+
+.focus-atlas__node--two {
+  left: 15%;
+  bottom: 29%;
+  width: 12px;
+  height: 12px;
+  background: #26b7da;
+}
+
+.focus-atlas__node--three {
+  right: 17%;
+  bottom: 18%;
+  width: 10px;
+  height: 10px;
+  background: #8aa097;
+}
+
+.focus-atlas__core {
+  display: grid;
+  place-items: center;
+  width: 54%;
+  aspect-ratio: 1;
+  border-radius: 999px;
+  border: 1px solid rgba(81, 104, 93, 0.12);
+  background: rgba(255, 252, 247, 0.82);
+  color: var(--text-main);
+  font-size: clamp(1.35rem, 2.8vw, 2.35rem);
+  font-weight: 700;
+  letter-spacing: -0.06em;
+  font-variant-numeric: tabular-nums;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.focus-atlas__metrics {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.focus-atlas__metrics article {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(255, 252, 247, 0.72);
+  border: 1px solid rgba(32, 40, 47, 0.06);
+}
+
+.focus-atlas__metrics span {
+  color: var(--text-soft);
+  font-size: 0.76rem;
+}
+
+.focus-atlas__metrics strong {
+  color: var(--text-main);
+  font-size: 1.02rem;
+  letter-spacing: -0.03em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.focus-atlas__hint {
+  grid-column: 1 / -1;
+  padding-left: 14px;
+  border-left: 3px solid rgba(81, 104, 93, 0.26);
+}
+
+.focus-atlas--running {
+  background:
+    radial-gradient(circle at 74% 40%, rgba(38, 183, 218, 0.2), transparent 30%),
+    radial-gradient(circle at 10% 90%, rgba(49, 92, 113, 0.18), transparent 32%),
+    linear-gradient(145deg, rgba(249, 253, 253, 0.98), rgba(230, 239, 238, 0.78));
+}
+
+.focus-atlas--break {
+  background:
+    radial-gradient(circle at 76% 42%, rgba(32, 135, 116, 0.18), transparent 30%),
+    linear-gradient(145deg, rgba(252, 255, 250, 0.98), rgba(229, 241, 235, 0.78));
+}
+
+.focus-atlas--running .focus-atlas__core {
+  color: #173c52;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 0 0 8px rgba(38, 183, 218, 0.08),
+    0 18px 44px rgba(38, 183, 218, 0.12);
+}
+
 .timer-panel {
   display: grid;
   gap: 18px;
@@ -2415,162 +2610,6 @@ textarea,
   font-size: 0.9rem;
 }
 
-.widget-shell {
-  min-height: 100vh;
-  box-sizing: border-box;
-  padding: 14px;
-  color: var(--text-main);
-  background:
-    radial-gradient(circle at top left, rgba(255, 255, 255, 0.86), transparent 28%),
-    linear-gradient(180deg, #f2ede4 0%, #e5dfd4 100%);
-}
-
-.widget-header,
-.widget-panel {
-  position: relative;
-}
-
-.widget-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 14px;
-  margin-bottom: 12px;
-  padding: 16px 18px;
-  border: 1px solid rgba(32, 40, 47, 0.08);
-  border-radius: 24px;
-  background: rgba(255, 252, 247, 0.92);
-  box-shadow: 0 16px 32px rgba(53, 44, 31, 0.08);
-}
-
-.widget-header__copy {
-  display: grid;
-  gap: 6px;
-}
-
-.widget-header__copy strong {
-  font-size: 1.16rem;
-  font-weight: 600;
-}
-
-.widget-header__copy p {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 0.88rem;
-}
-
-.widget-close,
-.widget-link {
-  border: 0;
-  padding: 0;
-  background: transparent;
-  color: var(--accent-strong);
-  font: inherit;
-  cursor: pointer;
-}
-
-.widget-close {
-  padding: 8px 12px;
-  border-radius: 999px;
-  background: rgba(255, 252, 247, 0.72);
-  border: 1px solid var(--border);
-}
-
-.widget-panel {
-  display: grid;
-  gap: 12px;
-  max-height: calc(100vh - 118px);
-  overflow-y: auto;
-  padding: 18px;
-  border: 1px solid rgba(32, 40, 47, 0.08);
-  border-radius: 28px;
-  background: rgba(255, 252, 247, 0.9);
-  box-shadow: 0 16px 32px rgba(53, 44, 31, 0.08);
-}
-
-.widget-panel::-webkit-scrollbar {
-  width: 8px;
-}
-
-.widget-panel::-webkit-scrollbar-thumb {
-  border-radius: 999px;
-  background: rgba(81, 104, 93, 0.24);
-}
-
-.widget-metrics {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.widget-metric {
-  display: grid;
-  gap: 6px;
-  padding: 14px;
-  border: 1px solid rgba(32, 40, 47, 0.06);
-  border-radius: 18px;
-  background: rgba(255, 252, 247, 0.76);
-}
-
-.widget-metric strong {
-  font-size: 1.32rem;
-}
-
-.widget-creation,
-.widget-list {
-  display: grid;
-  gap: 10px;
-}
-
-.widget-creation__grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.widget-create {
-  justify-self: start;
-}
-
-.widget-todo-card {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 12px;
-  align-items: center;
-  padding: 14px;
-  border: 1px solid rgba(32, 40, 47, 0.08);
-  border-radius: 18px;
-  background: rgba(255, 252, 247, 0.8);
-}
-
-.widget-todo-card--completed {
-  opacity: 0.72;
-}
-
-.widget-todo-card__body {
-  display: grid;
-  gap: 8px;
-  min-width: 0;
-}
-
-.widget-todo-card__body strong {
-  font-size: 0.95rem;
-  line-height: 1.35;
-}
-
-.widget-todo-card--completed .widget-todo-card__body strong {
-  text-decoration: line-through;
-  color: var(--text-soft);
-}
-
-.widget-todo-card__meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  color: var(--text-soft);
-  font-size: 0.78rem;
-}
-
 @keyframes rise-in {
   from {
     opacity: 0;
@@ -2631,6 +2670,12 @@ textarea,
 
   .section-heading--with-art {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@keyframes focus-atlas-spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 
@@ -2730,9 +2775,7 @@ textarea,
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .widget-creation__grid,
-  .todo-metrics,
-  .widget-metrics {
+  .todo-metrics {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -2741,9 +2784,6 @@ textarea,
     flex-direction: column;
   }
 
-  .widget-todo-card {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
 
 /* v1.5.2 visual draft: focus cockpit + lightweight side navigation */
@@ -2887,9 +2927,12 @@ textarea,
 }
 
 .shell--cockpit .hero-panel {
-  min-height: min(720px, calc(100vh - 104px));
-  grid-template-columns: minmax(280px, 0.78fr) minmax(420px, 1.22fr);
-  align-items: stretch;
+  min-height: 0;
+  grid-template-columns: minmax(300px, 0.78fr) minmax(420px, 1.22fr);
+  grid-template-areas:
+    "intro atlas"
+    "timer timer";
+  align-items: start;
   gap: 18px;
   padding: 20px;
   background:
@@ -2898,6 +2941,7 @@ textarea,
 }
 
 .shell--cockpit .hero-copy--with-art {
+  grid-area: intro;
   height: 100%;
   min-height: 0;
   align-items: flex-start;
@@ -2932,7 +2976,13 @@ textarea,
   align-self: flex-end;
 }
 
+.shell--cockpit .focus-atlas {
+  grid-area: atlas;
+  min-height: 286px;
+}
+
 .shell--cockpit .timer-panel {
+  grid-area: timer;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   align-content: start;
@@ -3116,13 +3166,18 @@ textarea,
 }
 
 .shell--cockpit .hero-panel {
-  min-height: min(700px, calc(100vh - 104px));
-  grid-template-columns: minmax(300px, 0.74fr) minmax(430px, 1.26fr);
+  min-height: 0;
+  grid-template-columns: minmax(300px, 0.78fr) minmax(430px, 1.22fr);
+  grid-template-areas:
+    "intro atlas"
+    "timer timer";
+  align-items: start;
   gap: var(--space-panel);
   padding: var(--space-panel);
 }
 
 .shell--cockpit .hero-copy--with-art,
+.shell--cockpit .focus-atlas,
 .shell--cockpit .timer-panel,
 .shell--cockpit .timer-settings,
 .shell--cockpit .task-entry,
@@ -3474,6 +3529,14 @@ textarea,
     radial-gradient(circle at 92% 12%, var(--runtime-accent-soft), transparent 34%);
 }
 
+.shell--cockpit.shell--focus-view.shell--timer-running .focus-atlas__ring--outer {
+  animation-duration: 14s;
+}
+
+.shell--cockpit.shell--focus-view.shell--timer-break .focus-atlas__ring--outer {
+  animation-duration: 20s;
+}
+
 .shell--cockpit.shell--focus-view.shell--timer-running .timer-panel {
   position: relative;
   overflow: hidden;
@@ -3614,10 +3677,121 @@ textarea,
   color: #806137;
 }
 
+/* v1.6.0 safety pass: keep the new focus atlas impressive, but never stacked over controls. */
+.shell--cockpit.shell--focus-view .hero-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  align-items: stretch;
+  min-height: 0;
+  height: auto;
+  overflow: visible;
+}
+
+.shell--cockpit.shell--focus-view .hero-panel > * {
+  flex: 0 0 auto;
+  width: 100%;
+  min-width: 0;
+}
+
+.shell--cockpit.shell--focus-view .hero-copy--with-art {
+  min-height: 0;
+  height: auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(84px, 132px);
+  align-items: center;
+  gap: 18px;
+  overflow: visible;
+}
+
+.shell--cockpit.shell--focus-view .hero-copy--with-art .content-illustration--hero {
+  width: 100%;
+  max-width: 132px;
+  align-self: center;
+  justify-self: end;
+  opacity: 0.72;
+}
+
+.shell--cockpit.shell--focus-view .focus-atlas {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(148px, 190px);
+  grid-template-areas:
+    "copy orbit"
+    "metrics metrics"
+    "hint hint";
+  align-items: center;
+  gap: 16px 18px;
+  padding: 20px;
+  overflow: visible;
+}
+
+.shell--cockpit.shell--focus-view .focus-atlas__copy {
+  grid-area: copy;
+  align-content: center;
+  min-width: 0;
+}
+
+.shell--cockpit.shell--focus-view .focus-atlas__copy h2 {
+  max-width: none;
+  font-size: clamp(1.7rem, 2.45vw, 2.35rem);
+  line-height: 1.08;
+  letter-spacing: -0.055em;
+}
+
+.shell--cockpit.shell--focus-view .focus-atlas__copy p {
+  max-width: 40rem;
+}
+
+.shell--cockpit.shell--focus-view .focus-atlas__orbit {
+  grid-area: orbit;
+  width: min(100%, 176px);
+}
+
+.shell--cockpit.shell--focus-view .focus-atlas__core {
+  font-size: clamp(1.2rem, 2vw, 1.65rem);
+}
+
+.shell--cockpit.shell--focus-view .focus-atlas__metrics {
+  grid-area: metrics;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.shell--cockpit.shell--focus-view .focus-atlas__metrics article {
+  padding: 12px 14px;
+}
+
+.shell--cockpit.shell--focus-view .focus-atlas__hint {
+  grid-area: hint;
+  margin-top: 0;
+}
+
+.shell--cockpit.shell--focus-view .timer-panel {
+  position: relative;
+  min-height: 0;
+  height: auto;
+  overflow: visible;
+}
+
+.shell--cockpit.shell--focus-view .mode-switch,
+.shell--cockpit.shell--focus-view .timer-settings,
+.shell--cockpit.shell--focus-view .task-entry,
+.shell--cockpit.shell--focus-view .timer-panel__header,
+.shell--cockpit.shell--focus-view .timer-secondary,
+.shell--cockpit.shell--focus-view .timer-focus-copy,
+.shell--cockpit.shell--focus-view .timer-instrument,
+.shell--cockpit.shell--focus-view .timer-actions,
+.shell--cockpit.shell--focus-view .records-panel--collapsible {
+  position: relative;
+  z-index: auto;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .shell--cockpit.shell--focus-view.shell--timer-running::before,
   .shell--cockpit.shell--focus-view.shell--timer-running .timer-panel::before,
-  .shell--cockpit.shell--focus-view.shell--timer-running .timer-instrument__scan {
+  .shell--cockpit.shell--focus-view.shell--timer-running .timer-instrument__scan,
+  .focus-atlas__ring {
     animation: none;
   }
 }
@@ -3629,11 +3803,23 @@ textarea,
 
   .shell--cockpit .hero-panel {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "intro"
+      "atlas"
+      "timer";
     min-height: 0;
   }
 
   .shell--cockpit .hero-copy--with-art {
     min-height: 220px;
+  }
+
+  .focus-atlas {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .focus-atlas__orbit {
+    width: min(100%, 300px);
   }
 
   .todo-flow-board {
@@ -3684,6 +3870,10 @@ textarea,
 
   .shell--cockpit .timer-instrument {
     min-height: 280px;
+  }
+
+  .focus-atlas__metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .shell--cockpit .timer-display {
@@ -3776,6 +3966,15 @@ textarea,
 
   .shell--cockpit .timer-instrument {
     min-height: 240px;
+  }
+
+  .focus-atlas {
+    padding: 18px;
+    border-radius: 24px;
+  }
+
+  .focus-atlas__metrics {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .shell--cockpit .timer-instrument__core {

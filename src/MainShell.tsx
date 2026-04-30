@@ -222,6 +222,17 @@ const copy = {
   focusPendingNote: "\u8fd8\u6ca1\u6709\u5b8c\u6210\u7684\u4efb\u52a1\u6570\u91cf",
   focusModeLabel: "\u5f53\u524d\u8282\u594f",
   focusModeNote: "\u4f60\u73b0\u5728\u6b63\u5728\u4f7f\u7528\u7684\u4e13\u6ce8\u65b9\u5f0f",
+  focusAtlasEyebrow: "\u4eca\u65e5\u661f\u56fe",
+  focusAtlasTitle: "\u628a\u4eca\u5929\u7684\u8282\u594f\u6536\u6210\u4e00\u5f20\u56fe",
+  focusAtlasSummary:
+    "\u4e0d\u65b0\u589e\u6570\u636e\uff0c\u53ea\u628a\u5f85\u529e\u3001\u4e13\u6ce8\u8bb0\u5f55\u548c\u5f53\u524d\u8ba1\u65f6\u72b6\u6001\u8f6c\u6210\u4e00\u4e2a\u66f4\u76f4\u89c2\u7684\u89c6\u89c9\u4eea\u8868\u3002",
+  focusAtlasToday: "\u4eca\u65e5\u4e13\u6ce8",
+  focusAtlasTodos: "\u4eca\u65e5\u5f85\u529e",
+  focusAtlasRecords: "\u5df2\u8bb0\u5f55",
+  focusAtlasState: "\u5f53\u524d\u72b6\u6001",
+  focusAtlasIdleHint: "\u5148\u9009\u4e00\u4ef6\u4e8b\uff0c\u518d\u8ba9\u8fd9\u5f20\u661f\u56fe\u4eae\u8d77\u6765\u3002",
+  focusAtlasRunningHint: "\u6b63\u5728\u8fd0\u884c\uff0c\u661f\u56fe\u4f1a\u8ddf\u7740\u4f60\u7684\u4e13\u6ce8\u8282\u594f\u6536\u7d27\u3002",
+  focusAtlasBreakHint: "\u73b0\u5728\u662f\u4f11\u606f\u9636\u6bb5\uff0c\u8ba9\u8282\u594f\u7a0d\u5fae\u677e\u4e00\u4e0b\u3002",
   modeSwitchEyebrow: "\u8ba1\u65f6\u6a21\u5f0f",
   stopwatchMode: "\u6b63\u5411\u8ba1\u65f6",
   pomodoroMode: "\u756a\u8304\u949f",
@@ -505,8 +516,8 @@ const copy = {
 
 const emptySnapshot: ShellSnapshot = {
   productName: "Focused Moment",
-  version: "1.5.9",
-  milestone: "v1.5.9 \u7a7a\u72b6\u6001\u4e0e\u9996\u6b21\u4f7f\u7528\u4f53\u9a8c\u7248",
+  version: "1.6.0",
+  milestone: "v1.6.0 \u4eca\u65e5\u4e13\u6ce8\u661f\u56fe\u7248",
   slogan:
     "\u7528\u66f4\u8f7b\u7684\u65b9\u5f0f\u4e13\u6ce8\u3001\u5b89\u6392\u548c\u590d\u76d8\u6bcf\u4e00\u5929\u3002",
   surfaces: [],
@@ -789,6 +800,23 @@ function MainShell() {
     todoItems().filter((item) => !item.isCompleted).length;
   const completedTodoCount = () =>
     todoItems().filter((item) => item.isCompleted).length;
+  const todayFocusRecords = () => {
+    const today = getLocalDateValue();
+    return records().filter((record) => record.completedDate === today);
+  };
+  const todayFocusDurationLabel = () =>
+    formatDurationLabel(
+      todayFocusRecords().reduce((total, record) => total + record.durationMs, 0)
+    );
+  const focusAtlasHint = () => {
+    if (timerSnapshot().phaseKey === "break") {
+      return copy.focusAtlasBreakHint;
+    }
+
+    return timerSnapshot().isRunning
+      ? copy.focusAtlasRunningHint
+      : copy.focusAtlasIdleHint;
+  };
   const todayPendingTodoCount = () => {
     const today = getLocalDateValue();
     return todoItems().filter(
@@ -2382,6 +2410,50 @@ function MainShell() {
                 <img src={focusStartIllustration} alt="安静开始主题插画" />
               </figure>
             </div>
+
+            <section
+              classList={{
+                "focus-atlas": true,
+                "focus-atlas--running": timerSnapshot().isRunning,
+                "focus-atlas--break": timerSnapshot().phaseKey === "break",
+              }}
+            >
+              <div class="focus-atlas__copy">
+                <span class="eyebrow">{copy.focusAtlasEyebrow}</span>
+                <h2>{copy.focusAtlasTitle}</h2>
+                <p>{copy.focusAtlasSummary}</p>
+              </div>
+
+              <div class="focus-atlas__orbit" aria-hidden="true">
+                <span class="focus-atlas__ring focus-atlas__ring--outer" />
+                <span class="focus-atlas__ring focus-atlas__ring--inner" />
+                <span class="focus-atlas__node focus-atlas__node--one" />
+                <span class="focus-atlas__node focus-atlas__node--two" />
+                <span class="focus-atlas__node focus-atlas__node--three" />
+                <span class="focus-atlas__core">{timerSnapshot().elapsedLabel}</span>
+              </div>
+
+              <div class="focus-atlas__metrics">
+                <article>
+                  <span>{copy.focusAtlasToday}</span>
+                  <strong>{todayFocusDurationLabel()}</strong>
+                </article>
+                <article>
+                  <span>{copy.focusAtlasTodos}</span>
+                  <strong>{todayPendingTodoCount()}</strong>
+                </article>
+                <article>
+                  <span>{copy.focusAtlasRecords}</span>
+                  <strong>{todayFocusRecords().length}</strong>
+                </article>
+                <article>
+                  <span>{copy.focusAtlasState}</span>
+                  <strong>{timerSnapshot().status}</strong>
+                </article>
+              </div>
+
+              <p class="focus-atlas__hint">{focusAtlasHint()}</p>
+            </section>
 
             <section class="timer-panel">
               <div class="mode-switch">
