@@ -91,8 +91,8 @@ const viewItems = [
   },
   {
     key: "lab",
-    label: "\u5f00\u53d1\u8005\u4fe1\u606f",
-    summary: "\u7248\u672c\u3001\u72b6\u6001\u4e0e\u4e3b\u7ebf\u8def\u7ebf",
+    label: "\u8bbe\u7f6e\u4e0e\u6570\u636e",
+    summary: "\u5907\u4efd\u3001\u5916\u89c2\u4e0e\u7248\u672c",
   },
 ] as const;
 
@@ -196,7 +196,7 @@ function getImportanceRank(importanceKey: TodoImportance) {
 const copy = {
   versionEyebrow: "\u4e13\u6ce8\u684c\u9762\u52a9\u624b",
   focusEyebrow: "\u4e13\u6ce8\u8ba1\u65f6",
-  focusTitle: "\u4eca\u5929\u60f3\u5148\u5b8c\u6210\u54ea\u4ef6\u4e8b\uff1f",
+  focusTitle: "\u5f00\u59cb\u8fd9\u4e00\u8f6e\u4e13\u6ce8",
   focusSummary:
     "\u9009\u4e00\u4e2a\u4efb\u52a1\uff0c\u7136\u540e\u7528\u6b63\u5411\u8ba1\u65f6\u6216\u756a\u8304\u949f\u628a\u5b83\u5b89\u9759\u5730\u505a\u5b8c\u3002",
   loading: "\u6b63\u5728\u8f7d\u5165 Focused Moment...",
@@ -223,7 +223,7 @@ const copy = {
   focusModeLabel: "\u5f53\u524d\u8282\u594f",
   focusModeNote: "\u4f60\u73b0\u5728\u6b63\u5728\u4f7f\u7528\u7684\u4e13\u6ce8\u65b9\u5f0f",
   focusAtlasEyebrow: "\u4eca\u65e5\u661f\u56fe",
-  focusAtlasTitle: "\u628a\u4eca\u5929\u7684\u8282\u594f\u6536\u6210\u4e00\u5f20\u56fe",
+  focusAtlasTitle: "\u4eca\u65e5\u4e13\u6ce8\u661f\u56fe",
   focusAtlasSummary:
     "\u4e0d\u65b0\u589e\u6570\u636e\uff0c\u53ea\u628a\u5f85\u529e\u3001\u4e13\u6ce8\u8bb0\u5f55\u548c\u5f53\u524d\u8ba1\u65f6\u72b6\u6001\u8f6c\u6210\u4e00\u4e2a\u66f4\u76f4\u89c2\u7684\u89c6\u89c9\u4eea\u8868\u3002",
   focusAtlasToday: "\u4eca\u65e5\u4e13\u6ce8",
@@ -371,7 +371,7 @@ const copy = {
   todoTimeValueLabel: "\u5f00\u59cb",
   todoImportanceValueLabel: "\u91cd\u8981",
   switcherEyebrow: "\u529f\u80fd\u5bfc\u822a",
-  switcherTitle: "\u4eca\u5929\u60f3\u5148\u505a\u4ec0\u4e48\uff1f",
+  switcherTitle: "\u4eca\u5929\u5148\u505a\u4ec0\u4e48\uff1f",
   switcherSummary:
     "\u5728\u4e13\u6ce8\u3001\u5f85\u529e\u548c\u590d\u76d8\u4e4b\u95f4\u5207\u6362\u3002\u5982\u679c\u4f60\u9700\u8981\u770b\u7248\u672c\u3001\u72b6\u6001\u6216\u5176\u4ed6\u5185\u90e8\u4fe1\u606f\uff0c\u53ef\u4ee5\u53bb\u201c\u5f00\u53d1\u8005\u4fe1\u606f\u201d\u9875\u9762\u3002",
   insightEyebrow: "\u6570\u636e\u590d\u76d8",
@@ -474,24 +474,19 @@ const copy = {
     "\u8fd9\u4f1a\u7528\u9009\u4e2d\u7684\u5907\u4efd\u8986\u76d6\u5f53\u524d\u672c\u5730\u6570\u636e\uff0c\u4f46\u6062\u590d\u524d\u4f1a\u5148\u81ea\u52a8\u751f\u6210\u4e00\u4efd\u56de\u6eda\u5907\u4efd\uff0c\u786e\u5b9a\u7ee7\u7eed\u5417\uff1f",
   backupRestoreDonePrefix: "\u5df2\u6062\u590d\u5907\u4efd",
   backupRollbackPrefix: "\u6062\u590d\u524d\u5df2\u81ea\u52a8\u751f\u6210\u56de\u6eda\u5907\u4efd",
-  developerEyebrow: "\u5f00\u53d1\u8005\u4fe1\u606f",
-  developerTitle: "\u8fd9\u4e9b\u5185\u90e8\u4fe1\u606f\u90fd\u6536\u5728\u8fd9\u91cc",
-  developerSummary:
-    "\u7248\u672c\u53f7\u3001\u8fd0\u884c\u72b6\u6001\u3001\u65f6\u95f4\u6821\u6b63\u65b9\u5f0f\u3001\u4ea7\u54c1\u4e3b\u7ebf\u548c\u540e\u7eed\u7eaf\u6548\u7387\u5de5\u5177\u9884\u7559\u90fd\u6536\u5728\u8fd9\u4e2a\u9875\u9762\uff0c\u65e5\u5e38\u4f7f\u7528\u65f6\u53ef\u4ee5\u76f4\u63a5\u5ffd\u7565\u5b83\u3002",
-  developerVersionLabel: "\u5e94\u7528\u7248\u672c",
-  developerVersionNote: "\u5f53\u524d\u6784\u5efa\u6240\u5bf9\u5e94\u7684\u7248\u672c\u53f7",
-  developerMilestoneLabel: "\u5f53\u524d\u9636\u6bb5",
-  developerMilestoneNote: "\u8fd9\u4e00\u7248\u5185\u90e8\u6807\u8bb0\u7684\u7814\u53d1\u9636\u6bb5",
-  developerStatusLabel: "\u8fd0\u884c\u72b6\u6001",
-  developerStatusNote: "\u542f\u52a8\u548c\u4ea4\u4e92\u8fc7\u7a0b\u4e2d\u7684\u6700\u65b0\u72b6\u6001\u6587\u5b57",
-  developerStorageLabel: "\u6570\u636e\u5b58\u50a8",
-  developerStorageNote: "\u6240\u6709\u4efb\u52a1\u548c\u4e13\u6ce8\u8bb0\u5f55\u9ed8\u8ba4\u4fdd\u5b58\u5728\u672c\u5730",
-  developerInfoEyebrow: "\u8fd0\u884c\u4fe1\u606f",
-  developerInfoTitle: "\u4e0e\u8fd9\u4e2a\u7248\u672c\u76f8\u5173\u7684\u5185\u90e8\u8bf4\u660e",
-  developerModulesEyebrow: "\u6a21\u5757\u8def\u7ebf",
-  developerModulesTitle: "\u5df2\u5b8c\u6210\u548c\u9884\u7559\u7684\u80fd\u529b",
-  developerModulesSummary:
-    "\u8fd9\u91cc\u4f1a\u96c6\u4e2d\u663e\u793a\u5df2\u63a5\u5165\u7684\u6a21\u5757\u3001\u5f53\u524d\u7684\u5f00\u53d1\u9636\u6bb5\uff0c\u4ee5\u53ca\u540e\u7eed\u4e13\u6ce8\u63d0\u9192\u3001\u4f1a\u8bdd\u6062\u590d\u548c\u6570\u636e\u5907\u4efd\u65b9\u5411\u7684\u9884\u7559\u3002",
+  developerEyebrow: "\u8bbe\u7f6e\u4e0e\u6570\u636e",
+  developerTitle: "\u628a\u5907\u4efd\u3001\u5916\u89c2\u548c\u7248\u672c\u4fe1\u606f\u6536\u5728\u8fd9\u91cc",
+  developerSummary: "\u65e5\u5e38\u4f7f\u7528\u65f6\uff0c\u4f60\u53ea\u9700\u8981\u5076\u5c14\u6765\u8fd9\u4e00\u9875\u770b\u770b\u3002",
+  developerVersionLabel: "\u5f53\u524d\u7248\u672c",
+  developerVersionNote: "\u5f53\u524d\u6784\u5efa\u7684\u5e94\u7528\u7248\u672c",
+  developerMilestoneLabel: "\u754c\u9762\u98ce\u683c",
+  developerMilestoneNote: "\u5f53\u524d\u7684\u89c6\u89c9\u6a21\u5f0f",
+  developerStatusLabel: "\u8ba1\u65f6\u72b6\u6001",
+  developerStatusNote: "\u8fd9\u4e00\u523b\u7684\u8fd0\u884c\u72b6\u6001",
+  developerStorageLabel: "\u6570\u636e\u4fdd\u5b58",
+  developerStorageNote: "\u6240\u6709\u5185\u5bb9\u9ed8\u8ba4\u4fdd\u5b58\u5728\u672c\u5730",
+  developerInfoEyebrow: "\u5173\u4e8e",
+  developerInfoTitle: "\u4f60\u73b0\u5728\u4f7f\u7528\u7684\u662f\u8fd9\u4e2a\u7248\u672c",
   fallbackPrefix: "\u8f7d\u5165\u56de\u9000\u4fe1\u606f\uff1a",
   windows: "Windows",
   focusSummarySlimHint:
@@ -502,14 +497,14 @@ const copy = {
     "\u6258\u76d8\u8bf4\u660e\u3001\u5f53\u524d\u6982\u51b5\u3001\u756a\u8304\u8f6e\u6b21\u548c\u6700\u8fd1\u8bb0\u5f55\u90fd\u6536\u5728\u8fd9\u4e2a\u5206\u533a\uff0c\u9700\u8981\u65f6\u518d\u5c55\u5f00\u3002",
   focusDetailsToggleOpen: "\u5c55\u5f00\u4e13\u6ce8\u8be6\u60c5",
   focusDetailsToggleClose: "\u6536\u8d77\u4e13\u6ce8\u8be6\u60c5",
-  renderModeEyebrow: "\u7a33\u5b9a\u6e32\u67d3",
-  renderModeTitle: "\u628a\u89c6\u89c9\u6548\u679c\u8c03\u6210\u66f4\u7a33\u5b9a\u7684\u5f62\u6001",
+  renderModeEyebrow: "\u663e\u793a\u6a21\u5f0f",
+  renderModeTitle: "\u9009\u4e00\u4e2a\u66f4\u9002\u5408\u4f60\u7684\u754c\u9762\u98ce\u683c",
   renderModeSummary:
-    "\u9ed8\u8ba4\u4f1a\u4f18\u5148\u4f7f\u7528\u8f7b\u91cf\u89c6\u89c9\u6a21\u5f0f\uff0c\u51cf\u5c11\u6a21\u7cca\u3001\u6bdb\u73bb\u7483\u548c\u591a\u5c42\u9634\u5f71\u5bf9 Windows \u684c\u9762\u7684\u538b\u529b\u3002",
+    "\u53ef\u4ee5\u5728\u7a33\u5b9a\u4f18\u5148\u548c\u6807\u51c6\u89c6\u89c9\u4e4b\u95f4\u5207\u6362\u3002",
   renderModeLite: "\u7a33\u5b9a\u4f18\u5148",
   renderModeRich: "\u6807\u51c6\u89c6\u89c9",
   renderModeNote:
-    "\u5982\u679c\u4f60\u9047\u5230\u767d\u5c4f\u3001\u9ed1\u5c4f\u6216\u6253\u5f00\u540e\u5361\u4f4f\uff0c\u5efa\u8bae\u4fdd\u6301\u201c\u7a33\u5b9a\u4f18\u5148\u201d\u3002",
+    "\u5982\u679c\u754c\u9762\u6253\u5f00\u540e\u4e0d\u591f\u7a33\u5b9a\uff0c\u5efa\u8bae\u4fdd\u6301\u201c\u7a33\u5b9a\u4f18\u5148\u201d\u3002",
   renderModeSaved: "\u6e32\u67d3\u6a21\u5f0f\u5df2\u5207\u6362",
   defaultError: "\u64cd\u4f5c\u6ca1\u6709\u6210\u529f\uff0c\u8bf7\u91cd\u8bd5\u3002",
 } as const;
@@ -2369,9 +2364,7 @@ function MainShell() {
       <div class="app-layout">
         <aside class="panel view-switcher app-sidebar">
           <div class="view-switcher__copy">
-            <span class="eyebrow">{copy.switcherEyebrow}</span>
             <h2>{copy.switcherTitle}</h2>
-            <p>{copy.switcherSummary}</p>
           </div>
 
           <div class="view-switcher__actions">
@@ -2383,10 +2376,10 @@ function MainShell() {
                     "view-chip": true,
                     "view-chip--active": activeView() === item.key,
                   }}
+                  aria-current={activeView() === item.key ? "page" : undefined}
                   onClick={() => setActiveView(item.key)}
                 >
                   <strong>{item.label}</strong>
-                  <span>{item.summary}</span>
                 </button>
               )}
             </For>
@@ -2399,12 +2392,8 @@ function MainShell() {
           <section class="hero-panel panel">
             <div class="hero-copy timer-hero hero-copy--with-art">
               <div>
-                <span class="eyebrow">{copy.focusEyebrow}</span>
                 <h1>{copy.focusTitle}</h1>
                 <p class="hero-text">{snapshot().slogan}</p>
-                <p class="hero-subtext hero-subtext--compact">
-                  {copy.focusSummarySlimHint}
-                </p>
               </div>
               <figure class="content-illustration content-illustration--hero">
                 <img src={focusStartIllustration} alt="安静开始主题插画" />
@@ -2421,7 +2410,6 @@ function MainShell() {
               <div class="focus-atlas__copy">
                 <span class="eyebrow">{copy.focusAtlasEyebrow}</span>
                 <h2>{copy.focusAtlasTitle}</h2>
-                <p>{copy.focusAtlasSummary}</p>
               </div>
 
               <div class="focus-atlas__orbit" aria-hidden="true">
@@ -2913,7 +2901,6 @@ function MainShell() {
                 <span class="eyebrow">{copy.todoEyebrow}</span>
                 <h2>{copy.todoTitle}</h2>
               </div>
-              <p>{copy.todoSummary}</p>
             </div>
             <figure class="content-illustration content-illustration--section">
               <img src={todoIllustration} alt="管理待办主题插画" />
@@ -3066,7 +3053,6 @@ function MainShell() {
                 <span class="eyebrow">{copy.todoToolsEyebrow}</span>
                 <h3>{copy.todoToolsTitle}</h3>
               </div>
-              <p class="chart-panel__summary">{copy.todoToolsSummary}</p>
             </div>
 
             <div class="todo-tools-panel__controls">
@@ -3131,7 +3117,6 @@ function MainShell() {
                 >
                   <div class="todo-collapse-toggle__copy">
                     <strong>{copy.todoCompletedSection}</strong>
-                    <span>{copy.todoCompletedSectionNote}</span>
                   </div>
                   <div class="todo-collapse-toggle__meta">
                     <span class="todo-collapse-toggle__count">
@@ -3185,7 +3170,6 @@ function MainShell() {
                   <span class="eyebrow">{copy.insightEyebrow}</span>
                   <h2>{copy.insightTitle}</h2>
                 </div>
-                <p>{copy.insightSummary}</p>
               </div>
               <figure class="content-illustration content-illustration--section">
                 <img src={insightIllustration} alt="状态复盘主题插画" />
@@ -3226,7 +3210,6 @@ function MainShell() {
                   <span class="eyebrow">{copy.insightFilterEyebrow}</span>
                   <h3>{copy.insightFilterTitle}</h3>
                 </div>
-                <p class="chart-panel__summary">{copy.insightFilterSummary}</p>
               </div>
 
               <div class="review-toolbar__controls">
@@ -3305,7 +3288,6 @@ function MainShell() {
                     <span class="eyebrow">{copy.backupEyebrow}</span>
                     <h3>{copy.backupTitle}</h3>
                   </div>
-                  <p class="chart-panel__summary">{copy.backupSummary}</p>
                 </div>
                 <figure class="content-illustration content-illustration--mini">
                   <img src={backupIllustration} alt="本地保护主题插画" />
@@ -3388,22 +3370,18 @@ function MainShell() {
               <article class="metric-card">
                 <span class="metric-label">{copy.insightTotalFocus}</span>
                 <strong>{filteredReviewSummary().totalFocusDurationLabel}</strong>
-                <span class="metric-footnote">{copy.insightTotalFocusNote}</span>
               </article>
               <article class="metric-card">
                 <span class="metric-label">{copy.insightSessions}</span>
                 <strong>{filteredReviewSummary().sessionCount}</strong>
-                <span class="metric-footnote">{copy.insightSessionsNote}</span>
               </article>
               <article class="metric-card">
                 <span class="metric-label">{copy.insightActiveDays}</span>
                 <strong>{filteredReviewSummary().activeDays}</strong>
-                <span class="metric-footnote">{copy.insightActiveDaysNote}</span>
               </article>
               <article class="metric-card">
                 <span class="metric-label">{copy.insightAverageDaily}</span>
                 <strong>{filteredReviewSummary().averageDailyDurationLabel}</strong>
-                <span class="metric-footnote">{copy.insightAverageDailyNote}</span>
               </article>
             </div>
 
@@ -3411,30 +3389,24 @@ function MainShell() {
               <article class="metric-card">
                 <span class="metric-label">{copy.insightStopwatch}</span>
                 <strong>{filteredReviewSummary().stopwatchSessionCount}</strong>
-                <span class="metric-footnote">{copy.insightStopwatchNote}</span>
               </article>
               <article class="metric-card">
                 <span class="metric-label">{copy.insightPomodoro}</span>
                 <strong>
                   {filteredReviewSummary().pomodoroSessionCount}
                 </strong>
-                <span class="metric-footnote">{copy.insightPomodoroNote}</span>
               </article>
               <article class="metric-card">
                 <span class="metric-label">{copy.insightLinkedTasks}</span>
                 <strong>
                   {filteredReviewSummary().linkedTaskCount}
                 </strong>
-                <span class="metric-footnote">{copy.insightLinkedTasksNote}</span>
               </article>
               <article class="metric-card">
                 <span class="metric-label">{copy.insightRelation}</span>
                 <strong>
                   {`${filteredReviewSummary().linkedSessionCount} / ${filteredReviewSummary().independentSessionCount}`}
                 </strong>
-                <span class="metric-footnote">
-                  {`${copy.insightRelationNote}\uff1a${copy.insightDailyLinked} ${filteredReviewSummary().linkedSessionCount}\uff0c${copy.insightDailyIndependent} ${filteredReviewSummary().independentSessionCount}`}
-                </span>
               </article>
             </div>
 
@@ -3922,7 +3894,6 @@ function MainShell() {
                 <span class="eyebrow">{copy.developerEyebrow}</span>
                 <h2>{copy.developerTitle}</h2>
               </div>
-              <p>{copy.developerSummary}</p>
               {bootError() && (
                 <p class="error-copy">
                   {copy.fallbackPrefix}
@@ -3935,22 +3906,20 @@ function MainShell() {
               <article class="metric-card">
                 <span class="metric-label">{copy.developerVersionLabel}</span>
                 <strong>{snapshot().version}</strong>
-                <span class="metric-footnote">{copy.developerVersionNote}</span>
               </article>
               <article class="metric-card">
                 <span class="metric-label">{copy.developerMilestoneLabel}</span>
-                <strong>{snapshot().milestone}</strong>
-                <span class="metric-footnote">{copy.developerMilestoneNote}</span>
+                <strong>
+                  {visualMode() === "lite" ? copy.renderModeLite : copy.renderModeRich}
+                </strong>
               </article>
               <article class="metric-card">
                 <span class="metric-label">{copy.developerStatusLabel}</span>
                 <strong>{statusText()}</strong>
-                <span class="metric-footnote">{copy.developerStatusNote}</span>
               </article>
               <article class="metric-card">
                 <span class="metric-label">{copy.developerStorageLabel}</span>
                 <strong>Local</strong>
-                <span class="metric-footnote">{copy.developerStorageNote}</span>
               </article>
             </div>
 
@@ -3960,7 +3929,6 @@ function MainShell() {
                   <span class="eyebrow">{copy.renderModeEyebrow}</span>
                   <h3>{copy.renderModeTitle}</h3>
                 </div>
-                <p class="chart-panel__summary">{copy.renderModeSummary}</p>
               </div>
 
               <div class="mode-switch__actions">
@@ -3985,10 +3953,6 @@ function MainShell() {
                   {copy.renderModeRich}
                 </button>
               </div>
-
-              <p class="records-panel__summary records-panel__summary--left">
-                {copy.renderModeNote}
-              </p>
             </section>
 
             <section class="records-panel">
@@ -4002,67 +3966,34 @@ function MainShell() {
               <div class="card-grid developer-card-grid">
                 <article class="detail-card">
                   <div class="detail-card__meta">
-                    <span>{copy.engineOwner}</span>
-                    <span>Rust</span>
+                    <span>{copy.developerVersionLabel}</span>
+                    <span>{snapshot().version}</span>
                   </div>
-                  <h3>{copy.engineOwnerNote}</h3>
+                  <h3>{snapshot().milestone}</h3>
                 </article>
                 <article class="detail-card">
                   <div class="detail-card__meta">
-                    <span>{copy.runtimeTarget}</span>
+                    <span>{copy.developerStorageLabel}</span>
                     <span>{copy.windows}</span>
                   </div>
-                  <h3>{copy.runtimeTargetNote}</h3>
+                  <h3>{copy.developerStorageNote}</h3>
                 </article>
                 <article class="detail-card">
                   <div class="detail-card__meta">
-                    <span>{copy.timingCorrection}</span>
-                    <span>Dual Clock</span>
+                    <span>{copy.renderModeEyebrow}</span>
+                    <span>
+                      {visualMode() === "lite" ? copy.renderModeLite : copy.renderModeRich}
+                    </span>
                   </div>
-                  <h3>{copy.timingCorrectionNote}</h3>
+                  <h3>{copy.renderModeNote}</h3>
                 </article>
                 <article class="detail-card">
                   <div class="detail-card__meta">
-                    <span>{copy.currentStatus}</span>
+                    <span>{copy.developerStatusLabel}</span>
                     <span>{timerSnapshot().status}</span>
                   </div>
-                  <h3>{copy.currentStatusNote}</h3>
+                  <h3>{copy.developerStatusNote}</h3>
                 </article>
-              </div>
-            </section>
-
-            <section class="records-panel">
-              <div class="records-panel__header">
-                <div>
-                  <span class="eyebrow">{copy.developerModulesEyebrow}</span>
-                  <h3>{copy.developerModulesTitle}</h3>
-                </div>
-                <p class="chart-panel__summary">{copy.developerModulesSummary}</p>
-              </div>
-
-              <div class="stack-list">
-                <For each={snapshot().surfaces}>
-                  {(module) => (
-                    <article class="stack-card">
-                      <span class="stack-card__phase">{module.phase}</span>
-                      <div>
-                        <h3>{module.title}</h3>
-                        <p>{module.summary}</p>
-                      </div>
-                    </article>
-                  )}
-                </For>
-                <For each={snapshot().reservedExtensions}>
-                  {(module) => (
-                    <article class="stack-card">
-                      <span class="stack-card__phase">{module.phase}</span>
-                      <div>
-                        <h3>{module.title}</h3>
-                        <p>{module.summary}</p>
-                      </div>
-                    </article>
-                  )}
-                </For>
               </div>
             </section>
           </section>

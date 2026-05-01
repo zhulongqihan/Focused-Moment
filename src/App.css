@@ -19,9 +19,12 @@
   --surface-soft: rgba(255, 252, 247, 0.68);
   --surface-raised: rgba(255, 252, 247, 0.88);
   --surface-muted: rgba(246, 242, 235, 0.72);
+  --surface-subtle: rgba(252, 249, 243, 0.66);
+  --surface-quiet: rgba(250, 246, 240, 0.84);
   --shadow-soft: 0 18px 48px rgba(67, 54, 36, 0.09);
   --shadow-card: 0 10px 26px rgba(67, 54, 36, 0.065);
   --shadow-tight: 0 6px 16px rgba(67, 54, 36, 0.045);
+  --shadow-float: 0 16px 34px rgba(67, 54, 36, 0.08);
   --text-main: #182127;
   --text-muted: #5e645f;
   --text-soft: #7d817b;
@@ -157,6 +160,19 @@ textarea,
   box-shadow: var(--shadow-card);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
+  overflow: hidden;
+}
+
+.window-chrome::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.42), transparent 48%),
+    radial-gradient(circle at 12% 18%, rgba(255, 255, 255, 0.26), transparent 24%);
+  opacity: 0.9;
 }
 
 .shell--lite .window-chrome {
@@ -172,6 +188,7 @@ textarea,
   gap: 12px;
   user-select: none;
   flex-shrink: 0;
+  min-width: 0;
 }
 
 .brand-mark {
@@ -201,6 +218,7 @@ textarea,
   font-size: 0.96rem;
   font-weight: 600;
   letter-spacing: 0.01em;
+  line-height: 1.25;
 }
 
 .brand-copy__eyebrow,
@@ -274,6 +292,7 @@ textarea,
   transform: translateY(-1px);
   background: rgba(255, 252, 247, 0.96);
   border-color: var(--border-strong);
+  box-shadow: 0 8px 18px rgba(67, 54, 36, 0.08);
 }
 
 .window-button--danger:hover {
@@ -348,19 +367,13 @@ textarea,
 
 .view-switcher__copy {
   display: grid;
-  gap: 10px;
+  gap: 4px;
 }
 
 .view-switcher__copy h2 {
   margin: 0;
-  font-size: clamp(1.6rem, 2vw, 2.2rem);
-  letter-spacing: -0.04em;
-}
-
-.view-switcher__copy p {
-  margin: 0;
-  color: var(--text-muted);
-  max-width: 44rem;
+  font-size: clamp(1.25rem, 1.6vw, 1.65rem);
+  letter-spacing: -0.02em;
 }
 
 .view-switcher__actions {
@@ -371,11 +384,11 @@ textarea,
 
 .view-chip {
   display: grid;
-  gap: 6px;
+  gap: 0;
   text-align: left;
   border: 1px solid var(--border);
   border-radius: 24px;
-  padding: 16px 18px;
+  padding: 14px 18px;
   background: rgba(255, 252, 247, 0.84);
   color: var(--text-main);
   font: inherit;
@@ -390,11 +403,6 @@ textarea,
 .view-chip strong {
   font-size: 1rem;
   font-weight: 600;
-}
-
-.view-chip span {
-  color: var(--text-muted);
-  font-size: 0.88rem;
 }
 
 .view-chip:hover {
@@ -1298,12 +1306,27 @@ textarea,
 
 .metric-card {
   display: grid;
-  gap: 6px;
+  gap: 7px;
   padding: 18px;
   border: 1px solid rgba(32, 40, 47, 0.06);
   border-radius: 22px;
-  background: var(--bg-strong);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.32), transparent 46%),
+    var(--bg-strong);
   box-shadow: var(--shadow-card);
+  position: relative;
+  overflow: hidden;
+}
+
+.metric-card::before,
+.records-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(81, 104, 93, 0.18), rgba(81, 104, 93, 0.02));
+  pointer-events: none;
 }
 
 .metric-label {
@@ -1316,6 +1339,7 @@ textarea,
 .metric-card strong {
   font-size: 1.4rem;
   font-weight: 600;
+  line-height: 1.15;
 }
 
 .records-panel {
@@ -1324,7 +1348,11 @@ textarea,
   padding: 18px;
   border: 1px solid rgba(32, 40, 47, 0.06);
   border-radius: 24px;
-  background: rgba(255, 252, 247, 0.74);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.28), transparent 44%),
+    rgba(255, 252, 247, 0.74);
+  position: relative;
+  overflow: hidden;
 }
 
 .records-panel--collapsible {
@@ -1474,6 +1502,8 @@ textarea,
     linear-gradient(145deg, rgba(255, 252, 247, 0.96), rgba(246, 241, 234, 0.78)),
     var(--surface-raised);
   box-shadow: var(--shadow-tight);
+  position: relative;
+  overflow: hidden;
 }
 
 .insight-story-card--lead {
@@ -2042,7 +2072,7 @@ textarea,
 
 .section-heading {
   display: grid;
-  gap: 10px;
+  gap: 12px;
 }
 
 .section-heading--with-art {
@@ -2053,7 +2083,12 @@ textarea,
 
 .section-heading__copy {
   display: grid;
-  gap: 10px;
+  gap: 12px;
+}
+
+.section-heading__copy > div:first-child {
+  display: grid;
+  gap: 4px;
 }
 
 .content-illustration--section {
@@ -2089,6 +2124,7 @@ textarea,
   margin: 10px 0 0;
   font-size: 1.5rem;
   letter-spacing: -0.03em;
+  line-height: 1.12;
 }
 
 .card-grid {
@@ -2145,6 +2181,19 @@ textarea,
   min-height: 148px;
   padding: 18px;
   overflow: hidden;
+}
+
+.todo-flow-card::after,
+.insight-story-card::after,
+.detail-card::after,
+.stack-card::after,
+.trend-day-chip::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
 }
 
 .todo-flow-card::before {
@@ -2230,6 +2279,8 @@ textarea,
     transform 180ms ease,
     border-color 180ms ease,
     background-color 180ms ease;
+  position: relative;
+  overflow: hidden;
 }
 
 .time-confirm-button:hover:not(:disabled) {
@@ -2314,17 +2365,12 @@ textarea,
 
 .todo-collapse-toggle__copy {
   display: grid;
-  gap: 4px;
+  gap: 0;
 }
 
 .todo-collapse-toggle__copy strong {
   font-size: 1rem;
   font-weight: 600;
-}
-
-.todo-collapse-toggle__copy span {
-  color: var(--text-muted);
-  font-size: 0.88rem;
 }
 
 .todo-collapse-toggle__meta {
@@ -2534,6 +2580,8 @@ textarea,
     transform 180ms ease,
     border-color 180ms ease,
     background-color 180ms ease;
+  position: relative;
+  overflow: hidden;
 }
 
 .detail-card:hover,
@@ -2590,6 +2638,8 @@ textarea,
   transition:
     transform 180ms ease,
     border-color 180ms ease;
+  position: relative;
+  overflow: hidden;
 }
 
 .stack-card__phase {
@@ -2847,18 +2897,13 @@ textarea,
 }
 
 .shell--cockpit .view-switcher__copy {
-  gap: 8px;
+  gap: 4px;
 }
 
 .shell--cockpit .view-switcher__copy h2 {
-  font-size: 1.18rem;
+  font-size: 1.04rem;
   letter-spacing: 0;
-  line-height: 1.25;
-}
-
-.shell--cockpit .view-switcher__copy p {
-  font-size: 0.88rem;
-  line-height: 1.55;
+  line-height: 1.2;
 }
 
 .shell--cockpit .view-switcher__actions {
@@ -2869,8 +2914,8 @@ textarea,
 
 .shell--cockpit .view-chip {
   position: relative;
-  min-height: 74px;
-  padding: 13px 14px 13px 18px;
+  min-height: 58px;
+  padding: 12px 14px 12px 18px;
   border-radius: 18px;
   background: rgba(255, 252, 247, 0.7);
   box-shadow: none;
@@ -2890,11 +2935,6 @@ textarea,
 .shell--cockpit .view-chip strong {
   font-size: 0.98rem;
   line-height: 1.35;
-}
-
-.shell--cockpit .view-chip span {
-  font-size: 0.8rem;
-  line-height: 1.45;
 }
 
 .shell--cockpit .view-chip:hover {
@@ -3141,13 +3181,19 @@ textarea,
 }
 
 .shell--cockpit .window-chrome {
-  background: rgba(255, 252, 247, 0.78);
+  background:
+    linear-gradient(135deg, rgba(255, 252, 247, 0.88), rgba(247, 242, 234, 0.74)),
+    rgba(255, 252, 247, 0.78);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.54),
+    var(--shadow-card);
 }
 
 .shell--cockpit .window-drag-region {
   background:
     linear-gradient(135deg, rgba(255, 252, 247, 0.72), rgba(236, 242, 237, 0.46));
   border-color: rgba(81, 104, 93, 0.1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.48);
 }
 
 .app-layout {
@@ -3157,7 +3203,21 @@ textarea,
 
 .shell--cockpit .app-sidebar {
   padding: 16px;
-  background: rgba(255, 252, 247, 0.74);
+  background:
+    linear-gradient(180deg, rgba(255, 252, 247, 0.9), rgba(246, 241, 234, 0.74)),
+    rgba(255, 252, 247, 0.74);
+  position: relative;
+  overflow: hidden;
+}
+
+.shell--cockpit .app-sidebar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.24), transparent 18%),
+    radial-gradient(circle at 18% 8%, rgba(81, 104, 93, 0.08), transparent 24%);
 }
 
 .shell--cockpit .cockpit-workspace {
@@ -3240,19 +3300,53 @@ textarea,
 }
 
 .shell--cockpit .view-chip {
-  min-height: 72px;
+  isolation: isolate;
+  min-height: 58px;
   border-radius: 17px;
+  padding: 12px 16px 12px 20px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.22), transparent 44%),
+    rgba(255, 252, 247, 0.7);
+  border-color: rgba(104, 91, 68, 0.07);
 }
 
 .shell--cockpit .view-chip:hover {
   transform: translateX(2px);
-  background: rgba(255, 252, 247, 0.92);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.32), transparent 46%),
+    rgba(255, 252, 247, 0.92);
+  box-shadow: var(--shadow-tight);
 }
 
 .shell--cockpit .view-chip--active {
   background:
-    linear-gradient(135deg, rgba(81, 104, 93, 0.15), rgba(255, 252, 247, 0.9)),
+    linear-gradient(135deg, rgba(81, 104, 93, 0.18), rgba(255, 252, 247, 0.92)),
     var(--surface-raised);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.48),
+    var(--shadow-tight);
+}
+
+.shell--cockpit .view-chip::after {
+  content: "";
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(81, 104, 93, 0.12);
+  transform: translateY(-50%) scale(0.7);
+  transition:
+    transform 220ms var(--ease-standard),
+    background-color 220ms var(--ease-standard),
+    box-shadow 220ms var(--ease-standard);
+}
+
+.shell--cockpit .view-chip[aria-current="page"]::after {
+  background: var(--accent);
+  transform: translateY(-50%) scale(1);
+  box-shadow: 0 0 0 6px rgba(81, 104, 93, 0.11);
 }
 
 .shell--cockpit .task-input {
@@ -3292,7 +3386,7 @@ textarea,
 .shell--cockpit .stack-card:hover {
   transform: translateY(-1px);
   border-color: rgba(81, 104, 93, 0.2);
-  box-shadow: var(--shadow-card);
+  box-shadow: var(--shadow-float);
 }
 
 .shell--cockpit .action-button:active:not(:disabled),
@@ -3409,6 +3503,34 @@ textarea,
   align-items: flex-start;
 }
 
+.shell--cockpit .section-heading,
+.shell--cockpit .records-panel__header,
+.shell--cockpit .records-panel__header-copy {
+  gap: 12px;
+}
+
+.shell--cockpit .section-heading__copy,
+.shell--cockpit .records-panel__header-copy {
+  min-width: 0;
+}
+
+.shell--cockpit .section-heading h2,
+.shell--cockpit .records-panel__header h3,
+.shell--cockpit .timer-panel__header h2 {
+  line-height: 1.08;
+}
+
+.shell--cockpit .section-heading p,
+.shell--cockpit .chart-panel__summary,
+.shell--cockpit .records-panel__summary,
+.shell--cockpit .metric-footnote,
+.shell--cockpit .todo-flow-card p,
+.shell--cockpit .insight-story-card p,
+.shell--cockpit .detail-card p,
+.shell--cockpit .stack-card p {
+  color: rgba(94, 100, 95, 0.9);
+}
+
 .shell--cockpit .records-panel__actions {
   min-width: min(100%, 260px);
 }
@@ -3420,6 +3542,20 @@ textarea,
 .shell--cockpit .record-card,
 .shell--cockpit .todo-card {
   padding: 15px;
+}
+
+.shell--cockpit .record-card,
+.shell--cockpit .todo-card,
+.shell--cockpit .detail-card,
+.shell--cockpit .stack-card,
+.shell--cockpit .metric-card,
+.shell--cockpit .todo-metric-card,
+.shell--cockpit .trend-highlight-card,
+.shell--cockpit .insight-story-card,
+.shell--cockpit .todo-flow-card {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.34), transparent 46%),
+    var(--surface-raised);
 }
 
 .shell--cockpit .record-card__copy,
@@ -3448,6 +3584,9 @@ textarea,
 
 .shell--cockpit .todo-flow-card {
   min-height: 132px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.3), transparent 44%),
+    var(--surface-quiet);
 }
 
 .shell--cockpit .insight-story-board {
@@ -3456,6 +3595,9 @@ textarea,
 
 .shell--cockpit .insight-story-card {
   min-height: 126px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.34), transparent 44%),
+    var(--surface-subtle);
 }
 
 .shell--cockpit .insight-story-card--lead {
@@ -3467,6 +3609,31 @@ textarea,
 .shell--cockpit .trend-highlight-card,
 .shell--cockpit .insight-story-card {
   padding: 16px;
+}
+
+.shell--cockpit .backup-panel,
+.shell--cockpit .developer-panel {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.26), transparent 48%),
+    rgba(255, 252, 247, 0.8);
+}
+
+.shell--cockpit .backup-panel .records-list,
+.shell--cockpit .developer-panel .card-grid,
+.shell--cockpit .developer-panel .stack-list {
+  gap: 12px;
+}
+
+.shell--cockpit .backup-panel .record-card__actions > span,
+.shell--cockpit .developer-panel .detail-card__meta span:last-child,
+.shell--cockpit .stack-card__phase {
+  color: var(--accent-strong);
+}
+
+.shell--cockpit .trend-day-chip {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.24), transparent 44%),
+    rgba(255, 252, 247, 0.82);
 }
 
 .shell--cockpit .trend-chart-card__detail {
@@ -3793,6 +3960,34 @@ textarea,
   .shell--cockpit.shell--focus-view.shell--timer-running .timer-instrument__scan,
   .focus-atlas__ring {
     animation: none;
+  }
+
+  .shell--cockpit .view-chip,
+  .shell--cockpit .view-chip::after,
+  .shell--cockpit .action-button,
+  .shell--cockpit .mode-chip,
+  .shell--cockpit .filter-chip,
+  .shell--cockpit .trend-window-chip,
+  .shell--cockpit .todo-collapse-toggle,
+  .shell--cockpit .todo-card,
+  .shell--cockpit .record-card,
+  .shell--cockpit .detail-card,
+  .shell--cockpit .stack-card,
+  .shell--cockpit .window-button {
+    transition: none;
+  }
+
+  .shell--cockpit .view-chip:hover,
+  .shell--cockpit .action-button:hover:not(:disabled),
+  .shell--cockpit .mode-chip:hover:not(:disabled),
+  .shell--cockpit .filter-chip:hover,
+  .shell--cockpit .trend-window-chip:hover,
+  .shell--cockpit .todo-collapse-toggle:hover,
+  .shell--cockpit .todo-card:hover,
+  .shell--cockpit .record-card:hover,
+  .shell--cockpit .detail-card:hover,
+  .shell--cockpit .stack-card:hover {
+    transform: none;
   }
 }
 
