@@ -1,6 +1,6 @@
 {
   "name": "focused-moment",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "description": "Focused Moment focused desktop assistant built with Tauri, Rust, and SolidJS.",
   "type": "module",
   "scripts": {

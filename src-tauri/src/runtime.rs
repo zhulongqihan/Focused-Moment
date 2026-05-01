@@ -23,8 +23,8 @@ const MIN_POMODORO_BREAK_MINUTES: u64 = 1;
 const MAX_POMODORO_BREAK_MINUTES: u64 = 30;
 const MIN_STOPWATCH_REMINDER_MINUTES: u64 = 1;
 const MAX_STOPWATCH_REMINDER_MINUTES: u64 = 12 * 60;
-const APP_VERSION: &str = "1.6.0";
-const APP_MILESTONE: &str = "v1.6.0 \u{4eca}\u{65e5}\u{4e13}\u{6ce8}\u{661f}\u{56fe}\u{7248}";
+const APP_VERSION: &str = "1.6.1";
+const APP_MILESTONE: &str = "v1.6.1 \u{754c}\u{9762}\u{7406}\u{89e3}\u{4f18}\u{5316}\u{7248}";
 const APP_BACKUP_KIND: &str = "focused-moment-backup";
 const APP_BACKUP_FORMAT_VERSION: u64 = 1;
 

@@ -516,8 +516,8 @@ const copy = {
 
 const emptySnapshot: ShellSnapshot = {
   productName: "Focused Moment",
-  version: "1.6.0",
-  milestone: "v1.6.0 \u4eca\u65e5\u4e13\u6ce8\u661f\u56fe\u7248",
+  version: "1.6.1",
+  milestone: "v1.6.1 \u754c\u9762\u7406\u89e3\u4f18\u5316\u7248",
   slogan:
     "\u7528\u66f4\u8f7b\u7684\u65b9\u5f0f\u4e13\u6ce8\u3001\u5b89\u6392\u548c\u590d\u76d8\u6bcf\u4e00\u5929\u3002",
   surfaces: [],
