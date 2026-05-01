@@ -225,14 +225,14 @@ const copy = {
   focusAtlasEyebrow: "\u4eca\u65e5\u661f\u56fe",
   focusAtlasTitle: "\u4eca\u65e5\u4e13\u6ce8\u661f\u56fe",
   focusAtlasSummary:
-    "\u4e0d\u65b0\u589e\u6570\u636e\uff0c\u53ea\u628a\u5f85\u529e\u3001\u4e13\u6ce8\u8bb0\u5f55\u548c\u5f53\u524d\u8ba1\u65f6\u72b6\u6001\u8f6c\u6210\u4e00\u4e2a\u66f4\u76f4\u89c2\u7684\u89c6\u89c9\u4eea\u8868\u3002",
+    "\u5b83\u662f\u4e00\u4e2a\u4eca\u5929\u72b6\u6001\u7684\u5feb\u7167\uff1a\u4e2d\u95f4\u662f\u8fd9\u8f6e\u8ba1\u65f6\uff0c\u4e0b\u65b9\u662f\u4eca\u5929\u7684\u4e13\u6ce8\u3001\u5f85\u529e\u548c\u8bb0\u5f55\u3002",
   focusAtlasToday: "\u4eca\u65e5\u4e13\u6ce8",
   focusAtlasTodos: "\u4eca\u65e5\u5f85\u529e",
   focusAtlasRecords: "\u5df2\u8bb0\u5f55",
   focusAtlasState: "\u5f53\u524d\u72b6\u6001",
-  focusAtlasIdleHint: "\u5148\u9009\u4e00\u4ef6\u4e8b\uff0c\u518d\u8ba9\u8fd9\u5f20\u661f\u56fe\u4eae\u8d77\u6765\u3002",
-  focusAtlasRunningHint: "\u6b63\u5728\u8fd0\u884c\uff0c\u661f\u56fe\u4f1a\u8ddf\u7740\u4f60\u7684\u4e13\u6ce8\u8282\u594f\u6536\u7d27\u3002",
-  focusAtlasBreakHint: "\u73b0\u5728\u662f\u4f11\u606f\u9636\u6bb5\uff0c\u8ba9\u8282\u594f\u7a0d\u5fae\u677e\u4e00\u4e0b\u3002",
+  focusAtlasIdleHint: "\u8fd8\u6ca1\u5f00\u59cb\u65f6\uff0c\u5b83\u53ea\u5e2e\u4f60\u770b\u4eca\u5929\u7684\u6574\u4f53\u60c5\u51b5\u3002",
+  focusAtlasRunningHint: "\u5f00\u59cb\u540e\uff0c\u5b83\u4f1a\u8ddf\u7740\u8fd9\u8f6e\u4e13\u6ce8\u4e00\u8d77\u53d8\u5316\u3002",
+  focusAtlasBreakHint: "\u4f11\u606f\u65f6\uff0c\u5b83\u4f1a\u628a\u5f53\u524d\u8282\u594f\u663e\u5f97\u66f4\u653e\u677e\u4e00\u70b9\u3002",
   modeSwitchEyebrow: "\u8ba1\u65f6\u6a21\u5f0f",
   stopwatchMode: "\u6b63\u5411\u8ba1\u65f6",
   pomodoroMode: "\u756a\u8304\u949f",
@@ -497,15 +497,20 @@ const copy = {
     "\u6258\u76d8\u8bf4\u660e\u3001\u5f53\u524d\u6982\u51b5\u3001\u756a\u8304\u8f6e\u6b21\u548c\u6700\u8fd1\u8bb0\u5f55\u90fd\u6536\u5728\u8fd9\u4e2a\u5206\u533a\uff0c\u9700\u8981\u65f6\u518d\u5c55\u5f00\u3002",
   focusDetailsToggleOpen: "\u5c55\u5f00\u4e13\u6ce8\u8be6\u60c5",
   focusDetailsToggleClose: "\u6536\u8d77\u4e13\u6ce8\u8be6\u60c5",
-  renderModeEyebrow: "\u663e\u793a\u6a21\u5f0f",
-  renderModeTitle: "\u9009\u4e00\u4e2a\u66f4\u9002\u5408\u4f60\u7684\u754c\u9762\u98ce\u683c",
+  renderModeEyebrow: "\u754c\u9762\u98ce\u683c",
+  renderModeTitle: "\u9009\u4e00\u4e2a\u4e00\u770b\u5c31\u61c2\u7684\u663e\u793a\u65b9\u5f0f",
   renderModeSummary:
-    "\u53ef\u4ee5\u5728\u7a33\u5b9a\u4f18\u5148\u548c\u6807\u51c6\u89c6\u89c9\u4e4b\u95f4\u5207\u6362\u3002",
-  renderModeLite: "\u7a33\u5b9a\u4f18\u5148",
-  renderModeRich: "\u6807\u51c6\u89c6\u89c9",
+    "\u4e00\u4e2a\u66f4\u7b80\u6d01\uff0c\u4e00\u4e2a\u66f4\u6709\u8d28\u611f\u3002",
+  renderModeLite: "\u7b80\u6d01\u7a33\u5b9a",
+  renderModeRich: "\u5b8c\u6574\u89c6\u89c9",
+  renderModeLiteTitle: "\u66f4\u8f7b\uff0c\u66f4\u7a33\uff0c\u66f4\u5b89\u9759",
+  renderModeLiteSummary: "\u5f31\u5316\u6a21\u7cca\u3001\u9634\u5f71\u548c\u6c1b\u56f4\u6548\u679c\uff0c\u754c\u9762\u4f1a\u66f4\u7d20\u4e00\u4e9b\u3002",
+  renderModeRichTitle: "\u5c42\u6b21\u66f4\u5f3a\uff0c\u8d28\u611f\u66f4\u8db3",
+  renderModeRichSummary: "\u4fdd\u7559\u73b0\u5728\u8fd9\u5957\u9634\u5f71\u3001\u6750\u8d28\u3001\u80cc\u666f\u548c\u52a8\u6548\u6c1b\u56f4\u3002",
   renderModeNote:
-    "\u5982\u679c\u754c\u9762\u6253\u5f00\u540e\u4e0d\u591f\u7a33\u5b9a\uff0c\u5efa\u8bae\u4fdd\u6301\u201c\u7a33\u5b9a\u4f18\u5148\u201d\u3002",
-  renderModeSaved: "\u6e32\u67d3\u6a21\u5f0f\u5df2\u5207\u6362",
+    "\u5982\u679c\u4f60\u53ea\u60f3\u5b89\u5b89\u9759\u9759\u5730\u7528\uff0c\u9009\u201c\u7b80\u6d01\u7a33\u5b9a\u201d\uff1b\u5982\u679c\u4f60\u60f3\u4fdd\u7559\u8fd9\u5957\u8f83\u5f3a\u7684\u89c6\u89c9\u611f\uff0c\u9009\u201c\u5b8c\u6574\u89c6\u89c9\u201d\u3002",
+  renderModeSavedLite: "\u5df2\u5207\u6362\u5230\u201c\u7b80\u6d01\u7a33\u5b9a\u201d",
+  renderModeSavedRich: "\u5df2\u5207\u6362\u5230\u201c\u5b8c\u6574\u89c6\u89c9\u201d",
   defaultError: "\u64cd\u4f5c\u6ca1\u6709\u6210\u529f\uff0c\u8bf7\u91cd\u8bd5\u3002",
 } as const;
 
@@ -1596,7 +1601,9 @@ function MainShell() {
       // Ignore local storage failures and keep the in-memory preference.
     }
 
-    setStatusText(copy.renderModeSaved);
+    setStatusText(
+      nextMode === "lite" ? copy.renderModeSavedLite : copy.renderModeSavedRich
+    );
   }
 
   async function handleSaveTimerPreferences() {
@@ -2291,6 +2298,7 @@ function MainShell() {
       class="shell"
       classList={{
         "shell--lite": isLiteVisualMode(),
+        "shell--rich": !isLiteVisualMode(),
         "shell--cockpit": true,
         "shell--focus-view": activeView() === "focus",
         "shell--timer-running": timerSnapshot().isRunning,
@@ -2410,6 +2418,7 @@ function MainShell() {
               <div class="focus-atlas__copy">
                 <span class="eyebrow">{copy.focusAtlasEyebrow}</span>
                 <h2>{copy.focusAtlasTitle}</h2>
+                <p>{copy.focusAtlasSummary}</p>
               </div>
 
               <div class="focus-atlas__orbit" aria-hidden="true">
@@ -2480,7 +2489,6 @@ function MainShell() {
                   <div>
                     <span class="eyebrow">{copy.settingsEyebrow}</span>
                     <h3>{copy.settingsTitle}</h3>
-                    <p>{copy.settingsSummary}</p>
                   </div>
                   <div class="timer-settings__side">
                     <div class="timer-settings__quick">
@@ -2620,7 +2628,6 @@ function MainShell() {
                 <div class="task-entry__copy">
                   <span class="eyebrow">{copy.currentTaskEyebrow}</span>
                   <h2>{copy.currentTaskTitle}</h2>
-                  <p>{taskHintText()}</p>
                 </div>
 
                 <div class="task-entry__controls">
@@ -2660,8 +2667,6 @@ function MainShell() {
                     </select>
                   </label>
                 </div>
-
-                <p class="task-link-hint">{taskLinkSummary()}</p>
               </div>
 
               <div class="timer-panel__header">
@@ -2759,7 +2764,6 @@ function MainShell() {
                     <h3>{copy.focusDetailsTitle}</h3>
                   </div>
                   <div class="records-panel__actions">
-                    <p class="records-panel__summary">{copy.focusDetailsSummary}</p>
                     <button
                       type="button"
                       class="mode-chip"
@@ -2777,12 +2781,10 @@ function MainShell() {
                     <article class="metric-card">
                       <span class="metric-label">{copy.focusPendingLabel}</span>
                       <strong>{pendingTodoCount()}</strong>
-                      <span class="metric-footnote">{copy.focusPendingNote}</span>
                     </article>
                     <article class="metric-card">
                       <span class="metric-label">{copy.focusModeLabel}</span>
                       <strong>{timerSnapshot().mode}</strong>
-                      <span class="metric-footnote">{copy.focusModeNote}</span>
                     </article>
                   </div>
 
@@ -2819,7 +2821,6 @@ function MainShell() {
                         <h3>{copy.recordsTitle}</h3>
                       </div>
                       <div class="records-panel__actions">
-                        <p class="records-panel__summary">{copy.recordsLazyHint}</p>
                         <button
                           type="button"
                           class="mode-chip"
@@ -2907,16 +2908,14 @@ function MainShell() {
             </figure>
           </div>
 
-          <section class="todo-flow-board" aria-label={copy.todoFlowTitle}>
+            <section class="todo-flow-board" aria-label={copy.todoFlowTitle}>
             <div class="todo-flow-board__intro">
-              <span class="eyebrow">{copy.todoFlowEyebrow}</span>
               <h3>{copy.todoFlowTitle}</h3>
             </div>
 
             <article class="todo-flow-card todo-flow-card--today">
               <span class="metric-label">{copy.todoFlowToday}</span>
               <strong>{todayPendingTodoCount()}</strong>
-              <p>{copy.todoFlowTodayNote}</p>
             </article>
 
             <article class="todo-flow-card todo-flow-card--next">
@@ -2939,13 +2938,11 @@ function MainShell() {
             <article class="todo-flow-card">
               <span class="metric-label">{copy.todoFlowHigh}</span>
               <strong>{highPriorityPendingTodoCount()}</strong>
-              <p>{copy.todoFlowHighNote}</p>
             </article>
 
             <article class="todo-flow-card">
               <span class="metric-label">{copy.todoFlowDone}</span>
               <strong>{completedTodoCount()}</strong>
-              <p>{copy.todoFlowDoneNote}</p>
             </article>
           </section>
 
@@ -3416,7 +3413,6 @@ function MainShell() {
                   <span class="eyebrow">{copy.insightTrendEyebrow}</span>
                   <h3>{copy.insightTrendTitle}</h3>
                 </div>
-                <p class="chart-panel__summary">{copy.insightTrendSummary}</p>
               </div>
 
               <Show
@@ -3488,7 +3484,6 @@ function MainShell() {
                               ? formatTrendDateLabel(activeTrendDay()!.date)
                               : "--/--"}
                           </h4>
-                          <p>{copy.insightTrendDetailHint}</p>
                           <div class="trend-window-picker">
                             <span>{copy.insightTrendWindowLabel}</span>
                             <div class="trend-window-picker__chips">
@@ -3510,7 +3505,6 @@ function MainShell() {
                                 )}
                               </For>
                             </div>
-                            <small>{copy.insightTrendWindowHint}</small>
                           </div>
                         </div>
                         <div class="trend-chart-card__detail-metrics">
@@ -3952,6 +3946,37 @@ function MainShell() {
                 >
                   {copy.renderModeRich}
                 </button>
+              </div>
+
+              <div class="card-grid visual-mode-grid">
+                <article
+                  classList={{
+                    "detail-card": true,
+                    "visual-mode-card": true,
+                    "visual-mode-card--active": visualMode() === "lite",
+                  }}
+                >
+                  <div class="detail-card__meta">
+                    <span>{copy.renderModeLite}</span>
+                    <span>{visualMode() === "lite" ? "\u5f53\u524d" : "\u53ef\u9009"}</span>
+                  </div>
+                  <h3>{copy.renderModeLiteTitle}</h3>
+                  <p>{copy.renderModeLiteSummary}</p>
+                </article>
+                <article
+                  classList={{
+                    "detail-card": true,
+                    "visual-mode-card": true,
+                    "visual-mode-card--active": visualMode() === "rich",
+                  }}
+                >
+                  <div class="detail-card__meta">
+                    <span>{copy.renderModeRich}</span>
+                    <span>{visualMode() === "rich" ? "\u5f53\u524d" : "\u53ef\u9009"}</span>
+                  </div>
+                  <h3>{copy.renderModeRichTitle}</h3>
+                  <p>{copy.renderModeRichSummary}</p>
+                </article>
               </div>
             </section>
 

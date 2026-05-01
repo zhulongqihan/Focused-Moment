@@ -130,6 +130,10 @@ textarea,
   display: none;
 }
 
+.shell--lite .pointer-particle-canvas {
+  opacity: 0;
+}
+
 .window-chrome,
 .workspace {
   position: relative;
@@ -180,6 +184,52 @@ textarea,
   box-shadow: 0 10px 24px rgba(67, 54, 36, 0.08);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
+}
+
+.shell--lite .window-chrome::before,
+.shell--lite .app-sidebar::before {
+  opacity: 0;
+}
+
+.shell--lite .panel,
+.shell--lite .hero-panel,
+.shell--lite .section-panel,
+.shell--lite .insights-panel,
+.shell--lite .timer-panel,
+.shell--lite .focus-atlas,
+.shell--lite .timer-settings,
+.shell--lite .task-entry,
+.shell--lite .records-panel,
+.shell--lite .todo-flow-board__intro,
+.shell--lite .todo-flow-card,
+.shell--lite .metric-card,
+.shell--lite .todo-metric-card,
+.shell--lite .trend-highlight-card,
+.shell--lite .insight-story-card,
+.shell--lite .detail-card {
+  background: rgba(255, 252, 247, 0.94);
+  box-shadow: 0 8px 18px rgba(67, 54, 36, 0.045);
+}
+
+.shell--lite .view-chip,
+.shell--lite .mode-chip,
+.shell--lite .filter-chip,
+.shell--lite .trend-window-chip,
+.shell--lite .action-button,
+.shell--lite .window-button,
+.shell--lite .todo-collapse-toggle {
+  background: rgba(255, 252, 247, 0.96);
+  box-shadow: none;
+}
+
+.shell--lite .hero-panel,
+.shell--lite .timer-panel,
+.shell--lite .focus-atlas {
+  border-color: rgba(32, 40, 47, 0.05);
+}
+
+.shell--rich .pointer-particle-canvas {
+  opacity: 0.92;
 }
 
 .brand-lockup {
@@ -970,12 +1020,6 @@ textarea,
 
 .task-entry__field--compact {
   min-width: 0;
-}
-
-.task-link-hint {
-  margin: 0;
-  color: var(--text-soft);
-  font-size: 0.9rem;
 }
 
 .task-recovery-hint {
@@ -2162,7 +2206,7 @@ textarea,
 .todo-flow-board__intro {
   display: grid;
   align-content: center;
-  gap: 8px;
+  gap: 2px;
   padding: 18px;
 }
 
@@ -2222,7 +2266,6 @@ textarea,
   letter-spacing: -0.05em;
 }
 
-.todo-flow-card p,
 .todo-flow-card__empty,
 .todo-flow-card__task span {
   margin: 0;
@@ -3220,6 +3263,16 @@ textarea,
     radial-gradient(circle at 18% 8%, rgba(81, 104, 93, 0.08), transparent 24%);
 }
 
+.shell--rich .window-chrome,
+.shell--rich .app-sidebar,
+.shell--rich .hero-panel,
+.shell--rich .section-panel,
+.shell--rich .insights-panel {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    0 20px 40px rgba(67, 54, 36, 0.09);
+}
+
 .shell--cockpit .cockpit-workspace {
   gap: var(--space-shell);
   scrollbar-gutter: stable;
@@ -3426,6 +3479,37 @@ textarea,
   color: var(--accent-strong);
 }
 
+.visual-mode-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.visual-mode-card {
+  gap: 10px;
+  min-height: 0;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background-color 180ms ease;
+}
+
+.visual-mode-card h3 {
+  margin: 0;
+}
+
+.visual-mode-card p {
+  margin: 0;
+}
+
+.visual-mode-card--active {
+  border-color: rgba(81, 104, 93, 0.22);
+  background:
+    linear-gradient(145deg, rgba(81, 104, 93, 0.14), rgba(255, 252, 247, 0.96)),
+    rgba(255, 252, 247, 0.92);
+  box-shadow: var(--shadow-tight);
+}
+
 .shell--cockpit .timer-settings,
 .shell--cockpit .task-entry {
   padding: var(--space-card);
@@ -3524,7 +3608,6 @@ textarea,
 .shell--cockpit .chart-panel__summary,
 .shell--cockpit .records-panel__summary,
 .shell--cockpit .metric-footnote,
-.shell--cockpit .todo-flow-card p,
 .shell--cockpit .insight-story-card p,
 .shell--cockpit .detail-card p,
 .shell--cockpit .stack-card p {
@@ -3532,7 +3615,7 @@ textarea,
 }
 
 .shell--cockpit .records-panel__actions {
-  min-width: min(100%, 260px);
+  min-width: auto;
 }
 
 .shell--cockpit .records-panel__summary {
@@ -3583,7 +3666,7 @@ textarea,
 }
 
 .shell--cockpit .todo-flow-card {
-  min-height: 132px;
+  min-height: 108px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.3), transparent 44%),
     var(--surface-quiet);
