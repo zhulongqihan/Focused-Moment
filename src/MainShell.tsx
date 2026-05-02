@@ -196,9 +196,9 @@ function getImportanceRank(importanceKey: TodoImportance) {
 const copy = {
   versionEyebrow: "\u4e13\u6ce8\u684c\u9762\u52a9\u624b",
   focusEyebrow: "\u4e13\u6ce8\u8ba1\u65f6",
-  focusTitle: "\u5f00\u59cb\u8fd9\u4e00\u8f6e\u4e13\u6ce8",
+  focusTitle: "\u628a\u8fd9\u4e00\u523b\u7559\u7ed9\u4e13\u6ce8",
   focusSummary:
-    "\u9009\u4e00\u4e2a\u4efb\u52a1\uff0c\u7136\u540e\u7528\u6b63\u5411\u8ba1\u65f6\u6216\u756a\u8304\u949f\u628a\u5b83\u5b89\u9759\u5730\u505a\u5b8c\u3002",
+    "\u5148\u5b9a\u4e0b\u8fd9\u8f6e\u8981\u63a8\u8fdb\u7684\u4e8b\uff0c\u7136\u540e\u5f00\u59cb\u3002",
   loading: "\u6b63\u5728\u8f7d\u5165 Focused Moment...",
   ready: "\u51c6\u5907\u597d\u4e86\uff0c\u4f60\u53ef\u4ee5\u968f\u65f6\u5f00\u59cb\u4e00\u8f6e\u4e13\u6ce8\u3002",
   reviewLoading:
@@ -222,10 +222,10 @@ const copy = {
   focusPendingNote: "\u8fd8\u6ca1\u6709\u5b8c\u6210\u7684\u4efb\u52a1\u6570\u91cf",
   focusModeLabel: "\u5f53\u524d\u8282\u594f",
   focusModeNote: "\u4f60\u73b0\u5728\u6b63\u5728\u4f7f\u7528\u7684\u4e13\u6ce8\u65b9\u5f0f",
-  focusAtlasEyebrow: "\u4eca\u65e5\u661f\u56fe",
-  focusAtlasTitle: "\u4eca\u65e5\u4e13\u6ce8\u661f\u56fe",
+  focusAtlasEyebrow: "\u4eca\u65e5\u72b6\u6001",
+  focusAtlasTitle: "\u4eca\u65e5\u661f\u56fe",
   focusAtlasSummary:
-    "\u5b83\u662f\u4e00\u4e2a\u4eca\u5929\u72b6\u6001\u7684\u5feb\u7167\uff1a\u4e2d\u95f4\u662f\u8fd9\u8f6e\u8ba1\u65f6\uff0c\u4e0b\u65b9\u662f\u4eca\u5929\u7684\u4e13\u6ce8\u3001\u5f85\u529e\u548c\u8bb0\u5f55\u3002",
+    "\u4e00\u773c\u770b\u6e05\u4eca\u5929\u7684\u8282\u594f\uff1a\u6b64\u523b\u3001\u4eca\u65e5\u4e13\u6ce8\u548c\u5f85\u529e\u6c89\u6dc0\u3002",
   focusAtlasToday: "\u4eca\u65e5\u4e13\u6ce8",
   focusAtlasTodos: "\u4eca\u65e5\u5f85\u529e",
   focusAtlasRecords: "\u5df2\u8bb0\u5f55",
@@ -238,7 +238,7 @@ const copy = {
   pomodoroMode: "\u756a\u8304\u949f",
   modeEyebrow: "\u5f53\u524d\u6a21\u5f0f",
   currentTaskEyebrow: "\u5f53\u524d\u4e8b\u52a1",
-  currentTaskTitle: "\u8fd9\u4e00\u6b21\u4e13\u6ce8\uff0c\u51c6\u5907\u8bb0\u6210\u4ec0\u4e48",
+  currentTaskTitle: "\u8fd9\u4e00\u8f6e\u60f3\u63a8\u8fdb\u4ec0\u4e48",
   currentTaskHint:
     "\u4f60\u53ef\u4ee5\u76f4\u63a5\u8f93\u5165\u4e00\u4e2a\u72ec\u7acb\u4e8b\u52a1\u540d\u79f0\uff0c\u5b8c\u6210\u540e\u4f1a\u5355\u72ec\u8bb0\u6210\u4e00\u6761\u4e13\u6ce8\u4e8b\u4ef6\u3002",
   pomodoroTaskHint:
@@ -260,7 +260,7 @@ const copy = {
   sessionRecovered:
     "\u5df2\u6062\u590d\u4e0a\u6b21\u672a\u7ed3\u675f\u7684\u4e13\u6ce8\u72b6\u6001\uff0c\u53ef\u4ee5\u76f4\u63a5\u7ee7\u7eed\u6216\u5148\u91cd\u7f6e\u3002",
   settingsEyebrow: "\u8ba1\u65f6\u8bbe\u7f6e",
-  settingsTitle: "\u628a\u63d0\u9192\u548c\u8282\u594f\u8c03\u6210\u4f60\u4f20\u7edf\u4f7f\u7528\u7684\u65b9\u5f0f",
+  settingsTitle: "\u8ba9\u8282\u594f\u66f4\u50cf\u4f60\u81ea\u5df1\u7684\u4f7f\u7528\u4e60\u60ef",
   settingsSummary:
     "\u8fd9\u91cc\u53ea\u6536\u4e00\u7ec4\u7d27\u51d1\u8bbe\u7f6e\uff0c\u6539\u5b8c\u4f1a\u76f4\u63a5\u4fdd\u5b58\u5230\u672c\u5730\u3002",
   pomodoroMinimumHint: "\u756a\u8304\u4e13\u6ce8\u6700\u4f4e\u4e0d\u80fd\u4f4e\u4e8e 5 \u5206\u949f\u3002",
@@ -516,8 +516,8 @@ const copy = {
 
 const emptySnapshot: ShellSnapshot = {
   productName: "Focused Moment",
-  version: "1.6.3",
-  milestone: "v1.6.3 发布说明同步版",
+  version: "1.6.4",
+  milestone: "v1.6.4 首页焕新版",
   slogan:
     "\u7528\u66f4\u8f7b\u7684\u65b9\u5f0f\u4e13\u6ce8\u3001\u5b89\u6392\u548c\u590d\u76d8\u6bcf\u4e00\u5929\u3002",
   surfaces: [],
@@ -2397,108 +2397,245 @@ function MainShell() {
         <main class="workspace workspace--single cockpit-workspace">
 
         <Show when={activeView() === "focus"}>
-          <section class="hero-panel panel">
-            <div class="hero-copy timer-hero hero-copy--with-art">
-              <div>
-                <h1>{copy.focusTitle}</h1>
-                <p class="hero-text">{snapshot().slogan}</p>
+          <section class="hero-panel panel focus-cover">
+            <div class="focus-cover__lead">
+              <div class="hero-copy timer-hero hero-copy--with-art focus-cover__heading">
+                <div>
+                  <span class="eyebrow">{copy.focusEyebrow}</span>
+                  <h1>{copy.focusTitle}</h1>
+                  <p class="hero-text">{copy.focusSummary}</p>
+                </div>
+                <figure class="content-illustration content-illustration--hero">
+                  <img src={focusStartIllustration} alt="安静开始主题插画" />
+                </figure>
               </div>
-              <figure class="content-illustration content-illustration--hero">
-                <img src={focusStartIllustration} alt="安静开始主题插画" />
-              </figure>
             </div>
 
-            <section
-              classList={{
-                "focus-atlas": true,
-                "focus-atlas--running": timerSnapshot().isRunning,
-                "focus-atlas--break": timerSnapshot().phaseKey === "break",
-              }}
-            >
-              <div class="focus-atlas__copy">
-                <span class="eyebrow">{copy.focusAtlasEyebrow}</span>
-                <h2>{copy.focusAtlasTitle}</h2>
-                <p>{copy.focusAtlasSummary}</p>
-              </div>
+            <div class="focus-cover__body">
+              <section class="timer-panel focus-stage">
+                <div class="task-entry focus-stage__task-entry">
+                  <div class="task-entry__copy">
+                    <span class="eyebrow">{copy.currentTaskEyebrow}</span>
+                    <h2>{copy.currentTaskTitle}</h2>
+                  </div>
 
-              <div class="focus-atlas__orbit" aria-hidden="true">
-                <span class="focus-atlas__ring focus-atlas__ring--outer" />
-                <span class="focus-atlas__ring focus-atlas__ring--inner" />
-                <span class="focus-atlas__node focus-atlas__node--one" />
-                <span class="focus-atlas__node focus-atlas__node--two" />
-                <span class="focus-atlas__node focus-atlas__node--three" />
-                <span class="focus-atlas__core">{timerSnapshot().elapsedLabel}</span>
-              </div>
+                  <div class="task-entry__controls">
+                    <label class="task-entry__field">
+                      <input
+                        class="task-input"
+                        type="text"
+                        value={currentTaskTitle()}
+                        placeholder={copy.taskPlaceholder}
+                        onInput={(event) =>
+                          setCurrentTaskTitle(event.currentTarget.value)
+                        }
+                      />
+                    </label>
 
-              <div class="focus-atlas__metrics">
-                <article>
-                  <span>{copy.focusAtlasToday}</span>
-                  <strong>{todayFocusDurationLabel()}</strong>
-                </article>
-                <article>
-                  <span>{copy.focusAtlasTodos}</span>
-                  <strong>{todayPendingTodoCount()}</strong>
-                </article>
-                <article>
-                  <span>{copy.focusAtlasRecords}</span>
-                  <strong>{todayFocusRecords().length}</strong>
-                </article>
-                <article>
-                  <span>{copy.focusAtlasState}</span>
-                  <strong>{timerSnapshot().status}</strong>
-                </article>
-              </div>
+                    <label class="todo-form-field task-entry__field task-entry__field--compact">
+                      <span>{copy.linkTodoLabel}</span>
+                      <select
+                        class="task-input task-select"
+                        value={linkedTodoValue()}
+                        onChange={(event) =>
+                          setLinkedTodoId(
+                            event.currentTarget.value
+                              ? Number(event.currentTarget.value)
+                              : null
+                          )
+                        }
+                      >
+                        <option value="">{copy.linkTodoEmpty}</option>
+                        <For each={linkableTodoItems()}>
+                          {(item) => (
+                            <option value={item.id}>
+                              {`${item.title} - ${item.scheduledDate} ${formatScheduledTimeLabel(item.scheduledTime)}`}
+                            </option>
+                          )}
+                        </For>
+                      </select>
+                    </label>
+                  </div>
+                </div>
 
-              <p class="focus-atlas__hint">{focusAtlasHint()}</p>
-            </section>
+                <div class="timer-panel__header focus-stage__header">
+                  <div>
+                    <span class="eyebrow">{copy.modeEyebrow}</span>
+                    <h2>{timerSnapshot().phaseLabel}</h2>
+                  </div>
+                  <span
+                    classList={{
+                      "timer-status": true,
+                      "timer-status--running": timerSnapshot().isRunning,
+                    }}
+                  >
+                    {timerSnapshot().status}
+                  </span>
+                </div>
 
-            <section class="timer-panel">
-              <div class="mode-switch">
-                <span class="eyebrow">{copy.modeSwitchEyebrow}</span>
-                <div class="mode-switch__actions">
+                <div class="focus-stage__instrument-wrap">
+                  <p class="timer-secondary">{timerSnapshot().secondaryLabel}</p>
+                  {currentTaskTitle().trim() && (
+                    <p class="timer-focus-copy">
+                      {copy.currentFocusLabel}
+                      {`\uff1a${currentTaskTitle().trim()}`}
+                    </p>
+                  )}
+                  <div
+                    classList={{
+                      "timer-instrument": true,
+                      "timer-instrument--running": timerSnapshot().isRunning,
+                      "timer-instrument--break": timerSnapshot().phaseKey === "break",
+                      "timer-instrument--free": !timerInstrumentHasTarget(),
+                    }}
+                    style={`--timer-progress: ${timerInstrumentProgress()};`}
+                  >
+                    <div class="timer-instrument__ring" aria-hidden="true">
+                      <span class="timer-instrument__scan" />
+                      <span class="timer-instrument__orb timer-instrument__orb--primary" />
+                      <span class="timer-instrument__orb timer-instrument__orb--secondary" />
+                    </div>
+                    <div class="timer-instrument__core">
+                      <span class="timer-instrument__label">{timerInstrumentStateLabel()}</span>
+                      <div class="timer-display">{timerSnapshot().elapsedLabel}</div>
+                      <div class="timer-instrument__meta">
+                        <span>{timerInstrumentTargetLabel()}</span>
+                        <span>
+                          {timerInstrumentHasTarget()
+                            ? timerInstrumentPercent()
+                            : timerSnapshot().mode}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="timer-actions focus-stage__actions">
                   <button
                     type="button"
-                    classList={{
-                      "mode-chip": true,
-                      "mode-chip--active": timerSnapshot().modeKey === "stopwatch",
-                    }}
-                    disabled={timerBusy() || isModeSwitchLocked()}
-                    onClick={() => handleModeSwitch("stopwatch")}
+                    class="action-button action-button--primary"
+                    disabled={timerBusy() || timerSnapshot().isRunning || !timerReady()}
+                    onClick={() => void runTimerAction(startTimer)}
                   >
-                    {copy.stopwatchMode}
+                    {copy.start}
                   </button>
                   <button
                     type="button"
-                    classList={{
-                      "mode-chip": true,
-                      "mode-chip--active": timerSnapshot().modeKey === "pomodoro",
-                    }}
-                    disabled={timerBusy() || isModeSwitchLocked()}
-                    onClick={() => handleModeSwitch("pomodoro")}
+                    class="action-button action-button--success"
+                    disabled={timerBusy() || !canCompleteAction() || !timerReady()}
+                    onClick={() => void handleCompleteSession()}
                   >
-                    {copy.pomodoroMode}
+                    {completionLabel()}
+                  </button>
+                  <button
+                    type="button"
+                    class="action-button"
+                    disabled={timerBusy() || !timerSnapshot().isRunning || !timerReady()}
+                    onClick={() => void runTimerAction(pauseTimer)}
+                  >
+                    {copy.pause}
+                  </button>
+                  <button
+                    type="button"
+                    class="action-button"
+                    disabled={
+                      timerBusy() ||
+                      (timerSnapshot().elapsedMs === 0 && !timerSnapshot().isRunning) ||
+                      !timerReady()
+                    }
+                    onClick={() => void runTimerAction(resetTimer)}
+                  >
+                    {copy.reset}
                   </button>
                 </div>
-                <Show when={isModeSwitchLocked()}>
-                  <p class="mode-switch__hint">{modeSwitchLockedHint()}</p>
-                </Show>
-              </div>
+              </section>
 
-              <section class="timer-settings">
-                <div class="timer-settings__header">
-                  <div>
-                    <span class="eyebrow">{copy.settingsEyebrow}</span>
-                    <h3>{copy.settingsTitle}</h3>
+              <aside class="focus-editorial-rail">
+                <section
+                  classList={{
+                    "focus-atlas": true,
+                    "focus-atlas--running": timerSnapshot().isRunning,
+                    "focus-atlas--break": timerSnapshot().phaseKey === "break",
+                  }}
+                >
+                  <div class="focus-atlas__copy">
+                    <span class="eyebrow">{copy.focusAtlasEyebrow}</span>
+                    <h2>{copy.focusAtlasTitle}</h2>
+                    <p>{copy.focusAtlasSummary}</p>
                   </div>
-                  <div class="timer-settings__side">
-                    <div class="timer-settings__quick">
-                      <span>{`专注 ${timerPreferences().pomodoroFocusMinutes} 分钟`}</span>
-                      <span>{`休息 ${timerPreferences().pomodoroBreakMinutes} 分钟`}</span>
-                      <span>
-                        {timerPreferences().stopwatchReminderMinutes === null
-                          ? "正向提醒关闭"
-                          : `正向提醒 ${timerPreferences().stopwatchReminderMinutes} 分钟`}
-                      </span>
+
+                  <div class="focus-atlas__orbit" aria-hidden="true">
+                    <span class="focus-atlas__ring focus-atlas__ring--outer" />
+                    <span class="focus-atlas__ring focus-atlas__ring--inner" />
+                    <span class="focus-atlas__node focus-atlas__node--one" />
+                    <span class="focus-atlas__node focus-atlas__node--two" />
+                    <span class="focus-atlas__node focus-atlas__node--three" />
+                    <span class="focus-atlas__core">{timerSnapshot().elapsedLabel}</span>
+                  </div>
+
+                  <div class="focus-atlas__metrics">
+                    <article>
+                      <span>{copy.focusAtlasToday}</span>
+                      <strong>{todayFocusDurationLabel()}</strong>
+                    </article>
+                    <article>
+                      <span>{copy.focusAtlasTodos}</span>
+                      <strong>{todayPendingTodoCount()}</strong>
+                    </article>
+                    <article>
+                      <span>{copy.focusAtlasRecords}</span>
+                      <strong>{todayFocusRecords().length}</strong>
+                    </article>
+                    <article>
+                      <span>{copy.focusAtlasState}</span>
+                      <strong>{timerSnapshot().status}</strong>
+                    </article>
+                  </div>
+
+                  <p class="focus-atlas__hint">{focusAtlasHint()}</p>
+                </section>
+
+                <section class="focus-rail-card mode-switch">
+                  <div class="focus-rail-card__header">
+                    <div>
+                      <span class="eyebrow">{copy.modeSwitchEyebrow}</span>
+                      <h3>选一个这一轮的节奏</h3>
+                    </div>
+                  </div>
+                  <div class="mode-switch__actions">
+                    <button
+                      type="button"
+                      classList={{
+                        "mode-chip": true,
+                        "mode-chip--active": timerSnapshot().modeKey === "stopwatch",
+                      }}
+                      disabled={timerBusy() || isModeSwitchLocked()}
+                      onClick={() => handleModeSwitch("stopwatch")}
+                    >
+                      {copy.stopwatchMode}
+                    </button>
+                    <button
+                      type="button"
+                      classList={{
+                        "mode-chip": true,
+                        "mode-chip--active": timerSnapshot().modeKey === "pomodoro",
+                      }}
+                      disabled={timerBusy() || isModeSwitchLocked()}
+                      onClick={() => handleModeSwitch("pomodoro")}
+                    >
+                      {copy.pomodoroMode}
+                    </button>
+                  </div>
+                  <Show when={isModeSwitchLocked()}>
+                    <p class="mode-switch__hint">{modeSwitchLockedHint()}</p>
+                  </Show>
+                </section>
+
+                <section class="timer-settings focus-rail-card">
+                  <div class="timer-settings__header">
+                    <div>
+                      <span class="eyebrow">{copy.settingsEyebrow}</span>
+                      <h3>{copy.settingsTitle}</h3>
                     </div>
                     <button
                       type="button"
@@ -2510,254 +2647,132 @@ function MainShell() {
                         : copy.settingsToggleOpen}
                     </button>
                   </div>
-                </div>
 
-                <figure class="content-illustration content-illustration--inline content-illustration--compact">
-                  <img src={timerIllustration} alt="专注计时主题插画" />
-                </figure>
-
-                <Show when={showTimerSettings()}>
-                  <div class="timer-settings__body">
-                    <div class="timer-settings__grid">
-                      <label class="todo-form-field">
-                        <span>{copy.pomodoroFocusMinutesLabel}</span>
-                        <input
-                          class="task-input"
-                          type="number"
-                          min="5"
-                          max="90"
-                          value={timerPreferencesDraft().pomodoroFocusMinutes}
-                          onInput={(event) =>
-                            setTimerPreferencesDraft((current) => ({
-                              ...current,
-                              pomodoroFocusMinutes: Number(event.currentTarget.value || 0),
-                            }))
-                          }
-                          onBlur={() => setTimerPreferencesFeedback(null)}
-                        />
-                        <small>{copy.pomodoroMinimumHint}</small>
-                      </label>
-
-                      <label class="todo-form-field">
-                        <span>{copy.pomodoroBreakMinutesLabel}</span>
-                        <input
-                          class="task-input"
-                          type="number"
-                          min="1"
-                          max="30"
-                          value={timerPreferencesDraft().pomodoroBreakMinutes}
-                          onInput={(event) =>
-                            setTimerPreferencesDraft((current) => ({
-                              ...current,
-                              pomodoroBreakMinutes: Number(event.currentTarget.value || 0),
-                            }))
-                          }
-                          onBlur={() => setTimerPreferencesFeedback(null)}
-                        />
-                      </label>
-
-                      <label class="todo-form-field timer-settings__field--wide">
-                        <span>{copy.stopwatchReminderMinutesLabel}</span>
-                        <input
-                          class="task-input"
-                          type="number"
-                          min="1"
-                          max="720"
-                          placeholder={copy.stopwatchReminderMinutesHint}
-                          value={timerPreferencesDraft().stopwatchReminderMinutes ?? ""}
-                          onInput={(event) =>
-                            setTimerPreferencesDraft((current) => ({
-                              ...current,
-                              stopwatchReminderMinutes: event.currentTarget.value.trim()
-                                ? Number(event.currentTarget.value)
-                                : null,
-                            }))
-                          }
-                          onBlur={() => setTimerPreferencesFeedback(null)}
-                        />
-                        <small>{copy.stopwatchReminderMinutesHint}</small>
-                      </label>
-                    </div>
-
-                    <div class="timer-settings__toggles">
-                      <label class="toggle-chip">
-                        <input
-                          type="checkbox"
-                          checked={timerPreferencesDraft().toastReminderEnabled}
-                          onChange={(event) =>
-                            setTimerPreferencesDraft((current) => ({
-                              ...current,
-                              toastReminderEnabled: event.currentTarget.checked,
-                            }))
-                          }
-                        />
-                        <span>{copy.toastReminderLabel}</span>
-                      </label>
-
-                      <label class="toggle-chip">
-                        <input
-                          type="checkbox"
-                          checked={timerPreferencesDraft().windowAttentionReminderEnabled}
-                          onChange={(event) =>
-                            setTimerPreferencesDraft((current) => ({
-                              ...current,
-                              windowAttentionReminderEnabled: event.currentTarget.checked,
-                            }))
-                          }
-                        />
-                        <span>{copy.windowAttentionReminderLabel}</span>
-                      </label>
-                    </div>
-
-                    <button
-                      type="button"
-                      class="action-button"
-                      disabled={timerPreferencesBusy()}
-                      onClick={() => void handleSaveTimerPreferences()}
-                    >
-                      {copy.settingsSave}
-                    </button>
-                    <Show when={timerPreferencesFeedback()}>
-                      <p class="timer-settings__feedback">{timerPreferencesFeedback()}</p>
-                    </Show>
+                  <div class="timer-settings__quick">
+                    <span>{`专注 ${timerPreferences().pomodoroFocusMinutes} 分钟`}</span>
+                    <span>{`休息 ${timerPreferences().pomodoroBreakMinutes} 分钟`}</span>
+                    <span>
+                      {timerPreferences().stopwatchReminderMinutes === null
+                        ? "正向提醒关闭"
+                        : `正向提醒 ${timerPreferences().stopwatchReminderMinutes} 分钟`}
+                    </span>
                   </div>
-                </Show>
-              </section>
 
-              <div class="task-entry">
-                <div class="task-entry__copy">
-                  <span class="eyebrow">{copy.currentTaskEyebrow}</span>
-                  <h2>{copy.currentTaskTitle}</h2>
-                </div>
+                  <figure class="content-illustration content-illustration--inline content-illustration--compact">
+                    <img src={timerIllustration} alt="专注计时主题插画" />
+                  </figure>
 
-                <div class="task-entry__controls">
-                  <label class="task-entry__field">
-                    <input
-                      class="task-input"
-                      type="text"
-                      value={currentTaskTitle()}
-                      placeholder={copy.taskPlaceholder}
-                      onInput={(event) =>
-                        setCurrentTaskTitle(event.currentTarget.value)
-                      }
-                    />
-                  </label>
+                  <Show when={showTimerSettings()}>
+                    <div class="timer-settings__body">
+                      <div class="timer-settings__grid">
+                        <label class="todo-form-field">
+                          <span>{copy.pomodoroFocusMinutesLabel}</span>
+                          <input
+                            class="task-input"
+                            type="number"
+                            min="5"
+                            max="90"
+                            value={timerPreferencesDraft().pomodoroFocusMinutes}
+                            onInput={(event) =>
+                              setTimerPreferencesDraft((current) => ({
+                                ...current,
+                                pomodoroFocusMinutes: Number(event.currentTarget.value || 0),
+                              }))
+                            }
+                            onBlur={() => setTimerPreferencesFeedback(null)}
+                          />
+                          <small>{copy.pomodoroMinimumHint}</small>
+                        </label>
 
-                  <label class="todo-form-field task-entry__field task-entry__field--compact">
-                    <span>{copy.linkTodoLabel}</span>
-                    <select
-                      class="task-input task-select"
-                      value={linkedTodoValue()}
-                      onChange={(event) =>
-                        setLinkedTodoId(
-                          event.currentTarget.value
-                            ? Number(event.currentTarget.value)
-                            : null
-                        )
-                      }
-                    >
-                      <option value="">{copy.linkTodoEmpty}</option>
-                      <For each={linkableTodoItems()}>
-                        {(item) => (
-                          <option value={item.id}>
-                            {`${item.title} - ${item.scheduledDate} ${formatScheduledTimeLabel(item.scheduledTime)}`}
-                          </option>
-                        )}
-                      </For>
-                    </select>
-                  </label>
-                </div>
-              </div>
+                        <label class="todo-form-field">
+                          <span>{copy.pomodoroBreakMinutesLabel}</span>
+                          <input
+                            class="task-input"
+                            type="number"
+                            min="1"
+                            max="30"
+                            value={timerPreferencesDraft().pomodoroBreakMinutes}
+                            onInput={(event) =>
+                              setTimerPreferencesDraft((current) => ({
+                                ...current,
+                                pomodoroBreakMinutes: Number(event.currentTarget.value || 0),
+                              }))
+                            }
+                            onBlur={() => setTimerPreferencesFeedback(null)}
+                          />
+                        </label>
 
-              <div class="timer-panel__header">
-                <div>
-                  <span class="eyebrow">{copy.modeEyebrow}</span>
-                  <h2>{timerSnapshot().phaseLabel}</h2>
-                </div>
-                <span
-                  classList={{
-                    "timer-status": true,
-                    "timer-status--running": timerSnapshot().isRunning,
-                  }}
-                >
-                  {timerSnapshot().status}
-                </span>
-              </div>
+                        <label class="todo-form-field timer-settings__field--wide">
+                          <span>{copy.stopwatchReminderMinutesLabel}</span>
+                          <input
+                            class="task-input"
+                            type="number"
+                            min="1"
+                            max="720"
+                            placeholder={copy.stopwatchReminderMinutesHint}
+                            value={timerPreferencesDraft().stopwatchReminderMinutes ?? ""}
+                            onInput={(event) =>
+                              setTimerPreferencesDraft((current) => ({
+                                ...current,
+                                stopwatchReminderMinutes: event.currentTarget.value.trim()
+                                  ? Number(event.currentTarget.value)
+                                  : null,
+                              }))
+                            }
+                            onBlur={() => setTimerPreferencesFeedback(null)}
+                          />
+                          <small>{copy.stopwatchReminderMinutesHint}</small>
+                        </label>
+                      </div>
 
-              <p class="timer-secondary">{timerSnapshot().secondaryLabel}</p>
-              {currentTaskTitle().trim() && (
-                <p class="timer-focus-copy">
-                  {copy.currentFocusLabel}
-                  {`\uff1a${currentTaskTitle().trim()}`}
-                </p>
-              )}
-              <div
-                classList={{
-                  "timer-instrument": true,
-                  "timer-instrument--running": timerSnapshot().isRunning,
-                  "timer-instrument--break": timerSnapshot().phaseKey === "break",
-                  "timer-instrument--free": !timerInstrumentHasTarget(),
-                }}
-                style={`--timer-progress: ${timerInstrumentProgress()};`}
-              >
-                <div class="timer-instrument__ring" aria-hidden="true">
-                  <span class="timer-instrument__scan" />
-                  <span class="timer-instrument__orb timer-instrument__orb--primary" />
-                  <span class="timer-instrument__orb timer-instrument__orb--secondary" />
-                </div>
-                <div class="timer-instrument__core">
-                  <span class="timer-instrument__label">{timerInstrumentStateLabel()}</span>
-                  <div class="timer-display">{timerSnapshot().elapsedLabel}</div>
-                  <div class="timer-instrument__meta">
-                    <span>{timerInstrumentTargetLabel()}</span>
-                    <span>{timerInstrumentHasTarget() ? timerInstrumentPercent() : timerSnapshot().mode}</span>
-                  </div>
-                </div>
-              </div>
-              <div class="timer-actions">
-                <button
-                  type="button"
-                  class="action-button action-button--primary"
-                  disabled={timerBusy() || timerSnapshot().isRunning || !timerReady()}
-                  onClick={() => void runTimerAction(startTimer)}
-                >
-                  {copy.start}
-                </button>
-                <button
-                  type="button"
-                  class="action-button"
-                  disabled={timerBusy() || !timerSnapshot().isRunning || !timerReady()}
-                  onClick={() => void runTimerAction(pauseTimer)}
-                >
-                  {copy.pause}
-                </button>
-                <button
-                  type="button"
-                  class="action-button"
-                  disabled={
-                    timerBusy() ||
-                    (timerSnapshot().elapsedMs === 0 && !timerSnapshot().isRunning) ||
-                    !timerReady()
-                  }
-                  onClick={() => void runTimerAction(resetTimer)}
-                >
-                  {copy.reset}
-                </button>
-                <button
-                  type="button"
-                  class="action-button action-button--success"
-                  disabled={
-                    timerBusy() ||
-                    !canCompleteAction() ||
-                    !timerReady()
-                  }
-                  onClick={() => void handleCompleteSession()}
-                >
-                  {completionLabel()}
-                </button>
-              </div>
+                      <div class="timer-settings__toggles">
+                        <label class="toggle-chip">
+                          <input
+                            type="checkbox"
+                            checked={timerPreferencesDraft().toastReminderEnabled}
+                            onChange={(event) =>
+                              setTimerPreferencesDraft((current) => ({
+                                ...current,
+                                toastReminderEnabled: event.currentTarget.checked,
+                              }))
+                            }
+                          />
+                          <span>{copy.toastReminderLabel}</span>
+                        </label>
 
-              <section class="records-panel records-panel--collapsible">
+                        <label class="toggle-chip">
+                          <input
+                            type="checkbox"
+                            checked={timerPreferencesDraft().windowAttentionReminderEnabled}
+                            onChange={(event) =>
+                              setTimerPreferencesDraft((current) => ({
+                                ...current,
+                                windowAttentionReminderEnabled: event.currentTarget.checked,
+                              }))
+                            }
+                          />
+                          <span>{copy.windowAttentionReminderLabel}</span>
+                        </label>
+                      </div>
+
+                      <button
+                        type="button"
+                        class="action-button"
+                        disabled={timerPreferencesBusy()}
+                        onClick={() => void handleSaveTimerPreferences()}
+                      >
+                        {copy.settingsSave}
+                      </button>
+                      <Show when={timerPreferencesFeedback()}>
+                        <p class="timer-settings__feedback">{timerPreferencesFeedback()}</p>
+                      </Show>
+                    </div>
+                  </Show>
+                </section>
+              </aside>
+            </div>
+
+            <section class="records-panel records-panel--collapsible focus-cover__details">
                 <div class="records-panel__header">
                   <div>
                     <span class="eyebrow">{copy.focusDetailsEyebrow}</span>
@@ -2890,7 +2905,6 @@ function MainShell() {
                   </section>
                 </Show>
               </section>
-            </section>
           </section>
         </Show>
 
