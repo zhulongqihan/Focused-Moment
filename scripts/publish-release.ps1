@@ -25,6 +25,23 @@ function Initialize-Utf8Console {
   }
 }
 
+function Write-Utf8File {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$Path,
+    [Parameter(Mandatory = $true)]
+    [string]$Content
+  )
+
+  $parent = Split-Path -Parent $Path
+  if ($parent) {
+    New-Item -ItemType Directory -Path $parent -Force | Out-Null
+  }
+
+  $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+  [System.IO.File]::WriteAllText($Path, $Content, $utf8NoBom)
+}
+
 function Clear-BrokenProxyEnv {
   $proxyVars = @("ALL_PROXY", "HTTP_PROXY", "HTTPS_PROXY", "GIT_HTTP_PROXY", "GIT_HTTPS_PROXY")
   foreach ($name in $proxyVars) {
@@ -79,24 +96,30 @@ if (-not $Title) {
   $Title = "Focused Moment {0}" -f $Tag
 }
 
+if (-not $NotesFile -and -not $Notes) {
+  $defaultNotesFile = Join-Path $projectRoot ("docs\{0}\RELEASE_NOTES.md" -f $Tag)
+  if (Test-Path -LiteralPath $defaultNotesFile) {
+    $NotesFile = $defaultNotesFile
+  }
+}
+
 if ($NotesFile) {
   if (-not (Test-Path -LiteralPath $NotesFile)) {
     throw "Notes file not found: $NotesFile"
   }
 } elseif ($Notes) {
   $notesTempPath = Join-Path $releaseDir ("release-notes-{0}.md" -f $currentVersion)
-  New-Item -ItemType Directory -Path $releaseDir -Force | Out-Null
-  Set-Content -LiteralPath $notesTempPath -Value $Notes -Encoding utf8
+  Write-Utf8File -Path $notesTempPath -Content $Notes
   $NotesFile = $notesTempPath
 } else {
   $notesTempPath = Join-Path $releaseDir ("release-notes-{0}.md" -f $currentVersion)
-  New-Item -ItemType Directory -Path $releaseDir -Force | Out-Null
-  @"
+  $defaultNotes = @"
 Focused Moment $Tag
 
 - Windows executable files for this version are attached
 - See the repository README and commit history for details
-"@ | Set-Content -LiteralPath $notesTempPath -Encoding utf8
+"@
+  Write-Utf8File -Path $notesTempPath -Content $defaultNotes
   $NotesFile = $notesTempPath
 }
 

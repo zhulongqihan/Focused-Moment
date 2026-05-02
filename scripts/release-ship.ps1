@@ -49,6 +49,7 @@ Set-Location -LiteralPath $projectRoot
 $package = Get-Content -Raw (Join-Path $projectRoot "package.json") | ConvertFrom-Json
 $version = $package.version
 $tag = "v{0}" -f $version
+$notesFile = Join-Path $projectRoot ("docs\{0}\RELEASE_NOTES.md" -f $tag)
 
 $branch = Get-GitOutput -Arguments @("branch", "--show-current")
 if ($branch -ne "main") {
@@ -90,6 +91,10 @@ $publishArguments = @(
   "-Profile",
   "release"
 )
+
+if (Test-Path -LiteralPath $notesFile) {
+  $publishArguments += @("-NotesFile", $notesFile)
+}
 
 if ($Latest) {
   $publishArguments += "-Latest"
