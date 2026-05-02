@@ -10,6 +10,21 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+function Initialize-Utf8Console {
+  try {
+    [Console]::InputEncoding = [System.Text.UTF8Encoding]::new($false)
+    [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+  } catch {
+    Write-Warning "Unable to switch console encoding to UTF-8."
+  }
+
+  try {
+    $global:OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+  } catch {
+    Write-Warning "Unable to update PowerShell output encoding."
+  }
+}
+
 function Clear-BrokenProxyEnv {
   $proxyVars = @("ALL_PROXY", "HTTP_PROXY", "HTTPS_PROXY", "GIT_HTTP_PROXY", "GIT_HTTPS_PROXY")
   foreach ($name in $proxyVars) {
@@ -50,8 +65,11 @@ function Invoke-Gh {
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $packageJson = Join-Path $projectRoot "package.json"
 $releaseDir = Join-Path $projectRoot ".release"
+$notesTempPath = $null
 $package = Get-Content -Raw $packageJson | ConvertFrom-Json
 $currentVersion = $package.version
+
+Initialize-Utf8Console
 
 if (-not $Tag) {
   $Tag = "v{0}" -f $currentVersion
@@ -65,17 +83,21 @@ if ($NotesFile) {
   if (-not (Test-Path -LiteralPath $NotesFile)) {
     throw "Notes file not found: $NotesFile"
   }
-
-  $releaseNotes = Get-Content -Raw -LiteralPath $NotesFile
 } elseif ($Notes) {
-  $releaseNotes = $Notes
+  $notesTempPath = Join-Path $releaseDir ("release-notes-{0}.md" -f $currentVersion)
+  New-Item -ItemType Directory -Path $releaseDir -Force | Out-Null
+  Set-Content -LiteralPath $notesTempPath -Value $Notes -Encoding utf8
+  $NotesFile = $notesTempPath
 } else {
-  $releaseNotes = @"
+  $notesTempPath = Join-Path $releaseDir ("release-notes-{0}.md" -f $currentVersion)
+  New-Item -ItemType Directory -Path $releaseDir -Force | Out-Null
+  @"
 Focused Moment $Tag
 
 - Windows executable files for this version are attached
 - See the repository README and commit history for details
-"@
+"@ | Set-Content -LiteralPath $notesTempPath -Encoding utf8
+  $NotesFile = $notesTempPath
 }
 
 $manifestPath = Join-Path $releaseDir ("artifacts.{0}.json" -f $Profile)
@@ -124,7 +146,10 @@ try {
 }
 
 if ($releaseExists) {
-  $editArgs = @("release", "edit", $Tag, "--title", $Title, "--notes", $releaseNotes)
+  $editArgs = @("release", "edit", $Tag, "--title", $Title)
+  if ($NotesFile) {
+    $editArgs += @("--notes-file", $NotesFile)
+  }
   if ($Latest) {
     $editArgs += "--latest"
   }
@@ -132,7 +157,10 @@ if ($releaseExists) {
   Invoke-Gh -Arguments (@("release", "upload", $Tag, "--clobber") + $assets)
   Write-Host ("Updated GitHub Release: {0}" -f $Tag)
 } else {
-  $createArgs = @("release", "create", $Tag) + $assets + @("--title", $Title, "--notes", $releaseNotes)
+  $createArgs = @("release", "create", $Tag) + $assets + @("--title", $Title)
+  if ($NotesFile) {
+    $createArgs += @("--notes-file", $NotesFile)
+  }
   if ($Latest) {
     $createArgs += "--latest"
   }
