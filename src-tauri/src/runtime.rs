@@ -26,8 +26,8 @@ const MAX_STOPWATCH_REMINDER_MINUTES: u64 = 12 * 60;
 const DEFAULT_COUNTDOWN_MINUTES: u64 = 25;
 const MIN_COUNTDOWN_MINUTES: u64 = 1;
 const MAX_COUNTDOWN_MINUTES: u64 = 12 * 60;
-const APP_VERSION: &str = "1.9.0";
-const APP_MILESTONE: &str = "v1.9.0 \u{6b63}\u{5411}\u{8ba1}\u{65f6}\u{5c0f}\u{7a97}\u{7248}";
+const APP_VERSION: &str = "1.9.1";
+const APP_MILESTONE: &str = "v1.9.1 \u{8f93}\u{5165}\u{4fdd}\u{7559}\u{4fee}\u{590d}\u{7248}";
 const APP_BACKUP_KIND: &str = "focused-moment-backup";
 const APP_BACKUP_FORMAT_VERSION: u64 = 1;
 

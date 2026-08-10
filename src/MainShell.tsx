@@ -126,8 +126,11 @@ function MainShell() {
       setCountdownMinutes(Math.max(1, Math.round(next.targetDurationMs / 60_000)));
     }
 
-    if (!timerHasProgress()) {
+    // Polling must not erase an unfinished title while the user is typing.
+    if (!timerHasProgress() && !sessionTitle().trim() && next.activeTaskTitle.trim()) {
       setSessionTitle(next.activeTaskTitle);
+    }
+    if (!timerHasProgress() && linkedTodoId() === null && next.linkedTodoId !== null) {
       setLinkedTodoId(next.linkedTodoId);
     }
   }
