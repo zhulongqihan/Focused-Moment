@@ -26,8 +26,8 @@ const MAX_STOPWATCH_REMINDER_MINUTES: u64 = 12 * 60;
 const DEFAULT_COUNTDOWN_MINUTES: u64 = 25;
 const MIN_COUNTDOWN_MINUTES: u64 = 1;
 const MAX_COUNTDOWN_MINUTES: u64 = 12 * 60;
-const APP_VERSION: &str = "1.9.1";
-const APP_MILESTONE: &str = "v1.9.1 \u{8f93}\u{5165}\u{4fdd}\u{7559}\u{4fee}\u{590d}\u{7248}";
+const APP_VERSION: &str = "1.9.2";
+const APP_MILESTONE: &str = "v1.9.2 \u{8bb0}\u{5f55}\u{6807}\u{9898}\u{4fee}\u{590d}\u{7248}";
 const APP_BACKUP_KIND: &str = "focused-moment-backup";
 const APP_BACKUP_FORMAT_VERSION: u64 = 1;
 
@@ -429,6 +429,8 @@ struct CompletedSession {
     mode_key: &'static str,
     mode_label: &'static str,
     phase_label: &'static str,
+    task_title: String,
+    linked_todo_id: Option<u64>,
 }
 
 impl TimerEngineState {
@@ -972,6 +974,8 @@ impl TimerEngine {
                     return Err("\u{5f53}\u{524d}\u{4e8b}\u{52a1}\u{8fd8}\u{6ca1}\u{6709}\u{7d2f}\u{8ba1}\u{65f6}\u{95f4}".to_string());
                 }
 
+                let task_title = self.current_task_title.clone();
+                let linked_todo_id = self.linked_todo_id;
                 self.stopwatch_elapsed_ms = 0;
                 self.running_anchor = None;
                 self.clear_context();
@@ -984,6 +988,8 @@ impl TimerEngine {
                     mode_key: "stopwatch",
                     mode_label: "\u{6b63}\u{5411}\u{8ba1}\u{65f6}",
                     phase_label: "\u{6b63}\u{5411}\u{8ba1}\u{65f6}",
+                    task_title,
+                    linked_todo_id,
                 })
             }
             TimerMode::Countdown => {
@@ -992,6 +998,8 @@ impl TimerEngine {
                     return Err("当前倒计时还没有累计时间".to_string());
                 }
 
+                let task_title = self.current_task_title.clone();
+                let linked_todo_id = self.linked_todo_id;
                 self.countdown_elapsed_ms = 0;
                 self.running_anchor = None;
                 self.clear_context();
@@ -1004,6 +1012,8 @@ impl TimerEngine {
                     mode_key: "countdown",
                     mode_label: "倒计时",
                     phase_label: "倒计时",
+                    task_title,
+                    linked_todo_id,
                 })
             }
             TimerMode::Pomodoro => {
@@ -1014,6 +1024,8 @@ impl TimerEngine {
                         mode_key: "pomodoro",
                         mode_label: "\u{756a}\u{8304}\u{949f}",
                         phase_label: "\u{756a}\u{8304}\u{4e13}\u{6ce8}",
+                        task_title: self.current_task_title.clone(),
+                        linked_todo_id: self.linked_todo_id,
                     });
                 }
 
@@ -1032,6 +1044,8 @@ impl TimerEngine {
                     );
                 }
 
+                let task_title = self.current_task_title.clone();
+                let linked_todo_id = self.linked_todo_id;
                 self.pomodoro_elapsed_ms = 0;
                 self.pomodoro_phase = PomodoroPhase::Break;
                 self.running_anchor = None;
@@ -1045,6 +1059,8 @@ impl TimerEngine {
                     mode_key: "pomodoro",
                     mode_label: "\u{756a}\u{8304}\u{949f}",
                     phase_label: "\u{756a}\u{8304}\u{4e13}\u{6ce8}",
+                    task_title,
+                    linked_todo_id,
                 })
             }
         }
@@ -2157,8 +2173,9 @@ fn complete_focus_session(
 ) -> Result<CompletionPayload, String> {
     let completed_session = with_timer_engine(&state, |engine| engine.complete_focus_session())?;
     let (completed_at, completed_date, completed_time) = current_local_markers();
+    let record_linked_todo_id = linked_todo_id.or(completed_session.linked_todo_id);
 
-    let linked_todo_title = match linked_todo_id {
+    let linked_todo_title = match record_linked_todo_id {
         Some(id) => {
             let items = state.todo_items.lock().map_err(|_| {
                 "\u{4efb}\u{52a1}\u{5217}\u{8868}\u{72b6}\u{6001}\u{9501}\u{5b9a}\u{5931}\u{8d25}"
@@ -2186,12 +2203,17 @@ fn complete_focus_session(
     };
 
     let normalized_title = title.trim();
+    let completed_task_title = completed_session.task_title.trim();
     let record = FocusRecord {
         id: next_id,
         title: if normalized_title.is_empty() {
-            linked_todo_title
+            if !completed_task_title.is_empty() {
+                completed_task_title.to_string()
+            } else {
+                linked_todo_title
                 .clone()
-                .unwrap_or_else(|| "\u{672a}\u{547d}\u{540d}\u{4e8b}\u{52a1}".to_string())
+                    .unwrap_or_else(|| "\u{672a}\u{547d}\u{540d}\u{4e8b}\u{52a1}".to_string())
+            }
         } else {
             normalized_title.to_string()
         },
@@ -2200,7 +2222,7 @@ fn complete_focus_session(
         mode_key: completed_session.mode_key.to_string(),
         mode_label: completed_session.mode_label.to_string(),
         phase_label: completed_session.phase_label.to_string(),
-        linked_todo_id,
+        linked_todo_id: record_linked_todo_id,
         linked_todo_title,
         completed_at,
         completed_date,
@@ -2531,6 +2553,24 @@ mod tests {
         assert_eq!(completed.mode_key, "countdown");
         assert_eq!(completed.duration_ms, 12 * 60_000);
         assert_eq!(timer.countdown_elapsed_ms, 0);
+    }
+
+    #[test]
+    fn stopwatch_completion_keeps_task_context_for_the_record() {
+        let mut timer = TimerEngine {
+            mode: TimerMode::Stopwatch,
+            stopwatch_elapsed_ms: 90_000,
+            current_task_title: "write release notes".to_string(),
+            linked_todo_id: Some(42),
+            ..TimerEngine::default()
+        };
+
+        let completed = timer.complete_focus_session().expect("stopwatch completes");
+
+        assert_eq!(completed.task_title, "write release notes");
+        assert_eq!(completed.linked_todo_id, Some(42));
+        assert!(timer.current_task_title.is_empty());
+        assert_eq!(timer.linked_todo_id, None);
     }
 }
 

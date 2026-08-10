@@ -218,7 +218,13 @@ function MainShell() {
 
   async function finishFocus() {
     await run(async () => {
-      const payload = await completeFocusSession(activeTitle(), linkedTodoId());
+      const title = isFocusFloatingWindow
+        ? timer().activeTaskTitle
+        : activeTitle();
+      const todoId = isFocusFloatingWindow
+        ? timer().linkedTodoId
+        : linkedTodoId();
+      const payload = await completeFocusSession(title, todoId);
       setRecords(payload.records);
       applyTimerSnapshot(payload.timerSnapshot);
       setSessionTitle("");
