@@ -23,8 +23,8 @@ const MIN_POMODORO_BREAK_MINUTES: u64 = 1;
 const MAX_POMODORO_BREAK_MINUTES: u64 = 30;
 const MIN_STOPWATCH_REMINDER_MINUTES: u64 = 1;
 const MAX_STOPWATCH_REMINDER_MINUTES: u64 = 12 * 60;
-const APP_VERSION: &str = "1.6.4";
-const APP_MILESTONE: &str = "v1.6.4 \u{9996}\u{9875}\u{7115}\u{65b0}\u{7248}";
+const APP_VERSION: &str = "1.6.5";
+const APP_MILESTONE: &str = "v1.6.5 \u{5e03}\u{5c40}\u{4fee}\u{590d}\u{7248}";
 const APP_BACKUP_KIND: &str = "focused-moment-backup";
 const APP_BACKUP_FORMAT_VERSION: u64 = 1;
 
@@ -2239,4 +2239,3 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
-

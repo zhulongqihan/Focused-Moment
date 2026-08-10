@@ -4551,6 +4551,33 @@ textarea,
   }
 }
 
+/* Keep the focus cover's direct children in document order. The cockpit grid
+   template predates focus-cover and otherwise auto-places them into narrow columns. */
+.shell--cockpit.shell--focus-view .hero-panel {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "lead"
+    "body"
+    "details";
+}
+
+.shell--cockpit.shell--focus-view .focus-cover__lead {
+  grid-area: lead;
+}
+
+.shell--cockpit.shell--focus-view .focus-cover__body {
+  grid-area: body;
+}
+
+.shell--cockpit.shell--focus-view .focus-cover__details {
+  grid-area: details;
+}
+
+.shell--cockpit.shell--focus-view .focus-cover__body > .timer-panel,
+.shell--cockpit.shell--focus-view .focus-editorial-rail > .focus-atlas {
+  grid-area: auto;
+}
+
 @keyframes timer-ring-breathe {
   0%,
   100% {

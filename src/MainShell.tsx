@@ -516,8 +516,8 @@ const copy = {
 
 const emptySnapshot: ShellSnapshot = {
   productName: "Focused Moment",
-  version: "1.6.4",
-  milestone: "v1.6.4 首页焕新版",
+  version: "1.6.5",
+  milestone: "v1.6.5 布局修复版",
   slogan:
     "\u7528\u66f4\u8f7b\u7684\u65b9\u5f0f\u4e13\u6ce8\u3001\u5b89\u6392\u548c\u590d\u76d8\u6bcf\u4e00\u5929\u3002",
   surfaces: [],
@@ -781,10 +781,6 @@ function MainShell() {
   let handledAlertSequence = 0;
 
   const timerReady = () => !bootError();
-  const taskHintText = () =>
-    timerSnapshot().modeKey === "pomodoro"
-      ? copy.pomodoroTaskHint
-      : copy.currentTaskHint;
   const pomodoroHintText = () =>
     `番茄钟会在 ${timerPreferences().pomodoroFocusMinutes} 分钟专注和 ${timerPreferences().pomodoroBreakMinutes} 分钟短休息之间切换。进入休息阶段后，仍可补记刚结束的上一轮专注。`;
   const isModeSwitchLocked = () =>
@@ -921,10 +917,6 @@ function MainShell() {
     linkableTodoItems().find((item) => item.id === linkedTodoId()) ?? null;
   const linkedTodoValue = () =>
     linkedTodoId() === null ? "" : String(linkedTodoId());
-  const taskLinkSummary = () =>
-    linkedTodoItem()
-      ? `${copy.linkTodoPrefix}${linkedTodoItem()?.title ?? ""}`
-      : copy.linkTodoHint;
   const renderEmptyState = (options: {
     title: string;
     summary: string;
@@ -980,9 +972,8 @@ function MainShell() {
       return minutes * 60 * 1000;
     }
 
-    return timerPreferences().stopwatchReminderMinutes === null
-      ? null
-      : timerPreferences().stopwatchReminderMinutes * 60 * 1000;
+    const reminderMinutes = timerPreferences().stopwatchReminderMinutes;
+    return reminderMinutes === null ? null : reminderMinutes * 60 * 1000;
   };
   const timerInstrumentHasTarget = () => timerInstrumentTargetMs() !== null;
   const timerInstrumentRatio = () => {
@@ -4044,4 +4035,3 @@ function MainShell() {
 }
 
 export default MainShell;
-
