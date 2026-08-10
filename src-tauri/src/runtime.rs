@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use storage::{AppBackupFile, PersistedRuntimeState, PersistedState, PersistenceStore};
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};
-use tauri::{AppHandle, Manager, Window, WindowEvent};
+use tauri::{AppHandle, Manager, PhysicalPosition, Window, WindowEvent};
 
 const TRAY_SHOW_ID: &str = "tray_show_main";
 const TRAY_QUIT_ID: &str = "tray_quit_app";
@@ -26,8 +26,8 @@ const MAX_STOPWATCH_REMINDER_MINUTES: u64 = 12 * 60;
 const DEFAULT_COUNTDOWN_MINUTES: u64 = 25;
 const MIN_COUNTDOWN_MINUTES: u64 = 1;
 const MAX_COUNTDOWN_MINUTES: u64 = 12 * 60;
-const APP_VERSION: &str = "1.8.0";
-const APP_MILESTONE: &str = "v1.8.0 \u{6781}\u{7b80}\u{4e13}\u{6ce8}\u{5de5}\u{4f5c}\u{6d41}\u{7248}";
+const APP_VERSION: &str = "1.8.1";
+const APP_MILESTONE: &str = "v1.8.1 \u{60ac}\u{6d6e}\u{5f85}\u{529e}\u{9501}\u{5b9a}\u{7248}";
 const APP_BACKUP_KIND: &str = "focused-moment-backup";
 const APP_BACKUP_FORMAT_VERSION: u64 = 1;
 
@@ -2327,15 +2327,72 @@ fn show_floating_todos(app: tauri::AppHandle) -> Result<(), String> {
         .get_webview_window("main")
         .ok_or_else(|| "找不到主窗口".to_string())?;
 
+    floating_window
+        .set_ignore_cursor_events(false)
+        .map_err(|error| error.to_string())?;
+    if let Some(unlock_window) = app.get_webview_window("todo-unlock") {
+        unlock_window.hide().map_err(|error| error.to_string())?;
+    }
     floating_window.show().map_err(|error| error.to_string())?;
     floating_window.set_focus().map_err(|error| error.to_string())?;
     main_window.hide().map_err(|error| error.to_string())
 }
 
 #[tauri::command]
+fn lock_floating_todos(app: tauri::AppHandle) -> Result<(), String> {
+    let floating_window = app
+        .get_webview_window("todo-float")
+        .ok_or_else(|| "找不到悬浮待办窗口".to_string())?;
+    let unlock_window = app
+        .get_webview_window("todo-unlock")
+        .ok_or_else(|| "找不到待办解锁按钮".to_string())?;
+
+    let floating_position = floating_window
+        .outer_position()
+        .map_err(|error| error.to_string())?;
+    let floating_size = floating_window.outer_size().map_err(|error| error.to_string())?;
+    let unlock_size = unlock_window.outer_size().map_err(|error| error.to_string())?;
+    let unlock_position = PhysicalPosition::new(
+        floating_position.x + floating_size.width as i32 - unlock_size.width as i32 - 10,
+        floating_position.y + 10,
+    );
+
+    unlock_window
+        .set_position(unlock_position)
+        .map_err(|error| error.to_string())?;
+    unlock_window.show().map_err(|error| error.to_string())?;
+    unlock_window.set_focus().map_err(|error| error.to_string())?;
+    floating_window
+        .set_ignore_cursor_events(true)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn unlock_floating_todos(app: tauri::AppHandle) -> Result<(), String> {
+    let floating_window = app
+        .get_webview_window("todo-float")
+        .ok_or_else(|| "找不到悬浮待办窗口".to_string())?;
+
+    floating_window
+        .set_ignore_cursor_events(false)
+        .map_err(|error| error.to_string())?;
+    if let Some(unlock_window) = app.get_webview_window("todo-unlock") {
+        unlock_window.hide().map_err(|error| error.to_string())?;
+    }
+    floating_window.show().map_err(|error| error.to_string())?;
+    floating_window.set_focus().map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 fn restore_main_from_floating_todos(app: tauri::AppHandle) -> Result<(), String> {
     if let Some(floating_window) = app.get_webview_window("todo-float") {
+        floating_window
+            .set_ignore_cursor_events(false)
+            .map_err(|error| error.to_string())?;
         floating_window.hide().map_err(|error| error.to_string())?;
+    }
+    if let Some(unlock_window) = app.get_webview_window("todo-unlock") {
+        unlock_window.hide().map_err(|error| error.to_string())?;
     }
 
     show_main_window(&app)
@@ -2453,6 +2510,8 @@ pub fn run() {
             toggle_maximize_main_window,
             close_main_window,
             show_floating_todos,
+            lock_floating_todos,
+            unlock_floating_todos,
             restore_main_from_floating_todos,
             quit_application,
             show_main_window_from_tray,

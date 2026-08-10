@@ -17,6 +17,14 @@ export async function showFloatingTodos() {
   await invoke("show_floating_todos");
 }
 
+export async function lockFloatingTodos() {
+  await invoke("lock_floating_todos");
+}
+
+export async function unlockFloatingTodos() {
+  await invoke("unlock_floating_todos");
+}
+
 export async function restoreMainFromFloatingTodos() {
   await invoke("restore_main_from_floating_todos");
 }
@@ -29,7 +37,7 @@ export async function showMainWindowFromTray() {
   await invoke("show_main_window_from_tray");
 }
 
-export async function startDraggingMainWindow() {
+export async function startDraggingWindow() {
   try {
     await getCurrentWindow().startDragging();
   } catch {

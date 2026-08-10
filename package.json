@@ -1,6 +1,6 @@
 {
   "name": "focused-moment",
-  "version": "1.8.0",
+  "version": "1.8.1",
   "description": "Focused Moment focused desktop assistant built with Tauri, Rust, and SolidJS.",
   "type": "module",
   "scripts": {
@@ -22,6 +22,7 @@
   "license": "MIT",
   "dependencies": {
     "@tauri-apps/api": "^2",
+    "lucide-solid": "^1.31.0",
     "solid-js": "^1.9.3"
   },
   "devDependencies": {

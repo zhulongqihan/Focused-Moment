@@ -184,9 +184,31 @@ html.floating-window body { overflow: hidden; }
   backdrop-filter: blur(14px);
 }
 .floating-todo__header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 3px 11px; }
-.floating-todo__header > div { display: grid; gap: 2px; }
+.floating-todo__drag-handle { display: grid; flex: 1; min-width: 0; gap: 2px; cursor: grab; user-select: none; }
+.floating-todo__drag-handle:active { cursor: grabbing; }
 .floating-todo__header span { color: #5c7868; font-size: 0.72rem; }
 .floating-todo__header strong { font-size: 0.98rem; }
+.floating-todo__actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+.floating-lock-button, .floating-unlock {
+  display: inline-grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 1px solid rgba(118, 156, 133, 0.74);
+  border-radius: 5px;
+  background: rgba(248, 253, 248, 0.66);
+  color: #285e45;
+}
+.floating-lock-button:hover, .floating-unlock:hover { background: rgba(221, 237, 225, 0.92); }
+.floating-lock-button svg, .floating-unlock svg { display: block; }
+.floating-unlock {
+  position: fixed;
+  inset: 5px;
+  width: 32px;
+  height: 32px;
+  background: rgba(242, 250, 244, 0.92);
+  box-shadow: 0 5px 15px rgba(24, 54, 38, 0.2);
+}
 .floating-todo__list { min-height: 0; overflow: auto; display: grid; align-content: start; gap: 6px; }
 .floating-todo__item {
   width: 100%;

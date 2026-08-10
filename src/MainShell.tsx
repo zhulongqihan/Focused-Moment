@@ -1,5 +1,6 @@
 import { For, Show, createSignal, onCleanup, onMount } from "solid-js";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { LockKeyhole, LockKeyholeOpen } from "lucide-solid";
 import type { FocusRecord, TimerSnapshot, TodoItem } from "./lib/contracts";
 import {
   completeFocusSession,
@@ -21,10 +22,13 @@ import {
 } from "./lib/tasks";
 import {
   closeMainWindow,
+  lockFloatingTodos,
   minimizeMainWindow,
   quitApplication,
   restoreMainFromFloatingTodos,
   showFloatingTodos,
+  startDraggingWindow,
+  unlockFloatingTodos,
 } from "./lib/window-controls";
 import "./App.css";
 
@@ -33,6 +37,7 @@ type TimerMode = "stopwatch" | "countdown";
 
 const currentWindow = getCurrentWindow();
 const isFloatingWindow = currentWindow.label === "todo-float";
+const isUnlockWindow = currentWindow.label === "todo-unlock";
 
 const emptyTimerSnapshot: TimerSnapshot = {
   modeKey: "stopwatch",
@@ -263,41 +268,79 @@ function MainShell() {
   }
 
   onMount(() => {
-    if (isFloatingWindow) {
+    if (isFloatingWindow || isUnlockWindow) {
       document.documentElement.classList.add("floating-window");
     }
 
-    void refresh()
-      .catch((error) => setMessage(getErrorMessage(error)))
-      .finally(() => setReady(true));
+    let interval: number | undefined;
+    if (!isUnlockWindow) {
+      void refresh()
+        .catch((error) => setMessage(getErrorMessage(error)))
+        .finally(() => setReady(true));
 
-    const interval = window.setInterval(
-      () => void refresh().catch(() => undefined),
-      isFloatingWindow ? 4000 : 1000
-    );
+      interval = window.setInterval(
+        () => void refresh().catch(() => undefined),
+        isFloatingWindow ? 4000 : 1000
+      );
+    }
 
     onCleanup(() => {
-      window.clearInterval(interval);
+      if (interval !== undefined) {
+        window.clearInterval(interval);
+      }
       document.documentElement.classList.remove("floating-window");
     });
   });
 
+  if (isUnlockWindow) {
+    return (
+      <button
+        type="button"
+        class="floating-unlock"
+        title="解除锁定，恢复待办操作"
+        aria-label="解除锁定，恢复待办操作"
+        onClick={() => void unlockFloatingTodos()}
+      >
+        <LockKeyholeOpen size={17} strokeWidth={1.9} aria-hidden="true" />
+      </button>
+    );
+  }
+
   if (isFloatingWindow) {
     return (
       <aside class="floating-todo" aria-label="桌面悬浮待办">
-        <header class="floating-todo__header" data-tauri-drag-region>
-          <div>
+        <header class="floating-todo__header">
+          <div
+            class="floating-todo__drag-handle"
+            data-tauri-drag-region
+            onMouseDown={(event) => {
+              if (event.button === 0) {
+                void startDraggingWindow();
+              }
+            }}
+          >
             <span>Focused Moment</span>
             <strong>待办</strong>
           </div>
-          <button
-            type="button"
-            class="icon-button"
-            title="返回主窗口"
-            onClick={() => void restoreMainFromFloatingTodos()}
-          >
-            返回
-          </button>
+          <div class="floating-todo__actions">
+            <button
+              type="button"
+              class="floating-lock-button"
+              title="锁定并开启鼠标穿透"
+              aria-label="锁定并开启鼠标穿透"
+              onClick={() => void lockFloatingTodos()}
+            >
+              <LockKeyhole size={17} strokeWidth={1.9} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              class="icon-button"
+              title="返回主窗口"
+              onClick={() => void restoreMainFromFloatingTodos()}
+            >
+              返回
+            </button>
+          </div>
         </header>
 
         <div class="floating-todo__list">
