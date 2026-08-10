@@ -34,8 +34,14 @@ export async function resetTimer() {
   return invoke<TimerSnapshot>("reset_timer");
 }
 
-export async function switchTimerMode(mode: "stopwatch" | "pomodoro") {
+export async function switchTimerMode(
+  mode: "stopwatch" | "countdown" | "pomodoro"
+) {
   return invoke<TimerSnapshot>("switch_timer_mode", { mode });
+}
+
+export async function setCountdownMinutes(minutes: number) {
+  return invoke<TimerSnapshot>("set_countdown_minutes", { minutes });
 }
 
 export async function updateTimerContext(

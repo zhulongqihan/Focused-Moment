@@ -16,14 +16,16 @@ export interface ShellSnapshot {
 }
 
 export interface TimerSnapshot {
-  modeKey: "stopwatch" | "pomodoro";
-  phaseKey: "stopwatch" | "focus" | "break";
+  modeKey: "stopwatch" | "countdown" | "pomodoro";
+  phaseKey: "stopwatch" | "countdown" | "focus" | "break";
   mode: string;
   phaseLabel: string;
   status: string;
   isRunning: boolean;
   elapsedMs: number;
   elapsedLabel: string;
+  targetDurationMs: number | null;
+  remainingMs: number | null;
   secondaryLabel: string;
   canCompleteSession: boolean;
   activeTaskTitle: string;
@@ -53,7 +55,7 @@ export interface FocusRecord {
   title: string;
   durationMs: number;
   durationLabel: string;
-  modeKey: "stopwatch" | "pomodoro";
+  modeKey: "stopwatch" | "countdown" | "pomodoro";
   modeLabel: string;
   phaseLabel: string;
   linkedTodoId: number | null;

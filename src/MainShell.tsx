@@ -34,6 +34,7 @@ import {
   getTimerSnapshot,
   pauseTimer,
   resetTimer,
+  setCountdownMinutes as updateCountdownMinutes,
   startTimer,
   switchTimerMode,
   updateTimerPreferences,
@@ -516,8 +517,8 @@ const copy = {
 
 const emptySnapshot: ShellSnapshot = {
   productName: "Focused Moment",
-  version: "1.6.5",
-  milestone: "v1.6.5 布局修复版",
+  version: "1.7.0",
+  milestone: "v1.7.0 核心执行流版",
   slogan:
     "\u7528\u66f4\u8f7b\u7684\u65b9\u5f0f\u4e13\u6ce8\u3001\u5b89\u6392\u548c\u590d\u76d8\u6bcf\u4e00\u5929\u3002",
   surfaces: [],
@@ -533,6 +534,8 @@ const emptyTimerSnapshot: TimerSnapshot = {
   isRunning: false,
   elapsedMs: 0,
   elapsedLabel: "00:00:00",
+  targetDurationMs: null,
+  remainingMs: null,
   secondaryLabel: "\u5df2\u7d2f\u8ba1\u4e13\u6ce8\u65f6\u957f",
   canCompleteSession: true,
   activeTaskTitle: "",
@@ -736,6 +739,7 @@ function MainShell() {
     createSignal<TimerPreferences>(defaultTimerPreferences);
   const [timerPreferencesDraft, setTimerPreferencesDraft] =
     createSignal<TimerPreferences>(defaultTimerPreferences);
+  const [countdownMinutes, setCountdownMinutes] = createSignal(25);
   const [currentTaskTitle, setCurrentTaskTitle] = createSignal("");
   const [linkedTodoId, setLinkedTodoId] = createSignal<number | null>(null);
   const [records, setRecords] = createSignal<FocusRecord[]>([]);
@@ -963,6 +967,10 @@ function MainShell() {
   const timerInstrumentTargetMs = () => {
     const snapshot = timerSnapshot();
 
+    if (snapshot.targetDurationMs !== null) {
+      return snapshot.targetDurationMs;
+    }
+
     if (snapshot.modeKey === "pomodoro") {
       const minutes =
         snapshot.phaseKey === "break"
@@ -994,6 +1002,10 @@ function MainShell() {
   const timerInstrumentPercent = () => `${Math.round(timerInstrumentRatio() * 100)}%`;
   const timerInstrumentTargetLabel = () => {
     const targetMs = timerInstrumentTargetMs();
+
+    if (timerSnapshot().modeKey === "countdown") {
+      return `${countdownMinutes()} 分钟倒计时`;
+    }
 
     if (timerSnapshot().modeKey === "pomodoro") {
       return timerSnapshot().phaseKey === "break"
@@ -1100,7 +1112,7 @@ function MainShell() {
   const latestDailyBreakdown = () =>
     filteredReviewSummary().dailyBreakdown.slice(0, 30);
   const shouldLoadReviewData = () =>
-    activeView() === "insights" || showRecentRecords();
+    activeView() === "focus" || activeView() === "insights" || showRecentRecords();
   const isLiteVisualMode = () => visualMode() === "lite" || Boolean(bootError());
   const orderedTrendDays = () =>
     latestDailyBreakdown()
@@ -1460,6 +1472,16 @@ function MainShell() {
 
         {editingTodoId() !== item.id && (
           <div class="todo-inline-actions">
+            <Show when={!item.isCompleted}>
+              <button
+                type="button"
+                class="action-button action-button--success"
+                disabled={timerBusy() || isModeSwitchLocked()}
+                onClick={() => void handleStartTodoFocus(item)}
+              >
+                开始专注
+              </button>
+            </Show>
             <button
               type="button"
               class="action-button"
@@ -1507,6 +1529,14 @@ function MainShell() {
     syncDraft = false
   ) {
     setTimerSnapshot(nextTimerSnapshot);
+    if (
+      nextTimerSnapshot.modeKey === "countdown" &&
+      nextTimerSnapshot.targetDurationMs !== null
+    ) {
+      setCountdownMinutes(
+        Math.max(1, Math.round(nextTimerSnapshot.targetDurationMs / 60_000))
+      );
+    }
     if (syncDraft) {
       handledAlertSequence = nextTimerSnapshot.alertSequence;
       setCurrentTaskTitle(nextTimerSnapshot.activeTaskTitle);
@@ -1640,7 +1670,7 @@ function MainShell() {
     }
   }
 
-  function handleModeSwitch(nextMode: "stopwatch" | "pomodoro") {
+  function handleModeSwitch(nextMode: "stopwatch" | "countdown" | "pomodoro") {
     if (timerBusy()) {
       return;
     }
@@ -1651,6 +1681,37 @@ function MainShell() {
     }
 
     void runTimerAction(() => switchTimerMode(nextMode));
+  }
+
+  function handleApplyCountdown() {
+    const minutes = Math.round(countdownMinutes());
+    if (minutes < 1 || minutes > 720) {
+      setStatusText("倒计时时长需要在 1 到 720 分钟之间。");
+      return;
+    }
+
+    void runTimerAction(() => updateCountdownMinutes(minutes));
+  }
+
+  async function handleStartTodoFocus(item: TodoItem) {
+    if (timerBusy() || isModeSwitchLocked()) {
+      setStatusText(modeSwitchLockedHint());
+      return;
+    }
+
+    setTimerBusy(true);
+    try {
+      const prepared = await updateTimerContext(item.title, item.id);
+      applyTimerSnapshot(prepared, true);
+      const running = await startTimer();
+      applyTimerSnapshot(running, true);
+      setActiveView("focus");
+      setStatusText(`正在专注：${item.title}`);
+    } catch (error) {
+      setStatusText(getErrorMessage(error));
+    } finally {
+      setTimerBusy(false);
+    }
   }
 
   async function runTimerAction(action: () => Promise<TimerSnapshot>) {
@@ -2404,6 +2465,69 @@ function MainShell() {
 
             <div class="focus-cover__body">
               <section class="timer-panel focus-stage">
+                <div class="core-mode-switch" aria-label="选择计时模式">
+                  <button
+                    type="button"
+                    classList={{
+                      "mode-chip": true,
+                      "mode-chip--active": timerSnapshot().modeKey === "stopwatch",
+                    }}
+                    disabled={timerBusy() || isModeSwitchLocked()}
+                    onClick={() => handleModeSwitch("stopwatch")}
+                  >
+                    正向计时
+                  </button>
+                  <button
+                    type="button"
+                    classList={{
+                      "mode-chip": true,
+                      "mode-chip--active": timerSnapshot().modeKey === "countdown",
+                    }}
+                    disabled={timerBusy() || isModeSwitchLocked()}
+                    onClick={() => handleModeSwitch("countdown")}
+                  >
+                    倒计时
+                  </button>
+                  <button
+                    type="button"
+                    classList={{
+                      "mode-chip": true,
+                      "mode-chip--active": timerSnapshot().modeKey === "pomodoro",
+                    }}
+                    disabled={timerBusy() || isModeSwitchLocked()}
+                    onClick={() => handleModeSwitch("pomodoro")}
+                  >
+                    番茄钟
+                  </button>
+                </div>
+
+                <Show when={timerSnapshot().modeKey === "countdown"}>
+                  <div class="countdown-setup">
+                    <label class="todo-form-field">
+                      <span>倒计时（分钟）</span>
+                      <input
+                        class="task-input"
+                        type="number"
+                        min="1"
+                        max="720"
+                        value={countdownMinutes()}
+                        disabled={timerBusy() || isModeSwitchLocked()}
+                        onInput={(event) =>
+                          setCountdownMinutes(Number(event.currentTarget.value || 0))
+                        }
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      class="action-button"
+                      disabled={timerBusy() || isModeSwitchLocked()}
+                      onClick={handleApplyCountdown}
+                    >
+                      应用时长
+                    </button>
+                  </div>
+                </Show>
+
                 <div class="task-entry focus-stage__task-entry">
                   <div class="task-entry__copy">
                     <span class="eyebrow">{copy.currentTaskEyebrow}</span>
@@ -2539,6 +2663,35 @@ function MainShell() {
                     {copy.reset}
                   </button>
                 </div>
+
+                <section class="core-recent-records" aria-label="最近专注记录">
+                  <div class="core-recent-records__header">
+                    <span>最近记录</span>
+                    <button
+                      type="button"
+                      class="text-button"
+                      onClick={() => setActiveView("insights")}
+                    >
+                      查看全部
+                    </button>
+                  </div>
+                  <Show
+                    when={recentFocusRecords().length > 0}
+                    fallback={<p>完成一轮后，记录会直接出现在这里。</p>}
+                  >
+                    <div class="core-recent-records__list">
+                      <For each={recentFocusRecords().slice(0, 3)}>
+                        {(record) => (
+                          <div class="core-record-row">
+                            <span>{record.title}</span>
+                            <small>{record.modeLabel}</small>
+                            <strong>{record.durationLabel}</strong>
+                          </div>
+                        )}
+                      </For>
+                    </div>
+                  </Show>
+                </section>
               </section>
 
               <aside class="focus-editorial-rail">

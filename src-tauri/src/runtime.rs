@@ -23,8 +23,11 @@ const MIN_POMODORO_BREAK_MINUTES: u64 = 1;
 const MAX_POMODORO_BREAK_MINUTES: u64 = 30;
 const MIN_STOPWATCH_REMINDER_MINUTES: u64 = 1;
 const MAX_STOPWATCH_REMINDER_MINUTES: u64 = 12 * 60;
-const APP_VERSION: &str = "1.6.5";
-const APP_MILESTONE: &str = "v1.6.5 \u{5e03}\u{5c40}\u{4fee}\u{590d}\u{7248}";
+const DEFAULT_COUNTDOWN_MINUTES: u64 = 25;
+const MIN_COUNTDOWN_MINUTES: u64 = 1;
+const MAX_COUNTDOWN_MINUTES: u64 = 12 * 60;
+const APP_VERSION: &str = "1.7.0";
+const APP_MILESTONE: &str = "v1.7.0 \u{6838}\u{5fc3}\u{6267}\u{884c}\u{6d41}\u{7248}";
 const APP_BACKUP_KIND: &str = "focused-moment-backup";
 const APP_BACKUP_FORMAT_VERSION: u64 = 1;
 
@@ -82,6 +85,8 @@ struct TimerSnapshot {
     is_running: bool,
     elapsed_ms: u64,
     elapsed_label: String,
+    target_duration_ms: Option<u64>,
+    remaining_ms: Option<u64>,
     secondary_label: &'static str,
     can_complete_session: bool,
     active_task_title: String,
@@ -130,11 +135,12 @@ struct TimerPreferencesSnapshot {
     window_attention_reminder_enabled: bool,
 }
 
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum AlertKind {
     PomodoroFocusComplete,
     PomodoroBreakComplete,
     StopwatchTargetReached,
+    CountdownComplete,
 }
 
 impl AlertKind {
@@ -143,6 +149,7 @@ impl AlertKind {
             AlertKind::PomodoroFocusComplete => "pomodoro_focus_complete",
             AlertKind::PomodoroBreakComplete => "pomodoro_break_complete",
             AlertKind::StopwatchTargetReached => "stopwatch_target_reached",
+            AlertKind::CountdownComplete => "countdown_complete",
         }
     }
 
@@ -151,6 +158,7 @@ impl AlertKind {
             AlertKind::PomodoroFocusComplete => "本轮番茄已完成",
             AlertKind::PomodoroBreakComplete => "休息时间结束了",
             AlertKind::StopwatchTargetReached => "正向计时已到达目标",
+            AlertKind::CountdownComplete => "倒计时已结束",
         }
     }
 
@@ -171,6 +179,7 @@ impl AlertKind {
                     "已经达到这轮正向计时的提醒目标。".to_string()
                 }
             }
+            AlertKind::CountdownComplete => "计时已到 00:00，可以立即完成并记录。".to_string(),
         }
     }
 }
@@ -345,6 +354,7 @@ struct TodoItem {
 enum TimerMode {
     #[default]
     Stopwatch,
+    Countdown,
     Pomodoro,
 }
 
@@ -359,6 +369,7 @@ impl TimerMode {
     fn key(self) -> &'static str {
         match self {
             TimerMode::Stopwatch => "stopwatch",
+            TimerMode::Countdown => "countdown",
             TimerMode::Pomodoro => "pomodoro",
         }
     }
@@ -394,6 +405,9 @@ struct TimerEngine {
     mode: TimerMode,
     running_anchor: Option<RunAnchor>,
     stopwatch_elapsed_ms: u64,
+    countdown_elapsed_ms: u64,
+    countdown_duration_ms: u64,
+    countdown_completed_alerted: bool,
     pomodoro_elapsed_ms: u64,
     pomodoro_phase: PomodoroPhase,
     pending_pomodoro_record_ms: Option<u64>,
@@ -623,6 +637,7 @@ impl TimerEngineState {
             todo_count: todo_items.len(),
             restored_runtime_session: normalized_runtime.is_running
                 || normalized_runtime.stopwatch_elapsed_ms > 0
+                || normalized_runtime.countdown_elapsed_ms > 0
                 || normalized_runtime.pomodoro_elapsed_ms > 0
                 || normalized_runtime.pending_pomodoro_record_ms.is_some()
                 || !normalized_runtime.current_task_title.trim().is_empty()
@@ -742,6 +757,14 @@ impl TimerEngine {
             mode,
             running_anchor: anchor,
             stopwatch_elapsed_ms: runtime.stopwatch_elapsed_ms,
+            countdown_elapsed_ms: runtime.countdown_elapsed_ms,
+            countdown_duration_ms: runtime
+                .countdown_duration_ms
+                .max(DEFAULT_COUNTDOWN_MINUTES.saturating_mul(60_000)),
+            countdown_completed_alerted: matches!(
+                runtime.active_alert_key.as_deref(),
+                Some("countdown_complete")
+            ),
             pomodoro_elapsed_ms: runtime.pomodoro_elapsed_ms,
             pomodoro_phase,
             pending_pomodoro_record_ms: runtime.pending_pomodoro_record_ms,
@@ -760,6 +783,7 @@ impl TimerEngine {
                 .and_then(parse_alert_key_value),
             recovered_from_last_session: runtime.is_running
                 || runtime.stopwatch_elapsed_ms > 0
+                || runtime.countdown_elapsed_ms > 0
                 || runtime.pomodoro_elapsed_ms > 0
                 || runtime.pending_pomodoro_record_ms.is_some()
                 || has_task_title
@@ -772,6 +796,8 @@ impl TimerEngine {
         PersistedRuntimeState {
             mode_key: self.mode.key().to_string(),
             stopwatch_elapsed_ms: self.stopwatch_elapsed_ms,
+            countdown_elapsed_ms: self.countdown_elapsed_ms,
+            countdown_duration_ms: self.countdown_duration_ms,
             pomodoro_elapsed_ms: self.pomodoro_elapsed_ms,
             pomodoro_phase_key: self.pomodoro_phase.key().to_string(),
             pending_pomodoro_record_ms: self.pending_pomodoro_record_ms,
@@ -832,6 +858,7 @@ impl TimerEngine {
     fn current_round(&self) -> u64 {
         match self.mode {
             TimerMode::Stopwatch => 1,
+            TimerMode::Countdown => 1,
             TimerMode::Pomodoro => match self.pomodoro_phase {
                 PomodoroPhase::Focus => self.completed_focus_count + 1,
                 PomodoroPhase::Break => self.completed_focus_count.max(1),
@@ -842,6 +869,7 @@ impl TimerEngine {
     fn has_unsubmitted_progress(&self) -> bool {
         self.running_anchor.is_some()
             || self.stopwatch_elapsed_ms > 0
+            || self.countdown_elapsed_ms > 0
             || self.pomodoro_elapsed_ms > 0
             || self.pending_pomodoro_record_ms.is_some()
             || self.completed_focus_count > 0
@@ -876,11 +904,13 @@ impl TimerEngine {
         self.completed_focus_count = 0;
         self.completed_break_count = 0;
         self.stopwatch_target_alerted = false;
+        self.countdown_completed_alerted = false;
         self.clear_alert();
         self.clear_recovery_flag();
 
         match self.mode {
             TimerMode::Stopwatch => self.stopwatch_elapsed_ms = 0,
+            TimerMode::Countdown => self.countdown_elapsed_ms = 0,
             TimerMode::Pomodoro => {
                 self.pomodoro_elapsed_ms = 0;
                 self.pomodoro_phase = PomodoroPhase::Focus;
@@ -901,17 +931,35 @@ impl TimerEngine {
         self.completed_focus_count = 0;
         self.completed_break_count = 0;
         self.stopwatch_target_alerted = false;
+        self.countdown_completed_alerted = false;
         self.clear_alert();
         self.clear_recovery_flag();
 
         match self.mode {
             TimerMode::Stopwatch => self.stopwatch_elapsed_ms = 0,
+            TimerMode::Countdown => self.countdown_elapsed_ms = 0,
             TimerMode::Pomodoro => {
                 self.pomodoro_elapsed_ms = 0;
                 self.pomodoro_phase = PomodoroPhase::Focus;
                 self.pending_pomodoro_record_ms = None;
             }
         }
+    }
+
+    fn set_countdown_minutes(&mut self, minutes: u64) -> Result<(), String> {
+        if self.has_unsubmitted_progress() {
+            return Err("当前计时还有未提交的进度，请先完成记录或重置后再调整倒计时。".to_string());
+        }
+
+        if !(MIN_COUNTDOWN_MINUTES..=MAX_COUNTDOWN_MINUTES).contains(&minutes) {
+            return Err("倒计时时长需要在 1 到 720 分钟之间。".to_string());
+        }
+
+        self.countdown_duration_ms = minutes.saturating_mul(60_000);
+        self.countdown_elapsed_ms = 0;
+        self.countdown_completed_alerted = false;
+        self.clear_alert();
+        Ok(())
     }
 
     fn complete_focus_session(&mut self) -> Result<CompletedSession, String> {
@@ -936,6 +984,26 @@ impl TimerEngine {
                     mode_key: "stopwatch",
                     mode_label: "\u{6b63}\u{5411}\u{8ba1}\u{65f6}",
                     phase_label: "\u{6b63}\u{5411}\u{8ba1}\u{65f6}",
+                })
+            }
+            TimerMode::Countdown => {
+                let elapsed_ms = self.countdown_elapsed_ms;
+                if elapsed_ms == 0 {
+                    return Err("当前倒计时还没有累计时间".to_string());
+                }
+
+                self.countdown_elapsed_ms = 0;
+                self.running_anchor = None;
+                self.clear_context();
+                self.countdown_completed_alerted = false;
+                self.clear_alert();
+                self.clear_recovery_flag();
+
+                Ok(CompletedSession {
+                    duration_ms: elapsed_ms,
+                    mode_key: "countdown",
+                    mode_label: "倒计时",
+                    phase_label: "倒计时",
                 })
             }
             TimerMode::Pomodoro => {
@@ -987,6 +1055,7 @@ impl TimerEngine {
 
         match self.mode {
             TimerMode::Stopwatch => self.stopwatch_snapshot(),
+            TimerMode::Countdown => self.countdown_snapshot(),
             TimerMode::Pomodoro => self.pomodoro_snapshot(),
         }
     }
@@ -1012,7 +1081,54 @@ impl TimerEngine {
             is_running: self.running_anchor.is_some(),
             elapsed_ms,
             elapsed_label: format_duration_ms(elapsed_ms),
+            target_duration_ms: self.stopwatch_reminder_ms,
+            remaining_ms: None,
             secondary_label: "\u{5df2}\u{7d2f}\u{8ba1}\u{4e13}\u{6ce8}\u{65f6}\u{957f}",
+            can_complete_session: true,
+            active_task_title: self.current_task_title.clone(),
+            linked_todo_id: self.linked_todo_id,
+            current_round: self.current_round(),
+            completed_focus_count: self.completed_focus_count,
+            completed_break_count: self.completed_break_count,
+            recovered_from_last_session: self.recovered_from_last_session,
+            mode_switch_locked: mode_switch_hint.is_some(),
+            mode_switch_hint,
+            alert_sequence: self.alert_sequence,
+            alert_key: active_alert_kind.map(|kind| kind.key()),
+            alert_title: active_alert_kind.map(|kind| kind.title()),
+            alert_message: active_alert_kind
+                .map(|kind| kind.message(self.active_preferences())),
+        }
+    }
+
+    fn countdown_snapshot(&self) -> TimerSnapshot {
+        let duration_ms = self.countdown_duration_ms;
+        let elapsed_ms = self.countdown_elapsed_ms.min(duration_ms);
+        let remaining_ms = duration_ms.saturating_sub(elapsed_ms);
+        let status = if self.running_anchor.is_some() {
+            "倒计时中"
+        } else if elapsed_ms == 0 {
+            "未开始"
+        } else if remaining_ms == 0 {
+            "已结束"
+        } else {
+            "已暂停"
+        };
+
+        let active_alert_kind = self.active_alert_kind;
+        let mode_switch_hint = self.mode_switch_hint();
+        TimerSnapshot {
+            mode_key: "countdown",
+            phase_key: "countdown",
+            mode: "倒计时",
+            phase_label: "倒计时",
+            status,
+            is_running: self.running_anchor.is_some(),
+            elapsed_ms,
+            elapsed_label: format_duration_ms(remaining_ms),
+            target_duration_ms: Some(duration_ms),
+            remaining_ms: Some(remaining_ms),
+            secondary_label: "本轮剩余时间",
             can_complete_session: true,
             active_task_title: self.current_task_title.clone(),
             linked_todo_id: self.linked_todo_id,
@@ -1069,6 +1185,8 @@ impl TimerEngine {
             is_running: self.running_anchor.is_some(),
             elapsed_ms,
             elapsed_label: format_duration_ms(remaining_ms),
+            target_duration_ms: Some(duration_ms),
+            remaining_ms: Some(remaining_ms),
             secondary_label,
             can_complete_session: self.pending_pomodoro_record_ms.is_some()
                 || self.pomodoro_phase == PomodoroPhase::Focus,
@@ -1117,7 +1235,7 @@ impl TimerEngine {
             return;
         }
 
-        match self.mode {
+        let keep_running = match self.mode {
             TimerMode::Stopwatch => {
                 let previous_elapsed_ms = self.stopwatch_elapsed_ms;
                 self.stopwatch_elapsed_ms = self.stopwatch_elapsed_ms.saturating_add(delta_ms);
@@ -1129,6 +1247,22 @@ impl TimerEngine {
                         self.stopwatch_target_alerted = true;
                         self.mark_alert(AlertKind::StopwatchTargetReached);
                     }
+                }
+                true
+            }
+            TimerMode::Countdown => {
+                self.countdown_elapsed_ms = self
+                    .countdown_elapsed_ms
+                    .saturating_add(delta_ms)
+                    .min(self.countdown_duration_ms);
+                if self.countdown_elapsed_ms >= self.countdown_duration_ms {
+                    if !self.countdown_completed_alerted {
+                        self.countdown_completed_alerted = true;
+                        self.mark_alert(AlertKind::CountdownComplete);
+                    }
+                    false
+                } else {
+                    true
                 }
             }
             TimerMode::Pomodoro => {
@@ -1160,10 +1294,11 @@ impl TimerEngine {
                 }
 
                 self.pomodoro_elapsed_ms = total_elapsed;
+                true
             }
-        }
+        };
 
-        self.running_anchor = Some(Self::new_anchor());
+        self.running_anchor = keep_running.then(Self::new_anchor);
     }
 
     fn new_anchor() -> RunAnchor {
@@ -1220,6 +1355,7 @@ fn system_time_to_epoch_ms(time: SystemTime) -> u64 {
 fn parse_mode(mode: &str) -> Result<TimerMode, String> {
     match mode {
         "stopwatch" => Ok(TimerMode::Stopwatch),
+        "countdown" => Ok(TimerMode::Countdown),
         "pomodoro" => Ok(TimerMode::Pomodoro),
         _ => Err("\u{4e0d}\u{652f}\u{6301}\u{7684}\u{8ba1}\u{65f6}\u{6a21}\u{5f0f}".to_string()),
     }
@@ -1242,6 +1378,7 @@ fn parse_alert_key_value(value: &str) -> Option<AlertKind> {
         "pomodoro_focus_complete" => Some(AlertKind::PomodoroFocusComplete),
         "pomodoro_break_complete" => Some(AlertKind::PomodoroBreakComplete),
         "stopwatch_target_reached" => Some(AlertKind::StopwatchTargetReached),
+        "countdown_complete" => Some(AlertKind::CountdownComplete),
         _ => None,
     }
 }
@@ -1674,6 +1811,22 @@ fn switch_timer_mode(
 }
 
 #[tauri::command]
+fn set_countdown_minutes(
+    state: tauri::State<'_, TimerEngineState>,
+    minutes: u64,
+) -> Result<TimerSnapshot, String> {
+    let snapshot = with_timer_engine(&state, |engine| {
+        if engine.mode != TimerMode::Countdown {
+            return Err("请先切换到倒计时模式。".to_string());
+        }
+        engine.set_countdown_minutes(minutes)?;
+        Ok(engine.snapshot())
+    })?;
+    state.persist_runtime()?;
+    Ok(snapshot)
+}
+
+#[tauri::command]
 fn get_focus_records(
     state: tauri::State<'_, TimerEngineState>,
 ) -> Result<Vec<FocusRecord>, String> {
@@ -1773,6 +1926,7 @@ fn list_app_backups(state: tauri::State<'_, TimerEngineState>) -> Result<Vec<Bac
             todo_count: backup.state.todo_items.len(),
             has_runtime_session: backup.runtime.is_running
                 || backup.runtime.stopwatch_elapsed_ms > 0
+                || backup.runtime.countdown_elapsed_ms > 0
                 || backup.runtime.pomodoro_elapsed_ms > 0
                 || backup.runtime.pending_pomodoro_record_ms.is_some()
                 || !backup.runtime.current_task_title.trim().is_empty()
@@ -2182,6 +2336,47 @@ fn start_dragging_main_window(window: tauri::Window) -> Result<(), String> {
     window.start_dragging().map_err(|error| error.to_string())
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn countdown_stops_at_zero_and_emits_one_completion_alert() {
+        let mut timer = TimerEngine {
+            mode: TimerMode::Countdown,
+            countdown_duration_ms: 60_000,
+            countdown_elapsed_ms: 59_900,
+            running_anchor: Some(RunAnchor {
+                monotonic: Instant::now() - Duration::from_secs(1),
+                wall_clock: SystemTime::now() - Duration::from_secs(1),
+            }),
+            ..TimerEngine::default()
+        };
+
+        timer.sync_running_time();
+
+        assert_eq!(timer.countdown_elapsed_ms, 60_000);
+        assert!(timer.running_anchor.is_none());
+        assert_eq!(timer.active_alert_kind, Some(AlertKind::CountdownComplete));
+    }
+
+    #[test]
+    fn countdown_completion_creates_a_countdown_record_payload() {
+        let mut timer = TimerEngine {
+            mode: TimerMode::Countdown,
+            countdown_duration_ms: 25 * 60_000,
+            countdown_elapsed_ms: 12 * 60_000,
+            ..TimerEngine::default()
+        };
+
+        let completed = timer.complete_focus_session().expect("countdown completes");
+
+        assert_eq!(completed.mode_key, "countdown");
+        assert_eq!(completed.duration_ms, 12 * 60_000);
+        assert_eq!(timer.countdown_elapsed_ms, 0);
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -2212,6 +2407,7 @@ pub fn run() {
             update_timer_preferences,
             update_timer_context,
             switch_timer_mode,
+            set_countdown_minutes,
             get_focus_records,
             delete_focus_record,
             delete_focus_records,

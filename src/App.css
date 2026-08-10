@@ -4648,3 +4648,144 @@ textarea,
     transform: scale(1.035);
   }
 }
+
+/* v1.7.0: keep the first screen for starting and finishing a session. */
+.shell--cockpit.shell--focus-view .focus-cover {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "body"
+    "details";
+  gap: 16px;
+  padding: 22px;
+}
+
+.shell--cockpit.shell--focus-view .focus-cover__lead,
+.shell--cockpit.shell--focus-view .focus-editorial-rail > .focus-atlas,
+.shell--cockpit.shell--focus-view .focus-editorial-rail > .mode-switch {
+  display: none;
+}
+
+.shell--cockpit.shell--focus-view .focus-cover__body {
+  display: block;
+}
+
+.shell--cockpit.shell--focus-view .focus-stage {
+  gap: 16px;
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 22px;
+}
+
+.core-mode-switch {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.core-mode-switch .mode-chip {
+  justify-content: center;
+  min-height: 44px;
+  border-radius: 7px;
+}
+
+.countdown-setup {
+  display: flex;
+  align-items: end;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(32, 40, 47, 0.1);
+  border-radius: 7px;
+  background: rgba(38, 183, 218, 0.06);
+}
+
+.countdown-setup .todo-form-field {
+  min-width: 160px;
+}
+
+.countdown-setup .action-button {
+  min-height: 42px;
+}
+
+.shell--cockpit.shell--focus-view .task-entry {
+  padding: 16px;
+  border-radius: 7px;
+}
+
+.shell--cockpit.shell--focus-view .task-entry__copy h2 {
+  font-size: 1.1rem;
+}
+
+.shell--cockpit.shell--focus-view .timer-instrument {
+  width: min(100%, 280px);
+}
+
+.core-recent-records {
+  display: grid;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.core-recent-records__header,
+.core-record-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.core-recent-records__header {
+  justify-content: space-between;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+.core-recent-records__header .text-button {
+  padding: 2px 0;
+}
+
+.core-recent-records > p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.core-recent-records__list {
+  display: grid;
+  border-top: 1px solid rgba(32, 40, 47, 0.08);
+}
+
+.core-record-row {
+  min-height: 38px;
+  border-bottom: 1px solid rgba(32, 40, 47, 0.08);
+}
+
+.core-record-row > span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.core-record-row small {
+  color: var(--text-muted);
+}
+
+.core-record-row strong {
+  min-width: 72px;
+  text-align: right;
+}
+
+@media (max-width: 720px) {
+  .core-mode-switch {
+    grid-template-columns: 1fr;
+  }
+
+  .countdown-setup {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .countdown-setup .todo-form-field {
+    min-width: 0;
+  }
+}

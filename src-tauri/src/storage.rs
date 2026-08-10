@@ -67,6 +67,10 @@ pub struct PersistedRuntimeState {
     #[serde(default)]
     pub stopwatch_elapsed_ms: u64,
     #[serde(default)]
+    pub countdown_elapsed_ms: u64,
+    #[serde(default)]
+    pub countdown_duration_ms: u64,
+    #[serde(default)]
     pub pomodoro_elapsed_ms: u64,
     #[serde(default)]
     pub pomodoro_phase_key: String,
