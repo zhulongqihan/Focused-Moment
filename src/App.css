@@ -4789,3 +4789,104 @@ textarea,
     min-width: 0;
   }
 }
+
+/* The timer must read as one short execution flow, not as a dashboard. */
+.shell--cockpit.shell--focus-view .focus-stage > .core-mode-switch {
+  order: 1;
+}
+
+.shell--cockpit.shell--focus-view .focus-stage > .countdown-setup {
+  order: 2;
+}
+
+.shell--cockpit.shell--focus-view .focus-stage > .focus-stage__task-entry {
+  order: 3;
+}
+
+.shell--cockpit.shell--focus-view .focus-stage > .focus-stage__header {
+  order: 4;
+}
+
+.shell--cockpit.shell--focus-view .focus-stage > .focus-stage__instrument-wrap {
+  order: 5;
+}
+
+.shell--cockpit.shell--focus-view .focus-stage > .focus-stage__actions {
+  order: 6;
+}
+
+.shell--cockpit.shell--focus-view .focus-stage > .core-recent-records {
+  order: 7;
+}
+
+.shell--cockpit.shell--focus-view .focus-stage {
+  max-width: 860px;
+}
+
+.shell--cockpit.shell--focus-view .focus-stage__instrument-wrap {
+  gap: 8px;
+}
+
+.shell--cockpit.shell--focus-view .timer-instrument {
+  width: 100%;
+  min-height: 176px;
+  padding: 22px;
+  border-radius: 7px;
+  background: rgba(81, 104, 93, 0.05);
+  overflow: visible;
+}
+
+.shell--cockpit.shell--focus-view .timer-instrument::before,
+.shell--cockpit.shell--focus-view .timer-instrument::after,
+.shell--cockpit.shell--focus-view .timer-instrument__ring {
+  display: none;
+}
+
+.shell--cockpit.shell--focus-view .timer-instrument__core {
+  width: min(100%, 680px);
+  gap: 8px;
+}
+
+.shell--cockpit.shell--focus-view .timer-instrument__label {
+  min-height: 26px;
+  padding: 0 10px;
+  font-size: 0.8rem;
+  letter-spacing: 0;
+}
+
+.shell--cockpit.shell--focus-view .timer-display {
+  max-width: 100%;
+  padding: 0;
+  font-size: clamp(2.5rem, 4.2vw, 4rem);
+  font-weight: 650;
+  line-height: 1;
+  letter-spacing: 0;
+  overflow: hidden;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+.shell--cockpit.shell--focus-view .timer-instrument__meta {
+  gap: 8px;
+  font-size: 0.82rem;
+}
+
+.shell--cockpit.shell--focus-view .timer-instrument__meta span {
+  min-height: 24px;
+  padding: 0 8px;
+}
+
+.shell--cockpit.shell--focus-view .focus-stage__actions {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.shell--cockpit.shell--focus-view .focus-stage__actions .action-button {
+  min-height: 44px;
+  padding: 8px 12px;
+}
+
+@media (max-width: 860px) {
+  .shell--cockpit.shell--focus-view .focus-stage__actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
