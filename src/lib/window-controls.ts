@@ -13,6 +13,14 @@ export async function closeMainWindow() {
   await invoke("close_main_window");
 }
 
+export async function showFloatingTodos() {
+  await invoke("show_floating_todos");
+}
+
+export async function restoreMainFromFloatingTodos() {
+  await invoke("restore_main_from_floating_todos");
+}
+
 export async function quitApplication() {
   await invoke("quit_application");
 }

@@ -26,8 +26,8 @@ const MAX_STOPWATCH_REMINDER_MINUTES: u64 = 12 * 60;
 const DEFAULT_COUNTDOWN_MINUTES: u64 = 25;
 const MIN_COUNTDOWN_MINUTES: u64 = 1;
 const MAX_COUNTDOWN_MINUTES: u64 = 12 * 60;
-const APP_VERSION: &str = "1.7.1";
-const APP_MILESTONE: &str = "v1.7.1 \u{4e13}\u{6ce8}\u{9875}\u{53ef}\u{7528}\u{6027}\u{4fee}\u{590d}\u{7248}";
+const APP_VERSION: &str = "1.8.0";
+const APP_MILESTONE: &str = "v1.8.0 \u{6781}\u{7b80}\u{4e13}\u{6ce8}\u{5de5}\u{4f5c}\u{6d41}\u{7248}";
 const APP_BACKUP_KIND: &str = "focused-moment-backup";
 const APP_BACKUP_FORMAT_VERSION: u64 = 1;
 
@@ -2318,6 +2318,30 @@ fn close_main_window(window: tauri::Window) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn show_floating_todos(app: tauri::AppHandle) -> Result<(), String> {
+    let floating_window = app
+        .get_webview_window("todo-float")
+        .ok_or_else(|| "找不到悬浮待办窗口".to_string())?;
+
+    let main_window = app
+        .get_webview_window("main")
+        .ok_or_else(|| "找不到主窗口".to_string())?;
+
+    floating_window.show().map_err(|error| error.to_string())?;
+    floating_window.set_focus().map_err(|error| error.to_string())?;
+    main_window.hide().map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn restore_main_from_floating_todos(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(floating_window) = app.get_webview_window("todo-float") {
+        floating_window.hide().map_err(|error| error.to_string())?;
+    }
+
+    show_main_window(&app)
+}
+
+#[tauri::command]
 fn quit_application(app: tauri::AppHandle) -> Result<(), String> {
     if let Some(state) = app.try_state::<AppLifecycleState>() {
         state.mark_quitting();
@@ -2428,6 +2452,8 @@ pub fn run() {
             minimize_main_window,
             toggle_maximize_main_window,
             close_main_window,
+            show_floating_todos,
+            restore_main_from_floating_todos,
             quit_application,
             show_main_window_from_tray,
             start_dragging_main_window
