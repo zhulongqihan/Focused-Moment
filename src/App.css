@@ -228,6 +228,24 @@ html.floating-window body { overflow: hidden; }
 .floating-todo__copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .floating-todo__copy small { color: #668071; font-size: 0.78rem; }
 .floating-empty { margin: 32px 0; color: #5e7868; text-align: center; }
+.focus-floating {
+  height: 100vh;
+  padding: 12px;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 10px;
+  border: 1px solid rgba(189, 215, 199, 0.72);
+  border-radius: 8px;
+  background: rgba(242, 250, 244, 0.78);
+  box-shadow: 0 12px 38px rgba(24, 54, 38, 0.18);
+  backdrop-filter: blur(14px);
+}
+.focus-floating__header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.focus-floating__clock { display: grid; align-content: center; justify-items: center; gap: 5px; }
+.focus-floating__clock span { color: #5c7868; font-size: 0.8rem; }
+.focus-floating__clock strong { color: #173f2e; font-size: clamp(2rem, 9vw, 3.3rem); font-variant-numeric: tabular-nums; line-height: 1; }
+.focus-floating__controls { display: flex; justify-content: center; gap: 8px; }
+.focus-floating__controls button { min-height: 36px; padding: 0 12px; font-size: 0.84rem; }
 
 @media (max-width: 760px) {
   .minimal-app { padding: 10px; }

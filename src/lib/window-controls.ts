@@ -29,6 +29,22 @@ export async function restoreMainFromFloatingTodos() {
   await invoke("restore_main_from_floating_todos");
 }
 
+export async function showFocusFloating() {
+  await invoke("show_focus_floating");
+}
+
+export async function lockFocusFloating() {
+  await invoke("lock_focus_floating");
+}
+
+export async function unlockFocusFloating() {
+  await invoke("unlock_focus_floating");
+}
+
+export async function restoreMainFromFocusFloating() {
+  await invoke("restore_main_from_focus_floating");
+}
+
 export async function quitApplication() {
   await invoke("quit_application");
 }

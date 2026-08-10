@@ -22,13 +22,17 @@ import {
 } from "./lib/tasks";
 import {
   closeMainWindow,
+  lockFocusFloating,
   lockFloatingTodos,
   minimizeMainWindow,
   quitApplication,
   restoreMainFromFloatingTodos,
+  restoreMainFromFocusFloating,
+  showFocusFloating,
   showFloatingTodos,
   startDraggingWindow,
   unlockFloatingTodos,
+  unlockFocusFloating,
 } from "./lib/window-controls";
 import "./App.css";
 
@@ -38,6 +42,8 @@ type TimerMode = "stopwatch" | "countdown";
 const currentWindow = getCurrentWindow();
 const isFloatingWindow = currentWindow.label === "todo-float";
 const isUnlockWindow = currentWindow.label === "todo-unlock";
+const isFocusFloatingWindow = currentWindow.label === "focus-float";
+const isFocusUnlockWindow = currentWindow.label === "focus-unlock";
 
 const emptyTimerSnapshot: TimerSnapshot = {
   modeKey: "stopwatch",
@@ -185,6 +191,9 @@ function MainShell() {
         await updateTimerContext(title, linkedTodoId())
       );
       applyTimerSnapshot(await startTimer());
+      if (timer().modeKey === "stopwatch") {
+        await showFocusFloating();
+      }
       setMessage("已开始计时。");
     });
   }
@@ -211,6 +220,9 @@ function MainShell() {
       applyTimerSnapshot(payload.timerSnapshot);
       setSessionTitle("");
       setLinkedTodoId(null);
+      if (isFocusFloatingWindow) {
+        await restoreMainFromFocusFloating();
+      }
       setMessage("已保存为一条专注记录。");
     });
   }
@@ -268,12 +280,12 @@ function MainShell() {
   }
 
   onMount(() => {
-    if (isFloatingWindow || isUnlockWindow) {
+    if (isFloatingWindow || isUnlockWindow || isFocusFloatingWindow || isFocusUnlockWindow) {
       document.documentElement.classList.add("floating-window");
     }
 
     let interval: number | undefined;
-    if (!isUnlockWindow) {
+    if (!isUnlockWindow && !isFocusUnlockWindow) {
       void refresh()
         .catch((error) => setMessage(getErrorMessage(error)))
         .finally(() => setReady(true));
@@ -303,6 +315,82 @@ function MainShell() {
       >
         <LockKeyholeOpen size={17} strokeWidth={1.9} aria-hidden="true" />
       </button>
+    );
+  }
+
+  if (isFocusUnlockWindow) {
+    return (
+      <button
+        type="button"
+        class="floating-unlock"
+        title="解除专注锁定，恢复计时操作"
+        aria-label="解除专注锁定，恢复计时操作"
+        onClick={() => void unlockFocusFloating()}
+      >
+        <LockKeyholeOpen size={17} strokeWidth={1.9} aria-hidden="true" />
+      </button>
+    );
+  }
+
+  if (isFocusFloatingWindow) {
+    return (
+      <aside class="focus-floating" aria-label="正向计时小窗">
+        <header class="focus-floating__header">
+          <div
+            class="floating-todo__drag-handle"
+            data-tauri-drag-region
+            onMouseDown={(event) => {
+              if (event.button === 0) {
+                void startDraggingWindow();
+              }
+            }}
+          >
+            <span>正在专注</span>
+            <strong>{timer().activeTaskTitle || "未命名事项"}</strong>
+          </div>
+          <div class="floating-todo__actions">
+            <button
+              type="button"
+              class="floating-lock-button"
+              title="锁定并开启鼠标穿透"
+              aria-label="锁定并开启鼠标穿透"
+              onClick={() => void lockFocusFloating()}
+            >
+              <LockKeyhole size={17} strokeWidth={1.9} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              class="icon-button"
+              title="返回主窗口"
+              onClick={() => void restoreMainFromFocusFloating()}
+            >
+              返回
+            </button>
+          </div>
+        </header>
+        <div class="focus-floating__clock">
+          <span>{timer().status}</span>
+          <strong>{timer().elapsedLabel}</strong>
+        </div>
+        <div class="focus-floating__controls">
+          <button
+            type="button"
+            class="secondary-button"
+            disabled={busy() || !timer().isRunning}
+            onClick={() => void pauseFocus()}
+          >
+            暂停
+          </button>
+          <button
+            type="button"
+            class="primary-button"
+            disabled={busy() || !canFinish()}
+            onClick={() => void finishFocus()}
+          >
+            完成并记录
+          </button>
+        </div>
+      </aside>
     );
   }
 

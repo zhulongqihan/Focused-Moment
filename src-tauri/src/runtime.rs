@@ -26,8 +26,8 @@ const MAX_STOPWATCH_REMINDER_MINUTES: u64 = 12 * 60;
 const DEFAULT_COUNTDOWN_MINUTES: u64 = 25;
 const MIN_COUNTDOWN_MINUTES: u64 = 1;
 const MAX_COUNTDOWN_MINUTES: u64 = 12 * 60;
-const APP_VERSION: &str = "1.8.1";
-const APP_MILESTONE: &str = "v1.8.1 \u{60ac}\u{6d6e}\u{5f85}\u{529e}\u{9501}\u{5b9a}\u{7248}";
+const APP_VERSION: &str = "1.9.0";
+const APP_MILESTONE: &str = "v1.9.0 \u{6b63}\u{5411}\u{8ba1}\u{65f6}\u{5c0f}\u{7a97}\u{7248}";
 const APP_BACKUP_KIND: &str = "focused-moment-backup";
 const APP_BACKUP_FORMAT_VERSION: u64 = 1;
 
@@ -2384,6 +2384,82 @@ fn unlock_floating_todos(app: tauri::AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn show_focus_floating(app: tauri::AppHandle) -> Result<(), String> {
+    let focus_window = app
+        .get_webview_window("focus-float")
+        .ok_or_else(|| "找不到专注小窗".to_string())?;
+    let main_window = app
+        .get_webview_window("main")
+        .ok_or_else(|| "找不到主窗口".to_string())?;
+
+    focus_window
+        .set_ignore_cursor_events(false)
+        .map_err(|error| error.to_string())?;
+    if let Some(unlock_window) = app.get_webview_window("focus-unlock") {
+        unlock_window.hide().map_err(|error| error.to_string())?;
+    }
+    focus_window.show().map_err(|error| error.to_string())?;
+    focus_window.set_focus().map_err(|error| error.to_string())?;
+    main_window.hide().map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn lock_focus_floating(app: tauri::AppHandle) -> Result<(), String> {
+    let focus_window = app
+        .get_webview_window("focus-float")
+        .ok_or_else(|| "找不到专注小窗".to_string())?;
+    let unlock_window = app
+        .get_webview_window("focus-unlock")
+        .ok_or_else(|| "找不到专注解锁按钮".to_string())?;
+
+    let floating_position = focus_window
+        .outer_position()
+        .map_err(|error| error.to_string())?;
+    let floating_size = focus_window.outer_size().map_err(|error| error.to_string())?;
+    let unlock_size = unlock_window.outer_size().map_err(|error| error.to_string())?;
+    unlock_window
+        .set_position(PhysicalPosition::new(
+            floating_position.x + floating_size.width as i32 - unlock_size.width as i32 - 10,
+            floating_position.y + 10,
+        ))
+        .map_err(|error| error.to_string())?;
+    unlock_window.show().map_err(|error| error.to_string())?;
+    unlock_window.set_focus().map_err(|error| error.to_string())?;
+    focus_window
+        .set_ignore_cursor_events(true)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn unlock_focus_floating(app: tauri::AppHandle) -> Result<(), String> {
+    let focus_window = app
+        .get_webview_window("focus-float")
+        .ok_or_else(|| "找不到专注小窗".to_string())?;
+    focus_window
+        .set_ignore_cursor_events(false)
+        .map_err(|error| error.to_string())?;
+    if let Some(unlock_window) = app.get_webview_window("focus-unlock") {
+        unlock_window.hide().map_err(|error| error.to_string())?;
+    }
+    focus_window.show().map_err(|error| error.to_string())?;
+    focus_window.set_focus().map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn restore_main_from_focus_floating(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(focus_window) = app.get_webview_window("focus-float") {
+        focus_window
+            .set_ignore_cursor_events(false)
+            .map_err(|error| error.to_string())?;
+        focus_window.hide().map_err(|error| error.to_string())?;
+    }
+    if let Some(unlock_window) = app.get_webview_window("focus-unlock") {
+        unlock_window.hide().map_err(|error| error.to_string())?;
+    }
+    show_main_window(&app)
+}
+
+#[tauri::command]
 fn restore_main_from_floating_todos(app: tauri::AppHandle) -> Result<(), String> {
     if let Some(floating_window) = app.get_webview_window("todo-float") {
         floating_window
@@ -2512,6 +2588,10 @@ pub fn run() {
             show_floating_todos,
             lock_floating_todos,
             unlock_floating_todos,
+            show_focus_floating,
+            lock_focus_floating,
+            unlock_focus_floating,
+            restore_main_from_focus_floating,
             restore_main_from_floating_todos,
             quit_application,
             show_main_window_from_tray,
