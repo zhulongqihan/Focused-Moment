@@ -3,18 +3,26 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { LockKeyhole, LockKeyholeOpen } from "lucide-solid";
 import type {
   AnalyticsSnapshot,
+  BackupListItem,
   FeedbackKind,
   FocusRecord,
+  TodoDraft,
+  TodoImportance,
   TimerSnapshot,
   TodoItem,
 } from "./lib/contracts";
 import {
   acknowledgeTimerAlert,
+  clearAppData,
   completeFocusSession,
   deleteFocusRecord,
+  exportAppBackup,
   getAnalyticsSnapshot,
   getFocusRecords,
   getTimerSnapshot,
+  importAppBackup,
+  listAppBackups,
+  openAppBackupFolder,
   pauseTimer,
   resetTimer,
   restoreFocusRecord,
@@ -27,6 +35,7 @@ import {
   createTodoItem,
   deleteTodoItem,
   getTodoItems,
+  updateTodoItem,
   restoreTodoItem,
   toggleTodoItem,
 } from "./lib/tasks";
@@ -46,12 +55,14 @@ import {
 } from "./lib/window-controls";
 import "./App.css";
 
-type AppView = "focus" | "todos" | "records";
+type AppView = "focus" | "todos" | "records" | "settings";
 type TimerMode = "stopwatch" | "countdown";
 type LoadState = "loading" | "ready" | "error";
 type UndoAction =
   | { kind: "todo"; item: TodoItem }
   | { kind: "record"; item: FocusRecord };
+
+type TodoEditDraft = TodoDraft & { id: number };
 
 function getWindowLabel() {
   try {
@@ -82,6 +93,7 @@ const emptyTimerSnapshot: TimerSnapshot = {
   canCompleteSession: true,
   activeTaskTitle: "",
   linkedTodoId: null,
+  completeLinkedTodoOnFinish: false,
   currentRound: 1,
   completedFocusCount: 0,
   completedBreakCount: 0,
@@ -120,6 +132,10 @@ const recordDateFormatter = new Intl.DateTimeFormat("zh-CN", {
   day: "numeric",
   hour: "2-digit",
   minute: "2-digit",
+});
+const backupDateFormatter = new Intl.DateTimeFormat("zh-CN", {
+  dateStyle: "medium",
+  timeStyle: "short",
 });
 
 function parseLocalDate(value: string) {
@@ -163,14 +179,47 @@ function formatRecordDate(record: FocusRecord) {
   return `${record.completedDate} ${record.completedTime}`.trim();
 }
 
+function formatBackupDate(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : backupDateFormatter.format(date);
+}
+
+function formatAnalyticsDate(value: string) {
+  const date = parseLocalDate(value);
+  return date ? calendarDateFormatter.format(date) : value;
+}
+
 function sortTodos(items: TodoItem[]) {
+  const importanceRank: Record<TodoImportance, number> = {
+    high: 0,
+    medium: 1,
+    low: 2,
+  };
+
   return items.slice().sort((left, right) => {
     if (left.isCompleted !== right.isCompleted) {
       return Number(left.isCompleted) - Number(right.isCompleted);
     }
 
-    return left.scheduledDate.localeCompare(right.scheduledDate) || right.id - left.id;
+    const leftHasTime = Boolean(left.scheduledTime.trim());
+    const rightHasTime = Boolean(right.scheduledTime.trim());
+
+    return (
+      left.scheduledDate.localeCompare(right.scheduledDate) ||
+      Number(rightHasTime) - Number(leftHasTime) ||
+      left.scheduledTime.localeCompare(right.scheduledTime) ||
+      importanceRank[left.importanceKey] - importanceRank[right.importanceKey] ||
+      right.id - left.id
+    );
   });
+}
+
+function formatTodoDue(item: TodoItem) {
+  return `${formatDueDate(item.scheduledDate)}${item.scheduledTime ? ` · ${item.scheduledTime}` : ""}`;
+}
+
+function importanceLabel(value: TodoImportance) {
+  return value === "high" ? "高" : value === "low" ? "低" : "中";
 }
 
 function MainShell() {
@@ -181,9 +230,18 @@ function MainShell() {
   const [analytics, setAnalytics] = createSignal<AnalyticsSnapshot | null>(null);
   const [sessionTitle, setSessionTitle] = createSignal("");
   const [linkedTodoId, setLinkedTodoId] = createSignal<number | null>(null);
+  const [completeLinkedTodo, setCompleteLinkedTodo] = createSignal(false);
   const [countdownMinutes, setCountdownMinutes] = createSignal(25);
   const [todoTitle, setTodoTitle] = createSignal("");
   const [todoDueDate, setTodoDueDate] = createSignal(getToday());
+  const [todoDueTime, setTodoDueTime] = createSignal("");
+  const [todoImportance, setTodoImportance] = createSignal<TodoImportance>("medium");
+  const [editingTodo, setEditingTodo] = createSignal<TodoEditDraft | null>(null);
+  const [backups, setBackups] = createSignal<BackupListItem[]>([]);
+  const [backupLoadState, setBackupLoadState] = createSignal<LoadState>("loading");
+  const [backupLoadError, setBackupLoadError] = createSignal("");
+  const [selectedBackupFile, setSelectedBackupFile] = createSignal("");
+  const [lastBackupPath, setLastBackupPath] = createSignal("");
   const [busy, setBusy] = createSignal(false);
   const [busyLabel, setBusyLabel] = createSignal("");
   const [message, setMessage] = createSignal("");
@@ -193,11 +251,15 @@ function MainShell() {
   const [syncError, setSyncError] = createSignal("");
   const [undoAction, setUndoAction] = createSignal<UndoAction | null>(null);
   let undoTimer: number | undefined;
+  let refreshVersion = 0;
 
   const ready = () => loadState() === "ready";
 
   const pendingTodos = () => sortTodos(todos()).filter((item) => !item.isCompleted);
   const completedTodos = () => sortTodos(todos()).filter((item) => item.isCompleted);
+  const recentBreakdown = () => (analytics()?.dailyBreakdown ?? []).slice(0, 7);
+  const maxDailyDuration = () =>
+    Math.max(1, ...recentBreakdown().map((day) => day.totalDurationMs));
   const selectedTodo = () =>
     todos().find((item) => item.id === linkedTodoId() && !item.isCompleted) ?? null;
   const activeTitle = () => sessionTitle().trim() || selectedTodo()?.title || "未命名事项";
@@ -216,6 +278,9 @@ function MainShell() {
 
   function applyTimerSnapshot(next: TimerSnapshot) {
     setTimer(next);
+    if (next.isRunning || next.elapsedMs > 0 || next.recoveredFromLastSession) {
+      setCompleteLinkedTodo(next.completeLinkedTodoOnFinish);
+    }
     if (next.modeKey === "countdown" && next.targetDurationMs !== null) {
       setCountdownMinutes(Math.max(1, Math.round(next.targetDurationMs / 60_000)));
     }
@@ -229,24 +294,35 @@ function MainShell() {
     }
   }
 
-  async function refresh() {
+  function invalidateRefreshes() {
+    refreshVersion += 1;
+  }
+
+  async function refresh(force = false) {
+    const requestVersion = ++refreshVersion;
     const [nextTimer, nextTodos, nextRecords, nextAnalytics] = await Promise.all([
       getTimerSnapshot(),
       getTodoItems(),
       getFocusRecords(),
       getAnalyticsSnapshot(),
     ]);
+
+    if (requestVersion !== refreshVersion || (!force && busy())) {
+      return false;
+    }
+
     applyTimerSnapshot(nextTimer);
     setTodos(nextTodos);
     setRecords(nextRecords);
     setAnalytics(nextAnalytics);
+    return true;
   }
 
   async function loadFromStorage() {
     setLoadState("loading");
     setLoadError("");
     try {
-      await refresh();
+      await refresh(true);
       setLoadState("ready");
       setSyncError("");
     } catch (error) {
@@ -269,6 +345,7 @@ function MainShell() {
       return;
     }
 
+    invalidateRefreshes();
     setBusy(true);
     setBusyLabel(actionLabel);
     clearMessage();
@@ -291,6 +368,7 @@ function MainShell() {
     await run(async () => {
       const next = await switchTimerMode(mode);
       applyTimerSnapshot(next);
+      setCompleteLinkedTodo(false);
     }, "正在切换…");
   }
 
@@ -311,7 +389,7 @@ function MainShell() {
       }
 
       applyTimerSnapshot(
-        await updateTimerContext(title, linkedTodoId())
+        await updateTimerContext(title, linkedTodoId(), completeLinkedTodo())
       );
       applyTimerSnapshot(await startTimer());
       if (timer().modeKey === "stopwatch") {
@@ -333,6 +411,7 @@ function MainShell() {
       applyTimerSnapshot(await resetTimer());
       setSessionTitle("");
       setLinkedTodoId(null);
+      setCompleteLinkedTodo(false);
       showMessage("本轮已重置，没有生成记录。", "info");
     }, "正在重置…");
   }
@@ -342,14 +421,14 @@ function MainShell() {
       const title = isFocusFloatingWindow
         ? timer().activeTaskTitle
         : activeTitle();
-      const todoId = isFocusFloatingWindow
-        ? timer().linkedTodoId
-        : linkedTodoId();
-      const payload = await completeFocusSession(title, todoId);
+      const payload = await completeFocusSession(title);
       setRecords(payload.records);
+      setTodos(payload.todoItems);
+      setAnalytics(await getAnalyticsSnapshot());
       applyTimerSnapshot(payload.timerSnapshot);
       setSessionTitle("");
       setLinkedTodoId(null);
+      setCompleteLinkedTodo(false);
       if (isFocusFloatingWindow) {
         await restoreMainFromFocusFloating();
       }
@@ -373,13 +452,56 @@ function MainShell() {
         await createTodoItem({
           title,
           scheduledDate: todoDueDate(),
-          scheduledTime: "",
-          importanceKey: "medium",
+          scheduledTime: todoDueTime(),
+          importanceKey: todoImportance(),
         })
       );
       setTodoTitle("");
+      setTodoDueTime("");
+      setTodoImportance("medium");
       showMessage("待办已添加。", "success");
     }, "正在添加…");
+  }
+
+  function beginEditTodo(item: TodoItem) {
+    setEditingTodo({
+      id: item.id,
+      title: item.title,
+      scheduledDate: item.scheduledDate,
+      scheduledTime: item.scheduledTime,
+      importanceKey: item.importanceKey,
+    });
+  }
+
+  function patchEditingTodo(patch: Partial<TodoEditDraft>) {
+    const current = editingTodo();
+    if (current) {
+      setEditingTodo({ ...current, ...patch });
+    }
+  }
+
+  function cancelEditTodo() {
+    setEditingTodo(null);
+  }
+
+  async function saveTodoEdit() {
+    const draft = editingTodo();
+    if (!draft) {
+      return;
+    }
+
+    await run(async () => {
+      setTodos(
+        await updateTodoItem(draft.id, {
+          title: draft.title,
+          scheduledDate: draft.scheduledDate,
+          scheduledTime: draft.scheduledTime,
+          importanceKey: draft.importanceKey,
+        })
+      );
+      setEditingTodo(null);
+      showMessage("待办已更新。", "success");
+    }, "正在保存…");
   }
 
   async function toggleTodo(id: number) {
@@ -458,10 +580,91 @@ function MainShell() {
     }, "正在收起…");
   }
 
+  async function loadBackups() {
+    setBackupLoadState("loading");
+    setBackupLoadError("");
+    try {
+      const nextBackups = await listAppBackups();
+      setBackups(nextBackups);
+      setSelectedBackupFile((current) =>
+        nextBackups.some((backup) => backup.fileName === current)
+          ? current
+          : nextBackups[0]?.fileName ?? ""
+      );
+      setBackupLoadState("ready");
+    } catch (error) {
+      setBackupLoadState("error");
+      setBackupLoadError(getErrorMessage(error));
+    }
+  }
+
+  function changeView(view: AppView) {
+    setActiveView(view);
+    if (view === "settings") {
+      void loadBackups();
+    }
+  }
+
+  async function createBackup() {
+    await run(async () => {
+      const result = await exportAppBackup();
+      setLastBackupPath(result.filePath);
+      await loadBackups();
+      showMessage("备份已保存到本机。", "success");
+    }, "正在导出…");
+  }
+
+  async function restoreBackup() {
+    const fileName = selectedBackupFile();
+    if (!fileName) {
+      showMessage("请先选择一份备份。", "error");
+      return;
+    }
+    if (!window.confirm("导入备份会替换当前待办、记录和计时状态，是否继续？")) {
+      return;
+    }
+
+    await run(async () => {
+      const result = await importAppBackup(fileName);
+      await loadFromStorage();
+      await loadBackups();
+      showMessage(`已恢复 ${result.todoCount} 项待办和 ${result.focusRecordCount} 条记录。`, "success");
+    }, "正在恢复…");
+  }
+
+  async function clearAllData() {
+    if (!window.confirm("这会清空当前待办、专注记录和未完成计时，但不会删除备份。是否继续？")) {
+      return;
+    }
+
+    await run(async () => {
+      await clearAppData();
+      await loadFromStorage();
+      showMessage("本地数据已清空，已有备份仍然保留。", "success");
+    }, "正在清空…");
+  }
+
   function useTodoForFocus(item: TodoItem) {
     setLinkedTodoId(item.id);
     setSessionTitle(item.title);
     setActiveView("focus");
+  }
+
+  async function changeCompletionPreference(value: boolean) {
+    setCompleteLinkedTodo(value);
+    if (!isFocusFloatingWindow) {
+      return;
+    }
+
+    await run(async () => {
+      applyTimerSnapshot(
+        await updateTimerContext(
+          timer().activeTaskTitle,
+          timer().linkedTodoId,
+          value
+        )
+      );
+    }, "正在更新…");
   }
 
   onMount(() => {
@@ -477,12 +680,22 @@ function MainShell() {
 
       interval = window.setInterval(
         () => {
+          if (busy()) {
+            return;
+          }
+
           const hadSyncError = Boolean(syncError());
           void refresh()
-            .then(() => {
+            .then((refreshed) => {
+              if (!refreshed) {
+                return;
+              }
               setLoadState("ready");
               setLoadError("");
               setSyncError("");
+              if (messageKind() === "error") {
+                clearMessage();
+              }
             })
             .catch((error) => {
               const text = getErrorMessage(error);
@@ -589,6 +802,18 @@ function MainShell() {
             </button>
           </div>
         </Show>
+        <Show when={timer().linkedTodoId !== null}>
+          <label class="linked-todo-option linked-todo-option--floating">
+            <input
+              type="checkbox"
+              name="completeLinkedTodoFloating"
+              checked={timer().completeLinkedTodoOnFinish}
+              disabled={busy()}
+              onChange={(event) => void changeCompletionPreference(event.currentTarget.checked)}
+            />
+            <span>完成后标记待办</span>
+          </label>
+        </Show>
         <div class="focus-floating__controls">
           <button
             type="button"
@@ -672,7 +897,7 @@ function MainShell() {
                   <span class="floating-check" aria-hidden="true" />
                   <span class="floating-todo__copy">
                     <strong>{item.title}</strong>
-                    <small>{formatDueDate(item.scheduledDate)}</small>
+                    <small>{formatTodoDue(item)}</small>
                   </span>
                 </button>
               )}
@@ -735,14 +960,16 @@ function MainShell() {
           <button
             type="button"
             classList={{ active: activeView() === "focus" }}
-            onClick={() => setActiveView("focus")}
+            aria-current={activeView() === "focus" ? "page" : undefined}
+            onClick={() => changeView("focus")}
           >
             计时
           </button>
           <button
             type="button"
             classList={{ active: activeView() === "todos" }}
-            onClick={() => setActiveView("todos")}
+            aria-current={activeView() === "todos" ? "page" : undefined}
+            onClick={() => changeView("todos")}
           >
             待办
             <span>{pendingTodos().length}</span>
@@ -750,13 +977,22 @@ function MainShell() {
           <button
             type="button"
             classList={{ active: activeView() === "records" }}
-            onClick={() => setActiveView("records")}
+            aria-current={activeView() === "records" ? "page" : undefined}
+            onClick={() => changeView("records")}
           >
             记录
           </button>
+          <button
+            type="button"
+            classList={{ active: activeView() === "settings" }}
+            aria-current={activeView() === "settings" ? "page" : undefined}
+            onClick={() => changeView("settings")}
+          >
+            设置
+          </button>
         </nav>
 
-        <section class="minimal-content" aria-busy={busy()}>
+        <section class="minimal-content" aria-busy={busy() || loadState() === "loading"}>
           <Show when={syncError()}>
             <div class="sync-error" role="status" aria-live="polite">
               <span>本地数据暂时没有刷新成功。</span>
@@ -812,6 +1048,7 @@ function MainShell() {
                 <button
                   type="button"
                   classList={{ active: timer().modeKey === "stopwatch" }}
+                  aria-pressed={timer().modeKey === "stopwatch"}
                   disabled={busy() || !ready() || timerHasProgress()}
                   onClick={() => void changeMode("stopwatch")}
                 >
@@ -820,6 +1057,7 @@ function MainShell() {
                 <button
                   type="button"
                   classList={{ active: timer().modeKey === "countdown" }}
+                  aria-pressed={timer().modeKey === "countdown"}
                   disabled={busy() || !ready() || timerHasProgress()}
                   onClick={() => void changeMode("countdown")}
                 >
@@ -883,6 +1121,19 @@ function MainShell() {
                 </label>
               </div>
 
+              <Show when={linkedTodoId() !== null}>
+                <label class="linked-todo-option">
+                  <input
+                    type="checkbox"
+                    name="completeLinkedTodo"
+                    checked={completeLinkedTodo()}
+                    disabled={busy() || !ready() || timerHasProgress()}
+                    onChange={(event) => setCompleteLinkedTodo(event.currentTarget.checked)}
+                  />
+                  <span>本轮完成后同时标记关联待办</span>
+                </label>
+              </Show>
+
               <div class="timer-readout">
                 <span>{timer().status}</span>
                 <strong>{timer().elapsedLabel}</strong>
@@ -938,28 +1189,54 @@ function MainShell() {
               </div>
 
               <div class="todo-create">
-                <input
-                  type="text"
-                  name="todoTitle"
-                  autocomplete="off"
-                  value={todoTitle()}
-                  placeholder="例如：完成项目方案…"
-                  onInput={(event) => setTodoTitle(event.currentTarget.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      void addTodo();
-                    }
-                  }}
-                />
+                <label>
+                  <span>待办事项</span>
+                  <input
+                    type="text"
+                    name="todoTitle"
+                    autocomplete="off"
+                    value={todoTitle()}
+                    placeholder="例如：完成项目方案…"
+                    onInput={(event) => setTodoTitle(event.currentTarget.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        void addTodo();
+                      }
+                    }}
+                  />
+                </label>
                 <label>
                   <span>截止日期</span>
                   <input
                     type="date"
                     name="todoDueDate"
+                    autocomplete="off"
                     value={todoDueDate()}
                     onInput={(event) => setTodoDueDate(event.currentTarget.value)}
                   />
+                </label>
+                <label>
+                  <span>时间（可选）</span>
+                  <input
+                    type="time"
+                    name="todoDueTime"
+                    autocomplete="off"
+                    value={todoDueTime()}
+                    onInput={(event) => setTodoDueTime(event.currentTarget.value)}
+                  />
+                </label>
+                <label>
+                  <span>重要程度</span>
+                  <select
+                    name="todoImportance"
+                    value={todoImportance()}
+                    onChange={(event) => setTodoImportance(event.currentTarget.value as TodoImportance)}
+                  >
+                    <option value="high">高</option>
+                    <option value="medium">中</option>
+                    <option value="low">低</option>
+                  </select>
                 </label>
                 <button
                   type="button"
@@ -982,35 +1259,107 @@ function MainShell() {
                   <For each={pendingTodos()}>
                     {(item) => (
                       <article classList={{ "todo-row": true, "todo-row--overdue": isOverdue(item.scheduledDate) }}>
-                        <button
-                          type="button"
-                          class="todo-check"
-                          title="标记完成"
-                          aria-label={`标记“${item.title}”完成`}
-                          disabled={busy()}
-                          onClick={() => void toggleTodo(item.id)}
-                        />
-                        <div>
-                          <strong title={item.title}>{item.title}</strong>
-                          <small>{formatDueDate(item.scheduledDate)}</small>
-                        </div>
-                        <button
-                          type="button"
-                          class="row-action"
-                          disabled={busy() || timerHasProgress()}
-                          onClick={() => useTodoForFocus(item)}
+                        <Show
+                          when={editingTodo()?.id === item.id}
+                          fallback={
+                            <>
+                              <button
+                                type="button"
+                                class="todo-check"
+                                title="标记完成"
+                                aria-label={`标记“${item.title}”完成`}
+                                disabled={busy()}
+                                onClick={() => void toggleTodo(item.id)}
+                              />
+                              <div>
+                                <strong title={item.title}>{item.title}</strong>
+                                <small>
+                                  {formatTodoDue(item)} · 重要程度：{importanceLabel(item.importanceKey)}
+                                </small>
+                              </div>
+                              <div class="todo-row__actions">
+                                <button
+                                  type="button"
+                                  class="row-action"
+                                  disabled={busy()}
+                                  onClick={() => beginEditTodo(item)}
+                                >
+                                  编辑
+                                </button>
+                                <button
+                                  type="button"
+                                  class="row-action"
+                                  disabled={busy() || timerHasProgress()}
+                                  onClick={() => useTodoForFocus(item)}
+                                >
+                                  专注
+                                </button>
+                                <button
+                                  type="button"
+                                  class="row-action row-action--danger"
+                                  title="删除待办"
+                                  disabled={busy()}
+                                  onClick={() => void removeTodo(item.id)}
+                                >
+                                  删除
+                                </button>
+                              </div>
+                            </>
+                          }
                         >
-                          专注
-                        </button>
-                        <button
-                          type="button"
-                          class="row-action row-action--danger"
-                          title="删除待办"
-                          disabled={busy()}
-                          onClick={() => void removeTodo(item.id)}
-                        >
-                          删除
-                        </button>
+                          <div class="todo-edit-form">
+                            <label>
+                              <span>待办事项</span>
+                              <input
+                                type="text"
+                                name={`editTodoTitle-${item.id}`}
+                                autocomplete="off"
+                                value={editingTodo()?.title ?? ""}
+                                onInput={(event) => patchEditingTodo({ title: event.currentTarget.value })}
+                              />
+                            </label>
+                            <label>
+                              <span>截止日期</span>
+                              <input
+                                type="date"
+                                name={`editTodoDate-${item.id}`}
+                                autocomplete="off"
+                                value={editingTodo()?.scheduledDate ?? ""}
+                                onInput={(event) => patchEditingTodo({ scheduledDate: event.currentTarget.value })}
+                              />
+                            </label>
+                            <label>
+                              <span>时间</span>
+                              <input
+                                type="time"
+                                name={`editTodoTime-${item.id}`}
+                                autocomplete="off"
+                                value={editingTodo()?.scheduledTime ?? ""}
+                                onInput={(event) => patchEditingTodo({ scheduledTime: event.currentTarget.value })}
+                              />
+                            </label>
+                            <label>
+                              <span>重要程度</span>
+                              <select
+                                name={`editTodoImportance-${item.id}`}
+                                value={editingTodo()?.importanceKey ?? "medium"}
+                                onChange={(event) => patchEditingTodo({ importanceKey: event.currentTarget.value as TodoImportance })}
+                              >
+                                <option value="high">高</option>
+                                <option value="medium">中</option>
+                                <option value="low">低</option>
+                              </select>
+                            </label>
+                            <div class="todo-edit-form__actions">
+                              <button type="button" class="primary-button" disabled={busy()} onClick={() => void saveTodoEdit()}>
+                                保存
+                              </button>
+                              <button type="button" class="text-button" disabled={busy()} onClick={cancelEditTodo}>
+                                取消
+                              </button>
+                            </div>
+                          </div>
+                        </Show>
                       </article>
                     )}
                   </For>
@@ -1025,18 +1374,125 @@ function MainShell() {
                   <span>已完成</span>
                   <For each={completedTodos()}>
                     {(item) => (
-                      <button
-                        type="button"
-                        class="completed-row"
-                        disabled={busy()}
-                        onClick={() => void toggleTodo(item.id)}
-                      >
-                        {item.title}
-                      </button>
+                      <div class="completed-row">
+                        <button
+                          type="button"
+                          class="completed-row__title"
+                          disabled={busy()}
+                          onClick={() => void toggleTodo(item.id)}
+                        >
+                          {item.title}
+                        </button>
+                        <button
+                          type="button"
+                          class="row-action"
+                          disabled={busy()}
+                          onClick={() => void toggleTodo(item.id)}
+                        >
+                          恢复
+                        </button>
+                        <button
+                          type="button"
+                          class="row-action row-action--danger"
+                          disabled={busy()}
+                          onClick={() => void removeTodo(item.id)}
+                        >
+                          删除
+                        </button>
+                      </div>
                     )}
                   </For>
                 </section>
               </Show>
+            </section>
+          </Show>
+
+          <Show when={activeView() === "settings"}>
+            <section class="settings-page">
+              <div class="page-heading">
+                <span>设置</span>
+                <h1>数据留在你手里</h1>
+              </div>
+
+              <section class="settings-section">
+                <div class="settings-section__heading">
+                  <h2>本地备份</h2>
+                  <p>备份包含待办、专注记录和当前未完成的计时状态，只保存在这台电脑上。</p>
+                </div>
+                <div class="settings-actions">
+                  <button type="button" class="primary-button" disabled={busy()} onClick={() => void createBackup()}>
+                    {busy() ? busyLabel() : "导出备份"}
+                  </button>
+                  <button
+                    type="button"
+                    class="secondary-button"
+                    disabled={busy()}
+                    onClick={() => void run(async () => {
+                      await openAppBackupFolder();
+                      showMessage("已打开备份目录。", "success");
+                    }, "正在打开…")}
+                  >
+                    打开备份目录
+                  </button>
+                </div>
+                <Show when={lastBackupPath()}>
+                  <p class="settings-path">最近备份：{lastBackupPath()}</p>
+                </Show>
+              </section>
+
+              <section class="settings-section">
+                <div class="settings-section__heading">
+                  <h2>恢复备份</h2>
+                  <p>导入会替换当前数据。应用会先自动保存一份回滚备份。</p>
+                </div>
+                <Show when={backupLoadState() === "loading"}>
+                  <p class="load-copy">正在读取备份列表…</p>
+                </Show>
+                <Show when={backupLoadState() === "error"}>
+                  <div class="load-error">
+                    <strong>备份列表读取失败</strong>
+                    <span>{backupLoadError()}</span>
+                    <button type="button" class="secondary-button" disabled={busy()} onClick={() => void loadBackups()}>
+                      重试读取
+                    </button>
+                  </div>
+                </Show>
+                <Show when={backupLoadState() === "ready" && backups().length > 0}>
+                  <label class="settings-select">
+                    <span>选择备份</span>
+                    <select
+                      name="backupFile"
+                      value={selectedBackupFile()}
+                      disabled={busy()}
+                      onChange={(event) => setSelectedBackupFile(event.currentTarget.value)}
+                    >
+                      <For each={backups()}>
+                        {(backup) => (
+                          <option value={backup.fileName}>
+                            {formatBackupDate(backup.exportedAt)} · {backup.todoCount} 项待办 · {backup.focusRecordCount} 条记录
+                          </option>
+                        )}
+                      </For>
+                    </select>
+                  </label>
+                  <button type="button" class="secondary-button" disabled={busy() || !selectedBackupFile()} onClick={() => void restoreBackup()}>
+                    导入并替换当前数据
+                  </button>
+                </Show>
+                <Show when={backupLoadState() === "ready" && backups().length === 0}>
+                  <p class="empty-copy">还没有备份。建议在更换电脑或清理数据前先导出一份。</p>
+                </Show>
+              </section>
+
+              <section class="settings-section settings-section--danger">
+                <div class="settings-section__heading">
+                  <h2>清空当前数据</h2>
+                  <p>只清空当前待办、记录和未完成计时，不会删除已经导出的备份。</p>
+                </div>
+                <button type="button" class="secondary-button" disabled={busy()} onClick={() => void clearAllData()}>
+                  清空当前数据
+                </button>
+              </section>
             </section>
           </Show>
 
@@ -1071,6 +1527,25 @@ function MainShell() {
                     </div>
                   </section>
                 )}
+              </Show>
+              <Show when={recentBreakdown().length > 0}>
+                <section class="records-trend" aria-label="最近七天专注趋势">
+                  <div class="records-trend__heading">
+                    <h2>最近投入</h2>
+                    <span>按天查看最近 7 天的专注时长</span>
+                  </div>
+                  <For each={recentBreakdown()}>
+                    {(day) => (
+                      <div class="trend-row">
+                        <span>{formatAnalyticsDate(day.date)}</span>
+                        <div class="trend-bar" aria-hidden="true">
+                          <span style={{ width: `${Math.max(8, (day.totalDurationMs / maxDailyDuration()) * 100)}%` }} />
+                        </div>
+                        <strong>{day.totalDurationLabel}</strong>
+                      </div>
+                    )}
+                  </For>
+                </section>
               </Show>
               <div class="record-list">
                 <Show when={loadState() === "loading"}>

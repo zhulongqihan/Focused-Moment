@@ -2,10 +2,11 @@
 
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, HashSet};
+use std::process::Command;
 use std::sync::Mutex;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use chrono::Local;
+use chrono::{Local, NaiveDate, NaiveTime};
 use serde::{Deserialize, Serialize};
 use storage::{AppBackupFile, PersistedRuntimeState, PersistedState, PersistenceStore};
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
@@ -26,8 +27,9 @@ const MAX_STOPWATCH_REMINDER_MINUTES: u64 = 12 * 60;
 const DEFAULT_COUNTDOWN_MINUTES: u64 = 25;
 const MIN_COUNTDOWN_MINUTES: u64 = 1;
 const MAX_COUNTDOWN_MINUTES: u64 = 12 * 60;
-const APP_VERSION: &str = "1.9.3";
-const APP_MILESTONE: &str = "v1.9.3 \u{4f53}\u{9a8c}\u{53cd}\u{9988}\u{4e0e}\u{590d}\u{76d8}\u{7248}";
+const MAX_TODO_TITLE_CHARS: usize = 200;
+const APP_VERSION: &str = "1.10.0";
+const APP_MILESTONE: &str = "v1.10.0 \u{4f53}\u{9a8c}\u{95ed}\u{73af}\u{4e0e}\u{6570}\u{636e}\u{638c}\u{63a7}\u{7248}";
 const APP_BACKUP_KIND: &str = "focused-moment-backup";
 const APP_BACKUP_FORMAT_VERSION: u64 = 1;
 
@@ -91,6 +93,7 @@ struct TimerSnapshot {
     can_complete_session: bool,
     active_task_title: String,
     linked_todo_id: Option<u64>,
+    complete_linked_todo_on_finish: bool,
     current_round: u64,
     completed_focus_count: u64,
     completed_break_count: u64,
@@ -279,6 +282,7 @@ struct FocusRecord {
 struct CompletionPayload {
     timer_snapshot: TimerSnapshot,
     records: Vec<FocusRecord>,
+    todo_items: Vec<TodoItem>,
 }
 
 #[derive(Clone, Serialize)]
@@ -413,6 +417,7 @@ struct TimerEngine {
     pending_pomodoro_record_ms: Option<u64>,
     current_task_title: String,
     linked_todo_id: Option<u64>,
+    complete_linked_todo_on_finish: bool,
     completed_focus_count: u64,
     completed_break_count: u64,
     recovered_from_last_session: bool,
@@ -431,6 +436,7 @@ struct CompletedSession {
     phase_label: &'static str,
     task_title: String,
     linked_todo_id: Option<u64>,
+    complete_linked_todo_on_finish: bool,
 }
 
 impl TimerEngineState {
@@ -772,6 +778,7 @@ impl TimerEngine {
             pending_pomodoro_record_ms: runtime.pending_pomodoro_record_ms,
             current_task_title: runtime.current_task_title,
             linked_todo_id: runtime.linked_todo_id,
+            complete_linked_todo_on_finish: runtime.complete_linked_todo_on_finish,
             completed_focus_count: runtime.completed_focus_count,
             completed_break_count: runtime.completed_break_count,
             pomodoro_focus_ms: preferences.pomodoro_focus_ms(),
@@ -809,6 +816,7 @@ impl TimerEngine {
                 .map(|anchor| system_time_to_epoch_ms(anchor.wall_clock)),
             current_task_title: self.current_task_title.clone(),
             linked_todo_id: self.linked_todo_id,
+            complete_linked_todo_on_finish: self.complete_linked_todo_on_finish,
             completed_focus_count: self.completed_focus_count,
             completed_break_count: self.completed_break_count,
             alert_sequence: self.alert_sequence,
@@ -834,14 +842,21 @@ impl TimerEngine {
         }
     }
 
-    fn update_context(&mut self, title: String, linked_todo_id: Option<u64>) {
+    fn update_context(
+        &mut self,
+        title: String,
+        linked_todo_id: Option<u64>,
+        complete_linked_todo_on_finish: bool,
+    ) {
         self.current_task_title = title;
         self.linked_todo_id = linked_todo_id;
+        self.complete_linked_todo_on_finish = complete_linked_todo_on_finish;
     }
 
     fn clear_context(&mut self) {
         self.current_task_title.clear();
         self.linked_todo_id = None;
+        self.complete_linked_todo_on_finish = false;
     }
 
     fn clear_recovery_flag(&mut self) {
@@ -976,6 +991,7 @@ impl TimerEngine {
 
                 let task_title = self.current_task_title.clone();
                 let linked_todo_id = self.linked_todo_id;
+                let complete_linked_todo_on_finish = self.complete_linked_todo_on_finish;
                 self.stopwatch_elapsed_ms = 0;
                 self.running_anchor = None;
                 self.clear_context();
@@ -990,6 +1006,7 @@ impl TimerEngine {
                     phase_label: "\u{6b63}\u{5411}\u{8ba1}\u{65f6}",
                     task_title,
                     linked_todo_id,
+                    complete_linked_todo_on_finish,
                 })
             }
             TimerMode::Countdown => {
@@ -1000,6 +1017,7 @@ impl TimerEngine {
 
                 let task_title = self.current_task_title.clone();
                 let linked_todo_id = self.linked_todo_id;
+                let complete_linked_todo_on_finish = self.complete_linked_todo_on_finish;
                 self.countdown_elapsed_ms = 0;
                 self.running_anchor = None;
                 self.clear_context();
@@ -1014,6 +1032,7 @@ impl TimerEngine {
                     phase_label: "倒计时",
                     task_title,
                     linked_todo_id,
+                    complete_linked_todo_on_finish,
                 })
             }
             TimerMode::Pomodoro => {
@@ -1026,6 +1045,7 @@ impl TimerEngine {
                         phase_label: "\u{756a}\u{8304}\u{4e13}\u{6ce8}",
                         task_title: self.current_task_title.clone(),
                         linked_todo_id: self.linked_todo_id,
+                        complete_linked_todo_on_finish: self.complete_linked_todo_on_finish,
                     });
                 }
 
@@ -1046,6 +1066,7 @@ impl TimerEngine {
 
                 let task_title = self.current_task_title.clone();
                 let linked_todo_id = self.linked_todo_id;
+                let complete_linked_todo_on_finish = self.complete_linked_todo_on_finish;
                 self.pomodoro_elapsed_ms = 0;
                 self.pomodoro_phase = PomodoroPhase::Break;
                 self.running_anchor = None;
@@ -1061,6 +1082,7 @@ impl TimerEngine {
                     phase_label: "\u{756a}\u{8304}\u{4e13}\u{6ce8}",
                     task_title,
                     linked_todo_id,
+                    complete_linked_todo_on_finish,
                 })
             }
         }
@@ -1103,6 +1125,7 @@ impl TimerEngine {
             can_complete_session: true,
             active_task_title: self.current_task_title.clone(),
             linked_todo_id: self.linked_todo_id,
+            complete_linked_todo_on_finish: self.complete_linked_todo_on_finish,
             current_round: self.current_round(),
             completed_focus_count: self.completed_focus_count,
             completed_break_count: self.completed_break_count,
@@ -1148,6 +1171,7 @@ impl TimerEngine {
             can_complete_session: true,
             active_task_title: self.current_task_title.clone(),
             linked_todo_id: self.linked_todo_id,
+            complete_linked_todo_on_finish: self.complete_linked_todo_on_finish,
             current_round: self.current_round(),
             completed_focus_count: self.completed_focus_count,
             completed_break_count: self.completed_break_count,
@@ -1208,6 +1232,7 @@ impl TimerEngine {
                 || self.pomodoro_phase == PomodoroPhase::Focus,
             active_task_title: self.current_task_title.clone(),
             linked_todo_id: self.linked_todo_id,
+            complete_linked_todo_on_finish: self.complete_linked_todo_on_finish,
             current_round: self.current_round(),
             completed_focus_count: self.completed_focus_count,
             completed_break_count: self.completed_break_count,
@@ -1403,6 +1428,8 @@ fn normalize_todo_title(title: &str) -> Result<String, String> {
     let normalized = title.trim();
     if normalized.is_empty() {
         Err("\u{4efb}\u{52a1}\u{540d}\u{79f0}\u{4e0d}\u{80fd}\u{4e3a}\u{7a7a}".to_string())
+    } else if normalized.chars().count() > MAX_TODO_TITLE_CHARS {
+        Err(format!("任务名称不能超过 {MAX_TODO_TITLE_CHARS} 个字。"))
     } else {
         Ok(normalized.to_string())
     }
@@ -1419,7 +1446,7 @@ fn normalize_scheduled_date(value: &str) -> Result<String, String> {
                 _ => ch.is_ascii_digit(),
             });
 
-    if is_valid {
+    if is_valid && NaiveDate::parse_from_str(normalized, "%Y-%m-%d").is_ok() {
         Ok(normalized.to_string())
     } else {
         Err("\u{8bf7}\u{9009}\u{62e9}\u{6709}\u{6548}\u{7684}\u{65e5}\u{671f}".to_string())
@@ -1441,7 +1468,7 @@ fn normalize_scheduled_time(value: &str) -> Result<String, String> {
                 _ => ch.is_ascii_digit(),
             });
 
-    if is_valid {
+    if is_valid && NaiveTime::parse_from_str(normalized, "%H:%M").is_ok() {
         Ok(normalized.to_string())
     } else {
         Err(
@@ -1794,6 +1821,7 @@ fn update_timer_context(
     state: tauri::State<'_, TimerEngineState>,
     title: String,
     linked_todo_id: Option<u64>,
+    complete_linked_todo_on_finish: bool,
 ) -> Result<TimerSnapshot, String> {
     if let Some(id) = linked_todo_id {
         let items = state.todo_items.lock().map_err(|_| {
@@ -1810,7 +1838,11 @@ fn update_timer_context(
     }
 
     let snapshot = with_timer_engine(&state, |engine| {
-        engine.update_context(title.trim().to_string(), linked_todo_id);
+        engine.update_context(
+            title.trim().to_string(),
+            linked_todo_id,
+            complete_linked_todo_on_finish,
+        );
         Ok(engine.snapshot())
     })?;
 
@@ -2031,6 +2063,30 @@ fn import_app_backup(
 }
 
 #[tauri::command]
+fn open_app_backup_folder(state: tauri::State<'_, TimerEngineState>) -> Result<(), String> {
+    let store = state
+        .persistence
+        .as_ref()
+        .ok_or_else(|| "当前环境暂时无法访问本地备份目录。".to_string())?;
+    let backup_dir = store.user_backup_dir()?;
+
+    #[cfg(target_os = "windows")]
+    {
+        Command::new("explorer.exe")
+            .arg(&backup_dir)
+            .spawn()
+            .map_err(|error| error.to_string())?;
+        return Ok(());
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = backup_dir;
+        Err("当前平台暂不支持打开备份目录。".to_string())
+    }
+}
+
+#[tauri::command]
 fn get_todo_items(state: tauri::State<'_, TimerEngineState>) -> Result<Vec<TodoItem>, String> {
     with_todo_items(&state, |items| {
         let mut cloned_items = items.clone();
@@ -2244,11 +2300,10 @@ fn reset_timer(state: tauri::State<'_, TimerEngineState>) -> Result<TimerSnapsho
 fn complete_focus_session(
     state: tauri::State<'_, TimerEngineState>,
     title: String,
-    linked_todo_id: Option<u64>,
 ) -> Result<CompletionPayload, String> {
     let completed_session = with_timer_engine(&state, |engine| engine.complete_focus_session())?;
     let (completed_at, completed_date, completed_time) = current_local_markers();
-    let record_linked_todo_id = linked_todo_id.or(completed_session.linked_todo_id);
+    let record_linked_todo_id = completed_session.linked_todo_id;
 
     let linked_todo_title = match record_linked_todo_id {
         Some(id) => {
@@ -2315,6 +2370,20 @@ fn complete_focus_session(
         records.clone()
     };
 
+    let todo_items = with_todo_items(&state, |items| {
+        if completed_session.complete_linked_todo_on_finish {
+            if let Some(linked_todo_id) = record_linked_todo_id {
+                if let Some(item) = items.iter_mut().find(|item| item.id == linked_todo_id) {
+                    item.is_completed = true;
+                }
+            }
+        }
+
+        let mut cloned_items = items.clone();
+        sort_todo_items(&mut cloned_items);
+        Ok(cloned_items)
+    })?;
+
     state.persist_all()?;
 
     let timer_snapshot = with_timer_engine(&state, |engine| Ok(engine.snapshot()))?;
@@ -2322,6 +2391,7 @@ fn complete_focus_session(
     Ok(CompletionPayload {
         timer_snapshot,
         records,
+        todo_items,
     })
 }
 
@@ -2647,6 +2717,31 @@ mod tests {
         assert!(timer.current_task_title.is_empty());
         assert_eq!(timer.linked_todo_id, None);
     }
+
+    #[test]
+    fn completion_preference_is_captured_before_context_is_cleared() {
+        let mut timer = TimerEngine {
+            mode: TimerMode::Stopwatch,
+            stopwatch_elapsed_ms: 90_000,
+            ..TimerEngine::default()
+        };
+
+        timer.update_context("finish the plan".to_string(), Some(7), true);
+        let completed = timer.complete_focus_session().expect("session completes");
+
+        assert_eq!(completed.linked_todo_id, Some(7));
+        assert!(completed.complete_linked_todo_on_finish);
+        assert!(!timer.complete_linked_todo_on_finish);
+    }
+
+    #[test]
+    fn todo_validation_rejects_impossible_dates_and_oversized_titles() {
+        assert!(normalize_scheduled_date("2026-02-30").is_err());
+        assert!(normalize_scheduled_time("25:61").is_err());
+        assert!(normalize_todo_title(&"x".repeat(MAX_TODO_TITLE_CHARS + 1)).is_err());
+        assert!(normalize_scheduled_date("2026-02-28").is_ok());
+        assert!(normalize_scheduled_time("09:30").is_ok());
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -2690,6 +2785,7 @@ pub fn run() {
             list_app_backups,
             export_app_backup,
             import_app_backup,
+            open_app_backup_folder,
             get_todo_items,
             create_todo_item,
             update_todo_item,

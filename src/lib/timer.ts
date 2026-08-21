@@ -50,11 +50,13 @@ export async function setCountdownMinutes(minutes: number) {
 
 export async function updateTimerContext(
   title: string,
-  linkedTodoId: number | null
+  linkedTodoId: number | null,
+  completeLinkedTodoOnFinish: boolean
 ) {
   return invoke<TimerSnapshot>("update_timer_context", {
     title,
     linkedTodoId,
+    completeLinkedTodoOnFinish,
   });
 }
 
@@ -95,11 +97,13 @@ export async function clearAppData() {
 }
 
 export async function completeFocusSession(
-  title: string,
-  linkedTodoId: number | null
+  title: string
 ) {
   return invoke<CompletionPayload>("complete_focus_session", {
     title,
-    linkedTodoId,
   });
+}
+
+export async function openAppBackupFolder() {
+  return invoke("open_app_backup_folder");
 }

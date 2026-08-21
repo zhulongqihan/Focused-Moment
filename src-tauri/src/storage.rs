@@ -21,6 +21,8 @@ pub struct PersistenceStore {
     runtime_path: PathBuf,
     state_backup_path: PathBuf,
     runtime_backup_path: PathBuf,
+    backup_dir: PathBuf,
+    legacy_backup_dir: PathBuf,
 }
 
 fn resolve_app_directory() -> Result<PathBuf, String> {
@@ -85,6 +87,8 @@ pub struct PersistedRuntimeState {
     #[serde(default)]
     pub linked_todo_id: Option<u64>,
     #[serde(default)]
+    pub complete_linked_todo_on_finish: bool,
+    #[serde(default)]
     pub completed_focus_count: u64,
     #[serde(default)]
     pub completed_break_count: u64,
@@ -105,12 +109,15 @@ impl PersistenceStore {
 
         let storage_dir = base_dir.join(STORAGE_DIR_NAME);
         fs::create_dir_all(&storage_dir).map_err(|error| error.to_string())?;
+        let legacy_backup_dir = resolve_app_directory()?.join(USER_BACKUP_DIR_NAME);
 
         Ok(Self {
             state_path: storage_dir.join(STORAGE_FILE_NAME),
             runtime_path: storage_dir.join(RUNTIME_FILE_NAME),
             state_backup_path: storage_dir.join(STATE_BACKUP_FILE_NAME),
             runtime_backup_path: storage_dir.join(RUNTIME_BACKUP_FILE_NAME),
+            backup_dir: storage_dir.join(USER_BACKUP_DIR_NAME),
+            legacy_backup_dir,
         })
     }
 
@@ -171,9 +178,8 @@ impl PersistenceStore {
     }
 
     pub fn user_backup_dir(&self) -> Result<PathBuf, String> {
-        let backup_dir = resolve_app_directory()?.join(USER_BACKUP_DIR_NAME);
-        fs::create_dir_all(&backup_dir).map_err(|error| error.to_string())?;
-        Ok(backup_dir)
+        fs::create_dir_all(&self.backup_dir).map_err(|error| error.to_string())?;
+        Ok(self.backup_dir.clone())
     }
 
     pub fn save_user_backup(
@@ -195,40 +201,59 @@ impl PersistenceStore {
         }
 
         let backup_path = self.user_backup_dir()?.join(file_name);
-        let raw = fs::read_to_string(&backup_path).map_err(|error| error.to_string())?;
+        let legacy_backup_path = self.legacy_backup_dir.join(file_name);
+        let path = if backup_path.exists() {
+            backup_path
+        } else if legacy_backup_path.exists() {
+            legacy_backup_path
+        } else {
+            return Err("找不到这份本地备份。".to_string());
+        };
+        let raw = fs::read_to_string(&path).map_err(|error| error.to_string())?;
         serde_json::from_str(&raw).map_err(|error| error.to_string())
     }
 
     pub fn list_user_backups(&self) -> Result<Vec<(String, AppBackupFile)>, String> {
-        let backup_dir = self.user_backup_dir()?;
         let mut backups = Vec::new();
+        let mut seen_names = std::collections::HashSet::new();
+        let backup_dirs = [self.user_backup_dir()?, self.legacy_backup_dir.clone()];
 
-        for entry in fs::read_dir(&backup_dir).map_err(|error| error.to_string())? {
-            let entry = entry.map_err(|error| error.to_string())?;
-            let path = entry.path();
-            if !path.is_file() {
+        for backup_dir in backup_dirs {
+            if !backup_dir.exists() {
                 continue;
             }
 
-            let Some(file_name) = path.file_name().and_then(|value| value.to_str()) else {
-                continue;
-            };
+            for entry in fs::read_dir(&backup_dir).map_err(|error| error.to_string())? {
+                let entry = entry.map_err(|error| error.to_string())?;
+                let path = entry.path();
+                if !path.is_file() {
+                    continue;
+                }
 
-            if !Self::is_supported_backup_file_name(file_name) {
-                continue;
+                let Some(file_name) = path.file_name().and_then(|value| value.to_str()) else {
+                    continue;
+                };
+
+                if !Self::is_supported_backup_file_name(file_name) {
+                    continue;
+                }
+
+                if !seen_names.insert(file_name.to_string()) {
+                    continue;
+                }
+
+                let raw = match fs::read_to_string(&path) {
+                    Ok(raw) => raw,
+                    Err(_) => continue,
+                };
+
+                let backup = match serde_json::from_str::<AppBackupFile>(&raw) {
+                    Ok(backup) => backup,
+                    Err(_) => continue,
+                };
+
+                backups.push((file_name.to_string(), backup));
             }
-
-            let raw = match fs::read_to_string(&path) {
-                Ok(raw) => raw,
-                Err(_) => continue,
-            };
-
-            let backup = match serde_json::from_str::<AppBackupFile>(&raw) {
-                Ok(backup) => backup,
-                Err(_) => continue,
-            };
-
-            backups.push((file_name.to_string(), backup));
         }
 
         backups.sort_by(|left, right| right.0.cmp(&left.0));

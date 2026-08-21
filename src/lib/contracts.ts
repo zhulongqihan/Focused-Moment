@@ -30,6 +30,7 @@ export interface TimerSnapshot {
   canCompleteSession: boolean;
   activeTaskTitle: string;
   linkedTodoId: number | null;
+  completeLinkedTodoOnFinish: boolean;
   currentRound: number;
   completedFocusCount: number;
   completedBreakCount: number;
@@ -68,6 +69,7 @@ export interface FocusRecord {
 export interface CompletionPayload {
   timerSnapshot: TimerSnapshot;
   records: FocusRecord[];
+  todoItems: TodoItem[];
 }
 
 export interface BackupListItem {
