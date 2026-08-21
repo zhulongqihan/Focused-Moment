@@ -1,4 +1,4 @@
-import { For, Show, createSignal, onCleanup, onMount } from "solid-js";
+import { For, Show, createEffect, createSignal, onCleanup, onMount } from "solid-js";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { LockKeyhole, LockKeyholeOpen } from "lucide-solid";
 import type {
@@ -53,9 +53,11 @@ import {
   unlockFloatingTodos,
   unlockFocusFloating,
 } from "./lib/window-controls";
+import CommandPalette, { type PaletteCommand } from "./components/CommandPalette";
+import TodayDashboard from "./components/TodayDashboard";
 import "./App.css";
 
-type AppView = "focus" | "todos" | "records" | "settings";
+type AppView = "today" | "focus" | "todos" | "records" | "settings";
 type TimerMode = "stopwatch" | "countdown";
 type LoadState = "loading" | "ready" | "error";
 type UndoAction =
@@ -223,7 +225,7 @@ function importanceLabel(value: TodoImportance) {
 }
 
 function MainShell() {
-  const [activeView, setActiveView] = createSignal<AppView>("focus");
+  const [activeView, setActiveView] = createSignal<AppView>("today");
   const [timer, setTimer] = createSignal<TimerSnapshot>(emptyTimerSnapshot);
   const [todos, setTodos] = createSignal<TodoItem[]>([]);
   const [records, setRecords] = createSignal<FocusRecord[]>([]);
@@ -242,6 +244,8 @@ function MainShell() {
   const [backupLoadError, setBackupLoadError] = createSignal("");
   const [selectedBackupFile, setSelectedBackupFile] = createSignal("");
   const [lastBackupPath, setLastBackupPath] = createSignal("");
+  const [commandPaletteOpen, setCommandPaletteOpen] = createSignal(false);
+  const [commandSearch, setCommandSearch] = createSignal("");
   const [busy, setBusy] = createSignal(false);
   const [busyLabel, setBusyLabel] = createSignal("");
   const [message, setMessage] = createSignal("");
@@ -251,12 +255,19 @@ function MainShell() {
   const [syncError, setSyncError] = createSignal("");
   const [undoAction, setUndoAction] = createSignal<UndoAction | null>(null);
   let undoTimer: number | undefined;
+  let commandInput: HTMLInputElement | undefined;
+  let commandTrigger: HTMLButtonElement | undefined;
   let refreshVersion = 0;
 
   const ready = () => loadState() === "ready";
 
   const pendingTodos = () => sortTodos(todos()).filter((item) => !item.isCompleted);
   const completedTodos = () => sortTodos(todos()).filter((item) => item.isCompleted);
+  const todayTodos = () => pendingTodos().filter((item) => item.scheduledDate === getToday());
+  const todayCompletedTodos = () =>
+    completedTodos().filter((item) => item.scheduledDate === getToday());
+  const nextTodo = () => pendingTodos()[0] ?? null;
+  const selectedBackup = () => backups().find((backup) => backup.fileName === selectedBackupFile()) ?? null;
   const recentBreakdown = () => (analytics()?.dailyBreakdown ?? []).slice(0, 7);
   const maxDailyDuration = () =>
     Math.max(1, ...recentBreakdown().map((day) => day.totalDurationMs));
@@ -265,6 +276,17 @@ function MainShell() {
   const activeTitle = () => sessionTitle().trim() || selectedTodo()?.title || "未命名事项";
   const timerHasProgress = () => timer().isRunning || timer().elapsedMs > 0;
   const canFinish = () => timer().elapsedMs > 0 && timer().canCompleteSession;
+  const paletteCommands = (): PaletteCommand[] => [
+    { id: "today", label: "打开今日驾驶舱", detail: "查看当前状态、下一件事和今日进展" },
+    { id: "focus", label: "打开完整计时", detail: "进入模式、任务和计时控制" },
+    { id: "todos", label: "打开待办", detail: "管理、编辑和排序待办" },
+    { id: "records", label: "打开记录", detail: "查看趋势和专注记录" },
+    { id: "settings", label: "打开设置", detail: "管理本地备份和数据" },
+    { id: "start", label: "开始下一件事", detail: "把最早的未完成待办带入专注", shortcut: "Enter" },
+    { id: "pause", label: "暂停当前专注", detail: "保留当前进度，稍后继续" },
+    { id: "finish", label: "完成并记录当前专注", detail: "保存这一轮并回到可继续的状态" },
+    { id: "backup", label: "导出本地备份", detail: "把当前待办、记录和运行态保存下来" },
+  ];
 
   function showMessage(text: string, kind: FeedbackKind = "info") {
     setMessage(text);
@@ -628,7 +650,12 @@ function MainShell() {
       const result = await importAppBackup(fileName);
       await loadFromStorage();
       await loadBackups();
-      showMessage(`已恢复 ${result.todoCount} 项待办和 ${result.focusRecordCount} 条记录。`, "success");
+      showMessage(
+        result.migratedFromFormatVersion
+          ? `已升级旧版备份，并恢复 ${result.todoCount} 项待办和 ${result.focusRecordCount} 条记录。`
+          : `已恢复 ${result.todoCount} 项待办和 ${result.focusRecordCount} 条记录。`,
+        "success"
+      );
     }, "正在恢复…");
   }
 
@@ -650,6 +677,26 @@ function MainShell() {
     setActiveView("focus");
   }
 
+  async function startNextTodo() {
+    if (timerHasProgress()) {
+      setActiveView("focus");
+      showMessage("当前还有一轮专注，请先继续、完成或重置。", "info");
+      return;
+    }
+
+    const item = nextTodo();
+    if (!item) {
+      setActiveView("todos");
+      showMessage("先写下一件要完成的事，再从这里开始专注。", "info");
+      return;
+    }
+
+    setLinkedTodoId(item.id);
+    setSessionTitle(item.title);
+    setActiveView("focus");
+    await startFocus();
+  }
+
   async function changeCompletionPreference(value: boolean) {
     setCompleteLinkedTodo(value);
     if (!isFocusFloatingWindow) {
@@ -667,12 +714,94 @@ function MainShell() {
     }, "正在更新…");
   }
 
+  function closeCommandPalette() {
+    setCommandPaletteOpen(false);
+    setCommandSearch("");
+    queueMicrotask(() => commandTrigger?.focus());
+  }
+
+  function openCommandPalette() {
+    setCommandPaletteOpen(true);
+    setCommandSearch("");
+  }
+
+  function executePaletteCommand(commandId: string) {
+    closeCommandPalette();
+    switch (commandId) {
+      case "today":
+        changeView("today");
+        break;
+      case "focus":
+        changeView("focus");
+        break;
+      case "todos":
+        changeView("todos");
+        break;
+      case "records":
+        changeView("records");
+        break;
+      case "settings":
+        changeView("settings");
+        break;
+      case "start":
+        void startNextTodo();
+        break;
+      case "pause":
+        if (timer().isRunning) {
+          void pauseFocus();
+        } else {
+          showMessage("当前没有正在运行的专注。", "info");
+        }
+        break;
+      case "finish":
+        if (canFinish()) {
+          void finishFocus();
+        } else {
+          showMessage("当前还没有可以保存的专注进度。", "info");
+        }
+        break;
+      case "backup":
+        void createBackup();
+        break;
+    }
+  }
+
+  createEffect(() => {
+    if (commandPaletteOpen()) {
+      queueMicrotask(() => {
+        commandInput?.focus();
+        commandInput?.select();
+      });
+    }
+  });
+
   onMount(() => {
     if (isFloatingWindow || isUnlockWindow || isFocusFloatingWindow || isFocusUnlockWindow) {
       document.documentElement.classList.add("floating-window");
     }
 
     let interval: number | undefined;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        if (commandPaletteOpen()) {
+          closeCommandPalette();
+        } else {
+          openCommandPalette();
+        }
+        return;
+      }
+
+      if (commandPaletteOpen() && event.key === "Escape") {
+        event.preventDefault();
+        closeCommandPalette();
+      }
+    };
+
+    if (!isFloatingWindow && !isUnlockWindow && !isFocusFloatingWindow && !isFocusUnlockWindow) {
+      window.addEventListener("keydown", onKeyDown);
+    }
+
     if (!isUnlockWindow && !isFocusUnlockWindow) {
       void loadFromStorage().catch((error) => {
         showMessage(getErrorMessage(error), "error");
@@ -716,6 +845,7 @@ function MainShell() {
       if (undoTimer !== undefined) {
         window.clearTimeout(undoTimer);
       }
+      window.removeEventListener("keydown", onKeyDown);
       document.documentElement.classList.remove("floating-window");
     });
   });
@@ -912,7 +1042,14 @@ function MainShell() {
   }
 
   return (
-    <div class="minimal-app">
+    <div
+      classList={{
+        "minimal-app": true,
+        "minimal-app--running": timer().isRunning,
+        "minimal-app--paused": !timer().isRunning && timerHasProgress(),
+        "minimal-app--break": timer().phaseKey === "break",
+      }}
+    >
       <a class="skip-link" href="#main-content">跳到主要内容</a>
       <header class="app-bar">
         <div class="app-brand" data-tauri-drag-region>
@@ -920,6 +1057,18 @@ function MainShell() {
           <strong>Focused Moment</strong>
         </div>
         <div class="app-bar__actions">
+          <button
+            type="button"
+            class="command-trigger"
+            ref={(element) => (commandTrigger = element)}
+            aria-keyshortcuts="Control+K Meta+K"
+            aria-haspopup="dialog"
+            aria-expanded={commandPaletteOpen()}
+            aria-controls="command-palette-dialog"
+            onClick={openCommandPalette}
+          >
+            命令 <kbd>Ctrl K</kbd>
+          </button>
           <button
             type="button"
             class="quiet-button"
@@ -957,6 +1106,14 @@ function MainShell() {
 
         <main id="main-content" class="minimal-workspace">
         <nav class="minimal-nav" aria-label="主导航">
+          <button
+            type="button"
+            classList={{ active: activeView() === "today" }}
+            aria-current={activeView() === "today" ? "page" : undefined}
+            onClick={() => changeView("today")}
+          >
+            今日
+          </button>
           <button
             type="button"
             classList={{ active: activeView() === "focus" }}
@@ -1012,6 +1169,28 @@ function MainShell() {
                 重试读取
               </button>
             </div>
+          </Show>
+          <Show when={activeView() === "today"}>
+            <TodayDashboard
+              todayLabel={formatAnalyticsDate(getToday())}
+              timer={() => timer()}
+              ready={ready}
+              busy={busy}
+              timerHasProgress={timerHasProgress}
+              nextTodo={nextTodo}
+              todayTodos={todayTodos}
+              todayCompletedTodos={todayCompletedTodos}
+              analytics={() => analytics()}
+              formatTodoDue={formatTodoDue}
+              importanceLabel={importanceLabel}
+              onPause={() => void pauseFocus()}
+              onContinue={() => void startFocus()}
+              onFinish={() => void finishFocus()}
+              onStartNext={() => void startNextTodo()}
+              onOpenFocus={() => changeView("focus")}
+              onUseTodo={useTodoForFocus}
+              onOpenTodos={() => changeView("todos")}
+            />
           </Show>
           <Show when={activeView() === "focus"}>
             <section class="focus-page">
@@ -1469,12 +1648,30 @@ function MainShell() {
                       <For each={backups()}>
                         {(backup) => (
                           <option value={backup.fileName}>
-                            {formatBackupDate(backup.exportedAt)} · {backup.todoCount} 项待办 · {backup.focusRecordCount} 条记录
+                            {formatBackupDate(backup.exportedAt)} · {backup.todoCount} 项待办 · {backup.focusRecordCount} 条记录{backup.migrationNeeded ? " · 旧版" : ""}
                           </option>
                         )}
                       </For>
                     </select>
                   </label>
+                  <Show when={selectedBackup()}>
+                    {(backup) => (
+                      <div class="backup-preview" aria-label="备份摘要">
+                        <div>
+                          <span>备份版本</span>
+                          <strong>{backup().migrationNeeded ? "v1 · 导入时自动升级" : `v${backup().schemaVersion}`}</strong>
+                        </div>
+                        <div>
+                          <span>数据内容</span>
+                          <strong>{backup().todoCount} 项待办 · {backup().focusRecordCount} 条记录</strong>
+                        </div>
+                        <div>
+                          <span>运行中会话</span>
+                          <strong>{backup().hasRuntimeSession ? "包含" : "不包含"}</strong>
+                        </div>
+                      </div>
+                    )}
+                  </Show>
                   <button type="button" class="secondary-button" disabled={busy() || !selectedBackupFile()} onClick={() => void restoreBackup()}>
                     导入并替换当前数据
                   </button>
@@ -1502,6 +1699,34 @@ function MainShell() {
                 <span>记录</span>
                 <h1>每一轮都留得下来</h1>
               </div>
+              <Show when={analytics()}>
+                {(summary) => (
+                  <section class="records-story" aria-label="专注节奏">
+                    <div>
+                      <span>当前节奏</span>
+                      <strong>
+                        {summary().currentStreakDays > 0
+                          ? `${summary().currentStreakDays} 天连续投入`
+                          : "今天还没开始"}
+                      </strong>
+                      <p>
+                        {summary().currentStreakDays > 0
+                          ? "连续不是压力，是你已经留下的节奏。"
+                          : "完成一轮专注，今天的节奏就会从这里开始。"}
+                      </p>
+                    </div>
+                    <div>
+                      <span>最有投入的一天</span>
+                      <strong>
+                        {summary().bestFocusDate
+                          ? formatAnalyticsDate(summary().bestFocusDate!)
+                          : "还没有记录"}
+                      </strong>
+                      <p>{summary().bestFocusDurationLabel ?? "完成一轮后，这里会出现你的最高投入。"}</p>
+                    </div>
+                  </section>
+                )}
+              </Show>
               <Show when={analytics()}>
                 {(summary) => (
                   <section class="records-summary" aria-label="专注概览">
@@ -1599,6 +1824,15 @@ function MainShell() {
             )}
           </Show>
         </section>
+        <CommandPalette
+          open={commandPaletteOpen}
+          search={commandSearch}
+          commands={paletteCommands}
+          inputRef={(element) => (commandInput = element)}
+          onSearch={setCommandSearch}
+          onClose={closeCommandPalette}
+          onExecute={executePaletteCommand}
+        />
       </main>
     </div>
   );

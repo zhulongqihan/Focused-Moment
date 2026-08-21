@@ -1,6 +1,6 @@
-# Focused Moment
+# Focused Moment 2.0
 
-Focused Moment 是一个本地优先的 Windows 专注工具，只保留三件事：待办、正向计时和倒计时。
+Focused Moment 是一个本地优先的 Windows 专注工具，让用户从下一件待办快速进入专注，并在完成后留下可行动的复盘。
 
 ## 功能
 
@@ -13,7 +13,11 @@ Focused Moment 是一个本地优先的 Windows 专注工具，只保留三件�
 - 任务闭环：待办支持时间、重要程度和编辑；完成专注时可同步完成关联待办。
 - 数据掌控：支持本地备份、恢复、打开备份目录和清空当前数据。
 - 趋势复盘：记录页增加最近 7 天的专注投入趋势。
+- 今日驾驶舱：打开应用就能看到当前状态、下一件事和今天已经留下的进展。
+- Focus Arc：用克制的状态视觉表达空闲、运行、暂停、休息和恢复，不打扰专注。
+- 应用内命令面板：使用 `Ctrl/Cmd + K` 快速开始、暂停、完成专注或切换页面。
 - 本地兼容：既有待办、正向计时、番茄钟和倒计时记录都会继续保留。
+- 版本升级：v1 备份可自动迁移到 v2，恢复前会保留回滚备份并展示内容摘要。
 
 ## 日常使用
 
@@ -28,6 +32,9 @@ Focused Moment 是一个本地优先的 Windows 专注工具，只保留三件�
 ```bash
 pnpm check
 pnpm build
+pnpm test:frontend
+cargo fmt --check --manifest-path src-tauri/Cargo.toml
+cargo check --manifest-path src-tauri/Cargo.toml
 cargo test --manifest-path src-tauri/Cargo.toml
 pnpm tauri build
 pnpm export:release

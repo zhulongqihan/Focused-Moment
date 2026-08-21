@@ -11,8 +11,10 @@ const STORAGE_FILE_NAME: &str = "focused-moment-state.json";
 const RUNTIME_FILE_NAME: &str = "focused-moment-runtime.json";
 const STATE_BACKUP_FILE_NAME: &str = "focused-moment-state.backup.json";
 const RUNTIME_BACKUP_FILE_NAME: &str = "focused-moment-runtime.backup.json";
+pub const CURRENT_STORAGE_SCHEMA_VERSION: u64 = 2;
 const USER_BACKUP_DIR_NAME: &str = "Focused Moment Backups";
-const USER_BACKUP_PREFIX: &str = "focused-moment-backup-v1-";
+const USER_BACKUP_PREFIX: &str = "focused-moment-backup-v2-";
+const LEGACY_USER_BACKUP_PREFIX: &str = "focused-moment-backup-v1-";
 const USER_BACKUP_SUFFIX: &str = ".json";
 
 #[derive(Clone)]
@@ -40,6 +42,8 @@ fn resolve_app_directory() -> Result<PathBuf, String> {
 pub struct AppBackupFile {
     pub kind: String,
     pub format_version: u64,
+    #[serde(default = "legacy_schema_version")]
+    pub schema_version: u64,
     pub app_version: String,
     pub exported_at: String,
     pub state: PersistedState,
@@ -49,6 +53,8 @@ pub struct AppBackupFile {
 #[derive(Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PersistedState {
+    #[serde(default = "legacy_schema_version")]
+    pub schema_version: u64,
     #[serde(default)]
     pub focus_records: Vec<FocusRecord>,
     #[serde(default)]
@@ -64,6 +70,8 @@ pub struct PersistedState {
 #[derive(Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PersistedRuntimeState {
+    #[serde(default = "legacy_schema_version")]
+    pub schema_version: u64,
     #[serde(default)]
     pub mode_key: String,
     #[serde(default)]
@@ -98,6 +106,10 @@ pub struct PersistedRuntimeState {
     pub active_alert_key: Option<String>,
     #[serde(default)]
     pub stopwatch_target_alerted: bool,
+}
+
+fn legacy_schema_version() -> u64 {
+    1
 }
 
 impl PersistenceStore {
@@ -189,8 +201,7 @@ impl PersistenceStore {
     ) -> Result<PathBuf, String> {
         let backup_dir = self.user_backup_dir()?;
         let backup_path = backup_dir.join(file_name);
-        let serialized =
-            serde_json::to_string_pretty(backup).map_err(|error| error.to_string())?;
+        let serialized = serde_json::to_string_pretty(backup).map_err(|error| error.to_string())?;
         fs::write(&backup_path, serialized).map_err(|error| error.to_string())?;
         Ok(backup_path)
     }
@@ -261,7 +272,8 @@ impl PersistenceStore {
     }
 
     pub fn is_supported_backup_file_name(file_name: &str) -> bool {
-        file_name.starts_with(USER_BACKUP_PREFIX)
+        (file_name.starts_with(USER_BACKUP_PREFIX)
+            || file_name.starts_with(LEGACY_USER_BACKUP_PREFIX))
             && file_name.ends_with(USER_BACKUP_SUFFIX)
             && !file_name.contains(['\\', '/', ':'])
     }
@@ -271,8 +283,7 @@ impl PersistenceStore {
             return Err("无法读取当前存档，且没有可用的状态快照备份。".to_string());
         }
 
-        let raw =
-            fs::read_to_string(&self.state_backup_path).map_err(|error| error.to_string())?;
+        let raw = fs::read_to_string(&self.state_backup_path).map_err(|error| error.to_string())?;
         serde_json::from_str(&raw).map_err(|error| error.to_string())
     }
 

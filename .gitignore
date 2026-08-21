@@ -5,6 +5,7 @@ docs/
 .vscode/
 .release/
 *.log
+test-results/
 /*.exe
 /*.msi
 /Focused Moment Backups/

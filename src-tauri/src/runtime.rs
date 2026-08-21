@@ -1,4 +1,4 @@
-﻿mod storage;
+mod storage;
 
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, HashSet};
@@ -6,9 +6,12 @@ use std::process::Command;
 use std::sync::Mutex;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use chrono::{Local, NaiveDate, NaiveTime};
+use chrono::{Duration as ChronoDuration, Local, NaiveDate, NaiveTime};
 use serde::{Deserialize, Serialize};
-use storage::{AppBackupFile, PersistedRuntimeState, PersistedState, PersistenceStore};
+use storage::{
+    AppBackupFile, PersistedRuntimeState, PersistedState, PersistenceStore,
+    CURRENT_STORAGE_SCHEMA_VERSION,
+};
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Manager, PhysicalPosition, Window, WindowEvent};
@@ -28,10 +31,10 @@ const DEFAULT_COUNTDOWN_MINUTES: u64 = 25;
 const MIN_COUNTDOWN_MINUTES: u64 = 1;
 const MAX_COUNTDOWN_MINUTES: u64 = 12 * 60;
 const MAX_TODO_TITLE_CHARS: usize = 200;
-const APP_VERSION: &str = "1.10.0";
-const APP_MILESTONE: &str = "v1.10.0 \u{4f53}\u{9a8c}\u{95ed}\u{73af}\u{4e0e}\u{6570}\u{636e}\u{638c}\u{63a7}\u{7248}";
+const APP_VERSION: &str = "2.0.0";
+const APP_MILESTONE: &str = "v2.0.0 \u{4e13}\u{6ce8}\u{95ed}\u{73af}\u{7248}";
 const APP_BACKUP_KIND: &str = "focused-moment-backup";
-const APP_BACKUP_FORMAT_VERSION: u64 = 1;
+const APP_BACKUP_FORMAT_VERSION: u64 = 2;
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -227,8 +230,7 @@ impl TimerPreferences {
         }
 
         if let Some(minutes) = self.stopwatch_reminder_minutes {
-            if !(MIN_STOPWATCH_REMINDER_MINUTES..=MAX_STOPWATCH_REMINDER_MINUTES)
-                .contains(&minutes)
+            if !(MIN_STOPWATCH_REMINDER_MINUTES..=MAX_STOPWATCH_REMINDER_MINUTES).contains(&minutes)
             {
                 return Err("正向计时提醒需要在 1 到 720 分钟之间，或留空关闭。".to_string());
             }
@@ -292,6 +294,8 @@ struct BackupListItem {
     exported_at: String,
     app_version: String,
     format_version: u64,
+    schema_version: u64,
+    migration_needed: bool,
     focus_record_count: usize,
     todo_count: usize,
     has_runtime_session: bool,
@@ -313,6 +317,7 @@ struct BackupImportResult {
     focus_record_count: usize,
     todo_count: usize,
     restored_runtime_session: bool,
+    migrated_from_format_version: Option<u64>,
 }
 
 #[derive(Clone, Serialize)]
@@ -340,6 +345,9 @@ struct AnalyticsSnapshot {
     average_daily_duration_label: String,
     today_focus_duration_label: String,
     today_session_count: usize,
+    current_streak_days: usize,
+    best_focus_date: Option<String>,
+    best_focus_duration_label: Option<String>,
     daily_breakdown: Vec<DailyInsight>,
 }
 
@@ -473,8 +481,12 @@ impl TimerEngineState {
                     .ok()
             })
             .unwrap_or_default();
+        let should_migrate_persisted_storage = persisted.schema_version
+            < CURRENT_STORAGE_SCHEMA_VERSION
+            || persisted_runtime.schema_version < CURRENT_STORAGE_SCHEMA_VERSION;
 
         let PersistedState {
+            schema_version: _,
             mut focus_records,
             next_record_id,
             mut todo_items,
@@ -488,17 +500,15 @@ impl TimerEngineState {
         let normalized_preferences = timer_preferences
             .normalized()
             .unwrap_or_else(|_| TimerPreferences::default());
-        let mut timer = TimerEngine::from_persisted_runtime(
-            persisted_runtime,
-            normalized_preferences,
-        );
+        let mut timer =
+            TimerEngine::from_persisted_runtime(persisted_runtime, normalized_preferences);
         if let Some(linked_todo_id) = timer.linked_todo_id {
             if !todo_items.iter().any(|item| item.id == linked_todo_id) {
                 timer.linked_todo_id = None;
             }
         }
 
-        Self {
+        let state = Self {
             timer: Mutex::new(timer),
             timer_preferences: Mutex::new(normalized_preferences),
             next_record_id: Mutex::new(next_record_id.max(next_focus_record_id(&focus_records))),
@@ -506,11 +516,20 @@ impl TimerEngineState {
             next_todo_id: Mutex::new(next_todo_id.max(next_todo_id_value(&todo_items))),
             todo_items: Mutex::new(todo_items),
             persistence,
+        };
+
+        if should_migrate_persisted_storage {
+            if let Err(error) = state.persist_all() {
+                eprintln!("failed to migrate persisted state to schema v{CURRENT_STORAGE_SCHEMA_VERSION}: {error}");
+            }
         }
+
+        state
     }
 
     fn snapshot_state(&self) -> Result<PersistedState, String> {
         Ok(PersistedState {
+            schema_version: CURRENT_STORAGE_SCHEMA_VERSION,
             focus_records: self
                 .focus_records
                 .lock()
@@ -537,7 +556,8 @@ impl TimerEngineState {
     }
 
     fn snapshot_runtime_state(&self) -> Result<PersistedRuntimeState, String> {
-        let persisted = self.timer
+        let persisted = self
+            .timer
             .lock()
             .map_err(|_| "计时引擎状态锁定失败".to_string())?
             .persisted_runtime_state();
@@ -548,6 +568,7 @@ impl TimerEngineState {
         Ok(AppBackupFile {
             kind: APP_BACKUP_KIND.to_string(),
             format_version: APP_BACKUP_FORMAT_VERSION,
+            schema_version: CURRENT_STORAGE_SCHEMA_VERSION,
             app_version: APP_VERSION.to_string(),
             exported_at: Local::now().to_rfc3339(),
             state: self.snapshot_state()?,
@@ -556,22 +577,18 @@ impl TimerEngineState {
     }
 
     fn apply_backup_file(&self, backup: AppBackupFile) -> Result<BackupImportResult, String> {
+        let (backup, migrated_from_format_version) = migrate_backup_file(backup)?;
         let AppBackupFile {
             kind,
-            format_version,
+            format_version: _,
+            schema_version: _,
             app_version: _,
             exported_at: _,
             state,
             runtime,
         } = backup;
 
-        if kind != APP_BACKUP_KIND {
-            return Err("这不是 Focused Moment 的完整备份文件。".to_string());
-        }
-
-        if format_version != APP_BACKUP_FORMAT_VERSION {
-            return Err("当前版本暂不支持这个备份格式。".to_string());
-        }
+        debug_assert_eq!(kind, APP_BACKUP_KIND);
 
         let normalized_preferences = state
             .timer_preferences
@@ -617,7 +634,9 @@ impl TimerEngineState {
                 .next_record_id
                 .lock()
                 .map_err(|_| "记录编号状态锁定失败".to_string())?;
-            *next_record_id = state.next_record_id.max(next_focus_record_id(&focus_records));
+            *next_record_id = state
+                .next_record_id
+                .max(next_focus_record_id(&focus_records));
         }
 
         {
@@ -650,6 +669,7 @@ impl TimerEngineState {
                 || normalized_runtime.pending_pomodoro_record_ms.is_some()
                 || !normalized_runtime.current_task_title.trim().is_empty()
                 || normalized_runtime.linked_todo_id.is_some(),
+            migrated_from_format_version,
         })
     }
 
@@ -803,6 +823,7 @@ impl TimerEngine {
     fn persisted_runtime_state(&mut self) -> PersistedRuntimeState {
         self.sync_running_time();
         PersistedRuntimeState {
+            schema_version: CURRENT_STORAGE_SCHEMA_VERSION,
             mode_key: self.mode.key().to_string(),
             stopwatch_elapsed_ms: self.stopwatch_elapsed_ms,
             countdown_elapsed_ms: self.countdown_elapsed_ms,
@@ -1135,8 +1156,7 @@ impl TimerEngine {
             alert_sequence: self.alert_sequence,
             alert_key: active_alert_kind.map(|kind| kind.key()),
             alert_title: active_alert_kind.map(|kind| kind.title()),
-            alert_message: active_alert_kind
-                .map(|kind| kind.message(self.active_preferences())),
+            alert_message: active_alert_kind.map(|kind| kind.message(self.active_preferences())),
         }
     }
 
@@ -1181,8 +1201,7 @@ impl TimerEngine {
             alert_sequence: self.alert_sequence,
             alert_key: active_alert_kind.map(|kind| kind.key()),
             alert_title: active_alert_kind.map(|kind| kind.title()),
-            alert_message: active_alert_kind
-                .map(|kind| kind.message(self.active_preferences())),
+            alert_message: active_alert_kind.map(|kind| kind.message(self.active_preferences())),
         }
     }
 
@@ -1242,8 +1261,7 @@ impl TimerEngine {
             alert_sequence: self.alert_sequence,
             alert_key: active_alert_kind.map(|kind| kind.key()),
             alert_title: active_alert_kind.map(|kind| kind.title()),
-            alert_message: active_alert_kind
-                .map(|kind| kind.message(self.active_preferences())),
+            alert_message: active_alert_kind.map(|kind| kind.message(self.active_preferences())),
         }
     }
 
@@ -1319,8 +1337,7 @@ impl TimerEngine {
                         && self.pending_pomodoro_record_ms.is_none()
                     {
                         self.pending_pomodoro_record_ms = Some(phase_duration);
-                        self.completed_focus_count =
-                            self.completed_focus_count.saturating_add(1);
+                        self.completed_focus_count = self.completed_focus_count.saturating_add(1);
                         self.mark_alert(AlertKind::PomodoroFocusComplete);
                     }
                     self.pomodoro_phase = match self.pomodoro_phase {
@@ -1410,7 +1427,10 @@ fn parse_phase_key_value(value: &str) -> Result<PomodoroPhase, String> {
     match value {
         "focus" => Ok(PomodoroPhase::Focus),
         "break" => Ok(PomodoroPhase::Break),
-        _ => Err("\u{4e0d}\u{652f}\u{6301}\u{7684}\u{756a}\u{8304}\u{95f4}\u{9694}\u{9636}\u{6bb5}".to_string()),
+        _ => Err(
+            "\u{4e0d}\u{652f}\u{6301}\u{7684}\u{756a}\u{8304}\u{95f4}\u{9694}\u{9636}\u{6bb5}"
+                .to_string(),
+        ),
     }
 }
 
@@ -1607,13 +1627,33 @@ fn analytics_snapshot(records: &[FocusRecord], todo_items: &[TodoItem]) -> Analy
         .find(|day| day.date == today)
         .cloned()
         .unwrap_or(DailyInsight {
-            date: today,
+            date: today.clone(),
             total_duration_ms: 0,
             total_duration_label: format_duration_ms(0),
             session_count: 0,
             linked_session_count: 0,
             independent_session_count: 0,
         });
+
+    let active_dates = daily_breakdown
+        .iter()
+        .filter_map(|day| NaiveDate::parse_from_str(&day.date, "%Y-%m-%d").ok())
+        .collect::<HashSet<_>>();
+    let current_streak_days = NaiveDate::parse_from_str(&today, "%Y-%m-%d")
+        .ok()
+        .map(|mut date| {
+            let mut streak = 0;
+            while active_dates.contains(&date) {
+                streak += 1;
+                date -= ChronoDuration::days(1);
+            }
+            streak
+        })
+        .unwrap_or(0);
+    let best_focus_day = daily_breakdown
+        .iter()
+        .filter(|day| day.date != "未记录日期" && day.total_duration_ms > 0)
+        .max_by_key(|day| day.total_duration_ms);
 
     AnalyticsSnapshot {
         total_focus_duration_ms,
@@ -1627,7 +1667,41 @@ fn analytics_snapshot(records: &[FocusRecord], todo_items: &[TodoItem]) -> Analy
         average_daily_duration_label: format_duration_ms(average_daily_duration_ms),
         today_focus_duration_label: today_summary.total_duration_label,
         today_session_count: today_summary.session_count,
+        current_streak_days,
+        best_focus_date: best_focus_day.map(|day| day.date.clone()),
+        best_focus_duration_label: best_focus_day.map(|day| day.total_duration_label.clone()),
         daily_breakdown,
+    }
+}
+
+fn migrate_backup_file(mut backup: AppBackupFile) -> Result<(AppBackupFile, Option<u64>), String> {
+    if backup.kind != APP_BACKUP_KIND {
+        return Err("这不是 Focused Moment 的完整备份文件。".to_string());
+    }
+
+    let highest_schema_version = backup
+        .schema_version
+        .max(backup.state.schema_version)
+        .max(backup.runtime.schema_version);
+    if highest_schema_version > CURRENT_STORAGE_SCHEMA_VERSION {
+        return Err("这份备份来自更新版本，当前版本无法安全恢复。".to_string());
+    }
+
+    match backup.format_version {
+        1 => {
+            backup.format_version = APP_BACKUP_FORMAT_VERSION;
+            backup.schema_version = CURRENT_STORAGE_SCHEMA_VERSION;
+            backup.state.schema_version = CURRENT_STORAGE_SCHEMA_VERSION;
+            backup.runtime.schema_version = CURRENT_STORAGE_SCHEMA_VERSION;
+            Ok((backup, Some(1)))
+        }
+        APP_BACKUP_FORMAT_VERSION => {
+            backup.schema_version = CURRENT_STORAGE_SCHEMA_VERSION;
+            backup.state.schema_version = CURRENT_STORAGE_SCHEMA_VERSION;
+            backup.runtime.schema_version = CURRENT_STORAGE_SCHEMA_VERSION;
+            Ok((backup, None))
+        }
+        _ => Err("当前版本暂不支持这个备份格式。".to_string()),
     }
 }
 
@@ -1654,7 +1728,6 @@ fn with_focus_records<T>(
 
     f(&mut records)
 }
-
 
 fn create_backup_file_name(prefix: &str) -> String {
     let timestamp = Local::now().format("%Y%m%d-%H%M%S").to_string();
@@ -1784,9 +1857,10 @@ fn acknowledge_timer_alert(
 fn get_timer_preferences(
     state: tauri::State<'_, TimerEngineState>,
 ) -> Result<TimerPreferencesSnapshot, String> {
-    let preferences = *state.timer_preferences.lock().map_err(|_| {
-        "计时设置状态锁定失败".to_string()
-    })?;
+    let preferences = *state
+        .timer_preferences
+        .lock()
+        .map_err(|_| "计时设置状态锁定失败".to_string())?;
 
     Ok(preferences.snapshot())
 }
@@ -1799,16 +1873,18 @@ fn update_timer_preferences(
     let normalized_preferences = preferences.normalized()?;
 
     {
-        let mut engine = state.timer.lock().map_err(|_| {
-            "计时引擎状态锁定失败".to_string()
-        })?;
+        let mut engine = state
+            .timer
+            .lock()
+            .map_err(|_| "计时引擎状态锁定失败".to_string())?;
         engine.apply_preferences(normalized_preferences);
     }
 
     {
-        let mut stored_preferences = state.timer_preferences.lock().map_err(|_| {
-            "计时设置状态锁定失败".to_string()
-        })?;
+        let mut stored_preferences = state
+            .timer_preferences
+            .lock()
+            .map_err(|_| "计时设置状态锁定失败".to_string())?;
         *stored_preferences = normalized_preferences;
     }
 
@@ -1858,10 +1934,7 @@ fn switch_timer_mode(
     let next_mode = parse_mode(&mode)?;
     let snapshot = with_timer_engine(&state, |engine| {
         if engine.mode != next_mode && engine.has_unsubmitted_progress() {
-            return Err(
-                "当前计时还有未提交的进度，请先完成记录或重置后再切换模式。"
-                    .to_string(),
-            );
+            return Err("当前计时还有未提交的进度，请先完成记录或重置后再切换模式。".to_string());
         }
         engine.switch_mode(next_mode);
         Ok(engine.snapshot())
@@ -1935,9 +2008,10 @@ fn restore_focus_record(
     })?;
 
     {
-        let mut next_record_id = state.next_record_id.lock().map_err(|_| {
-            "记录编号状态锁定失败".to_string()
-        })?;
+        let mut next_record_id = state
+            .next_record_id
+            .lock()
+            .map_err(|_| "记录编号状态锁定失败".to_string())?;
         *next_record_id = (*next_record_id).max(record_id.saturating_add(1));
     }
 
@@ -1992,7 +2066,9 @@ fn clear_app_data(state: tauri::State<'_, TimerEngineState>) -> Result<(), Strin
 }
 
 #[tauri::command]
-fn list_app_backups(state: tauri::State<'_, TimerEngineState>) -> Result<Vec<BackupListItem>, String> {
+fn list_app_backups(
+    state: tauri::State<'_, TimerEngineState>,
+) -> Result<Vec<BackupListItem>, String> {
     let store = state
         .persistence
         .as_ref()
@@ -2002,13 +2078,16 @@ fn list_app_backups(state: tauri::State<'_, TimerEngineState>) -> Result<Vec<Bac
     Ok(backups
         .into_iter()
         .filter(|(_, backup)| {
-            backup.kind == APP_BACKUP_KIND && backup.format_version == APP_BACKUP_FORMAT_VERSION
+            backup.kind == APP_BACKUP_KIND
+                && matches!(backup.format_version, 1 | APP_BACKUP_FORMAT_VERSION)
         })
         .map(|(file_name, backup)| BackupListItem {
             file_name,
             exported_at: backup.exported_at,
             app_version: backup.app_version,
             format_version: backup.format_version,
+            schema_version: backup.schema_version,
+            migration_needed: backup.format_version != APP_BACKUP_FORMAT_VERSION,
             focus_record_count: backup.state.focus_records.len(),
             todo_count: backup.state.todo_items.len(),
             has_runtime_session: backup.runtime.is_running
@@ -2023,14 +2102,16 @@ fn list_app_backups(state: tauri::State<'_, TimerEngineState>) -> Result<Vec<Bac
 }
 
 #[tauri::command]
-fn export_app_backup(state: tauri::State<'_, TimerEngineState>) -> Result<BackupExportResult, String> {
+fn export_app_backup(
+    state: tauri::State<'_, TimerEngineState>,
+) -> Result<BackupExportResult, String> {
     let store = state
         .persistence
         .as_ref()
         .ok_or_else(|| "当前环境暂时无法创建本地备份。".to_string())?;
 
     let backup = state.export_backup_file()?;
-    let file_name = create_backup_file_name("focused-moment-backup-v1-");
+    let file_name = create_backup_file_name("focused-moment-backup-v2-");
     let exported_at = backup.exported_at.clone();
     let backup_path = store.save_user_backup(&file_name, &backup)?;
 
@@ -2053,7 +2134,8 @@ fn import_app_backup(
 
     let backup = store.load_user_backup(&file_name)?;
     let rollback = state.export_backup_file()?;
-    let rollback_file_name = create_backup_file_name("focused-moment-backup-v1-rollback-before-import-");
+    let rollback_file_name =
+        create_backup_file_name("focused-moment-backup-v2-rollback-before-import-");
     store.save_user_backup(&rollback_file_name, &rollback)?;
 
     let mut result = state.apply_backup_file(backup)?;
@@ -2256,9 +2338,10 @@ fn restore_todo_item(
     })?;
 
     {
-        let mut next_todo_id = state.next_todo_id.lock().map_err(|_| {
-            "任务编号状态锁定失败".to_string()
-        })?;
+        let mut next_todo_id = state
+            .next_todo_id
+            .lock()
+            .map_err(|_| "任务编号状态锁定失败".to_string())?;
         *next_todo_id = (*next_todo_id).max(item_id.saturating_add(1));
     }
 
@@ -2341,7 +2424,7 @@ fn complete_focus_session(
                 completed_task_title.to_string()
             } else {
                 linked_todo_title
-                .clone()
+                    .clone()
                     .unwrap_or_else(|| "\u{672a}\u{547d}\u{540d}\u{4e8b}\u{52a1}".to_string())
             }
         } else {
@@ -2501,7 +2584,9 @@ fn show_floating_todos(app: tauri::AppHandle) -> Result<(), String> {
         unlock_window.hide().map_err(|error| error.to_string())?;
     }
     floating_window.show().map_err(|error| error.to_string())?;
-    floating_window.set_focus().map_err(|error| error.to_string())?;
+    floating_window
+        .set_focus()
+        .map_err(|error| error.to_string())?;
     main_window.hide().map_err(|error| error.to_string())
 }
 
@@ -2517,8 +2602,12 @@ fn lock_floating_todos(app: tauri::AppHandle) -> Result<(), String> {
     let floating_position = floating_window
         .outer_position()
         .map_err(|error| error.to_string())?;
-    let floating_size = floating_window.outer_size().map_err(|error| error.to_string())?;
-    let unlock_size = unlock_window.outer_size().map_err(|error| error.to_string())?;
+    let floating_size = floating_window
+        .outer_size()
+        .map_err(|error| error.to_string())?;
+    let unlock_size = unlock_window
+        .outer_size()
+        .map_err(|error| error.to_string())?;
     let unlock_position = PhysicalPosition::new(
         floating_position.x + floating_size.width as i32 - unlock_size.width as i32 - 10,
         floating_position.y + 10,
@@ -2528,7 +2617,9 @@ fn lock_floating_todos(app: tauri::AppHandle) -> Result<(), String> {
         .set_position(unlock_position)
         .map_err(|error| error.to_string())?;
     unlock_window.show().map_err(|error| error.to_string())?;
-    unlock_window.set_focus().map_err(|error| error.to_string())?;
+    unlock_window
+        .set_focus()
+        .map_err(|error| error.to_string())?;
     floating_window
         .set_ignore_cursor_events(true)
         .map_err(|error| error.to_string())
@@ -2547,7 +2638,9 @@ fn unlock_floating_todos(app: tauri::AppHandle) -> Result<(), String> {
         unlock_window.hide().map_err(|error| error.to_string())?;
     }
     floating_window.show().map_err(|error| error.to_string())?;
-    floating_window.set_focus().map_err(|error| error.to_string())
+    floating_window
+        .set_focus()
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -2566,7 +2659,9 @@ fn show_focus_floating(app: tauri::AppHandle) -> Result<(), String> {
         unlock_window.hide().map_err(|error| error.to_string())?;
     }
     focus_window.show().map_err(|error| error.to_string())?;
-    focus_window.set_focus().map_err(|error| error.to_string())?;
+    focus_window
+        .set_focus()
+        .map_err(|error| error.to_string())?;
     main_window.hide().map_err(|error| error.to_string())
 }
 
@@ -2582,8 +2677,12 @@ fn lock_focus_floating(app: tauri::AppHandle) -> Result<(), String> {
     let floating_position = focus_window
         .outer_position()
         .map_err(|error| error.to_string())?;
-    let floating_size = focus_window.outer_size().map_err(|error| error.to_string())?;
-    let unlock_size = unlock_window.outer_size().map_err(|error| error.to_string())?;
+    let floating_size = focus_window
+        .outer_size()
+        .map_err(|error| error.to_string())?;
+    let unlock_size = unlock_window
+        .outer_size()
+        .map_err(|error| error.to_string())?;
     unlock_window
         .set_position(PhysicalPosition::new(
             floating_position.x + floating_size.width as i32 - unlock_size.width as i32 - 10,
@@ -2591,7 +2690,9 @@ fn lock_focus_floating(app: tauri::AppHandle) -> Result<(), String> {
         ))
         .map_err(|error| error.to_string())?;
     unlock_window.show().map_err(|error| error.to_string())?;
-    unlock_window.set_focus().map_err(|error| error.to_string())?;
+    unlock_window
+        .set_focus()
+        .map_err(|error| error.to_string())?;
     focus_window
         .set_ignore_cursor_events(true)
         .map_err(|error| error.to_string())
@@ -2741,6 +2842,90 @@ mod tests {
         assert!(normalize_todo_title(&"x".repeat(MAX_TODO_TITLE_CHARS + 1)).is_err());
         assert!(normalize_scheduled_date("2026-02-28").is_ok());
         assert!(normalize_scheduled_time("09:30").is_ok());
+    }
+
+    #[test]
+    fn analytics_snapshot_explains_current_streak_and_best_day() {
+        let today = Local::now().date_naive();
+        let yesterday = today - ChronoDuration::days(1);
+        let build_record = |id, date: NaiveDate, duration_ms| FocusRecord {
+            id,
+            title: format!("session-{id}"),
+            duration_ms,
+            duration_label: format_duration_ms(duration_ms),
+            mode_key: "stopwatch".to_string(),
+            mode_label: "正向计时".to_string(),
+            phase_label: "正向计时".to_string(),
+            linked_todo_id: None,
+            linked_todo_title: None,
+            completed_at: format!("{date} 12:00:00"),
+            completed_date: date.to_string(),
+            completed_time: "12:00".to_string(),
+        };
+
+        let snapshot = analytics_snapshot(
+            &[
+                build_record(1, today, 45 * 60_000),
+                build_record(2, yesterday, 30 * 60_000),
+            ],
+            &[],
+        );
+
+        assert_eq!(snapshot.current_streak_days, 2);
+        assert_eq!(snapshot.best_focus_date, Some(today.to_string()));
+        assert_eq!(
+            snapshot.best_focus_duration_label,
+            Some(format_duration_ms(45 * 60_000))
+        );
+    }
+
+    #[test]
+    fn legacy_backup_is_migrated_to_current_schema_without_data_loss() {
+        let legacy = AppBackupFile {
+            kind: APP_BACKUP_KIND.to_string(),
+            format_version: 1,
+            schema_version: 1,
+            app_version: "1.10.0".to_string(),
+            exported_at: "2026-08-21T10:00:00+08:00".to_string(),
+            state: PersistedState::default(),
+            runtime: PersistedRuntimeState::default(),
+        };
+
+        let (migrated, source_version) = migrate_backup_file(legacy).expect("migration succeeds");
+
+        assert_eq!(source_version, Some(1));
+        assert_eq!(migrated.format_version, APP_BACKUP_FORMAT_VERSION);
+        assert_eq!(migrated.schema_version, CURRENT_STORAGE_SCHEMA_VERSION);
+        assert_eq!(
+            migrated.state.schema_version,
+            CURRENT_STORAGE_SCHEMA_VERSION
+        );
+        assert_eq!(
+            migrated.runtime.schema_version,
+            CURRENT_STORAGE_SCHEMA_VERSION
+        );
+        assert_eq!(migrated.app_version, "1.10.0");
+    }
+
+    #[test]
+    fn newer_nested_backup_schema_is_rejected_before_import() {
+        let mut future_backup = AppBackupFile {
+            kind: APP_BACKUP_KIND.to_string(),
+            format_version: APP_BACKUP_FORMAT_VERSION,
+            schema_version: CURRENT_STORAGE_SCHEMA_VERSION,
+            app_version: "3.0.0".to_string(),
+            exported_at: "2026-08-21T10:00:00+08:00".to_string(),
+            state: PersistedState::default(),
+            runtime: PersistedRuntimeState::default(),
+        };
+        future_backup.runtime.schema_version = CURRENT_STORAGE_SCHEMA_VERSION + 1;
+
+        let error = match migrate_backup_file(future_backup) {
+            Ok(_) => panic!("future schema is rejected"),
+            Err(error) => error,
+        };
+
+        assert!(error.contains("更新版本"));
     }
 }
 

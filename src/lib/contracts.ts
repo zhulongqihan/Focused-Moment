@@ -77,6 +77,8 @@ export interface BackupListItem {
   exportedAt: string;
   appVersion: string;
   formatVersion: number;
+  schemaVersion: number;
+  migrationNeeded: boolean;
   focusRecordCount: number;
   todoCount: number;
   hasRuntimeSession: boolean;
@@ -94,6 +96,7 @@ export interface BackupImportResult {
   focusRecordCount: number;
   todoCount: number;
   restoredRuntimeSession: boolean;
+  migratedFromFormatVersion: number | null;
 }
 
 export interface DailyInsight {
@@ -119,6 +122,9 @@ export interface AnalyticsSnapshot {
   averageDailyDurationLabel: string;
   todayFocusDurationLabel: string;
   todaySessionCount: number;
+  currentStreakDays: number;
+  bestFocusDate: string | null;
+  bestFocusDurationLabel: string | null;
   dailyBreakdown: DailyInsight[];
 }
 

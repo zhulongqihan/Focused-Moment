@@ -38,6 +38,15 @@ jobs:
       - name: Build frontend
         run: pnpm build
 
+      - name: Install Playwright browser
+        run: pnpm exec playwright install chromium
+
+      - name: Frontend flow tests
+        run: pnpm test:frontend
+
+      - name: Rust format check
+        run: cargo fmt --check --manifest-path src-tauri/Cargo.toml
+
       - name: Rust check
         run: cargo check --manifest-path src-tauri/Cargo.toml
 
