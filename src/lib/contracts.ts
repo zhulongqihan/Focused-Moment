@@ -103,6 +103,8 @@ export interface DailyInsight {
   independentSessionCount: number;
 }
 
+export type FeedbackKind = "success" | "error" | "info";
+
 export interface AnalyticsSnapshot {
   totalFocusDurationMs: number;
   totalFocusDurationLabel: string;

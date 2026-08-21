@@ -31,3 +31,7 @@ export async function toggleTodoItem(id: number) {
 export async function deleteTodoItem(id: number) {
   return invoke<TodoItem[]>("delete_todo_item", { id });
 }
+
+export async function restoreTodoItem(item: TodoItem) {
+  return invoke<TodoItem[]>("restore_todo_item", { item });
+}

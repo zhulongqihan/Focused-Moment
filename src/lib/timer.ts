@@ -14,6 +14,10 @@ export async function getTimerSnapshot() {
   return invoke<TimerSnapshot>("get_timer_snapshot");
 }
 
+export async function acknowledgeTimerAlert() {
+  return invoke<TimerSnapshot>("acknowledge_timer_alert");
+}
+
 export async function getTimerPreferences() {
   return invoke<TimerPreferences>("get_timer_preferences");
 }
@@ -64,6 +68,10 @@ export async function getAnalyticsSnapshot() {
 
 export async function deleteFocusRecord(id: number) {
   return invoke<FocusRecord[]>("delete_focus_record", { id });
+}
+
+export async function restoreFocusRecord(record: FocusRecord) {
+  return invoke<FocusRecord[]>("restore_focus_record", { record });
 }
 
 export async function deleteFocusRecords(ids: number[]) {

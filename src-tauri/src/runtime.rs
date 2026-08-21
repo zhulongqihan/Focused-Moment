@@ -26,8 +26,8 @@ const MAX_STOPWATCH_REMINDER_MINUTES: u64 = 12 * 60;
 const DEFAULT_COUNTDOWN_MINUTES: u64 = 25;
 const MIN_COUNTDOWN_MINUTES: u64 = 1;
 const MAX_COUNTDOWN_MINUTES: u64 = 12 * 60;
-const APP_VERSION: &str = "1.9.2";
-const APP_MILESTONE: &str = "v1.9.2 \u{8bb0}\u{5f55}\u{6807}\u{9898}\u{4fee}\u{590d}\u{7248}";
+const APP_VERSION: &str = "1.9.3";
+const APP_MILESTONE: &str = "v1.9.3 \u{4f53}\u{9a8c}\u{53cd}\u{9988}\u{4e0e}\u{590d}\u{76d8}\u{7248}";
 const APP_BACKUP_KIND: &str = "focused-moment-backup";
 const APP_BACKUP_FORMAT_VERSION: u64 = 1;
 
@@ -1742,6 +1742,18 @@ fn get_timer_snapshot(state: tauri::State<'_, TimerEngineState>) -> Result<Timer
 }
 
 #[tauri::command]
+fn acknowledge_timer_alert(
+    state: tauri::State<'_, TimerEngineState>,
+) -> Result<TimerSnapshot, String> {
+    let snapshot = with_timer_engine(&state, |engine| {
+        engine.clear_alert();
+        Ok(engine.snapshot())
+    })?;
+    state.persist_runtime()?;
+    Ok(snapshot)
+}
+
+#[tauri::command]
 fn get_timer_preferences(
     state: tauri::State<'_, TimerEngineState>,
 ) -> Result<TimerPreferencesSnapshot, String> {
@@ -1869,6 +1881,33 @@ fn delete_focus_record(
         sort_focus_records(records);
         Ok(records.clone())
     })?;
+
+    state.persist()?;
+    Ok(records)
+}
+
+#[tauri::command]
+fn restore_focus_record(
+    state: tauri::State<'_, TimerEngineState>,
+    record: FocusRecord,
+) -> Result<Vec<FocusRecord>, String> {
+    let record_id = record.id;
+    let records = with_focus_records(&state, |records| {
+        if records.iter().any(|item| item.id == record_id) {
+            return Err("这条专注记录已经存在，无法重复恢复。".to_string());
+        }
+
+        records.insert(0, record.clone());
+        sort_focus_records(records);
+        Ok(records.clone())
+    })?;
+
+    {
+        let mut next_record_id = state.next_record_id.lock().map_err(|_| {
+            "记录编号状态锁定失败".to_string()
+        })?;
+        *next_record_id = (*next_record_id).max(record_id.saturating_add(1));
+    }
 
     state.persist()?;
     Ok(records)
@@ -2132,6 +2171,42 @@ fn delete_todo_item(
         Ok(())
     })?;
     state.persist_runtime()?;
+    Ok(items)
+}
+
+#[tauri::command]
+fn restore_todo_item(
+    state: tauri::State<'_, TimerEngineState>,
+    item: TodoItem,
+) -> Result<Vec<TodoItem>, String> {
+    let normalized_item = TodoItem {
+        id: item.id,
+        title: normalize_todo_title(&item.title)?,
+        is_completed: item.is_completed,
+        scheduled_date: normalize_scheduled_date(&item.scheduled_date)?,
+        scheduled_time: normalize_scheduled_time(&item.scheduled_time)?,
+        importance_key: normalize_importance_key(&item.importance_key)?,
+    };
+    let item_id = normalized_item.id;
+
+    let items = with_todo_items(&state, |items| {
+        if items.iter().any(|current| current.id == item_id) {
+            return Err("这个待办已经存在，无法重复恢复。".to_string());
+        }
+
+        items.push(normalized_item.clone());
+        sort_todo_items(items);
+        Ok(items.clone())
+    })?;
+
+    {
+        let mut next_todo_id = state.next_todo_id.lock().map_err(|_| {
+            "任务编号状态锁定失败".to_string()
+        })?;
+        *next_todo_id = (*next_todo_id).max(item_id.saturating_add(1));
+    }
+
+    state.persist()?;
     Ok(items)
 }
 
@@ -2600,6 +2675,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             bootstrap_shell,
             get_timer_snapshot,
+            acknowledge_timer_alert,
             get_timer_preferences,
             update_timer_preferences,
             update_timer_context,
@@ -2607,6 +2683,7 @@ pub fn run() {
             set_countdown_minutes,
             get_focus_records,
             delete_focus_record,
+            restore_focus_record,
             delete_focus_records,
             get_analytics_snapshot,
             clear_app_data,
@@ -2618,6 +2695,7 @@ pub fn run() {
             update_todo_item,
             toggle_todo_item,
             delete_todo_item,
+            restore_todo_item,
             start_timer,
             pause_timer,
             reset_timer,
