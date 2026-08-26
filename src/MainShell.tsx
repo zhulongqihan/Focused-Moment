@@ -329,7 +329,7 @@ function MainShell() {
       getAnalyticsSnapshot(),
     ]);
 
-    if (requestVersion !== refreshVersion || (!force && busy())) {
+    if (requestVersion !== refreshVersion || (!force && (busy() || editingTodo() !== null))) {
       return false;
     }
 
@@ -809,7 +809,7 @@ function MainShell() {
 
       interval = window.setInterval(
         () => {
-          if (busy()) {
+          if (busy() || editingTodo() !== null) {
             return;
           }
 

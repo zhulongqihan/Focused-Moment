@@ -31,8 +31,8 @@ const DEFAULT_COUNTDOWN_MINUTES: u64 = 25;
 const MIN_COUNTDOWN_MINUTES: u64 = 1;
 const MAX_COUNTDOWN_MINUTES: u64 = 12 * 60;
 const MAX_TODO_TITLE_CHARS: usize = 200;
-const APP_VERSION: &str = "2.0.2";
-const APP_MILESTONE: &str = "v2.0.2 \u{4e13}\u{6ce8}\u{95ed}\u{73af}\u{7248} · \u{5f85}\u{529e}\u{7f16}\u{8f91}\u{4f53}\u{9a8c}\u{4fee}\u{590d}";
+const APP_VERSION: &str = "2.0.3";
+const APP_MILESTONE: &str = "v2.0.3 \u{4e13}\u{6ce8}\u{95ed}\u{73af}\u{7248} · \u{5f85}\u{529e}\u{9009}\u{62e9}\u{5668}\u{4fee}\u{590d}";
 const APP_BACKUP_KIND: &str = "focused-moment-backup";
 const APP_BACKUP_FORMAT_VERSION: u64 = 2;
 

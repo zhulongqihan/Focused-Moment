@@ -18,6 +18,7 @@ async function bootWithTauriMock(page) {
       scheduledTime: "10:00",
       importanceKey: "high",
     };
+    window.__todoItemsCalls = 0;
     const timer = {
       modeKey: "stopwatch",
       phaseKey: "stopwatch",
@@ -73,6 +74,7 @@ async function bootWithTauriMock(page) {
           case "get_timer_snapshot":
             return timer;
           case "get_todo_items":
+            window.__todoItemsCalls += 1;
             return [todo];
           case "get_focus_records":
             return [];
@@ -126,6 +128,10 @@ test("todo editor saves a date selected from the native date picker", async ({ p
 
   await page.getByRole("button", { name: /^待办/ }).click();
   await page.getByRole("button", { name: "编辑" }).click();
+
+  const todoItemsCallsBeforeWaiting = await page.evaluate(() => window.__todoItemsCalls);
+  await page.waitForTimeout(1200);
+  expect(await page.evaluate(() => window.__todoItemsCalls)).toBe(todoItemsCallsBeforeWaiting);
 
   const dateInput = page.locator('input[name="editTodoDate-1"]');
   const geometry = await page.evaluate(() => {
