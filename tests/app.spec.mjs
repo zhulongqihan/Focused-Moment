@@ -10,7 +10,7 @@ function localDate() {
 
 async function bootWithTauriMock(page) {
   await page.addInitScript(({ today }) => {
-    const todo = {
+    let todo = {
       id: 1,
       title: "写完产品复盘",
       isCompleted: false,
@@ -68,7 +68,7 @@ async function bootWithTauriMock(page) {
         currentWindow: { label: "main" },
         currentWebview: { label: "main" },
       },
-      invoke: async (command) => {
+      invoke: async (command, args = {}) => {
         switch (command) {
           case "get_timer_snapshot":
             return timer;
@@ -78,6 +78,15 @@ async function bootWithTauriMock(page) {
             return [];
           case "get_analytics_snapshot":
             return analytics;
+          case "update_todo_item":
+            todo = {
+              ...todo,
+              title: args.title,
+              scheduledDate: args.scheduledDate,
+              scheduledTime: args.scheduledTime,
+              importanceKey: args.importanceKey,
+            };
+            return [todo];
           case "list_app_backups":
             return [];
           case "start_timer":
@@ -110,6 +119,28 @@ test("Today cockpit exposes the next action and command palette", async ({ page 
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog", { name: "你想做什么？" })).toBeHidden();
   await expect(page.getByRole("button", { name: /命令 Ctrl K/ })).toBeFocused();
+});
+
+test("todo editor saves a date selected from the native date picker", async ({ page }) => {
+  await bootWithTauriMock(page);
+
+  await page.getByRole("button", { name: /^待办/ }).click();
+  await page.getByRole("button", { name: "编辑" }).click();
+
+  const dateInput = page.locator('input[name="editTodoDate-1"]');
+  const tomorrow = await page.evaluate(() => {
+    const date = new Date();
+    date.setDate(date.getDate() + 1);
+    return date.toISOString().slice(0, 10);
+  });
+
+  await dateInput.evaluate((input, value) => {
+    input.value = value;
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  }, tomorrow);
+  await page.getByRole("button", { name: "保存" }).click();
+
+  await expect(page.locator(".todo-row").getByText("明天截止 · 10:00")).toBeVisible();
 });
 
 test("Today cockpit remains usable on a narrow window", async ({ page }) => {

@@ -1392,7 +1392,7 @@ function MainShell() {
                     name="todoDueDate"
                     autocomplete="off"
                     value={todoDueDate()}
-                    onInput={(event) => setTodoDueDate(event.currentTarget.value)}
+                    onChange={(event) => setTodoDueDate(event.currentTarget.value)}
                   />
                 </label>
                 <label>
@@ -1504,7 +1504,7 @@ function MainShell() {
                                 name={`editTodoDate-${item.id}`}
                                 autocomplete="off"
                                 value={editingTodo()?.scheduledDate ?? ""}
-                                onInput={(event) => patchEditingTodo({ scheduledDate: event.currentTarget.value })}
+                                onChange={(event) => patchEditingTodo({ scheduledDate: event.currentTarget.value })}
                               />
                             </label>
                             <label>
