@@ -128,6 +128,28 @@ test("todo editor saves a date selected from the native date picker", async ({ p
   await page.getByRole("button", { name: "编辑" }).click();
 
   const dateInput = page.locator('input[name="editTodoDate-1"]');
+  const geometry = await page.evaluate(() => {
+    const selectors = {
+      date: 'input[name="editTodoDate-1"]',
+      time: 'input[name="editTodoTime-1"]',
+      save: '.todo-edit-form button.primary-button',
+    };
+    return Object.fromEntries(Object.entries(selectors).map(([key, selector]) => {
+      const element = document.querySelector(selector);
+      const rect = element.getBoundingClientRect();
+      const points = [
+        [rect.left + 2, rect.top + rect.height / 2],
+        [rect.right - 2, rect.top + rect.height / 2],
+      ];
+      return [key, {
+        rect: { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom },
+        hits: points.map(([x, y]) => document.elementFromPoint(x, y)?.outerHTML.slice(0, 80)),
+      }];
+    }));
+  });
+  expect(geometry.date.rect.right).toBeLessThanOrEqual(geometry.time.rect.left);
+  expect(geometry.date.hits[1]).toContain('editTodoDate-1');
+
   const tomorrow = await page.evaluate(() => {
     const date = new Date();
     date.setDate(date.getDate() + 1);

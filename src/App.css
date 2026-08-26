@@ -400,6 +400,8 @@ input:focus-visible, select:focus-visible { border-color: #4b8468; box-shadow: 0
 .completed-row__title { min-width: 0; overflow: hidden; border: 0; background: transparent; color: #849188; text-align: left; text-decoration: line-through; text-overflow: ellipsis; white-space: nowrap; }
 .completed-row__title:hover { color: #3e6650; }
 .todo-edit-form { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1.5fr) 135px 120px 110px auto; align-items: end; gap: 8px; padding: 10px 0; }
+.todo-edit-form > label { min-width: 0; }
+.todo-edit-form > label > input, .todo-edit-form > label > select { width: 100%; min-width: 0; }
 .todo-edit-form__actions { display: flex; align-items: center; gap: 6px; }
 .app-message { margin: 22px 0 0; padding: 10px 12px; border-radius: 5px; font-size: 0.9rem; }
 .app-message--success { background: #eaf4ec; color: #246347; }
