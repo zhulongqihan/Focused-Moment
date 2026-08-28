@@ -412,6 +412,8 @@ function MainShell() {
   const activeTitle = () =>
     sessionTitle().trim() || selectedTodo()?.title || timer().activeTaskTitle.trim() || "未命名事项";
   const timerHasProgress = () => timer().isRunning || timer().elapsedMs > 0;
+  const timerCanContinue = () =>
+    timerHasProgress() && !(timer().modeKey === "countdown" && timer().remainingMs === 0);
   const canFinish = () => timer().elapsedMs > 0 && timer().canCompleteSession;
   const paletteCommands = (): PaletteCommand[] => [
     { id: "today", label: "打开今日驾驶舱", detail: "查看当前状态、下一件事和今日进展" },
@@ -1063,20 +1065,44 @@ function MainShell() {
           <span>{timer().status}</span>
           <strong>{timer().elapsedLabel}</strong>
         </div>
-        <Show when={timer().alertTitle}>
-          <div class="floating-alert" role="alert">
-            <strong>{timer().alertTitle}</strong>
-            <span>{timer().alertMessage}</span>
-            <button
-              type="button"
-              class="text-button"
-              disabled={busy()}
-              onClick={() => void dismissTimerAlert()}
-            >
-              知道了
-            </button>
-          </div>
-        </Show>
+          <Show when={timer().alertTitle}>
+            <div class="floating-alert" role="alert">
+              <strong>{timer().alertTitle}</strong>
+              <span>{timer().alertMessage}</span>
+              <Show
+                when={timer().alertKey === "countdown_complete"}
+                fallback={
+                  <button
+                    type="button"
+                    class="text-button"
+                    disabled={busy()}
+                    onClick={() => void dismissTimerAlert()}
+                  >
+                    知道了
+                  </button>
+                }
+              >
+                <div class="floating-alert__actions">
+                  <button
+                    type="button"
+                    class="primary-button"
+                    disabled={busy() || !canFinish()}
+                    onClick={() => void finishFocus()}
+                  >
+                    保存并记录
+                  </button>
+                  <button
+                    type="button"
+                    class="text-button"
+                    disabled={busy()}
+                    onClick={() => void dismissTimerAlert()}
+                  >
+                    稍后处理
+                  </button>
+                </div>
+              </Show>
+            </div>
+          </Show>
         <Show when={timer().linkedTodoId !== null}>
           <label class="linked-todo-option linked-todo-option--floating">
             <input
@@ -1096,7 +1122,7 @@ function MainShell() {
               <button
                 type="button"
                 class="primary-button"
-                disabled={busy() || !timerHasProgress()}
+                disabled={busy() || !timerCanContinue()}
                 onClick={() => void startFocus()}
               >
                 继续
@@ -1336,6 +1362,7 @@ function MainShell() {
               ready={ready}
               busy={busy}
               timerHasProgress={timerHasProgress}
+              timerCanContinue={timerCanContinue}
               nextTodo={nextTodo}
               todayTodos={todayTodos}
               todayCompletedTodos={todayCompletedTodos}
@@ -1371,14 +1398,38 @@ function MainShell() {
                     <strong>{timer().alertTitle}</strong>
                     <p>{timer().alertMessage}</p>
                   </div>
-                  <button
-                    type="button"
-                    class="secondary-button"
-                    disabled={busy()}
-                    onClick={() => void dismissTimerAlert()}
-                  >
-                    知道了
-                  </button>
+                  <div class="timer-alert__actions">
+                    <Show
+                      when={timer().alertKey === "countdown_complete"}
+                      fallback={
+                        <button
+                          type="button"
+                          class="secondary-button"
+                          disabled={busy()}
+                          onClick={() => void dismissTimerAlert()}
+                        >
+                          知道了
+                        </button>
+                      }
+                    >
+                      <button
+                        type="button"
+                        class="primary-button"
+                        disabled={busy() || !canFinish()}
+                        onClick={() => void finishFocus()}
+                      >
+                        保存并记录
+                      </button>
+                      <button
+                        type="button"
+                        class="secondary-button"
+                        disabled={busy()}
+                        onClick={() => void dismissTimerAlert()}
+                      >
+                        稍后处理
+                      </button>
+                    </Show>
+                  </div>
                 </div>
               </Show>
 
@@ -1493,7 +1544,7 @@ function MainShell() {
                 <button
                   type="button"
                   class="primary-button"
-                  disabled={busy() || !ready() || timer().isRunning}
+                  disabled={busy() || !ready() || timer().isRunning || (timer().modeKey === "countdown" && timer().remainingMs === 0)}
                   onClick={() => void startFocus()}
                 >
                   {busy() && !timer().isRunning ? busyLabel() : "开始"}

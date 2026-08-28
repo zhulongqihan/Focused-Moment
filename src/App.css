@@ -347,6 +347,7 @@ input:focus-visible, select:focus-visible { border-color: #4b8468; box-shadow: 0
 .recovery-banner span, .timer-alert p { margin: 0; color: #527160; font-size: 0.86rem; }
 .timer-alert { grid-template-columns: minmax(0, 1fr) auto; align-items: center; background: #f0f7f1; }
 .timer-alert .secondary-button { white-space: nowrap; }
+.timer-alert__actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
 
 .records-summary {
   display: grid;
@@ -595,6 +596,8 @@ html.floating-window body { overflow: hidden; }
 }
 .floating-alert span { color: #527160; }
 .floating-alert .text-button { justify-self: start; padding: 3px 0; color: #24583e; font-size: 0.78rem; }
+.floating-alert__actions { display: flex; align-items: center; gap: 8px; }
+.floating-alert__actions .primary-button { min-height: 30px; padding: 0 9px; font-size: 0.78rem; }
 .focus-floating__controls { display: flex; justify-content: center; gap: 8px; }
 .focus-floating__controls button { min-height: 36px; padding: 0 12px; font-size: 0.84rem; }
 
@@ -623,6 +626,7 @@ html.floating-window body { overflow: hidden; }
   .records-summary > div:nth-child(3) { padding-left: 0; border-left: 0; border-top: 1px solid #d8e0d9; }
   .records-summary > div:nth-child(4) { border-top: 1px solid #d8e0d9; }
   .timer-alert { grid-template-columns: 1fr; }
+  .timer-alert__actions { justify-content: flex-start; flex-wrap: wrap; }
   .completed-row { grid-template-columns: 22px minmax(0, 1fr) auto auto auto; gap: 6px; }
 }
 

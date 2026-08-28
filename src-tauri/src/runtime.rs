@@ -33,9 +33,9 @@ const DEFAULT_COUNTDOWN_MINUTES: u64 = 25;
 const MIN_COUNTDOWN_MINUTES: u64 = 1;
 const MAX_COUNTDOWN_MINUTES: u64 = 12 * 60;
 const MAX_TODO_TITLE_CHARS: usize = 200;
-const APP_VERSION: &str = "2.0.11";
+const APP_VERSION: &str = "2.0.12";
 const APP_MILESTONE: &str =
-    "v2.0.11 \u{5012}\u{8ba1}\u{65f6}\u{4e13}\u{6ce8}\u{60ac}\u{6d6e}";
+    "v2.0.12 \u{5012}\u{8ba1}\u{65f6}\u{7ed3}\u{675f}\u{63d0}\u{793a}\u{4e0e}\u{8bb0}\u{5f55}";
 const APP_BACKUP_KIND: &str = "focused-moment-backup";
 const APP_BACKUP_FORMAT_VERSION: u64 = 2;
 
@@ -1261,7 +1261,13 @@ impl TimerEngine {
             alert_sequence: self.alert_sequence,
             alert_key: active_alert_kind.map(|kind| kind.key()),
             alert_title: active_alert_kind.map(|kind| kind.title()),
-            alert_message: active_alert_kind.map(|kind| kind.message(self.active_preferences())),
+            alert_message: active_alert_kind.map(|kind| match kind {
+                AlertKind::CountdownComplete => format!(
+                    "倒计时已完成，已累计专注 {} 分钟。点击“保存并记录”后写入专注记录。",
+                    duration_ms / 60_000
+                ),
+                _ => kind.message(self.active_preferences()),
+            }),
         }
     }
 
@@ -2856,6 +2862,25 @@ mod tests {
 
         assert_eq!(completed.mode_key, "countdown");
         assert_eq!(completed.duration_ms, 12 * 60_000);
+        assert_eq!(timer.countdown_elapsed_ms, 0);
+    }
+
+    #[test]
+    fn completed_countdown_records_the_full_configured_duration() {
+        let mut timer = TimerEngine {
+            mode: TimerMode::Countdown,
+            countdown_duration_ms: 60 * 60_000,
+            countdown_elapsed_ms: 60 * 60_000 - 100,
+            running_anchor: Some(RunAnchor {
+                monotonic: Instant::now() - Duration::from_millis(500),
+                wall_clock: SystemTime::now() - Duration::from_millis(500),
+            }),
+            ..TimerEngine::default()
+        };
+
+        let completed = timer.complete_focus_session().expect("countdown completes");
+
+        assert_eq!(completed.duration_ms, 60 * 60_000);
         assert_eq!(timer.countdown_elapsed_ms, 0);
     }
 

@@ -8,8 +8,8 @@ function localDate() {
   return `${year}-${month}-${day}`;
 }
 
-async function bootWithTauriMock(page, { includeOverdue = false, windowLabel = "main", pausedFocus = false } = {}) {
-  await page.addInitScript(({ today, includeOverdue, windowLabel, pausedFocus }) => {
+async function bootWithTauriMock(page, { includeOverdue = false, windowLabel = "main", pausedFocus = false, completedCountdown = false } = {}) {
+  await page.addInitScript(({ today, includeOverdue, windowLabel, pausedFocus, completedCountdown }) => {
     const yesterday = new Date(`${today}T00:00:00`);
     yesterday.setDate(yesterday.getDate() - 1);
     const overdueDate = yesterday.toISOString().slice(0, 10);
@@ -36,17 +36,17 @@ async function bootWithTauriMock(page, { includeOverdue = false, windowLabel = "
     window.__todoItemsCalls = 0;
     window.__focusFloatingShown = false;
     let timer = {
-      modeKey: "stopwatch",
-      phaseKey: "stopwatch",
-      mode: "正向计时",
-      phaseLabel: "正向计时",
-      status: "待开始",
+      modeKey: completedCountdown ? "countdown" : "stopwatch",
+      phaseKey: completedCountdown ? "countdown" : "stopwatch",
+      mode: completedCountdown ? "倒计时" : "正向计时",
+      phaseLabel: completedCountdown ? "倒计时" : "正向计时",
+      status: completedCountdown ? "已结束" : "待开始",
       isRunning: false,
-      elapsedMs: pausedFocus ? 30_000 : 0,
-      elapsedLabel: pausedFocus ? "00:00:30" : "00:00:00",
-      targetDurationMs: 25 * 60 * 1000,
-      remainingMs: null,
-      secondaryLabel: "已累计时长",
+      elapsedMs: completedCountdown ? 60 * 60 * 1000 : pausedFocus ? 30_000 : 0,
+      elapsedLabel: completedCountdown ? "00:00:00" : pausedFocus ? "00:00:30" : "00:00:00",
+      targetDurationMs: completedCountdown ? 60 * 60 * 1000 : 25 * 60 * 1000,
+      remainingMs: completedCountdown ? 0 : null,
+      secondaryLabel: completedCountdown ? "本轮剩余时间" : "已累计时长",
       canCompleteSession: true,
       activeTaskTitle: pausedFocus ? "写完产品复盘" : "",
       linkedTodoId: null,
@@ -58,9 +58,9 @@ async function bootWithTauriMock(page, { includeOverdue = false, windowLabel = "
       modeSwitchLocked: false,
       modeSwitchHint: null,
       alertSequence: 0,
-      alertKey: null,
-      alertTitle: null,
-      alertMessage: null,
+      alertKey: completedCountdown ? "countdown_complete" : null,
+      alertTitle: completedCountdown ? "倒计时已结束" : null,
+      alertMessage: completedCountdown ? "倒计时已完成，已累计专注 60 分钟。点击“保存并记录”后写入专注记录。" : null,
     };
     const analytics = {
       totalFocusDurationMs: 0,
@@ -149,7 +149,7 @@ async function bootWithTauriMock(page, { includeOverdue = false, windowLabel = "
         }
       },
     };
-  }, { today: localDate(), includeOverdue, windowLabel, pausedFocus });
+  }, { today: localDate(), includeOverdue, windowLabel, pausedFocus, completedCountdown });
 
   await page.goto("/");
   if (windowLabel === "main") {
@@ -198,6 +198,16 @@ test("starting a countdown opens the focus floating window", async ({ page }) =>
   await page.getByRole("button", { name: "开始", exact: true }).click();
 
   await expect.poll(() => page.evaluate(() => window.__focusFloatingShown)).toBe(true);
+});
+
+test("completed countdown clearly offers to save the focus record", async ({ page }) => {
+  await bootWithTauriMock(page, { completedCountdown: true });
+
+  await page.getByRole("button", { name: "计时", exact: true }).click();
+
+  await expect(page.getByRole("alert")).toContainText("已累计专注 60 分钟");
+  await expect(page.getByRole("button", { name: "保存并记录" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "稍后处理" })).toBeVisible();
 });
 
 test("stopwatch shows the next staged target instead of a one-minute target", async ({ page }) => {

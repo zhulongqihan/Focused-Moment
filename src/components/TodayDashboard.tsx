@@ -7,6 +7,7 @@ export interface TodayDashboardProps {
   ready: () => boolean;
   busy: () => boolean;
   timerHasProgress: () => boolean;
+  timerCanContinue: () => boolean;
   nextTodo: () => TodoItem | null;
   todayTodos: () => TodoItem[];
   todayCompletedTodos: () => TodoItem[];
@@ -23,6 +24,9 @@ export interface TodayDashboardProps {
 }
 
 export default function TodayDashboard(props: TodayDashboardProps) {
+  const countdownFinished = () =>
+    props.timer().modeKey === "countdown" && props.timer().remainingMs === 0;
+
   return (
     <section class="today-page">
       <div class="page-heading today-heading">
@@ -42,7 +46,9 @@ export default function TodayDashboard(props: TodayDashboardProps) {
           <span class="today-hero__status">
             {props.timer().isRunning
               ? "正在专注"
-              : props.timerHasProgress()
+              : countdownFinished()
+                ? "倒计时已结束"
+                : props.timerHasProgress()
                 ? "这一轮已暂停"
                 : "准备开始"}
           </span>
@@ -54,7 +60,9 @@ export default function TodayDashboard(props: TodayDashboardProps) {
           <p>
             {props.timer().isRunning
               ? "保持当前节奏，其他事情稍后再处理。"
-              : props.timerHasProgress()
+              : countdownFinished()
+                ? "本轮已完成，保存后会写入一条专注记录。"
+                : props.timerHasProgress()
                 ? "这一轮还没有结束，可以继续或保存为记录。"
                 : props.nextTodo()
                   ? `下一件事 · ${props.formatTodoDue(props.nextTodo()!)}`
@@ -67,10 +75,17 @@ export default function TodayDashboard(props: TodayDashboardProps) {
               </button>
             </Show>
             <Show when={!props.timer().isRunning && props.timerHasProgress()}>
-              <button type="button" class="primary-button" disabled={props.busy()} onClick={props.onContinue}>
-                继续这一轮
-              </button>
-              <button type="button" class="secondary-button" disabled={props.busy()} onClick={props.onFinish}>
+              <Show when={props.timerCanContinue()}>
+                <button type="button" class="primary-button" disabled={props.busy()} onClick={props.onContinue}>
+                  继续这一轮
+                </button>
+              </Show>
+              <button
+                type="button"
+                classList={{ "primary-button": countdownFinished(), "secondary-button": !countdownFinished() }}
+                disabled={props.busy()}
+                onClick={props.onFinish}
+              >
                 完成并记录
               </button>
             </Show>
