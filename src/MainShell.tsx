@@ -398,7 +398,8 @@ function MainShell() {
     Math.max(1, ...recentBreakdown().map((day) => day.totalDurationMs));
   const selectedTodo = () =>
     todos().find((item) => item.id === linkedTodoId() && !item.isCompleted) ?? null;
-  const activeTitle = () => sessionTitle().trim() || selectedTodo()?.title || "未命名事项";
+  const activeTitle = () =>
+    sessionTitle().trim() || selectedTodo()?.title || timer().activeTaskTitle.trim() || "未命名事项";
   const timerHasProgress = () => timer().isRunning || timer().elapsedMs > 0;
   const canFinish = () => timer().elapsedMs > 0 && timer().canCompleteSession;
   const paletteCommands = (): PaletteCommand[] => [
@@ -433,10 +434,10 @@ function MainShell() {
     }
 
     // Polling must not erase an unfinished title while the user is typing.
-    if (!timerHasProgress() && !sessionTitle().trim() && next.activeTaskTitle.trim()) {
+    if (!sessionTitle().trim() && next.activeTaskTitle.trim()) {
       setSessionTitle(next.activeTaskTitle);
     }
-    if (!timerHasProgress() && linkedTodoId() === null && next.linkedTodoId !== null) {
+    if (linkedTodoId() === null && next.linkedTodoId !== null) {
       setLinkedTodoId(next.linkedTodoId);
     }
   }
@@ -1078,14 +1079,28 @@ function MainShell() {
           </label>
         </Show>
         <div class="focus-floating__controls">
-          <button
-            type="button"
-            class="secondary-button"
-            disabled={busy() || !timer().isRunning}
-            onClick={() => void pauseFocus()}
+          <Show
+            when={timer().isRunning}
+            fallback={
+              <button
+                type="button"
+                class="primary-button"
+                disabled={busy() || !timerHasProgress()}
+                onClick={() => void startFocus()}
+              >
+                继续
+              </button>
+            }
           >
-            暂停
-          </button>
+            <button
+              type="button"
+              class="secondary-button"
+              disabled={busy()}
+              onClick={() => void pauseFocus()}
+            >
+              暂停
+            </button>
+          </Show>
           <button
             type="button"
             class="primary-button"

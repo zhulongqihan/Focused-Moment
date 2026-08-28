@@ -8,8 +8,8 @@ function localDate() {
   return `${year}-${month}-${day}`;
 }
 
-async function bootWithTauriMock(page, { includeOverdue = false } = {}) {
-  await page.addInitScript(({ today, includeOverdue }) => {
+async function bootWithTauriMock(page, { includeOverdue = false, windowLabel = "main", pausedFocus = false } = {}) {
+  await page.addInitScript(({ today, includeOverdue, windowLabel, pausedFocus }) => {
     const yesterday = new Date(`${today}T00:00:00`);
     yesterday.setDate(yesterday.getDate() - 1);
     const overdueDate = yesterday.toISOString().slice(0, 10);
@@ -41,13 +41,13 @@ async function bootWithTauriMock(page, { includeOverdue = false } = {}) {
       phaseLabel: "正向计时",
       status: "待开始",
       isRunning: false,
-      elapsedMs: 0,
-      elapsedLabel: "00:00:00",
+      elapsedMs: pausedFocus ? 30_000 : 0,
+      elapsedLabel: pausedFocus ? "00:00:30" : "00:00:00",
       targetDurationMs: null,
       remainingMs: null,
       secondaryLabel: "已累计时长",
       canCompleteSession: true,
-      activeTaskTitle: "",
+      activeTaskTitle: pausedFocus ? "写完产品复盘" : "",
       linkedTodoId: null,
       completeLinkedTodoOnFinish: false,
       currentRound: 1,
@@ -81,8 +81,8 @@ async function bootWithTauriMock(page, { includeOverdue = false } = {}) {
 
     window.__TAURI_INTERNALS__ = {
       metadata: {
-        currentWindow: { label: "main" },
-        currentWebview: { label: "main" },
+        currentWindow: { label: windowLabel },
+        currentWebview: { label: windowLabel },
       },
       invoke: async (command, args = {}) => {
         switch (command) {
@@ -114,7 +114,11 @@ async function bootWithTauriMock(page, { includeOverdue = false } = {}) {
           case "list_app_backups":
             return [];
           case "start_timer":
+            timer = { ...timer, isRunning: true, status: "正向计时中" };
+            return timer;
           case "pause_timer":
+            timer = { ...timer, isRunning: false, status: "已暂停" };
+            return timer;
           case "reset_timer":
           case "update_timer_context":
             return timer;
@@ -141,10 +145,14 @@ async function bootWithTauriMock(page, { includeOverdue = false } = {}) {
         }
       },
     };
-  }, { today: localDate(), includeOverdue });
+  }, { today: localDate(), includeOverdue, windowLabel, pausedFocus });
 
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "今天，从一件事开始" })).toBeVisible();
+  if (windowLabel === "main") {
+    await expect(page.getByRole("heading", { name: "今天，从一件事开始" })).toBeVisible();
+  } else {
+    await expect(page.getByRole("button", { name: "返回" })).toBeVisible();
+  }
 }
 
 test("Today cockpit exposes the next action and command palette", async ({ page }) => {
@@ -173,6 +181,18 @@ test("countdown duration keeps the user value while timer snapshots refresh", as
   await page.waitForTimeout(1200);
 
   await expect(durationInput).toHaveValue("60");
+});
+
+test("paused focus floating window can continue without returning to the main window", async ({ page }) => {
+  await bootWithTauriMock(page, { windowLabel: "focus-float", pausedFocus: true });
+
+  await expect(page.getByRole("button", { name: "继续" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "暂停" })).toBeHidden();
+
+  await page.getByRole("button", { name: "继续" }).click();
+
+  await expect(page.getByRole("button", { name: "暂停" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "继续" })).toBeHidden();
 });
 
 test("todo editor saves a date selected from the native date picker", async ({ page }) => {
