@@ -34,7 +34,7 @@ async function bootWithTauriMock(page, { includeOverdue = false } = {}) {
       });
     }
     window.__todoItemsCalls = 0;
-    const timer = {
+    let timer = {
       modeKey: "stopwatch",
       phaseKey: "stopwatch",
       mode: "正向计时",
@@ -117,7 +117,24 @@ async function bootWithTauriMock(page, { includeOverdue = false } = {}) {
           case "pause_timer":
           case "reset_timer":
           case "update_timer_context":
+            return timer;
           case "switch_timer_mode":
+            timer = {
+              ...timer,
+              modeKey: args.mode,
+              mode: args.mode === "countdown" ? "倒计时" : "正向计时",
+              phaseKey: args.mode,
+              phaseLabel: args.mode === "countdown" ? "倒计时" : "正向计时",
+              targetDurationMs: args.mode === "countdown" ? 25 * 60 * 1000 : null,
+              remainingMs: args.mode === "countdown" ? 25 * 60 * 1000 : null,
+            };
+            return timer;
+          case "set_countdown_minutes":
+            timer = {
+              ...timer,
+              targetDurationMs: Number(args.minutes) * 60 * 1000,
+              remainingMs: Number(args.minutes) * 60 * 1000,
+            };
             return timer;
           default:
             return null;
@@ -143,6 +160,19 @@ test("Today cockpit exposes the next action and command palette", async ({ page 
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog", { name: "你想做什么？" })).toBeHidden();
   await expect(page.getByRole("button", { name: /命令 Ctrl K/ })).toBeFocused();
+});
+
+test("countdown duration keeps the user value while timer snapshots refresh", async ({ page }) => {
+  await bootWithTauriMock(page);
+
+  await page.getByRole("button", { name: "计时", exact: true }).click();
+  await page.getByRole("button", { name: "倒计时" }).click();
+
+  const durationInput = page.locator('input[name="countdownMinutes"]');
+  await durationInput.fill("60");
+  await page.waitForTimeout(1200);
+
+  await expect(durationInput).toHaveValue("60");
 });
 
 test("todo editor saves a date selected from the native date picker", async ({ page }) => {

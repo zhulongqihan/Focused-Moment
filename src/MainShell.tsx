@@ -356,6 +356,7 @@ function MainShell() {
   const [linkedTodoId, setLinkedTodoId] = createSignal<number | null>(null);
   const [completeLinkedTodo, setCompleteLinkedTodo] = createSignal(false);
   const [countdownMinutes, setCountdownMinutes] = createSignal(25);
+  const [countdownDraftDirty, setCountdownDraftDirty] = createSignal(false);
   const [todoTitle, setTodoTitle] = createSignal("");
   const [todoDueDate, setTodoDueDate] = createSignal(getToday());
   const [todoDueTime, setTodoDueTime] = createSignal("");
@@ -427,7 +428,7 @@ function MainShell() {
     if (next.isRunning || next.elapsedMs > 0 || next.recoveredFromLastSession) {
       setCompleteLinkedTodo(next.completeLinkedTodoOnFinish);
     }
-    if (next.modeKey === "countdown" && next.targetDurationMs !== null) {
+    if (next.modeKey === "countdown" && next.targetDurationMs !== null && !countdownDraftDirty()) {
       setCountdownMinutes(Math.max(1, Math.round(next.targetDurationMs / 60_000)));
     }
 
@@ -514,6 +515,7 @@ function MainShell() {
     await run(async () => {
       const next = await switchTimerMode(mode);
       applyTimerSnapshot(next);
+      setCountdownDraftDirty(false);
       setCompleteLinkedTodo(false);
     }, "正在切换…");
   }
@@ -532,6 +534,7 @@ function MainShell() {
           throw new Error("倒计时时长需要在 1 到 720 分钟之间。");
         }
         applyTimerSnapshot(await configureCountdownMinutes(minutes));
+        setCountdownDraftDirty(false);
       }
 
       applyTimerSnapshot(
@@ -1384,9 +1387,10 @@ function MainShell() {
                     max="720"
                     value={countdownMinutes()}
                     disabled={busy() || !ready() || timerHasProgress()}
-                    onInput={(event) =>
-                      setCountdownMinutes(Number(event.currentTarget.value || 0))
-                    }
+                    onInput={(event) => {
+                      setCountdownDraftDirty(true);
+                      setCountdownMinutes(Number(event.currentTarget.value || 0));
+                    }}
                   />
                   <em>分钟</em>
                 </label>
