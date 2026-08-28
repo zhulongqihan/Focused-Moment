@@ -399,6 +399,12 @@ input:focus-visible, select:focus-visible { border-color: #4b8468; box-shadow: 0
 .completed-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 8px; padding: 9px 0; border: 0; background: transparent; }
 .completed-row__title { min-width: 0; overflow: hidden; border: 0; background: transparent; color: #849188; text-align: left; text-decoration: line-through; text-overflow: ellipsis; white-space: nowrap; }
 .completed-row__title:hover { color: #3e6650; }
+.todo-status-section { display: grid; gap: 0; margin-top: 14px; border-top: 1px solid #d8e0d9; }
+.todo-status-section__heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 14px 0 8px; }
+.todo-status-section__heading > div { display: grid; gap: 3px; min-width: 0; }
+.todo-status-section__heading h2 { margin: 0; color: #8e3d3a; font-size: 0.95rem; }
+.todo-status-section__heading span { color: #7a6968; font-size: 0.8rem; }
+.todo-status-section__heading > strong { color: #8e3d3a; font-size: 0.85rem; }
 .todo-edit-form { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1.5fr) 135px 120px 110px auto; align-items: end; gap: 8px; padding: 10px 0; }
 .todo-edit-form > label { min-width: 0; }
 .todo-edit-form > label > input, .todo-edit-form > label > select { width: 100%; min-width: 0; }

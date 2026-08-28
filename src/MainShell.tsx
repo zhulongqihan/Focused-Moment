@@ -66,6 +66,128 @@ type UndoAction =
 
 type TodoEditDraft = TodoDraft & { id: number };
 
+interface TodoRowProps {
+  item: TodoItem;
+  editingTodo: () => TodoEditDraft | null;
+  busy: () => boolean;
+  timerHasProgress: () => boolean;
+  onToggle: (id: number) => void;
+  onBeginEdit: (item: TodoItem) => void;
+  onUseForFocus: (item: TodoItem) => void;
+  onRemove: (id: number) => void;
+  onPatch: (patch: Partial<TodoEditDraft>) => void;
+  onSave: () => void;
+  onCancel: () => void;
+}
+
+function TodoRow(props: TodoRowProps) {
+  return (
+    <article classList={{ "todo-row": true, "todo-row--overdue": isOverdue(props.item.scheduledDate) }}>
+      <Show
+        when={props.editingTodo()?.id === props.item.id}
+        fallback={
+          <>
+            <button
+              type="button"
+              class="todo-check"
+              title="标记完成"
+              aria-label={`标记“${props.item.title}”完成`}
+              disabled={props.busy()}
+              onClick={() => props.onToggle(props.item.id)}
+            />
+            <div>
+              <strong title={props.item.title}>{props.item.title}</strong>
+              <small>
+                {formatTodoDue(props.item)} · 重要程度：{importanceLabel(props.item.importanceKey)}
+              </small>
+            </div>
+            <div class="todo-row__actions">
+              <button
+                type="button"
+                class="row-action"
+                disabled={props.busy()}
+                onClick={() => props.onBeginEdit(props.item)}
+              >
+                编辑
+              </button>
+              <button
+                type="button"
+                class="row-action"
+                disabled={props.busy() || props.timerHasProgress()}
+                onClick={() => props.onUseForFocus(props.item)}
+              >
+                专注
+              </button>
+              <button
+                type="button"
+                class="row-action row-action--danger"
+                title="删除待办"
+                disabled={props.busy()}
+                onClick={() => props.onRemove(props.item.id)}
+              >
+                删除
+              </button>
+            </div>
+          </>
+        }
+      >
+        <div class="todo-edit-form">
+          <label>
+            <span>待办事项</span>
+            <input
+              type="text"
+              name={`editTodoTitle-${props.item.id}`}
+              autocomplete="off"
+              value={props.editingTodo()?.title ?? ""}
+              onInput={(event) => props.onPatch({ title: event.currentTarget.value })}
+            />
+          </label>
+          <label>
+            <span>截止日期</span>
+            <input
+              type="date"
+              name={`editTodoDate-${props.item.id}`}
+              autocomplete="off"
+              value={props.editingTodo()?.scheduledDate ?? ""}
+              onChange={(event) => props.onPatch({ scheduledDate: event.currentTarget.value })}
+            />
+          </label>
+          <label>
+            <span>时间</span>
+            <input
+              type="time"
+              name={`editTodoTime-${props.item.id}`}
+              autocomplete="off"
+              value={props.editingTodo()?.scheduledTime ?? ""}
+              onInput={(event) => props.onPatch({ scheduledTime: event.currentTarget.value })}
+            />
+          </label>
+          <label>
+            <span>重要程度</span>
+            <select
+              name={`editTodoImportance-${props.item.id}`}
+              value={props.editingTodo()?.importanceKey ?? "medium"}
+              onChange={(event) => props.onPatch({ importanceKey: event.currentTarget.value as TodoImportance })}
+            >
+              <option value="high">高</option>
+              <option value="medium">中</option>
+              <option value="low">低</option>
+            </select>
+          </label>
+          <div class="todo-edit-form__actions">
+            <button type="button" class="primary-button" disabled={props.busy()} onClick={props.onSave}>
+              保存
+            </button>
+            <button type="button" class="text-button" disabled={props.busy()} onClick={props.onCancel}>
+              取消
+            </button>
+          </div>
+        </div>
+      </Show>
+    </article>
+  );
+}
+
 function getWindowLabel() {
   try {
     return getCurrentWindow().label;
@@ -262,6 +384,8 @@ function MainShell() {
   const ready = () => loadState() === "ready";
 
   const pendingTodos = () => sortTodos(todos()).filter((item) => !item.isCompleted);
+  const activeTodos = () => pendingTodos().filter((item) => !isOverdue(item.scheduledDate));
+  const overdueTodos = () => pendingTodos().filter((item) => isOverdue(item.scheduledDate));
   const completedTodos = () => sortTodos(todos()).filter((item) => item.isCompleted);
   const todayTodos = () => pendingTodos().filter((item) => item.scheduledDate === getToday());
   const todayCompletedTodos = () =>
@@ -528,8 +652,14 @@ function MainShell() {
 
   async function toggleTodo(id: number) {
     await run(async () => {
-      setTodos(await toggleTodoItem(id));
-      showMessage("待办状态已更新。", "success");
+      const nextTodos = await toggleTodoItem(id);
+      const updatedItem = nextTodos.find((item) => item.id === id);
+      setTodos(nextTodos);
+      if (updatedItem?.isCompleted) {
+        showMessage(`已完成“${updatedItem.title}”，已移到“已完成”。`, "success");
+      } else {
+        showMessage(`已恢复“${updatedItem?.title ?? "待办"}”。`, "success");
+      }
     }, "正在更新…");
   }
 
@@ -1435,118 +1565,57 @@ function MainShell() {
                   <p class="empty-copy">读取失败，请点击上方“重试读取”。</p>
                 </Show>
                 <Show when={ready()}>
-                  <For each={pendingTodos()}>
+                  <For each={activeTodos()}>
                     {(item) => (
-                      <article classList={{ "todo-row": true, "todo-row--overdue": isOverdue(item.scheduledDate) }}>
-                        <Show
-                          when={editingTodo()?.id === item.id}
-                          fallback={
-                            <>
-                              <button
-                                type="button"
-                                class="todo-check"
-                                title="标记完成"
-                                aria-label={`标记“${item.title}”完成`}
-                                disabled={busy()}
-                                onClick={() => void toggleTodo(item.id)}
-                              />
-                              <div>
-                                <strong title={item.title}>{item.title}</strong>
-                                <small>
-                                  {formatTodoDue(item)} · 重要程度：{importanceLabel(item.importanceKey)}
-                                </small>
-                              </div>
-                              <div class="todo-row__actions">
-                                <button
-                                  type="button"
-                                  class="row-action"
-                                  disabled={busy()}
-                                  onClick={() => beginEditTodo(item)}
-                                >
-                                  编辑
-                                </button>
-                                <button
-                                  type="button"
-                                  class="row-action"
-                                  disabled={busy() || timerHasProgress()}
-                                  onClick={() => useTodoForFocus(item)}
-                                >
-                                  专注
-                                </button>
-                                <button
-                                  type="button"
-                                  class="row-action row-action--danger"
-                                  title="删除待办"
-                                  disabled={busy()}
-                                  onClick={() => void removeTodo(item.id)}
-                                >
-                                  删除
-                                </button>
-                              </div>
-                            </>
-                          }
-                        >
-                          <div class="todo-edit-form">
-                            <label>
-                              <span>待办事项</span>
-                              <input
-                                type="text"
-                                name={`editTodoTitle-${item.id}`}
-                                autocomplete="off"
-                                value={editingTodo()?.title ?? ""}
-                                onInput={(event) => patchEditingTodo({ title: event.currentTarget.value })}
-                              />
-                            </label>
-                            <label>
-                              <span>截止日期</span>
-                              <input
-                                type="date"
-                                name={`editTodoDate-${item.id}`}
-                                autocomplete="off"
-                                value={editingTodo()?.scheduledDate ?? ""}
-                                onChange={(event) => patchEditingTodo({ scheduledDate: event.currentTarget.value })}
-                              />
-                            </label>
-                            <label>
-                              <span>时间</span>
-                              <input
-                                type="time"
-                                name={`editTodoTime-${item.id}`}
-                                autocomplete="off"
-                                value={editingTodo()?.scheduledTime ?? ""}
-                                onInput={(event) => patchEditingTodo({ scheduledTime: event.currentTarget.value })}
-                              />
-                            </label>
-                            <label>
-                              <span>重要程度</span>
-                              <select
-                                name={`editTodoImportance-${item.id}`}
-                                value={editingTodo()?.importanceKey ?? "medium"}
-                                onChange={(event) => patchEditingTodo({ importanceKey: event.currentTarget.value as TodoImportance })}
-                              >
-                                <option value="high">高</option>
-                                <option value="medium">中</option>
-                                <option value="low">低</option>
-                              </select>
-                            </label>
-                            <div class="todo-edit-form__actions">
-                              <button type="button" class="primary-button" disabled={busy()} onClick={() => void saveTodoEdit()}>
-                                保存
-                              </button>
-                              <button type="button" class="text-button" disabled={busy()} onClick={cancelEditTodo}>
-                                取消
-                              </button>
-                            </div>
-                          </div>
-                        </Show>
-                      </article>
+                      <TodoRow
+                        item={item}
+                        editingTodo={editingTodo}
+                        busy={busy}
+                        timerHasProgress={timerHasProgress}
+                        onToggle={(id) => void toggleTodo(id)}
+                        onBeginEdit={beginEditTodo}
+                        onUseForFocus={useTodoForFocus}
+                        onRemove={(id) => void removeTodo(id)}
+                        onPatch={patchEditingTodo}
+                        onSave={() => void saveTodoEdit()}
+                        onCancel={cancelEditTodo}
+                      />
                     )}
                   </For>
                 </Show>
-                <Show when={ready() && pendingTodos().length === 0}>
+                <Show when={ready() && activeTodos().length === 0 && overdueTodos().length === 0}>
                   <p class="empty-copy">还没有待办，先写下今天要完成的一件事。</p>
                 </Show>
               </div>
+
+              <Show when={ready() && overdueTodos().length > 0}>
+                <section class="todo-status-section todo-status-section--overdue" aria-labelledby="overdue-todos-heading">
+                  <div class="todo-status-section__heading">
+                    <div>
+                      <h2 id="overdue-todos-heading">已过期</h2>
+                      <span>截止日期已过去，仍可编辑或标记完成</span>
+                    </div>
+                    <strong>{overdueTodos().length}</strong>
+                  </div>
+                  <For each={overdueTodos()}>
+                    {(item) => (
+                      <TodoRow
+                        item={item}
+                        editingTodo={editingTodo}
+                        busy={busy}
+                        timerHasProgress={timerHasProgress}
+                        onToggle={(id) => void toggleTodo(id)}
+                        onBeginEdit={beginEditTodo}
+                        onUseForFocus={useTodoForFocus}
+                        onRemove={(id) => void removeTodo(id)}
+                        onPatch={patchEditingTodo}
+                        onSave={() => void saveTodoEdit()}
+                        onCancel={cancelEditTodo}
+                      />
+                    )}
+                  </For>
+                </section>
+              </Show>
 
               <Show when={completedTodos().length > 0}>
                 <section class="completed-section">

@@ -8,16 +8,31 @@ function localDate() {
   return `${year}-${month}-${day}`;
 }
 
-async function bootWithTauriMock(page) {
-  await page.addInitScript(({ today }) => {
-    let todo = {
-      id: 1,
-      title: "写完产品复盘",
-      isCompleted: false,
-      scheduledDate: today,
-      scheduledTime: "10:00",
-      importanceKey: "high",
-    };
+async function bootWithTauriMock(page, { includeOverdue = false } = {}) {
+  await page.addInitScript(({ today, includeOverdue }) => {
+    const yesterday = new Date(`${today}T00:00:00`);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const overdueDate = yesterday.toISOString().slice(0, 10);
+    let todos = [
+      {
+        id: 1,
+        title: "写完产品复盘",
+        isCompleted: false,
+        scheduledDate: today,
+        scheduledTime: "10:00",
+        importanceKey: "high",
+      },
+    ];
+    if (includeOverdue) {
+      todos.push({
+        id: 2,
+        title: "过期事项",
+        isCompleted: false,
+        scheduledDate: overdueDate,
+        scheduledTime: "",
+        importanceKey: "medium",
+      });
+    }
     window.__todoItemsCalls = 0;
     const timer = {
       modeKey: "stopwatch",
@@ -52,7 +67,7 @@ async function bootWithTauriMock(page) {
       sessionCount: 0,
       linkedSessionCount: 0,
       independentSessionCount: 0,
-      pendingTodoCount: 1,
+      pendingTodoCount: todos.length,
       completedTodoCount: 0,
       activeDays: 0,
       averageDailyDurationLabel: "0 分钟",
@@ -75,20 +90,27 @@ async function bootWithTauriMock(page) {
             return timer;
           case "get_todo_items":
             window.__todoItemsCalls += 1;
-            return [todo];
+            return todos;
           case "get_focus_records":
             return [];
           case "get_analytics_snapshot":
             return analytics;
           case "update_todo_item":
-            todo = {
-              ...todo,
-              title: args.title,
-              scheduledDate: args.scheduledDate,
-              scheduledTime: args.scheduledTime,
-              importanceKey: args.importanceKey,
-            };
-            return [todo];
+            todos = todos.map((item) => item.id === args.id
+              ? {
+                  ...item,
+                  title: args.title,
+                  scheduledDate: args.scheduledDate,
+                  scheduledTime: args.scheduledTime,
+                  importanceKey: args.importanceKey,
+                }
+              : item);
+            return todos;
+          case "toggle_todo_item":
+            todos = todos.map((item) => item.id === args.id
+              ? { ...item, isCompleted: !item.isCompleted }
+              : item);
+            return todos;
           case "list_app_backups":
             return [];
           case "start_timer":
@@ -102,7 +124,7 @@ async function bootWithTauriMock(page) {
         }
       },
     };
-  }, { today: localDate() });
+  }, { today: localDate(), includeOverdue });
 
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "今天，从一件事开始" })).toBeVisible();
@@ -169,6 +191,31 @@ test("todo editor saves a date selected from the native date picker", async ({ p
   await page.getByRole("button", { name: "保存" }).click();
 
   await expect(page.locator(".todo-row").getByText("明天截止 · 10:00")).toBeVisible();
+});
+
+test("completing a todo keeps it visible in the completed section", async ({ page }) => {
+  await bootWithTauriMock(page);
+
+  await page.getByRole("button", { name: /^待办/ }).click();
+  await page.getByRole("button", { name: "标记“写完产品复盘”完成" }).click();
+
+  await expect(page.locator(".completed-section")).toContainText("写完产品复盘");
+  await expect(page.locator(".app-message")).toContainText("已完成“写完产品复盘”");
+});
+
+test("overdue todos are shown in their own status section", async ({ page }) => {
+  await bootWithTauriMock(page, { includeOverdue: true });
+
+  await page.getByRole("button", { name: /^待办/ }).click();
+
+  const overdueSection = page.locator(".todo-status-section--overdue");
+  await expect(page.getByRole("heading", { name: "已过期" })).toBeVisible();
+  await expect(overdueSection).toContainText("过期事项");
+  await expect(overdueSection.getByRole("button", { name: "编辑" })).toBeVisible();
+
+  await overdueSection.getByRole("button", { name: "标记“过期事项”完成" }).click();
+  await expect(page.locator(".completed-section")).toContainText("过期事项");
+  await expect(overdueSection).toBeHidden();
 });
 
 test("Today cockpit remains usable on a narrow window", async ({ page }) => {
