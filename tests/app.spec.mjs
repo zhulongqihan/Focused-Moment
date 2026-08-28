@@ -43,7 +43,7 @@ async function bootWithTauriMock(page, { includeOverdue = false, windowLabel = "
       isRunning: false,
       elapsedMs: pausedFocus ? 30_000 : 0,
       elapsedLabel: pausedFocus ? "00:00:30" : "00:00:00",
-      targetDurationMs: null,
+      targetDurationMs: 25 * 60 * 1000,
       remainingMs: null,
       secondaryLabel: "已累计时长",
       canCompleteSession: true,
@@ -181,6 +181,15 @@ test("countdown duration keeps the user value while timer snapshots refresh", as
   await page.waitForTimeout(1200);
 
   await expect(durationInput).toHaveValue("60");
+});
+
+test("stopwatch shows the next staged target instead of a one-minute target", async ({ page }) => {
+  await bootWithTauriMock(page);
+
+  await page.getByRole("button", { name: "计时", exact: true }).click();
+
+  await expect(page.locator(".timer-readout")).toContainText("下一阶段目标：25 分钟");
+  await expect(page.locator(".timer-readout")).not.toContainText("1 分钟");
 });
 
 test("paused focus floating window can continue without returning to the main window", async ({ page }) => {

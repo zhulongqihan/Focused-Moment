@@ -1468,7 +1468,9 @@ function MainShell() {
                 <small>
                   {timer().modeKey === "countdown"
                     ? `设定 ${countdownMinutes()} 分钟`
-                    : "已累计专注时长"}
+                    : timer().targetDurationMs !== null
+                      ? `下一阶段目标：${Math.round(timer().targetDurationMs! / 60_000)} 分钟`
+                      : "阶段目标已完成"}
                 </small>
               </div>
 

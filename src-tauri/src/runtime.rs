@@ -27,13 +27,14 @@ const MIN_POMODORO_BREAK_MINUTES: u64 = 1;
 const MAX_POMODORO_BREAK_MINUTES: u64 = 30;
 const MIN_STOPWATCH_REMINDER_MINUTES: u64 = 1;
 const MAX_STOPWATCH_REMINDER_MINUTES: u64 = 12 * 60;
+const DEFAULT_STOPWATCH_REMINDER_MINUTES: u64 = 25;
+const STOPWATCH_STAGE_MINUTES: [u64; 5] = [25, 45, 60, 90, 120];
 const DEFAULT_COUNTDOWN_MINUTES: u64 = 25;
 const MIN_COUNTDOWN_MINUTES: u64 = 1;
 const MAX_COUNTDOWN_MINUTES: u64 = 12 * 60;
 const MAX_TODO_TITLE_CHARS: usize = 200;
-const APP_VERSION: &str = "2.0.6";
-const APP_MILESTONE: &str =
-    "v2.0.6 \u{6d6e}\u{7a97}\u{6682}\u{505c}\u{540e}\u{53ef}\u{7ee7}\u{7eed}";
+const APP_VERSION: &str = "2.0.7";
+const APP_MILESTONE: &str = "v2.0.7 \u{9636}\u{6bb5}\u{6027}\u{76ee}\u{6807}\u{63d0}\u{9192}";
 const APP_BACKUP_KIND: &str = "focused-moment-backup";
 const APP_BACKUP_FORMAT_VERSION: u64 = 2;
 
@@ -125,7 +126,7 @@ impl Default for TimerPreferences {
         Self {
             pomodoro_focus_minutes: DEFAULT_POMODORO_FOCUS_MINUTES,
             pomodoro_break_minutes: DEFAULT_POMODORO_BREAK_MINUTES,
-            stopwatch_reminder_minutes: None,
+            stopwatch_reminder_minutes: Some(DEFAULT_STOPWATCH_REMINDER_MINUTES),
             toast_reminder_enabled: true,
             window_attention_reminder_enabled: true,
         }
@@ -164,7 +165,7 @@ impl AlertKind {
         match self {
             AlertKind::PomodoroFocusComplete => "本轮番茄已完成",
             AlertKind::PomodoroBreakComplete => "休息时间结束了",
-            AlertKind::StopwatchTargetReached => "正向计时已到达目标",
+            AlertKind::StopwatchTargetReached => "已达到阶段性目标",
             AlertKind::CountdownComplete => "倒计时已结束",
         }
     }
@@ -258,6 +259,19 @@ impl TimerPreferences {
         self.stopwatch_reminder_minutes
             .map(|minutes| minutes.saturating_mul(60_000))
     }
+}
+
+fn stopwatch_stage_index_for_elapsed(elapsed_ms: u64) -> usize {
+    STOPWATCH_STAGE_MINUTES
+        .iter()
+        .take_while(|minutes| elapsed_ms >= minutes.saturating_mul(60_000))
+        .count()
+}
+
+fn stopwatch_next_target_ms(stage_index: usize) -> Option<u64> {
+    STOPWATCH_STAGE_MINUTES
+        .get(stage_index)
+        .map(|minutes| minutes.saturating_mul(60_000))
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -433,7 +447,7 @@ struct TimerEngine {
     pomodoro_focus_ms: u64,
     pomodoro_break_ms: u64,
     stopwatch_reminder_ms: Option<u64>,
-    stopwatch_target_alerted: bool,
+    stopwatch_stage_index: usize,
     alert_sequence: u64,
     active_alert_kind: Option<AlertKind>,
 }
@@ -774,6 +788,20 @@ impl TimerEngine {
         let mode = parse_mode_key_value(&runtime.mode_key).unwrap_or_default();
         let pomodoro_phase = parse_phase_key_value(&runtime.pomodoro_phase_key).unwrap_or_default();
         let has_task_title = !runtime.current_task_title.trim().is_empty();
+        let stopwatch_stage_index = runtime
+            .stopwatch_stage_index
+            .max(stopwatch_stage_index_for_elapsed(
+                runtime.stopwatch_elapsed_ms,
+            ))
+            .min(STOPWATCH_STAGE_MINUTES.len());
+        let active_alert_kind = runtime
+            .active_alert_key
+            .as_deref()
+            .and_then(parse_alert_key_value);
+        let active_alert_kind = match active_alert_kind {
+            Some(AlertKind::StopwatchTargetReached) if stopwatch_stage_index == 0 => None,
+            other => other,
+        };
         let anchor = runtime.anchor_wall_clock_ms.and_then(|milliseconds| {
             if runtime.is_running {
                 Some(Self::anchor_from_wall_clock_ms(milliseconds))
@@ -805,12 +833,9 @@ impl TimerEngine {
             pomodoro_focus_ms: preferences.pomodoro_focus_ms(),
             pomodoro_break_ms: preferences.pomodoro_break_ms(),
             stopwatch_reminder_ms: preferences.stopwatch_reminder_ms(),
-            stopwatch_target_alerted: runtime.stopwatch_target_alerted,
+            stopwatch_stage_index,
             alert_sequence: runtime.alert_sequence,
-            active_alert_kind: runtime
-                .active_alert_key
-                .as_deref()
-                .and_then(parse_alert_key_value),
+            active_alert_kind,
             recovered_from_last_session: runtime.is_running
                 || runtime.stopwatch_elapsed_ms > 0
                 || runtime.countdown_elapsed_ms > 0
@@ -843,7 +868,8 @@ impl TimerEngine {
             completed_break_count: self.completed_break_count,
             alert_sequence: self.alert_sequence,
             active_alert_key: self.active_alert_kind.map(|kind| kind.key().to_string()),
-            stopwatch_target_alerted: self.stopwatch_target_alerted,
+            stopwatch_target_alerted: self.stopwatch_stage_index > 0,
+            stopwatch_stage_index: self.stopwatch_stage_index,
         }
     }
 
@@ -852,13 +878,22 @@ impl TimerEngine {
         self.pomodoro_break_ms = preferences.pomodoro_break_ms();
         self.stopwatch_reminder_ms = preferences.stopwatch_reminder_ms();
         if self.stopwatch_reminder_ms.is_none() {
-            self.stopwatch_target_alerted = false;
+            if self.active_alert_kind == Some(AlertKind::StopwatchTargetReached) {
+                self.clear_alert();
+            }
         } else if self.mode == TimerMode::Stopwatch {
-            let target_ms = self.stopwatch_reminder_ms.unwrap_or(0);
-            if self.stopwatch_elapsed_ms < target_ms {
-                self.stopwatch_target_alerted = false;
-            } else if !self.stopwatch_target_alerted {
-                self.stopwatch_target_alerted = true;
+            self.stopwatch_stage_index = self
+                .stopwatch_stage_index
+                .max(stopwatch_stage_index_for_elapsed(self.stopwatch_elapsed_ms))
+                .min(STOPWATCH_STAGE_MINUTES.len());
+            if self.active_alert_kind == Some(AlertKind::StopwatchTargetReached)
+                && self.stopwatch_stage_index == 0
+            {
+                self.clear_alert();
+            }
+            let reached_stage_index = stopwatch_stage_index_for_elapsed(self.stopwatch_elapsed_ms);
+            if reached_stage_index > self.stopwatch_stage_index {
+                self.stopwatch_stage_index = reached_stage_index;
                 self.mark_alert(AlertKind::StopwatchTargetReached);
             }
         }
@@ -887,6 +922,26 @@ impl TimerEngine {
 
     fn clear_alert(&mut self) {
         self.active_alert_kind = None;
+    }
+
+    fn stopwatch_alert_message(&self) -> String {
+        let completed_stage_index = self.stopwatch_stage_index.saturating_sub(1);
+        let completed_minutes = STOPWATCH_STAGE_MINUTES
+            .get(completed_stage_index)
+            .copied()
+            .unwrap_or(DEFAULT_STOPWATCH_REMINDER_MINUTES);
+        match STOPWATCH_STAGE_MINUTES.get(self.stopwatch_stage_index) {
+            Some(next_minutes) => format!(
+                "已达到第 {} 个阶段性目标：累计专注 {} 分钟。下一目标是 {} 分钟。",
+                completed_stage_index + 1,
+                completed_minutes,
+                next_minutes
+            ),
+            None => format!(
+                "已完成全部阶段性目标：累计专注 {} 分钟。计时仍会继续。",
+                completed_minutes
+            ),
+        }
     }
 
     fn mark_alert(&mut self, alert_kind: AlertKind) {
@@ -942,7 +997,7 @@ impl TimerEngine {
         self.clear_context();
         self.completed_focus_count = 0;
         self.completed_break_count = 0;
-        self.stopwatch_target_alerted = false;
+        self.stopwatch_stage_index = 0;
         self.countdown_completed_alerted = false;
         self.clear_alert();
         self.clear_recovery_flag();
@@ -969,7 +1024,7 @@ impl TimerEngine {
         self.clear_context();
         self.completed_focus_count = 0;
         self.completed_break_count = 0;
-        self.stopwatch_target_alerted = false;
+        self.stopwatch_stage_index = 0;
         self.countdown_completed_alerted = false;
         self.clear_alert();
         self.clear_recovery_flag();
@@ -1017,7 +1072,7 @@ impl TimerEngine {
                 self.stopwatch_elapsed_ms = 0;
                 self.running_anchor = None;
                 self.clear_context();
-                self.stopwatch_target_alerted = false;
+                self.stopwatch_stage_index = 0;
                 self.clear_alert();
                 self.clear_recovery_flag();
 
@@ -1141,7 +1196,11 @@ impl TimerEngine {
             is_running: self.running_anchor.is_some(),
             elapsed_ms,
             elapsed_label: format_duration_ms(elapsed_ms),
-            target_duration_ms: self.stopwatch_reminder_ms,
+            target_duration_ms: if self.stopwatch_reminder_ms.is_some() {
+                stopwatch_next_target_ms(self.stopwatch_stage_index)
+            } else {
+                None
+            },
             remaining_ms: None,
             secondary_label: "\u{5df2}\u{7d2f}\u{8ba1}\u{4e13}\u{6ce8}\u{65f6}\u{957f}",
             can_complete_session: true,
@@ -1157,7 +1216,10 @@ impl TimerEngine {
             alert_sequence: self.alert_sequence,
             alert_key: active_alert_kind.map(|kind| kind.key()),
             alert_title: active_alert_kind.map(|kind| kind.title()),
-            alert_message: active_alert_kind.map(|kind| kind.message(self.active_preferences())),
+            alert_message: active_alert_kind.map(|kind| match kind {
+                AlertKind::StopwatchTargetReached => self.stopwatch_alert_message(),
+                _ => kind.message(self.active_preferences()),
+            }),
         }
     }
 
@@ -1297,14 +1359,12 @@ impl TimerEngine {
 
         let keep_running = match self.mode {
             TimerMode::Stopwatch => {
-                let previous_elapsed_ms = self.stopwatch_elapsed_ms;
                 self.stopwatch_elapsed_ms = self.stopwatch_elapsed_ms.saturating_add(delta_ms);
-                if let Some(target_ms) = self.stopwatch_reminder_ms {
-                    if previous_elapsed_ms < target_ms
-                        && self.stopwatch_elapsed_ms >= target_ms
-                        && !self.stopwatch_target_alerted
-                    {
-                        self.stopwatch_target_alerted = true;
+                if self.stopwatch_reminder_ms.is_some() {
+                    let reached_stage_index =
+                        stopwatch_stage_index_for_elapsed(self.stopwatch_elapsed_ms);
+                    if reached_stage_index > self.stopwatch_stage_index {
+                        self.stopwatch_stage_index = reached_stage_index;
                         self.mark_alert(AlertKind::StopwatchTargetReached);
                     }
                 }
@@ -2818,6 +2878,46 @@ mod tests {
         assert_eq!(completed.linked_todo_id, Some(42));
         assert!(timer.current_task_title.is_empty());
         assert_eq!(timer.linked_todo_id, None);
+    }
+
+    #[test]
+    fn stopwatch_uses_staged_targets_and_keeps_running() {
+        let mut timer = TimerEngine {
+            mode: TimerMode::Stopwatch,
+            stopwatch_reminder_ms: Some(60_000),
+            stopwatch_elapsed_ms: 25 * 60_000 - 100,
+            running_anchor: Some(RunAnchor {
+                monotonic: Instant::now() - Duration::from_millis(500),
+                wall_clock: SystemTime::now() - Duration::from_millis(500),
+            }),
+            ..TimerEngine::default()
+        };
+
+        timer.sync_running_time();
+
+        assert_eq!(timer.stopwatch_stage_index, 1);
+        assert!(timer.running_anchor.is_some());
+        assert_eq!(
+            timer.active_alert_kind,
+            Some(AlertKind::StopwatchTargetReached)
+        );
+        assert!(timer.stopwatch_alert_message().contains("25"));
+
+        timer.clear_alert();
+        timer.stopwatch_elapsed_ms = 45 * 60_000 - 100;
+        timer.running_anchor = Some(RunAnchor {
+            monotonic: Instant::now() - Duration::from_millis(500),
+            wall_clock: SystemTime::now() - Duration::from_millis(500),
+        });
+        timer.sync_running_time();
+
+        assert_eq!(timer.stopwatch_stage_index, 2);
+        assert!(timer.running_anchor.is_some());
+        assert_eq!(
+            timer.active_alert_kind,
+            Some(AlertKind::StopwatchTargetReached)
+        );
+        assert!(timer.stopwatch_alert_message().contains("45"));
     }
 
     #[test]

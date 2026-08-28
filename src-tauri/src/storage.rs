@@ -106,6 +106,8 @@ pub struct PersistedRuntimeState {
     pub active_alert_key: Option<String>,
     #[serde(default)]
     pub stopwatch_target_alerted: bool,
+    #[serde(default)]
+    pub stopwatch_stage_index: usize,
 }
 
 fn legacy_schema_version() -> u64 {
