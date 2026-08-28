@@ -345,6 +345,14 @@ function formatTodoDue(item: TodoItem) {
   return `${formatDueDate(item.scheduledDate)}${item.scheduledTime ? ` · ${item.scheduledTime}` : ""}`;
 }
 
+function formatCountdownPreview(minutes: number) {
+  const totalSeconds = Math.max(0, Math.round((Number.isFinite(minutes) ? minutes : 0) * 60));
+  const hours = Math.floor(totalSeconds / 3600);
+  const remainingMinutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return [hours, remainingMinutes, seconds].map((value) => String(value).padStart(2, "0")).join(":");
+}
+
 function importanceLabel(value: TodoImportance) {
   return value === "high" ? "高" : value === "low" ? "低" : "中";
 }
@@ -1467,7 +1475,11 @@ function MainShell() {
 
               <div class="timer-readout">
                 <span>{timer().status}</span>
-                <strong>{timer().elapsedLabel}</strong>
+                <strong>
+                  {timer().modeKey === "countdown" && countdownDraftDirty()
+                    ? formatCountdownPreview(countdownMinutes())
+                    : timer().elapsedLabel}
+                </strong>
                 <small>
                   {timer().modeKey === "countdown"
                     ? `设定 ${countdownMinutes()} 分钟`

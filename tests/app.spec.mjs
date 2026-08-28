@@ -181,6 +181,7 @@ test("countdown duration keeps the user value while timer snapshots refresh", as
   await page.waitForTimeout(1200);
 
   await expect(durationInput).toHaveValue("60");
+  await expect(page.locator(".timer-readout strong")).toHaveText("01:00:00");
 });
 
 test("stopwatch shows the next staged target instead of a one-minute target", async ({ page }) => {
