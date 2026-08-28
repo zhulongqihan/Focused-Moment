@@ -34,6 +34,7 @@ async function bootWithTauriMock(page, { includeOverdue = false, windowLabel = "
       });
     }
     window.__todoItemsCalls = 0;
+    window.__focusFloatingShown = false;
     let timer = {
       modeKey: "stopwatch",
       phaseKey: "stopwatch",
@@ -116,6 +117,9 @@ async function bootWithTauriMock(page, { includeOverdue = false, windowLabel = "
           case "start_timer":
             timer = { ...timer, isRunning: true, status: "正向计时中" };
             return timer;
+          case "show_focus_floating":
+            window.__focusFloatingShown = true;
+            return null;
           case "pause_timer":
             timer = { ...timer, isRunning: false, status: "已暂停" };
             return timer;
@@ -182,6 +186,18 @@ test("countdown duration keeps the user value while timer snapshots refresh", as
 
   await expect(durationInput).toHaveValue("60");
   await expect(page.locator(".timer-readout strong")).toHaveText("01:00:00");
+});
+
+test("starting a countdown opens the focus floating window", async ({ page }) => {
+  await bootWithTauriMock(page);
+
+  await page.getByRole("button", { name: "计时", exact: true }).click();
+  await page.getByRole("button", { name: "倒计时" }).click();
+  await page.locator('input[name="countdownMinutes"]').fill("60");
+  await page.locator('input[name="sessionTitle"]').fill("完成季度复盘");
+  await page.getByRole("button", { name: "开始", exact: true }).click();
+
+  await expect.poll(() => page.evaluate(() => window.__focusFloatingShown)).toBe(true);
 });
 
 test("stopwatch shows the next staged target instead of a one-minute target", async ({ page }) => {

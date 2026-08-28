@@ -540,7 +540,7 @@ function MainShell() {
     }
 
     await run(async () => {
-      if (timer().modeKey === "countdown") {
+      if (timer().modeKey === "countdown" && !timerHasProgress()) {
         const minutes = Math.round(countdownMinutes());
         if (minutes < 1 || minutes > 720) {
           throw new Error("倒计时时长需要在 1 到 720 分钟之间。");
@@ -553,7 +553,7 @@ function MainShell() {
         await updateTimerContext(title, linkedTodoId(), completeLinkedTodo())
       );
       applyTimerSnapshot(await startTimer());
-      if (timer().modeKey === "stopwatch") {
+      if (timer().modeKey === "stopwatch" || timer().modeKey === "countdown") {
         await showFocusFloating();
       }
       showMessage("已开始计时。", "success");
@@ -1025,7 +1025,7 @@ function MainShell() {
 
   if (isFocusFloatingWindow) {
     return (
-      <aside class="focus-floating" aria-label="正向计时小窗">
+      <aside class="focus-floating" aria-label="专注悬浮窗">
         <header class="focus-floating__header">
           <div
             class="floating-todo__drag-handle"
