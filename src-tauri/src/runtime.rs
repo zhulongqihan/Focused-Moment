@@ -6,7 +6,7 @@ use std::process::Command;
 use std::sync::Mutex;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use chrono::{Duration as ChronoDuration, Local, NaiveDate, NaiveTime};
+use chrono::{Duration as ChronoDuration, Local, NaiveDate, NaiveDateTime, NaiveTime};
 use serde::{Deserialize, Serialize};
 use storage::{
     AppBackupFile, PersistedRuntimeState, PersistedState, PersistenceStore,
@@ -33,9 +33,8 @@ const DEFAULT_COUNTDOWN_MINUTES: u64 = 25;
 const MIN_COUNTDOWN_MINUTES: u64 = 1;
 const MAX_COUNTDOWN_MINUTES: u64 = 12 * 60;
 const MAX_TODO_TITLE_CHARS: usize = 200;
-const APP_VERSION: &str = "2.0.12";
-const APP_MILESTONE: &str =
-    "v2.0.12 \u{5012}\u{8ba1}\u{65f6}\u{7ed3}\u{675f}\u{63d0}\u{793a}\u{4e0e}\u{8bb0}\u{5f55}";
+const APP_VERSION: &str = "2.0.13";
+const APP_MILESTONE: &str = "v2.0.13 \u{8de8}\u{65e5}\u{7edf}\u{8ba1}\u{4e0e}\u{5206}\u{6790}";
 const APP_BACKUP_KIND: &str = "focused-moment-backup";
 const APP_BACKUP_FORMAT_VERSION: u64 = 2;
 
@@ -1629,6 +1628,74 @@ fn current_local_markers() -> (String, String, String) {
     )
 }
 
+fn record_completed_at(record: &FocusRecord) -> Option<NaiveDateTime> {
+    NaiveDateTime::parse_from_str(&record.completed_at, "%Y-%m-%d %H:%M:%S")
+        .ok()
+        .or_else(|| {
+            NaiveDateTime::parse_from_str(
+                &format!("{} {}", record.completed_date, record.completed_time),
+                "%Y-%m-%d %H:%M",
+            )
+            .ok()
+        })
+}
+
+fn split_record_duration_by_date(record: &FocusRecord) -> Vec<(String, u64)> {
+    let fallback_date = if record.completed_date.trim().is_empty() {
+        "未记录日期".to_string()
+    } else {
+        record.completed_date.clone()
+    };
+
+    let Some(completed_at) = record_completed_at(record) else {
+        return vec![(fallback_date, record.duration_ms)];
+    };
+
+    let Ok(duration_ms) = i64::try_from(record.duration_ms) else {
+        return vec![(fallback_date, record.duration_ms)];
+    };
+
+    let started_at = completed_at - ChronoDuration::milliseconds(duration_ms);
+    let mut segments = Vec::new();
+    let mut date = started_at.date();
+
+    while date <= completed_at.date() {
+        let day_start = date.and_time(NaiveTime::MIN);
+        let next_day_start = date
+            .succ_opt()
+            .map(|next_date| next_date.and_time(NaiveTime::MIN))
+            .unwrap_or(completed_at);
+        let segment_start = if started_at > day_start {
+            started_at
+        } else {
+            day_start
+        };
+        let segment_end = if completed_at < next_day_start {
+            completed_at
+        } else {
+            next_day_start
+        };
+
+        if segment_end > segment_start {
+            segments.push((
+                date.to_string(),
+                (segment_end - segment_start).num_milliseconds() as u64,
+            ));
+        }
+
+        let Some(next_date) = date.succ_opt() else {
+            break;
+        };
+        date = next_date;
+    }
+
+    if segments.is_empty() {
+        vec![(fallback_date, record.duration_ms)]
+    } else {
+        segments
+    }
+}
+
 fn analytics_snapshot(records: &[FocusRecord], todo_items: &[TodoItem]) -> AnalyticsSnapshot {
     let today = Local::now().format("%Y-%m-%d").to_string();
     let total_focus_duration_ms = records.iter().map(|record| record.duration_ms).sum::<u64>();
@@ -1641,39 +1708,32 @@ fn analytics_snapshot(records: &[FocusRecord], todo_items: &[TodoItem]) -> Analy
     let pending_todo_count = todo_items.iter().filter(|item| !item.is_completed).count();
     let completed_todo_count = todo_items.iter().filter(|item| item.is_completed).count();
 
-    let mut grouped = BTreeMap::<String, Vec<&FocusRecord>>::new();
+    let mut grouped = BTreeMap::<String, DailyInsight>::new();
     for record in records {
-        let date_key = if record.completed_date.trim().is_empty() {
-            "未记录日期".to_string()
-        } else {
-            record.completed_date.clone()
-        };
-
-        grouped.entry(date_key).or_default().push(record);
+        for (date, duration_ms) in split_record_duration_by_date(record) {
+            let day = grouped.entry(date.clone()).or_insert(DailyInsight {
+                date,
+                total_duration_ms: 0,
+                total_duration_label: String::new(),
+                session_count: 0,
+                linked_session_count: 0,
+                independent_session_count: 0,
+            });
+            day.total_duration_ms = day.total_duration_ms.saturating_add(duration_ms);
+            day.session_count += 1;
+            if record.linked_todo_id.is_some() {
+                day.linked_session_count += 1;
+            }
+        }
     }
 
     let mut daily_breakdown = grouped
         .into_iter()
-        .map(|(date, day_records)| {
-            let total_duration_ms = day_records
-                .iter()
-                .map(|record| record.duration_ms)
-                .sum::<u64>();
-            let session_count = day_records.len();
-            let linked_session_count = day_records
-                .iter()
-                .filter(|record| record.linked_todo_id.is_some())
-                .count();
-            let independent_session_count = session_count.saturating_sub(linked_session_count);
-
-            DailyInsight {
-                date,
-                total_duration_ms,
-                total_duration_label: format_duration_ms(total_duration_ms),
-                session_count,
-                linked_session_count,
-                independent_session_count,
-            }
+        .map(|(_, mut day)| {
+            day.total_duration_label = format_duration_ms(day.total_duration_ms);
+            day.independent_session_count =
+                day.session_count.saturating_sub(day.linked_session_count);
+            day
         })
         .collect::<Vec<_>>();
 
@@ -3000,6 +3060,44 @@ mod tests {
             snapshot.best_focus_duration_label,
             Some(format_duration_ms(45 * 60_000))
         );
+    }
+
+    #[test]
+    fn analytics_splits_a_session_across_midnight_without_splitting_the_record() {
+        let today = Local::now().date_naive();
+        let yesterday = today - ChronoDuration::days(1);
+        let record = FocusRecord {
+            id: 1,
+            title: "跨午夜专注".to_string(),
+            duration_ms: 20 * 60_000,
+            duration_label: format_duration_ms(20 * 60_000),
+            mode_key: "countdown".to_string(),
+            mode_label: "倒计时".to_string(),
+            phase_label: "倒计时".to_string(),
+            linked_todo_id: None,
+            linked_todo_title: None,
+            completed_at: format!("{today} 00:10:00"),
+            completed_date: today.to_string(),
+            completed_time: "00:10".to_string(),
+        };
+
+        let snapshot = analytics_snapshot(&[record], &[]);
+        let yesterday_breakdown = snapshot
+            .daily_breakdown
+            .iter()
+            .find(|day| day.date == yesterday.to_string())
+            .expect("yesterday is included");
+        let today_breakdown = snapshot
+            .daily_breakdown
+            .iter()
+            .find(|day| day.date == today.to_string())
+            .expect("today is included");
+
+        assert_eq!(snapshot.total_focus_duration_ms, 20 * 60_000);
+        assert_eq!(yesterday_breakdown.total_duration_ms, 10 * 60_000);
+        assert_eq!(today_breakdown.total_duration_ms, 10 * 60_000);
+        assert_eq!(yesterday_breakdown.session_count, 1);
+        assert_eq!(today_breakdown.session_count, 1);
     }
 
     #[test]
