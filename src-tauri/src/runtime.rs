@@ -33,8 +33,9 @@ const DEFAULT_COUNTDOWN_MINUTES: u64 = 25;
 const MIN_COUNTDOWN_MINUTES: u64 = 1;
 const MAX_COUNTDOWN_MINUTES: u64 = 12 * 60;
 const MAX_TODO_TITLE_CHARS: usize = 200;
-const APP_VERSION: &str = "2.0.7";
-const APP_MILESTONE: &str = "v2.0.7 \u{9636}\u{6bb5}\u{6027}\u{76ee}\u{6807}\u{63d0}\u{9192}";
+const APP_VERSION: &str = "2.0.8";
+const APP_MILESTONE: &str =
+    "v2.0.8 \u{9636}\u{6bb5}\u{6027}\u{76ee}\u{6807}\u{72b6}\u{6001}\u{4fee}\u{6b63}";
 const APP_BACKUP_KIND: &str = "focused-moment-backup";
 const APP_BACKUP_FORMAT_VERSION: u64 = 2;
 
@@ -882,10 +883,6 @@ impl TimerEngine {
                 self.clear_alert();
             }
         } else if self.mode == TimerMode::Stopwatch {
-            self.stopwatch_stage_index = self
-                .stopwatch_stage_index
-                .max(stopwatch_stage_index_for_elapsed(self.stopwatch_elapsed_ms))
-                .min(STOPWATCH_STAGE_MINUTES.len());
             if self.active_alert_kind == Some(AlertKind::StopwatchTargetReached)
                 && self.stopwatch_stage_index == 0
             {
