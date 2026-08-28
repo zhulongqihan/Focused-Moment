@@ -258,7 +258,10 @@ test("completing a todo keeps it visible in the completed section", async ({ pag
   await page.getByRole("button", { name: /^待办/ }).click();
   await page.getByRole("button", { name: "标记“写完产品复盘”完成" }).click();
 
-  await expect(page.locator(".completed-section")).toContainText("写完产品复盘");
+  const completedRow = page.locator(".completed-row").filter({ hasText: "写完产品复盘" });
+  await expect(completedRow).toContainText("已完成");
+  await expect(completedRow.locator(".completed-row__marker")).toHaveText("✓");
+  await expect(completedRow.locator(".completed-row__title")).toHaveCSS("text-decoration-line", "none");
   await expect(page.locator(".app-message")).toContainText("已完成“写完产品复盘”");
 });
 
@@ -270,6 +273,7 @@ test("overdue todos are shown in their own status section", async ({ page }) => 
   const overdueSection = page.locator(".todo-status-section--overdue");
   await expect(page.getByRole("heading", { name: "已过期" })).toBeVisible();
   await expect(overdueSection).toContainText("过期事项");
+  await expect(overdueSection.locator(".todo-row__overdue-label")).toHaveText("已过期");
   await expect(overdueSection.getByRole("button", { name: "编辑" })).toBeVisible();
 
   await overdueSection.getByRole("button", { name: "标记“过期事项”完成" }).click();

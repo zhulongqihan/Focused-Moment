@@ -99,6 +99,9 @@ function TodoRow(props: TodoRowProps) {
               <strong title={props.item.title}>{props.item.title}</strong>
               <small>
                 {formatTodoDue(props.item)} · 重要程度：{importanceLabel(props.item.importanceKey)}
+                <Show when={isOverdue(props.item.scheduledDate)}>
+                  <span class="todo-row__overdue-label">已过期</span>
+                </Show>
               </small>
             </div>
             <div class="todo-row__actions">
@@ -1644,6 +1647,7 @@ function MainShell() {
                   <For each={completedTodos()}>
                     {(item) => (
                       <div class="completed-row">
+                        <span class="completed-row__marker" aria-hidden="true">✓</span>
                         <button
                           type="button"
                           class="completed-row__title"
@@ -1652,6 +1656,7 @@ function MainShell() {
                         >
                           {item.title}
                         </button>
+                        <span class="completed-row__label">已完成</span>
                         <button
                           type="button"
                           class="row-action"
