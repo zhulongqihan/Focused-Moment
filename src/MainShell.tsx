@@ -1,4 +1,4 @@
-import { For, Show, createEffect, createSignal, onCleanup, onMount } from "solid-js";
+import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount } from "solid-js";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { LockKeyhole, LockKeyholeOpen } from "lucide-solid";
 import type {
@@ -353,6 +353,106 @@ function formatCountdownPreview(minutes: number) {
   return [hours, remainingMinutes, seconds].map((value) => String(value).padStart(2, "0")).join(":");
 }
 
+function formatDurationMs(value: number) {
+  const totalSeconds = Math.max(0, Math.round(value / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return [hours, minutes, seconds].map((part) => String(part).padStart(2, "0")).join(":");
+}
+
+function recordDateKey(record: FocusRecord) {
+  if (record.completedDate.trim()) {
+    return record.completedDate;
+  }
+
+  const dateMatch = record.completedAt.match(/^\d{4}-\d{2}-\d{2}/);
+  return dateMatch?.[0] ?? "未记录日期";
+}
+
+function formatRecordDay(value: string) {
+  if (value === "未记录日期") {
+    return value;
+  }
+
+  const date = parseLocalDate(value);
+  const today = parseLocalDate(getToday());
+  const difference = date && today
+    ? Math.round((date.getTime() - today.getTime()) / 86_400_000)
+    : null;
+  const dateLabel = formatAnalyticsDate(value);
+
+  if (difference === 0) {
+    return `今天 · ${dateLabel}`;
+  }
+  if (difference === -1) {
+    return `昨天 · ${dateLabel}`;
+  }
+  return dateLabel;
+}
+
+interface RecordDayGroup {
+  date: string;
+  records: FocusRecord[];
+  totalDurationMs: number;
+}
+
+function groupRecordsByDate(items: FocusRecord[]) {
+  const groups = new Map<string, RecordDayGroup>();
+
+  for (const record of items) {
+    const date = recordDateKey(record);
+    const current = groups.get(date);
+    if (current) {
+      current.records.push(record);
+      current.totalDurationMs += record.durationMs;
+    } else {
+      groups.set(date, {
+        date,
+        records: [record],
+        totalDurationMs: record.durationMs,
+      });
+    }
+  }
+
+  return Array.from(groups.values());
+}
+
+function formatLocalDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getRecentTrendDays(items: AnalyticsSnapshot["dailyBreakdown"]) {
+  const today = parseLocalDate(getToday());
+  if (!today) {
+    return items.slice(0, 7);
+  }
+
+  const byDate = new Map(items.map((day) => [day.date, day]));
+  const days: AnalyticsSnapshot["dailyBreakdown"] = [];
+
+  for (let offset = 6; offset >= 0; offset -= 1) {
+    const date = new Date(today);
+    date.setDate(date.getDate() - offset);
+    const dateKey = formatLocalDateKey(date);
+    days.push(
+      byDate.get(dateKey) ?? {
+        date: dateKey,
+        totalDurationMs: 0,
+        totalDurationLabel: "00:00:00",
+        sessionCount: 0,
+        linkedSessionCount: 0,
+        independentSessionCount: 0,
+      }
+    );
+  }
+
+  return days;
+}
+
 function importanceLabel(value: TodoImportance) {
   return value === "high" ? "高" : value === "low" ? "低" : "中";
 }
@@ -404,7 +504,18 @@ function MainShell() {
     completedTodos().filter((item) => item.scheduledDate === getToday());
   const nextTodo = () => pendingTodos()[0] ?? null;
   const selectedBackup = () => backups().find((backup) => backup.fileName === selectedBackupFile()) ?? null;
-  const recentBreakdown = () => (analytics()?.dailyBreakdown ?? []).slice(0, 7);
+  const recentBreakdown = createMemo(() => getRecentTrendDays(analytics()?.dailyBreakdown ?? []));
+  const recordGroups = createMemo(() => groupRecordsByDate(records()));
+  const recentWeekDurationMs = () =>
+    recentBreakdown().reduce((total, day) => total + day.totalDurationMs, 0);
+  const recentWeekActiveDays = () =>
+    recentBreakdown().filter((day) => day.totalDurationMs > 0).length;
+  const totalTodoCount = () =>
+    (analytics()?.completedTodoCount ?? 0) + (analytics()?.pendingTodoCount ?? 0);
+  const todoCompletionPercent = () => {
+    const total = totalTodoCount();
+    return total === 0 ? 0 : Math.round(((analytics()?.completedTodoCount ?? 0) / total) * 100);
+  };
   const maxDailyDuration = () =>
     Math.max(1, ...recentBreakdown().map((day) => day.totalDurationMs));
   const selectedTodo = () =>
@@ -1855,113 +1966,165 @@ function MainShell() {
             <section class="records-page">
               <div class="page-heading">
                 <span>记录</span>
-                <h1>每一轮都留得下来</h1>
+                <h1>看见自己留下的节奏</h1>
               </div>
               <Show when={analytics()}>
                 {(summary) => (
-                  <section class="records-story" aria-label="专注节奏">
-                    <div>
-                      <span>当前节奏</span>
-                      <strong>
-                        {summary().currentStreakDays > 0
-                          ? `${summary().currentStreakDays} 天连续投入`
-                          : "今天还没开始"}
-                      </strong>
-                      <p>
-                        {summary().currentStreakDays > 0
-                          ? "连续不是压力，是你已经留下的节奏。"
-                          : "完成一轮专注，今天的节奏就会从这里开始。"}
-                      </p>
-                    </div>
-                    <div>
-                      <span>最有投入的一天</span>
-                      <strong>
-                        {summary().bestFocusDate
-                          ? formatAnalyticsDate(summary().bestFocusDate!)
-                          : "还没有记录"}
-                      </strong>
-                      <p>{summary().bestFocusDurationLabel ?? "完成一轮后，这里会出现你的最高投入。"}</p>
-                    </div>
-                  </section>
-                )}
-              </Show>
-              <Show when={analytics()}>
-                {(summary) => (
-                  <section class="records-summary" aria-label="专注概览">
-                    <div>
-                      <span>今日专注</span>
-                      <strong>{summary().todayFocusDurationLabel}</strong>
-                      <small>{summary().todaySessionCount} 轮</small>
-                    </div>
-                    <div>
-                      <span>累计专注</span>
-                      <strong>{summary().totalFocusDurationLabel}</strong>
-                      <small>{summary().sessionCount} 轮记录</small>
-                    </div>
-                    <div>
-                      <span>活跃天数</span>
-                      <strong>{summary().activeDays}</strong>
-                      <small>平均每天 {summary().averageDailyDurationLabel}</small>
-                    </div>
-                    <div>
-                      <span>待办完成</span>
-                      <strong>{summary().completedTodoCount}</strong>
-                      <small>还有 {summary().pendingTodoCount} 项未完成</small>
-                    </div>
-                  </section>
+                  <>
+                    <section class="records-momentum" aria-label="专注成就">
+                      <div class="records-momentum__lead">
+                        <span class="records-momentum__label">
+                          <span class="records-momentum__dot" aria-hidden="true" />
+                          当前节奏
+                        </span>
+                        <strong>
+                          {summary().currentStreakDays > 0
+                            ? `${summary().currentStreakDays} 天连续投入`
+                            : "今天还没开始"}
+                        </strong>
+                        <p>
+                          {summary().currentStreakDays > 0
+                            ? "每一次留下来，都会让下一次开始得更容易。"
+                            : "完成一轮专注，今天的节奏就会从这里开始。"}
+                        </p>
+                      </div>
+                      <div class="records-momentum__best">
+                        <span>最佳单日</span>
+                        <strong>
+                          {summary().bestFocusDate
+                            ? formatAnalyticsDate(summary().bestFocusDate!)
+                            : "还没有记录"}
+                        </strong>
+                        <small>{summary().bestFocusDurationLabel ?? "完成一轮后，这里会出现你的最高投入。"}</small>
+                      </div>
+                    </section>
+                    <section class="records-stats" aria-label="专注概览">
+                      <div>
+                        <span>今日专注</span>
+                        <strong>{summary().todayFocusDurationLabel}</strong>
+                        <small>{summary().todaySessionCount} 轮</small>
+                      </div>
+                      <div>
+                        <span>累计专注</span>
+                        <strong>{summary().totalFocusDurationLabel}</strong>
+                        <small>{summary().sessionCount} 轮记录</small>
+                      </div>
+                      <div>
+                        <span>活跃天数</span>
+                        <strong>{summary().activeDays}</strong>
+                        <small>平均每天 {summary().averageDailyDurationLabel}</small>
+                      </div>
+                      <div class="records-stats__progress">
+                        <div class="records-stats__progress-heading">
+                          <span>待办完成度</span>
+                          <strong>{todoCompletionPercent()}%</strong>
+                        </div>
+                        <div class="records-progress" aria-hidden="true">
+                          <span style={{ width: `${todoCompletionPercent()}%` }} />
+                        </div>
+                        <small>
+                          {summary().completedTodoCount} 已完成 · {summary().pendingTodoCount} 待处理
+                        </small>
+                      </div>
+                    </section>
+                  </>
                 )}
               </Show>
               <Show when={recentBreakdown().length > 0}>
                 <section class="records-trend" aria-label="最近七天专注趋势">
                   <div class="records-trend__heading">
-                    <h2>最近投入</h2>
-                    <span>按天查看最近 7 天的专注时长</span>
+                    <div>
+                      <h2>最近 7 天</h2>
+                      <span>
+                        {recentWeekActiveDays()} 天有投入 · 共 {formatDurationMs(recentWeekDurationMs())}
+                      </span>
+                    </div>
+                    <span class="records-trend__hint">每根柱子代表一天</span>
                   </div>
-                  <For each={recentBreakdown()}>
-                    {(day) => (
-                      <div class="trend-row">
-                        <span>{formatAnalyticsDate(day.date)}</span>
-                        <div class="trend-bar" aria-hidden="true">
-                          <span style={{ width: `${Math.max(8, (day.totalDurationMs / maxDailyDuration()) * 100)}%` }} />
+                  <div class="records-chart">
+                    <For each={recentBreakdown().slice().reverse()}>
+                      {(day) => (
+                        <div
+                          class="records-chart__item"
+                          title={`${formatAnalyticsDate(day.date)} · ${day.totalDurationLabel}`}
+                        >
+                          <div class="records-chart__bar-area">
+                            <span
+                              classList={{ "records-chart__bar": true, "records-chart__bar--empty": day.totalDurationMs === 0 }}
+                              style={{ height: `${Math.max(8, (day.totalDurationMs / maxDailyDuration()) * 100)}%` }}
+                            />
+                          </div>
+                          <strong>{day.totalDurationLabel}</strong>
+                          <small>{formatAnalyticsDate(day.date)}</small>
+                          <span class="sr-only">
+                            {formatAnalyticsDate(day.date)}，专注 {day.totalDurationLabel}，{day.sessionCount} 轮
+                          </span>
                         </div>
-                        <strong>{day.totalDurationLabel}</strong>
-                      </div>
-                    )}
-                  </For>
+                      )}
+                    </For>
+                  </div>
                 </section>
               </Show>
-              <div class="record-list">
-                <Show when={loadState() === "loading"}>
-                  <p class="load-copy">正在读取专注记录…</p>
-                </Show>
-                <Show when={loadState() === "error"}>
-                  <p class="empty-copy">读取失败，请点击上方“重试读取”。</p>
-                </Show>
-                <Show when={ready()}>
-                  <For each={records()}>
-                    {(record) => (
-                      <article class="record-row">
-                        <div>
-                          <strong title={record.title}>{record.title}</strong>
-                          <small>{`${record.modeLabel} · ${formatRecordDate(record)}`}</small>
-                        </div>
-                        <b>{record.durationLabel}</b>
-                        <button
-                          type="button"
-                          class="row-action row-action--danger"
-                          disabled={busy()}
-                          onClick={() => void removeRecord(record.id)}
-                        >
-                          删除
-                        </button>
-                      </article>
-                    )}
-                  </For>
-                </Show>
-                <Show when={ready() && records().length === 0}>
-                  <p class="empty-copy">完成一次计时后，记录会显示在这里。</p>
-                </Show>
-              </div>
+              <section class="record-history" aria-label="专注记录">
+                <div class="record-history__heading">
+                  <div>
+                    <h2>全部记录</h2>
+                    <span>按日期收纳，想回看时再展开</span>
+                  </div>
+                  <strong>{records().length} 轮</strong>
+                </div>
+                <div class="record-list">
+                  <Show when={loadState() === "loading"}>
+                    <p class="load-copy">正在读取专注记录…</p>
+                  </Show>
+                  <Show when={loadState() === "error"}>
+                    <p class="empty-copy">读取失败，请点击上方“重试读取”。</p>
+                  </Show>
+                  <Show when={ready() && records().length > 0}>
+                    <For each={recordGroups()}>
+                      {(group, groupIndex) => (
+                        <details class="record-day" open={groupIndex() === 0}>
+                          <summary class="record-day__summary">
+                            <span class="record-day__date">
+                              <strong>{formatRecordDay(group.date)}</strong>
+                              <small>{group.records.length} 轮 · {formatDurationMs(group.totalDurationMs)}</small>
+                            </span>
+                            <span class="record-day__chevron" aria-hidden="true">⌄</span>
+                          </summary>
+                          <div class="record-day__items">
+                            <For each={group.records}>
+                              {(record) => (
+                                <article class="record-row">
+                                  <div class="record-row__details">
+                                    <div class="record-row__title-line">
+                                      <strong title={record.title}>{record.title}</strong>
+                                      <span class="record-row__mode">{record.modeLabel}</span>
+                                    </div>
+                                    <small>{formatRecordDate(record)}</small>
+                                  </div>
+                                  <b>{record.durationLabel}</b>
+                                  <button
+                                    type="button"
+                                    class="row-action row-action--danger"
+                                    aria-label={`删除记录“${record.title}”`}
+                                    disabled={busy()}
+                                    onClick={() => void removeRecord(record.id)}
+                                  >
+                                    删除
+                                  </button>
+                                </article>
+                              )}
+                            </For>
+                          </div>
+                        </details>
+                      )}
+                    </For>
+                  </Show>
+                  <Show when={ready() && records().length === 0}>
+                    <p class="empty-copy">完成一次计时后，记录会显示在这里。</p>
+                  </Show>
+                </div>
+              </section>
             </section>
           </Show>
 

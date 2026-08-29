@@ -8,11 +8,13 @@ function localDate() {
   return `${year}-${month}-${day}`;
 }
 
-async function bootWithTauriMock(page, { includeOverdue = false, windowLabel = "main", pausedFocus = false, completedCountdown = false } = {}) {
-  await page.addInitScript(({ today, includeOverdue, windowLabel, pausedFocus, completedCountdown }) => {
+async function bootWithTauriMock(page, { includeOverdue = false, includeRecords = false, windowLabel = "main", pausedFocus = false, completedCountdown = false } = {}) {
+  await page.addInitScript(({ today, includeOverdue, includeRecords, windowLabel, pausedFocus, completedCountdown }) => {
     const yesterday = new Date(`${today}T00:00:00`);
     yesterday.setDate(yesterday.getDate() - 1);
-    const overdueDate = yesterday.toISOString().slice(0, 10);
+    const dateKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    const yesterdayDate = dateKey(yesterday);
+    const overdueDate = yesterdayDate;
     let todos = [
       {
         id: 1,
@@ -33,6 +35,50 @@ async function bootWithTauriMock(page, { includeOverdue = false, windowLabel = "
         importanceKey: "medium",
       });
     }
+    const focusRecords = includeRecords ? [
+      {
+        id: 3,
+        title: "完成产品复盘",
+        durationMs: 45 * 60 * 1000,
+        durationLabel: "00:45:00",
+        modeKey: "stopwatch",
+        modeLabel: "正向计时",
+        phaseLabel: "正向计时",
+        linkedTodoId: 1,
+        linkedTodoTitle: "写完产品复盘",
+        completedAt: `${today}T11:30:00`,
+        completedDate: today,
+        completedTime: "11:30",
+      },
+      {
+        id: 2,
+        title: "整理研究资料",
+        durationMs: 30 * 60 * 1000,
+        durationLabel: "00:30:00",
+        modeKey: "countdown",
+        modeLabel: "倒计时",
+        phaseLabel: "倒计时",
+        linkedTodoId: null,
+        linkedTodoTitle: null,
+        completedAt: `${yesterdayDate}T22:40:00`,
+        completedDate: yesterdayDate,
+        completedTime: "22:40",
+      },
+      {
+        id: 1,
+        title: "阅读行业报告",
+        durationMs: 15 * 60 * 1000,
+        durationLabel: "00:15:00",
+        modeKey: "stopwatch",
+        modeLabel: "正向计时",
+        phaseLabel: "正向计时",
+        linkedTodoId: null,
+        linkedTodoTitle: null,
+        completedAt: `${yesterdayDate}T21:10:00`,
+        completedDate: yesterdayDate,
+        completedTime: "21:10",
+      },
+    ] : [];
     window.__todoItemsCalls = 0;
     window.__focusFloatingShown = false;
     let timer = {
@@ -63,21 +109,38 @@ async function bootWithTauriMock(page, { includeOverdue = false, windowLabel = "
       alertMessage: completedCountdown ? "倒计时已完成，已累计专注 60 分钟。点击“保存并记录”后写入专注记录。" : null,
     };
     const analytics = {
-      totalFocusDurationMs: 0,
-      totalFocusDurationLabel: "0 分钟",
-      sessionCount: 0,
-      linkedSessionCount: 0,
-      independentSessionCount: 0,
+      totalFocusDurationMs: focusRecords.reduce((total, record) => total + record.durationMs, 0),
+      totalFocusDurationLabel: includeRecords ? "01:30:00" : "0 分钟",
+      sessionCount: focusRecords.length,
+      linkedSessionCount: includeRecords ? 1 : 0,
+      independentSessionCount: includeRecords ? 2 : 0,
       pendingTodoCount: todos.length,
       completedTodoCount: 0,
-      activeDays: 0,
-      averageDailyDurationLabel: "0 分钟",
-      todayFocusDurationLabel: "0 分钟",
-      todaySessionCount: 0,
-      currentStreakDays: 0,
-      bestFocusDate: null,
-      bestFocusDurationLabel: null,
-      dailyBreakdown: [],
+      activeDays: includeRecords ? 2 : 0,
+      averageDailyDurationLabel: includeRecords ? "00:45:00" : "0 分钟",
+      todayFocusDurationLabel: includeRecords ? "00:45:00" : "0 分钟",
+      todaySessionCount: includeRecords ? 1 : 0,
+      currentStreakDays: includeRecords ? 2 : 0,
+      bestFocusDate: includeRecords ? today : null,
+      bestFocusDurationLabel: includeRecords ? "00:45:00" : null,
+      dailyBreakdown: includeRecords ? [
+        {
+          date: today,
+          totalDurationMs: 45 * 60 * 1000,
+          totalDurationLabel: "00:45:00",
+          sessionCount: 1,
+          linkedSessionCount: 1,
+          independentSessionCount: 0,
+        },
+        {
+          date: yesterdayDate,
+          totalDurationMs: 45 * 60 * 1000,
+          totalDurationLabel: "00:45:00",
+          sessionCount: 2,
+          linkedSessionCount: 0,
+          independentSessionCount: 2,
+        },
+      ] : [],
     };
 
     window.__TAURI_INTERNALS__ = {
@@ -93,7 +156,7 @@ async function bootWithTauriMock(page, { includeOverdue = false, windowLabel = "
             window.__todoItemsCalls += 1;
             return todos;
           case "get_focus_records":
-            return [];
+            return focusRecords;
           case "get_analytics_snapshot":
             return analytics;
           case "update_todo_item":
@@ -149,7 +212,7 @@ async function bootWithTauriMock(page, { includeOverdue = false, windowLabel = "
         }
       },
     };
-  }, { today: localDate(), includeOverdue, windowLabel, pausedFocus, completedCountdown });
+  }, { today: localDate(), includeOverdue, includeRecords, windowLabel, pausedFocus, completedCountdown });
 
   await page.goto("/");
   if (windowLabel === "main") {
@@ -208,6 +271,32 @@ test("completed countdown clearly offers to save the focus record", async ({ pag
   await expect(page.getByRole("alert")).toContainText("已累计专注 60 分钟");
   await expect(page.getByRole("button", { name: "保存并记录" })).toBeVisible();
   await expect(page.getByRole("button", { name: "稍后处理" })).toBeVisible();
+});
+
+test("records page turns a long history into date groups and achievement insights", async ({ page }) => {
+  await bootWithTauriMock(page, { includeRecords: true });
+
+  await page.getByRole("button", { name: "记录", exact: true }).click();
+
+  await expect(page.getByRole("heading", { name: "看见自己留下的节奏" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "最近 7 天" })).toBeVisible();
+  await expect(page.locator(".records-momentum")).toContainText("2 天连续投入");
+  await expect(page.locator(".records-stats__progress")).toContainText("0%");
+  await expect(page.locator(".record-history__heading")).toContainText("3 轮");
+
+  const recordDays = page.locator(".record-day");
+  await expect(recordDays).toHaveCount(2);
+  await expect(recordDays.first()).toHaveAttribute("open", "");
+  await expect(recordDays.nth(1).locator(".record-row").first()).toBeHidden();
+
+  await recordDays.nth(1).locator("summary").click();
+  await expect(recordDays.nth(1).locator(".record-row").first()).toBeVisible();
+
+  const dimensions = await page.evaluate(() => ({
+    viewport: document.documentElement.clientWidth,
+    scrollWidth: document.documentElement.scrollWidth,
+  }));
+  expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.viewport);
 });
 
 test("stopwatch shows the next staged target instead of a one-minute target", async ({ page }) => {
