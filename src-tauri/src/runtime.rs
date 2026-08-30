@@ -33,8 +33,8 @@ const DEFAULT_COUNTDOWN_MINUTES: u64 = 25;
 const MIN_COUNTDOWN_MINUTES: u64 = 1;
 const MAX_COUNTDOWN_MINUTES: u64 = 12 * 60;
 const MAX_TODO_TITLE_CHARS: usize = 200;
-const APP_VERSION: &str = "2.0.14";
-const APP_MILESTONE: &str = "v2.0.14 \u{8bb0}\u{5f55}\u{9875}\u{4e0e}\u{6210}\u{5c31}\u{590d}\u{76d8}";
+const APP_VERSION: &str = "2.0.15";
+const APP_MILESTONE: &str = "v2.0.15 \u{8bb0}\u{5f55}\u{540d}\u{79f0}\u{53ef}\u{7f16}\u{8f91}";
 const APP_BACKUP_KIND: &str = "focused-moment-backup";
 const APP_BACKUP_FORMAT_VERSION: u64 = 2;
 
@@ -1518,6 +1518,17 @@ fn normalize_todo_title(title: &str) -> Result<String, String> {
     }
 }
 
+fn normalize_focus_record_title(title: &str) -> Result<String, String> {
+    let normalized = title.trim();
+    if normalized.is_empty() {
+        Err("记录名称不能为空。".to_string())
+    } else if normalized.chars().count() > MAX_TODO_TITLE_CHARS {
+        Err(format!("记录名称不能超过 {MAX_TODO_TITLE_CHARS} 个字。"))
+    } else {
+        Ok(normalized.to_string())
+    }
+}
+
 fn normalize_scheduled_date(value: &str) -> Result<String, String> {
     let normalized = value.trim();
     let is_valid = normalized.len() == 10
@@ -2093,6 +2104,27 @@ fn get_focus_records(
     })?;
 
     Ok(records.clone())
+}
+
+#[tauri::command]
+fn update_focus_record_title(
+    state: tauri::State<'_, TimerEngineState>,
+    id: u64,
+    title: String,
+) -> Result<Vec<FocusRecord>, String> {
+    let normalized_title = normalize_focus_record_title(&title)?;
+    let records = with_focus_records(&state, |records| {
+        let record = records
+            .iter_mut()
+            .find(|record| record.id == id)
+            .ok_or_else(|| "未找到要编辑的专注记录".to_string())?;
+
+        record.title = normalized_title;
+        Ok(records.clone())
+    })?;
+
+    state.persist()?;
+    Ok(records)
 }
 
 #[tauri::command]
@@ -3028,6 +3060,16 @@ mod tests {
     }
 
     #[test]
+    fn focus_record_title_validation_trims_and_rejects_empty_titles() {
+        assert_eq!(
+            normalize_focus_record_title("  完成季度复盘  ").expect("title is valid"),
+            "完成季度复盘"
+        );
+        assert!(normalize_focus_record_title("   ").is_err());
+        assert!(normalize_focus_record_title(&"x".repeat(MAX_TODO_TITLE_CHARS + 1)).is_err());
+    }
+
+    #[test]
     fn analytics_snapshot_explains_current_streak_and_best_day() {
         let today = Local::now().date_naive();
         let yesterday = today - ChronoDuration::days(1);
@@ -3183,6 +3225,7 @@ pub fn run() {
             switch_timer_mode,
             set_countdown_minutes,
             get_focus_records,
+            update_focus_record_title,
             delete_focus_record,
             restore_focus_record,
             delete_focus_records,

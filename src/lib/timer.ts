@@ -64,6 +64,10 @@ export async function getFocusRecords() {
   return invoke<FocusRecord[]>("get_focus_records");
 }
 
+export async function updateFocusRecordTitle(id: number, title: string) {
+  return invoke<FocusRecord[]>("update_focus_record_title", { id, title });
+}
+
 export async function getAnalyticsSnapshot() {
   return invoke<AnalyticsSnapshot>("get_analytics_snapshot");
 }

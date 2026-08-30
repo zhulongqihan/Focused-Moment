@@ -29,6 +29,7 @@ import {
   setCountdownMinutes as configureCountdownMinutes,
   startTimer,
   switchTimerMode,
+  updateFocusRecordTitle,
   updateTimerContext,
 } from "./lib/timer";
 import {
@@ -65,6 +66,7 @@ type UndoAction =
   | { kind: "record"; item: FocusRecord };
 
 type TodoEditDraft = TodoDraft & { id: number };
+type RecordEditDraft = { id: number; title: string };
 
 interface TodoRowProps {
   item: TodoItem;
@@ -473,6 +475,7 @@ function MainShell() {
   const [todoDueTime, setTodoDueTime] = createSignal("");
   const [todoImportance, setTodoImportance] = createSignal<TodoImportance>("medium");
   const [editingTodo, setEditingTodo] = createSignal<TodoEditDraft | null>(null);
+  const [editingRecord, setEditingRecord] = createSignal<RecordEditDraft | null>(null);
   const [backups, setBackups] = createSignal<BackupListItem[]>([]);
   const [backupLoadState, setBackupLoadState] = createSignal<LoadState>("loading");
   const [backupLoadError, setBackupLoadError] = createSignal("");
@@ -579,7 +582,10 @@ function MainShell() {
       getAnalyticsSnapshot(),
     ]);
 
-    if (requestVersion !== refreshVersion || (!force && (busy() || editingTodo() !== null))) {
+    if (
+      requestVersion !== refreshVersion ||
+      (!force && (busy() || editingTodo() !== null || editingRecord() !== null))
+    ) {
       return false;
     }
 
@@ -776,6 +782,50 @@ function MainShell() {
       setEditingTodo(null);
       showMessage("待办已更新。", "success");
     }, "正在保存…");
+  }
+
+  function beginEditRecord(record: FocusRecord) {
+    setEditingRecord({ id: record.id, title: record.title });
+  }
+
+  function patchEditingRecordTitle(title: string) {
+    const current = editingRecord();
+    if (current) {
+      setEditingRecord({ ...current, title });
+    }
+  }
+
+  function cancelEditRecord() {
+    setEditingRecord(null);
+  }
+
+  async function saveRecordEdit() {
+    const draft = editingRecord();
+    if (!draft) {
+      return;
+    }
+
+    const title = draft.title.trim();
+    if (!title) {
+      showMessage("记录名称不能为空。", "error");
+      return;
+    }
+
+    await run(async () => {
+      setRecords(await updateFocusRecordTitle(draft.id, title));
+      setEditingRecord(null);
+      showMessage("专注记录名称已更新。", "success");
+    }, "正在保存…");
+  }
+
+  function handleRecordEditKeyDown(event: KeyboardEvent) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      void saveRecordEdit();
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      cancelEditRecord();
+    }
   }
 
   async function toggleTodo(id: number) {
@@ -1067,7 +1117,7 @@ function MainShell() {
 
       interval = window.setInterval(
         () => {
-          if (busy() || editingTodo() !== null) {
+          if (busy() || editingTodo() !== null || editingRecord() !== null) {
             return;
           }
 
@@ -2095,23 +2145,79 @@ function MainShell() {
                             <For each={group.records}>
                               {(record) => (
                                 <article class="record-row">
-                                  <div class="record-row__details">
-                                    <div class="record-row__title-line">
-                                      <strong title={record.title}>{record.title}</strong>
-                                      <span class="record-row__mode">{record.modeLabel}</span>
-                                    </div>
-                                    <small>{formatRecordDate(record)}</small>
-                                  </div>
-                                  <b>{record.durationLabel}</b>
-                                  <button
-                                    type="button"
-                                    class="row-action row-action--danger"
-                                    aria-label={`删除记录“${record.title}”`}
-                                    disabled={busy()}
-                                    onClick={() => void removeRecord(record.id)}
+                                  <Show
+                                    when={editingRecord()?.id === record.id}
+                                    fallback={
+                                      <>
+                                        <div class="record-row__details">
+                                          <div class="record-row__title-line">
+                                            <strong title={record.title}>{record.title}</strong>
+                                            <span class="record-row__mode">{record.modeLabel}</span>
+                                          </div>
+                                          <small>{formatRecordDate(record)}</small>
+                                        </div>
+                                        <b>{record.durationLabel}</b>
+                                        <div class="record-row__actions">
+                                          <button
+                                            type="button"
+                                            class="row-action"
+                                            aria-label={`编辑记录“${record.title}”`}
+                                            disabled={busy()}
+                                            onClick={() => beginEditRecord(record)}
+                                          >
+                                            编辑
+                                          </button>
+                                          <button
+                                            type="button"
+                                            class="row-action row-action--danger"
+                                            aria-label={`删除记录“${record.title}”`}
+                                            disabled={busy()}
+                                            onClick={() => void removeRecord(record.id)}
+                                          >
+                                            删除
+                                          </button>
+                                        </div>
+                                      </>
+                                    }
                                   >
-                                    删除
-                                  </button>
+                                    <div class="record-row__details record-row__details--editing">
+                                      <label class="sr-only" for={`editRecordTitle-${record.id}`}>
+                                        记录名称
+                                      </label>
+                                      <input
+                                        id={`editRecordTitle-${record.id}`}
+                                        type="text"
+                                        name={`editRecordTitle-${record.id}`}
+                                        autocomplete="off"
+                                        maxlength="200"
+                                        autofocus
+                                        aria-label="记录名称"
+                                        value={editingRecord()?.title ?? ""}
+                                        onInput={(event) => patchEditingRecordTitle(event.currentTarget.value)}
+                                        onKeyDown={handleRecordEditKeyDown}
+                                      />
+                                      <small>{formatRecordDate(record)}</small>
+                                    </div>
+                                    <b>{record.durationLabel}</b>
+                                    <div class="record-row__actions">
+                                      <button
+                                        type="button"
+                                        class="primary-button"
+                                        disabled={busy()}
+                                        onClick={() => void saveRecordEdit()}
+                                      >
+                                        保存
+                                      </button>
+                                      <button
+                                        type="button"
+                                        class="text-button"
+                                        disabled={busy()}
+                                        onClick={cancelEditRecord}
+                                      >
+                                        取消
+                                      </button>
+                                    </div>
+                                  </Show>
                                 </article>
                               )}
                             </For>

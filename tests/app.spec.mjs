@@ -35,7 +35,7 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
         importanceKey: "medium",
       });
     }
-    const focusRecords = includeRecords ? [
+    let focusRecords = includeRecords ? [
       {
         id: 3,
         title: "完成产品复盘",
@@ -156,6 +156,11 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
             window.__todoItemsCalls += 1;
             return todos;
           case "get_focus_records":
+            return focusRecords;
+          case "update_focus_record_title":
+            focusRecords = focusRecords.map((record) => record.id === args.id
+              ? { ...record, title: args.title }
+              : record);
             return focusRecords;
           case "get_analytics_snapshot":
             return analytics;
@@ -297,6 +302,25 @@ test("records page turns a long history into date groups and achievement insight
     scrollWidth: document.documentElement.scrollWidth,
   }));
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.viewport);
+});
+
+test("record title can be edited and saved without changing its duration", async ({ page }) => {
+  await bootWithTauriMock(page, { includeRecords: true });
+
+  await page.getByRole("button", { name: "记录", exact: true }).click();
+
+  const record = page.locator(".record-row").first();
+  await record.getByRole("button", { name: "编辑记录“完成产品复盘”" }).click();
+
+  const input = record.locator('input[name="editRecordTitle-3"]');
+  await expect(input).toHaveValue("完成产品复盘");
+  await input.fill("完成季度复盘");
+  await page.getByRole("button", { name: "保存", exact: true }).click();
+
+  await expect(record).toContainText("完成季度复盘");
+  await expect(record).toContainText("00:45:00");
+  await expect(record).not.toContainText("完成产品复盘");
+  await expect(page.locator(".app-message")).toContainText("专注记录名称已更新");
 });
 
 test("stopwatch shows the next staged target instead of a one-minute target", async ({ page }) => {
