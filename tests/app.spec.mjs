@@ -81,6 +81,16 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
     ] : [];
     window.__todoItemsCalls = 0;
     window.__focusFloatingShown = false;
+    window.__flashMainWindowAttention = false;
+    let timerPreferences = {
+      pomodoroFocusMinutes: 25,
+      pomodoroBreakMinutes: 5,
+      stopwatchReminderMinutes: 25,
+      toastReminderEnabled: true,
+      windowAttentionReminderEnabled: true,
+      soundReminderEnabled: true,
+      alertSoundKey: "soft_chime",
+    };
     let timer = {
       modeKey: completedCountdown ? "countdown" : "stopwatch",
       phaseKey: completedCountdown ? "countdown" : "stopwatch",
@@ -152,6 +162,8 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
         switch (command) {
           case "get_timer_snapshot":
             return timer;
+          case "get_timer_preferences":
+            return timerPreferences;
           case "get_todo_items":
             window.__todoItemsCalls += 1;
             return todos;
@@ -188,6 +200,12 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
           case "show_focus_floating":
             window.__focusFloatingShown = true;
             return null;
+          case "flash_main_window_attention":
+            window.__flashMainWindowAttention = true;
+            return null;
+          case "update_timer_preferences":
+            timerPreferences = args.preferences;
+            return timerPreferences;
           case "pause_timer":
             timer = { ...timer, isRunning: false, status: "已暂停" };
             return timer;
@@ -271,11 +289,31 @@ test("starting a countdown opens the focus floating window", async ({ page }) =>
 test("completed countdown clearly offers to save the focus record", async ({ page }) => {
   await bootWithTauriMock(page, { completedCountdown: true });
 
+  await expect(page.getByRole("alert")).toContainText("倒计时已结束");
+  await page.getByRole("button", { name: "记录", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("已累计专注 60 分钟");
   await page.getByRole("button", { name: "计时", exact: true }).click();
 
   await expect(page.getByRole("alert")).toContainText("已累计专注 60 分钟");
   await expect(page.getByRole("button", { name: "保存并记录" })).toBeVisible();
   await expect(page.getByRole("button", { name: "稍后处理" })).toBeVisible();
+});
+
+test("reminder settings expose popup, taskbar and custom sound controls", async ({ page }) => {
+  await bootWithTauriMock(page);
+
+  await page.getByRole("button", { name: "设置", exact: true }).click();
+
+  await expect(page.getByRole("heading", { name: "结束提醒" })).toBeVisible();
+  await expect(page.getByRole("checkbox", { name: /应用内弹窗/ })).toBeChecked();
+  await expect(page.getByRole("checkbox", { name: /任务栏闪烁/ })).toBeChecked();
+  await expect(page.getByRole("checkbox", { name: /声音提醒/ })).toBeChecked();
+  await expect(page.locator('select[name="alertSoundKey"]')).toHaveValue("soft_chime");
+
+  await page.getByRole("checkbox", { name: /任务栏闪烁/ }).uncheck();
+  await expect.poll(() => page.evaluate(() => window.__TAURI_INTERNALS__.invoke("get_timer_preferences"))).toMatchObject({
+    windowAttentionReminderEnabled: false,
+  });
 });
 
 test("records page turns a long history into date groups and achievement insights", async ({ page }) => {

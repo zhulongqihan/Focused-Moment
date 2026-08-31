@@ -3,12 +3,14 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { LockKeyhole, LockKeyholeOpen } from "lucide-solid";
 import type {
   AnalyticsSnapshot,
+  AlertSoundKey,
   BackupListItem,
   FeedbackKind,
   FocusRecord,
   TodoDraft,
   TodoImportance,
   TimerSnapshot,
+  TimerPreferences,
   TodoItem,
 } from "./lib/contracts";
 import {
@@ -19,6 +21,7 @@ import {
   exportAppBackup,
   getAnalyticsSnapshot,
   getFocusRecords,
+  getTimerPreferences,
   getTimerSnapshot,
   importAppBackup,
   listAppBackups,
@@ -29,6 +32,7 @@ import {
   setCountdownMinutes as configureCountdownMinutes,
   startTimer,
   switchTimerMode,
+  updateTimerPreferences,
   updateFocusRecordTitle,
   updateTimerContext,
 } from "./lib/timer";
@@ -42,6 +46,7 @@ import {
 } from "./lib/tasks";
 import {
   closeMainWindow,
+  flashMainWindowAttention,
   lockFocusFloating,
   lockFloatingTodos,
   minimizeMainWindow,
@@ -234,6 +239,96 @@ const emptyTimerSnapshot: TimerSnapshot = {
   alertTitle: null,
   alertMessage: null,
 };
+
+const defaultTimerPreferences: TimerPreferences = {
+  pomodoroFocusMinutes: 25,
+  pomodoroBreakMinutes: 5,
+  stopwatchReminderMinutes: 25,
+  toastReminderEnabled: true,
+  windowAttentionReminderEnabled: true,
+  soundReminderEnabled: true,
+  alertSoundKey: "soft_chime",
+};
+
+const customAlertSoundDataKey = "focused-moment.custom-alert-sound.data";
+const customAlertSoundNameKey = "focused-moment.custom-alert-sound.name";
+const alertClaimKeyPrefix = "focused-moment.alert-claimed.";
+const maxCustomAlertSoundBytes = 5 * 1024 * 1024;
+
+function readLocalStorageValue(key: string) {
+  try {
+    return window.localStorage.getItem(key) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function removeLocalStorageValue(key: string) {
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    // Storage may be unavailable in a restricted webview; the feature still works for this run.
+  }
+}
+
+function writeLocalStorageValue(key: string, value: string) {
+  try {
+    window.localStorage.setItem(key, value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function claimAlertSequence(sequence: number) {
+  const key = `${alertClaimKeyPrefix}${sequence}`;
+  if (readLocalStorageValue(key) === "claimed") {
+    return false;
+  }
+  const stored = writeLocalStorageValue(key, "claimed");
+  return stored || readLocalStorageValue(key) !== "claimed";
+}
+
+function playAlertSound(soundKey: AlertSoundKey) {
+  if (soundKey === "custom") {
+    const dataUrl = readLocalStorageValue(customAlertSoundDataKey);
+    if (dataUrl) {
+      const audio = new Audio(dataUrl);
+      audio.volume = 0.85;
+      void audio.play().catch(() => undefined);
+      return;
+    }
+  }
+
+  const AudioContextConstructor = window.AudioContext
+    ?? (window as Window & typeof globalThis & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  if (!AudioContextConstructor) {
+    return;
+  }
+
+  const context = new AudioContextConstructor();
+  const now = context.currentTime;
+  const tones = soundKey === "bright_bell"
+    ? [880, 1174, 1568]
+    : soundKey === "deep_pulse"
+      ? [220, 330]
+      : [660, 880];
+  tones.forEach((frequency, index) => {
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    const start = now + index * 0.13;
+    oscillator.type = soundKey === "deep_pulse" ? "sine" : "triangle";
+    oscillator.frequency.value = frequency;
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(0.18, start + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.36);
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    oscillator.start(start);
+    oscillator.stop(start + 0.38);
+  });
+  window.setTimeout(() => void context.close(), 900);
+}
 
 function getToday() {
   const now = new Date();
@@ -470,6 +565,8 @@ function MainShell() {
   const [completeLinkedTodo, setCompleteLinkedTodo] = createSignal(false);
   const [countdownMinutes, setCountdownMinutes] = createSignal(25);
   const [countdownDraftDirty, setCountdownDraftDirty] = createSignal(false);
+  const [timerPreferences, setTimerPreferences] = createSignal<TimerPreferences>(defaultTimerPreferences);
+  const [customAlertSoundName, setCustomAlertSoundName] = createSignal("");
   const [todoTitle, setTodoTitle] = createSignal("");
   const [todoDueDate, setTodoDueDate] = createSignal(getToday());
   const [todoDueTime, setTodoDueTime] = createSignal("");
@@ -495,6 +592,8 @@ function MainShell() {
   let commandInput: HTMLInputElement | undefined;
   let commandTrigger: HTMLButtonElement | undefined;
   let refreshVersion = 0;
+  let observedAlertSequence: number | null = null;
+  let customAlertSoundInput: HTMLInputElement | undefined;
 
   const ready = () => loadState() === "ready";
 
@@ -569,17 +668,44 @@ function MainShell() {
     }
   }
 
+  function alertIsVisible() {
+    return Boolean(timer().alertTitle && timerPreferences().toastReminderEnabled);
+  }
+
+  function handleNewTimerAlert() {
+    const nextSequence = timer().alertSequence;
+    if (observedAlertSequence === null) {
+      observedAlertSequence = nextSequence;
+      return;
+    }
+    if (nextSequence <= observedAlertSequence || !timer().alertTitle) {
+      return;
+    }
+
+    observedAlertSequence = nextSequence;
+    if (!claimAlertSequence(nextSequence)) {
+      return;
+    }
+    if (timerPreferences().windowAttentionReminderEnabled) {
+      void flashMainWindowAttention().catch(() => undefined);
+    }
+    if (timerPreferences().soundReminderEnabled) {
+      playAlertSound(timerPreferences().alertSoundKey);
+    }
+  }
+
   function invalidateRefreshes() {
     refreshVersion += 1;
   }
 
   async function refresh(force = false) {
     const requestVersion = ++refreshVersion;
-    const [nextTimer, nextTodos, nextRecords, nextAnalytics] = await Promise.all([
+    const [nextTimer, nextTodos, nextRecords, nextAnalytics, nextPreferences] = await Promise.all([
       getTimerSnapshot(),
       getTodoItems(),
       getFocusRecords(),
       getAnalyticsSnapshot(),
+      getTimerPreferences(),
     ]);
 
     if (
@@ -593,6 +719,9 @@ function MainShell() {
     setTodos(nextTodos);
     setRecords(nextRecords);
     setAnalytics(nextAnalytics);
+    if (nextPreferences) {
+      setTimerPreferences(nextPreferences);
+    }
     return true;
   }
 
@@ -910,6 +1039,64 @@ function MainShell() {
     }, "正在收起…");
   }
 
+  async function saveTimerPreferences(patch: Partial<TimerPreferences>, successMessage = "提醒设置已保存。") {
+    const nextPreferences = { ...timerPreferences(), ...patch };
+    await run(async () => {
+      setTimerPreferences(await updateTimerPreferences(nextPreferences));
+      showMessage(successMessage, "success");
+    }, "正在保存提醒设置…");
+  }
+
+  function previewAlertSound() {
+    if (!timerPreferences().soundReminderEnabled) {
+      showMessage("请先打开声音提醒，再试听音效。", "info");
+      return;
+    }
+    playAlertSound(timerPreferences().alertSoundKey);
+  }
+
+  async function chooseCustomAlertSound(event: Event) {
+    const input = event.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = "";
+    if (!file) {
+      return;
+    }
+    if (!file.type.startsWith("audio/")) {
+      showMessage("请选择音频文件。", "error");
+      return;
+    }
+    if (file.size > maxCustomAlertSoundBytes) {
+      showMessage("自定义音效不能超过 5MB。", "error");
+      return;
+    }
+
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
+      reader.onerror = () => reject(new Error("音效读取失败，请重试。"));
+      reader.readAsDataURL(file);
+    }).catch((error) => {
+      showMessage(getErrorMessage(error), "error");
+      return "";
+    });
+    if (!dataUrl || !writeLocalStorageValue(customAlertSoundDataKey, dataUrl)) {
+      showMessage("音效保存失败，请换一个文件重试。", "error");
+      return;
+    }
+
+    writeLocalStorageValue(customAlertSoundNameKey, file.name);
+    setCustomAlertSoundName(file.name);
+    await saveTimerPreferences({ alertSoundKey: "custom" }, "自定义音效已启用。");
+  }
+
+  async function clearCustomAlertSound() {
+    removeLocalStorageValue(customAlertSoundDataKey);
+    removeLocalStorageValue(customAlertSoundNameKey);
+    setCustomAlertSoundName("");
+    await saveTimerPreferences({ alertSoundKey: "soft_chime" }, "已恢复为柔和铃音。");
+  }
+
   async function loadBackups() {
     setBackupLoadState("loading");
     setBackupLoadError("");
@@ -1083,7 +1270,13 @@ function MainShell() {
     }
   });
 
+  createEffect(() => {
+    timer().alertSequence;
+    handleNewTimerAlert();
+  });
+
   onMount(() => {
+    setCustomAlertSoundName(readLocalStorageValue(customAlertSoundNameKey));
     if (isFloatingWindow || isUnlockWindow || isFocusFloatingWindow || isFocusUnlockWindow) {
       document.documentElement.classList.add("floating-window");
     }
@@ -1226,7 +1419,7 @@ function MainShell() {
           <span>{timer().status}</span>
           <strong>{timer().elapsedLabel}</strong>
         </div>
-          <Show when={timer().alertTitle}>
+          <Show when={timer().alertTitle && timerPreferences().toastReminderEnabled}>
             <div class="floating-alert" role="alert">
               <strong>{timer().alertTitle}</strong>
               <span>{timer().alertMessage}</span>
@@ -1496,6 +1689,50 @@ function MainShell() {
         </nav>
 
         <section class="minimal-content" aria-busy={busy() || loadState() === "loading"}>
+          <Show when={alertIsVisible()}>
+            <div class="timer-alert timer-alert--global" role="alert">
+              <div class="timer-alert__signal" aria-hidden="true">
+                <span class="timer-alert__signal-dot" />
+                <span>时间到</span>
+              </div>
+              <div class="timer-alert__copy">
+                <strong>{timer().alertTitle}</strong>
+                <p>{timer().alertMessage}</p>
+              </div>
+              <div class="timer-alert__actions">
+                <Show
+                  when={timer().alertKey === "countdown_complete"}
+                  fallback={
+                    <button
+                      type="button"
+                      class="secondary-button"
+                      disabled={busy()}
+                      onClick={() => void dismissTimerAlert()}
+                    >
+                      知道了
+                    </button>
+                  }
+                >
+                  <button
+                    type="button"
+                    class="primary-button"
+                    disabled={busy() || !canFinish()}
+                    onClick={() => void finishFocus()}
+                  >
+                    保存并记录
+                  </button>
+                  <button
+                    type="button"
+                    class="secondary-button"
+                    disabled={busy()}
+                    onClick={() => void dismissTimerAlert()}
+                  >
+                    稍后处理
+                  </button>
+                </Show>
+              </div>
+            </div>
+          </Show>
           <Show when={syncError()}>
             <div class="sync-error" role="status" aria-live="polite">
               <span>本地数据暂时没有刷新成功。</span>
@@ -1550,47 +1787,6 @@ function MainShell() {
                 <div class="recovery-banner" role="status">
                   <strong>已恢复上一轮专注</strong>
                   <span>当前计时和事项仍然保留，可以继续、完成记录或重置。</span>
-                </div>
-              </Show>
-
-              <Show when={timer().alertTitle}>
-                <div class="timer-alert" role="alert">
-                  <div>
-                    <strong>{timer().alertTitle}</strong>
-                    <p>{timer().alertMessage}</p>
-                  </div>
-                  <div class="timer-alert__actions">
-                    <Show
-                      when={timer().alertKey === "countdown_complete"}
-                      fallback={
-                        <button
-                          type="button"
-                          class="secondary-button"
-                          disabled={busy()}
-                          onClick={() => void dismissTimerAlert()}
-                        >
-                          知道了
-                        </button>
-                      }
-                    >
-                      <button
-                        type="button"
-                        class="primary-button"
-                        disabled={busy() || !canFinish()}
-                        onClick={() => void finishFocus()}
-                      >
-                        保存并记录
-                      </button>
-                      <button
-                        type="button"
-                        class="secondary-button"
-                        disabled={busy()}
-                        onClick={() => void dismissTimerAlert()}
-                      >
-                        稍后处理
-                      </button>
-                    </Show>
-                  </div>
                 </div>
               </Show>
 
@@ -1911,6 +2107,91 @@ function MainShell() {
                 <span>设置</span>
                 <h1>数据留在你手里</h1>
               </div>
+
+              <section class="settings-section reminder-settings">
+                <div class="settings-section__heading">
+                  <h2>结束提醒</h2>
+                  <p>倒计时结束、番茄钟阶段切换或正向计时达到目标时，用更明显的方式把你叫回来。</p>
+                </div>
+                <div class="reminder-options">
+                  <label class="reminder-option">
+                    <input
+                      type="checkbox"
+                      name="toastReminderEnabled"
+                      checked={timerPreferences().toastReminderEnabled}
+                      disabled={busy()}
+                      onChange={(event) => void saveTimerPreferences({ toastReminderEnabled: event.currentTarget.checked })}
+                    />
+                    <span>
+                      <strong>应用内弹窗</strong>
+                      <small>无论当前在哪个页面，时间到都会显示醒目提醒。</small>
+                    </span>
+                  </label>
+                  <label class="reminder-option">
+                    <input
+                      type="checkbox"
+                      name="windowAttentionReminderEnabled"
+                      checked={timerPreferences().windowAttentionReminderEnabled}
+                      disabled={busy()}
+                      onChange={(event) => void saveTimerPreferences({ windowAttentionReminderEnabled: event.currentTarget.checked })}
+                    />
+                    <span>
+                      <strong>任务栏闪烁</strong>
+                      <small>应用在后台时，让 Windows 任务栏图标短暂闪烁。</small>
+                    </span>
+                  </label>
+                  <label class="reminder-option">
+                    <input
+                      type="checkbox"
+                      name="soundReminderEnabled"
+                      checked={timerPreferences().soundReminderEnabled}
+                      disabled={busy()}
+                      onChange={(event) => void saveTimerPreferences({ soundReminderEnabled: event.currentTarget.checked })}
+                    />
+                    <span>
+                      <strong>声音提醒</strong>
+                      <small>播放一次短促音效；浏览器或系统静音时会自动安静处理。</small>
+                    </span>
+                  </label>
+                </div>
+                <div class="sound-picker">
+                  <label class="settings-select">
+                    <span>提醒音效</span>
+                    <select
+                      name="alertSoundKey"
+                      value={timerPreferences().alertSoundKey}
+                      disabled={busy()}
+                      onChange={(event) => void saveTimerPreferences({ alertSoundKey: event.currentTarget.value as AlertSoundKey })}
+                    >
+                      <option value="soft_chime">柔和铃音</option>
+                      <option value="bright_bell">明亮三连</option>
+                      <option value="deep_pulse">沉稳脉冲</option>
+                      <option value="custom" disabled={!customAlertSoundName()}>自定义音效{customAlertSoundName() ? ` · ${customAlertSoundName()}` : " · 请先导入"}</option>
+                    </select>
+                  </label>
+                  <div class="sound-picker__actions">
+                    <button type="button" class="secondary-button" disabled={busy()} onClick={previewAlertSound}>
+                      试听
+                    </button>
+                    <button type="button" class="secondary-button" disabled={busy()} onClick={() => customAlertSoundInput?.click()}>
+                      导入音效
+                    </button>
+                    <Show when={customAlertSoundName()}>
+                      <button type="button" class="text-button" disabled={busy()} onClick={() => void clearCustomAlertSound()}>
+                        移除自定义
+                      </button>
+                    </Show>
+                    <input
+                      ref={(element) => (customAlertSoundInput = element)}
+                      class="sr-only"
+                      type="file"
+                      accept="audio/*"
+                      aria-label="导入自定义音效"
+                      onChange={(event) => void chooseCustomAlertSound(event)}
+                    />
+                  </div>
+                </div>
+              </section>
 
               <section class="settings-section">
                 <div class="settings-section__heading">

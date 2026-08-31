@@ -49,7 +49,11 @@ export interface TimerPreferences {
   stopwatchReminderMinutes: number | null;
   toastReminderEnabled: boolean;
   windowAttentionReminderEnabled: boolean;
+  soundReminderEnabled: boolean;
+  alertSoundKey: AlertSoundKey;
 }
+
+export type AlertSoundKey = "soft_chime" | "bright_bell" | "deep_pulse" | "custom";
 
 export interface FocusRecord {
   id: number;

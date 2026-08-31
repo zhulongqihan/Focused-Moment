@@ -53,6 +53,10 @@ export async function showMainWindowFromTray() {
   await invoke("show_main_window_from_tray");
 }
 
+export async function flashMainWindowAttention() {
+  await invoke("flash_main_window_attention");
+}
+
 export async function startDraggingWindow() {
   try {
     await getCurrentWindow().startDragging();

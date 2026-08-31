@@ -6,6 +6,9 @@ use std::process::Command;
 use std::sync::Mutex;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+#[cfg(windows)]
+use std::mem::size_of;
+
 use chrono::{Duration as ChronoDuration, Local, NaiveDate, NaiveDateTime, NaiveTime};
 use serde::{Deserialize, Serialize};
 use storage::{
@@ -15,6 +18,11 @@ use storage::{
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Manager, PhysicalPosition, Window, WindowEvent};
+
+#[cfg(windows)]
+use windows_sys::Win32::UI::WindowsAndMessaging::{
+    FlashWindowEx, FLASHWINFO, FLASHW_TIMERNOFG, FLASHW_TRAY,
+};
 
 const TRAY_SHOW_ID: &str = "tray_show_main";
 const TRAY_QUIT_ID: &str = "tray_quit_app";
@@ -33,8 +41,8 @@ const DEFAULT_COUNTDOWN_MINUTES: u64 = 25;
 const MIN_COUNTDOWN_MINUTES: u64 = 1;
 const MAX_COUNTDOWN_MINUTES: u64 = 12 * 60;
 const MAX_TODO_TITLE_CHARS: usize = 200;
-const APP_VERSION: &str = "2.0.15";
-const APP_MILESTONE: &str = "v2.0.15 \u{8bb0}\u{5f55}\u{540d}\u{79f0}\u{53ef}\u{7f16}\u{8f91}";
+const APP_VERSION: &str = "2.1.0";
+const APP_MILESTONE: &str = "v2.1.0 \u{9192}\u{76ee}\u{63d0}\u{9192}\u{94fe}\u{8def}";
 const APP_BACKUP_KIND: &str = "focused-moment-backup";
 const APP_BACKUP_FORMAT_VERSION: u64 = 2;
 
@@ -119,6 +127,29 @@ pub struct TimerPreferences {
     stopwatch_reminder_minutes: Option<u64>,
     toast_reminder_enabled: bool,
     window_attention_reminder_enabled: bool,
+    #[serde(default = "default_sound_reminder_enabled")]
+    sound_reminder_enabled: bool,
+    #[serde(default)]
+    alert_sound_key: AlertSoundKey,
+}
+
+#[derive(Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum AlertSoundKey {
+    SoftChime,
+    BrightBell,
+    DeepPulse,
+    Custom,
+}
+
+impl Default for AlertSoundKey {
+    fn default() -> Self {
+        Self::SoftChime
+    }
+}
+
+fn default_sound_reminder_enabled() -> bool {
+    true
 }
 
 impl Default for TimerPreferences {
@@ -129,6 +160,8 @@ impl Default for TimerPreferences {
             stopwatch_reminder_minutes: Some(DEFAULT_STOPWATCH_REMINDER_MINUTES),
             toast_reminder_enabled: true,
             window_attention_reminder_enabled: true,
+            sound_reminder_enabled: true,
+            alert_sound_key: AlertSoundKey::SoftChime,
         }
     }
 }
@@ -141,6 +174,19 @@ struct TimerPreferencesSnapshot {
     stopwatch_reminder_minutes: Option<u64>,
     toast_reminder_enabled: bool,
     window_attention_reminder_enabled: bool,
+    sound_reminder_enabled: bool,
+    alert_sound_key: &'static str,
+}
+
+impl AlertSoundKey {
+    fn key(self) -> &'static str {
+        match self {
+            Self::SoftChime => "soft_chime",
+            Self::BrightBell => "bright_bell",
+            Self::DeepPulse => "deep_pulse",
+            Self::Custom => "custom",
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -200,6 +246,8 @@ impl TimerPreferences {
             stopwatch_reminder_minutes: self.stopwatch_reminder_minutes,
             toast_reminder_enabled: self.toast_reminder_enabled,
             window_attention_reminder_enabled: self.window_attention_reminder_enabled,
+            sound_reminder_enabled: self.sound_reminder_enabled,
+            alert_sound_key: self.alert_sound_key.key(),
         }
     }
 
@@ -244,6 +292,8 @@ impl TimerPreferences {
             stopwatch_reminder_minutes,
             toast_reminder_enabled: self.toast_reminder_enabled,
             window_attention_reminder_enabled: self.window_attention_reminder_enabled,
+            sound_reminder_enabled: self.sound_reminder_enabled,
+            alert_sound_key: self.alert_sound_key,
         })
     }
 
@@ -1346,6 +1396,8 @@ impl TimerEngine {
                 .map(|milliseconds| (milliseconds / 60_000).max(1)),
             toast_reminder_enabled: true,
             window_attention_reminder_enabled: true,
+            sound_reminder_enabled: true,
+            alert_sound_key: AlertSoundKey::SoftChime,
         }
     }
 
@@ -2913,6 +2965,36 @@ fn show_main_window_from_tray(app: tauri::AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn flash_main_window_attention(app: tauri::AppHandle) -> Result<(), String> {
+    let window = app
+        .get_webview_window("main")
+        .ok_or_else(|| "找不到主窗口".to_string())?;
+
+    #[cfg(windows)]
+    {
+        let hwnd = window.hwnd().map_err(|error| error.to_string())?;
+        let info = FLASHWINFO {
+            cbSize: size_of::<FLASHWINFO>() as u32,
+            hwnd: hwnd.0,
+            dwFlags: FLASHW_TRAY | FLASHW_TIMERNOFG,
+            uCount: 5,
+            dwTimeout: 0,
+        };
+
+        unsafe {
+            FlashWindowEx(&info);
+        }
+    }
+
+    #[cfg(not(windows))]
+    {
+        let _ = window;
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
 fn start_dragging_main_window(window: tauri::Window) -> Result<(), String> {
     window.start_dragging().map_err(|error| error.to_string())
 }
@@ -3258,6 +3340,7 @@ pub fn run() {
             restore_main_from_floating_todos,
             quit_application,
             show_main_window_from_tray,
+            flash_main_window_attention,
             start_dragging_main_window
         ])
         .run(tauri::generate_context!())

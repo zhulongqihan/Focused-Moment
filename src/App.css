@@ -348,6 +348,35 @@ input:focus-visible, select:focus-visible { border-color: #4b8468; box-shadow: 0
 .timer-alert { grid-template-columns: minmax(0, 1fr) auto; align-items: center; background: #f0f7f1; }
 .timer-alert .secondary-button { white-space: nowrap; }
 .timer-alert__actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.timer-alert--global {
+  position: fixed;
+  top: 82px;
+  right: 24px;
+  z-index: 18;
+  width: min(430px, calc(100vw - 48px));
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 11px 12px;
+  padding: 14px;
+  border-color: #d6a27d;
+  background: #fff8ef;
+  box-shadow: 0 14px 30px rgba(94, 64, 33, 0.18);
+  animation: timer-alert-arrive 220ms ease-out both;
+}
+.timer-alert__signal { display: grid; justify-items: center; align-content: start; gap: 5px; min-width: 42px; color: #a6582e; font-size: 0.72rem; font-weight: 800; }
+.timer-alert__signal-dot { width: 15px; height: 15px; border-radius: 50%; background: #d67742; box-shadow: 0 0 0 5px rgba(214, 119, 66, 0.16); animation: timer-alert-pulse 1.2s ease-in-out infinite; }
+.timer-alert__copy { display: grid; gap: 5px; min-width: 0; }
+.timer-alert__copy strong { color: #71391f; font-size: 1rem; }
+.timer-alert--global p { color: #815a45; line-height: 1.5; }
+.timer-alert--global .timer-alert__actions { grid-column: 2; justify-content: flex-start; }
+
+@keyframes timer-alert-arrive {
+  from { opacity: 0; transform: translateY(-10px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes timer-alert-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.85; }
+  50% { transform: scale(1.18); opacity: 1; }
+}
 
 .records-momentum {
   display: grid;
@@ -476,6 +505,18 @@ input:focus-visible, select:focus-visible { border-color: #4b8468; box-shadow: 0
 .settings-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .settings-select { display: grid; gap: 7px; color: #5d6c63; font-size: 0.86rem; }
 .settings-path { margin: 0; overflow-wrap: anywhere; color: #6a796f; font-size: 0.78rem; }
+.reminder-settings { gap: 16px; }
+.reminder-options { display: grid; gap: 1px; border: 1px solid #d8e0d9; border-radius: 8px; background: #f7faf6; }
+.reminder-option { display: flex; align-items: flex-start; gap: 11px; padding: 13px 14px; cursor: pointer; }
+.reminder-option + .reminder-option { border-top: 1px solid #e0e7e0; }
+.reminder-option input { flex: 0 0 auto; width: 17px; height: 17px; min-height: auto; margin-top: 2px; accent-color: #2c7654; }
+.reminder-option > span { display: grid; gap: 3px; }
+.reminder-option strong { color: #315a45; font-size: 0.88rem; }
+.reminder-option small { color: #6a796f; font-size: 0.8rem; line-height: 1.45; }
+.sound-picker { display: grid; grid-template-columns: minmax(190px, 260px) minmax(0, 1fr); align-items: end; gap: 12px; }
+.sound-picker__actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.sound-picker__actions .secondary-button { min-height: 38px; padding: 0 12px; }
+.sound-picker__actions .text-button { color: #8e3d3a; font-size: 0.8rem; }
 .backup-preview {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -682,6 +723,9 @@ html.floating-window body { overflow: hidden; }
   .backup-preview { grid-template-columns: minmax(0, 1fr); }
   .timer-alert { grid-template-columns: 1fr; }
   .timer-alert__actions { justify-content: flex-start; flex-wrap: wrap; }
+  .timer-alert--global { top: 74px; right: 12px; width: calc(100vw - 24px); }
+  .timer-alert--global .timer-alert__actions { grid-column: 1 / -1; }
+  .sound-picker { grid-template-columns: minmax(0, 1fr); }
   .completed-row { grid-template-columns: 22px minmax(0, 1fr) auto auto auto; gap: 6px; }
 }
 
