@@ -61,6 +61,7 @@ import {
 } from "./lib/window-controls";
 import CommandPalette, { type PaletteCommand } from "./components/CommandPalette";
 import TodayDashboard from "./components/TodayDashboard";
+import { copyLibrarySize, getCopyAttribution, getCopyDisplayText, getCopyOriginalText, getDailyCopy } from "./lib/copy-library";
 import "./App.css";
 
 type AppView = "today" | "focus" | "todos" | "records" | "settings";
@@ -450,61 +451,6 @@ function formatCountdownPreview(minutes: number) {
   return [hours, remainingMinutes, seconds].map((value) => String(value).padStart(2, "0")).join(":");
 }
 
-const dailyMomentumLines = [
-  "今天不用证明什么，只要把眼前这一小步走完。",
-  "专注不是把世界关掉，而是把此刻交还给自己。",
-  "慢一点没有关系，持续本身就是一种速度。",
-  "每一次坐回这里，都是在替未来的自己铺路。",
-  "真正的积累很安静，但它从不缺席。",
-  "把一件事做完，世界就会为你让出一点空间。",
-  "你不需要等状态完美，开始会把状态带回来。",
-  "有些日子适合远行，有些日子只要稳稳走完眼前。",
-  "今天留下的不是数字，是你曾认真对待时间的证据。",
-  "一段被认真使用的时间，不会从人生里消失。",
-  "当你愿意留在一件事上，答案常常会慢慢靠近。",
-  "不追赶所有事情，只照看此刻最重要的一件。",
-  "完成不是喧闹的终点，而是给下一步腾出的空地。",
-  "你每次回到正轨，正轨就会比上次更宽。",
-  "耐心不是等待不动，而是继续把手上的事做好。",
-  "今天的光，可能只落在一个小小的完成上。",
-  "把注意力收回来，生活就会重新拥有轮廓。",
-  "先留下一个开始，路会在脚下变得清楚。",
-  "值得庆祝的，不只有完成，还有你没有轻易离开。",
-  "真正可靠的节奏，允许你停下，也知道如何再出发。",
-  "如果今天只能做好一件事，那就把它做得诚实。",
-  "时间不会替你决定方向，但你可以决定把它交给什么。",
-  "你正在做的每一小段，都会成为以后回头时的路。",
-  "一轮专注看似短暂，却足以让一天重新站稳。",
-  "不必把今天过成传奇，过成自己愿意记住的一天就好。",
-];
-
-interface DailyMomentumCopy {
-  quote: string;
-  context: string;
-}
-
-function getDailyMomentumCopy(dateKey: string, summary: AnalyticsSnapshot | null): DailyMomentumCopy {
-  const date = parseLocalDate(dateKey);
-  const dayNumber = date ? Math.floor(date.getTime() / 86_400_000) : 0;
-  const quoteIndex = ((dayNumber % dailyMomentumLines.length) + dailyMomentumLines.length) % dailyMomentumLines.length;
-
-  if (!summary || summary.todaySessionCount === 0) {
-    return {
-      quote: dailyMomentumLines[quoteIndex],
-      context: summary?.currentStreakDays
-        ? "今天还没有留下新的轮次，但你已经把这份节奏带到了这里。"
-        : "先完成一轮，今天的节奏就会从一个具体的动作开始。",
-    };
-  }
-
-  return {
-    quote: dailyMomentumLines[quoteIndex],
-    context: summary.todaySessionCount === 1
-      ? "今天已经留下第一段专注，接下来只需要照看好下一步。"
-      : `今天已经留下 ${summary.todaySessionCount} 轮专注，这份投入正在变成自己的节奏。`,
-  };
-}
-
 function formatDurationMs(value: number) {
   const totalSeconds = Math.max(0, Math.round(value / 1000));
   const hours = Math.floor(totalSeconds / 3600);
@@ -662,7 +608,7 @@ function MainShell() {
   const nextTodo = () => pendingTodos()[0] ?? null;
   const selectedBackup = () => backups().find((backup) => backup.fileName === selectedBackupFile()) ?? null;
   const recentBreakdown = createMemo(() => getRecentTrendDays(analytics()?.dailyBreakdown ?? []));
-  const dailyMomentum = createMemo(() => getDailyMomentumCopy(getToday(), analytics()));
+  const dailyCopy = createMemo(() => getDailyCopy(getToday()));
   const recordGroups = createMemo(() => groupRecordsByDate(records()));
   const recentWeekDurationMs = () =>
     recentBreakdown().reduce((total, day) => total + day.totalDurationMs, 0);
@@ -2369,10 +2315,17 @@ function MainShell() {
                             ? `${summary().currentStreakDays} 天连续投入`
                             : "今天还没开始"}
                         </strong>
-                        <p>{dailyMomentum().context}</p>
+                        <p>今天的句子来自一段被保存下来的时间，给正在与时间相处的你。</p>
                         <div class="records-momentum__daily-quote">
-                          <span>今日一句</span>
-                          <strong>“{dailyMomentum().quote}”</strong>
+                          <div class="records-momentum__daily-heading">
+                            <span>今日一句</span>
+                            <small>{dailyCopy().tags.slice(0, 2).join(" · ")}</small>
+                          </div>
+                          <strong>“{getCopyDisplayText(dailyCopy())}”</strong>
+                          <Show when={getCopyOriginalText(dailyCopy())}>
+                            <small class="records-momentum__daily-original">{getCopyOriginalText(dailyCopy())}</small>
+                          </Show>
+                          <small class="records-momentum__daily-source">{getCopyAttribution(dailyCopy())} · 本地语料库 {copyLibrarySize} 条</small>
                         </div>
                       </div>
                       <div class="records-momentum__best">

@@ -400,8 +400,13 @@ input:focus-visible, select:focus-visible { border-color: #4b8468; box-shadow: 0
 .records-momentum__lead > strong { color: #fff; font-size: 1.8rem; letter-spacing: -0.025em; line-height: 1.1; }
 .records-momentum__lead p { max-width: 38ch; margin: 0; color: #c2d8c7; font-size: 0.86rem; line-height: 1.55; }
 .records-momentum__daily-quote { display: grid; gap: 5px; margin-top: 4px; padding-top: 11px; border-top: 1px solid rgba(214, 238, 218, 0.2); }
-.records-momentum__daily-quote span { color: #8dcca0; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.06em; }
+.records-momentum__daily-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.records-momentum__daily-heading span { color: #8dcca0; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.06em; }
+.records-momentum__daily-heading small { color: #b8d7c0; font-size: 0.72rem; }
 .records-momentum__daily-quote strong { max-width: 42ch; color: #f5fbf5; font-size: 1rem; font-weight: 600; line-height: 1.55; }
+.records-momentum__daily-original, .records-momentum__daily-source { color: #b8d7c0; font-size: 0.74rem; line-height: 1.45; }
+.records-momentum__daily-original { font-style: italic; }
+.records-momentum__daily-source { color: #8eb79a; }
 .records-momentum__best { align-content: center; padding-left: 24px; border-left: 1px solid rgba(214, 238, 218, 0.2); }
 .records-momentum__best span { color: #b8d7c0; font-size: 0.8rem; }
 .records-momentum__best strong { color: #fff; font-size: 1.18rem; }

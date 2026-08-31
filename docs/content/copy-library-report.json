@@ -1,0 +1,618 @@
+{
+  "generatedAt": "2026-08-27T16:18:15.971Z",
+  "corpus": "gujilab/chinese-classical-corpus CC0 + Project Gutenberg public-domain works",
+  "sources": [
+    {
+      "sourceName": "gujilab/chinese-classical-corpus · 礼记",
+      "sourceUrl": "https://zh.wikisource.org/wiki/禮記",
+      "license": "cc0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "collectedAt": "2026-08-27",
+      "languages": [
+        "zh"
+      ],
+      "authors": [
+        "戴圣（汉）"
+      ],
+      "count": 508
+    },
+    {
+      "sourceName": "gujilab/chinese-classical-corpus · 孟子",
+      "sourceUrl": "https://zh.wikisource.org/wiki/孟子",
+      "license": "cc0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "collectedAt": "2026-08-27",
+      "languages": [
+        "zh"
+      ],
+      "authors": [
+        "孟子"
+      ],
+      "count": 154
+    },
+    {
+      "sourceName": "gujilab/chinese-classical-corpus · 周易",
+      "sourceUrl": "https://zh.wikisource.org/wiki/周易",
+      "license": "cc0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "collectedAt": "2026-08-27",
+      "languages": [
+        "zh"
+      ],
+      "authors": [
+        "佚名（周易）"
+      ],
+      "count": 103
+    },
+    {
+      "sourceName": "gujilab/chinese-classical-corpus · 论语",
+      "sourceUrl": "https://zh.wikisource.org/wiki/論語",
+      "license": "cc0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "collectedAt": "2026-08-27",
+      "languages": [
+        "zh"
+      ],
+      "authors": [
+        "孔子门徒（辑录）"
+      ],
+      "count": 41
+    },
+    {
+      "sourceName": "gujilab/chinese-classical-corpus · 诗经",
+      "sourceUrl": "https://zh.wikisource.org/wiki/詩經",
+      "license": "cc0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "collectedAt": "2026-08-27",
+      "languages": [
+        "zh"
+      ],
+      "authors": [
+        "佚名（诗经）"
+      ],
+      "count": 32
+    },
+    {
+      "sourceName": "gujilab/chinese-classical-corpus · 中庸",
+      "sourceUrl": "https://zh.wikisource.org/wiki/中庸",
+      "license": "cc0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "collectedAt": "2026-08-27",
+      "languages": [
+        "zh"
+      ],
+      "authors": [
+        "子思"
+      ],
+      "count": 28
+    },
+    {
+      "sourceName": "Project Gutenberg · Essays: First Series",
+      "sourceUrl": "https://www.gutenberg.org/ebooks/16643",
+      "license": "public-domain",
+      "licenseUrl": "https://www.gutenberg.org/policy/license",
+      "collectedAt": "2026-08-27",
+      "languages": [
+        "en"
+      ],
+      "authors": [
+        "Ralph Waldo Emerson"
+      ],
+      "count": 13
+    },
+    {
+      "sourceName": "Project Gutenberg · Walden",
+      "sourceUrl": "https://www.gutenberg.org/ebooks/205",
+      "license": "public-domain",
+      "licenseUrl": "https://www.gutenberg.org/policy/license",
+      "collectedAt": "2026-08-27",
+      "languages": [
+        "en"
+      ],
+      "authors": [
+        "Henry David Thoreau"
+      ],
+      "count": 13
+    },
+    {
+      "sourceName": "Project Gutenberg · The Picture of Dorian Gray",
+      "sourceUrl": "https://www.gutenberg.org/ebooks/174",
+      "license": "public-domain",
+      "licenseUrl": "https://www.gutenberg.org/policy/license",
+      "collectedAt": "2026-08-27",
+      "languages": [
+        "en"
+      ],
+      "authors": [
+        "Oscar Wilde"
+      ],
+      "count": 11
+    },
+    {
+      "sourceName": "gujilab/chinese-classical-corpus · 大学",
+      "sourceUrl": "https://zh.wikisource.org/wiki/大學",
+      "license": "cc0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "collectedAt": "2026-08-27",
+      "languages": [
+        "zh"
+      ],
+      "authors": [
+        "曾子（传）"
+      ],
+      "count": 10
+    },
+    {
+      "sourceName": "gujilab/chinese-classical-corpus · 孝经",
+      "sourceUrl": "https://zh.wikisource.org/wiki/孝經",
+      "license": "cc0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "collectedAt": "2026-08-27",
+      "languages": [
+        "zh"
+      ],
+      "authors": [
+        "孔子门徒（传）"
+      ],
+      "count": 9
+    },
+    {
+      "sourceName": "Project Gutenberg · Alice's Adventures in Wonderland",
+      "sourceUrl": "https://www.gutenberg.org/ebooks/11",
+      "license": "public-domain",
+      "licenseUrl": "https://www.gutenberg.org/policy/license",
+      "collectedAt": "2026-08-27",
+      "languages": [
+        "en"
+      ],
+      "authors": [
+        "Lewis Carroll"
+      ],
+      "count": 8
+    },
+    {
+      "sourceName": "Project Gutenberg · Pride and Prejudice",
+      "sourceUrl": "https://www.gutenberg.org/ebooks/1342",
+      "license": "public-domain",
+      "licenseUrl": "https://www.gutenberg.org/policy/license",
+      "collectedAt": "2026-08-27",
+      "languages": [
+        "en"
+      ],
+      "authors": [
+        "Jane Austen"
+      ],
+      "count": 7
+    },
+    {
+      "sourceName": "Project Gutenberg · Hamlet",
+      "sourceUrl": "https://www.gutenberg.org/ebooks/100",
+      "license": "public-domain",
+      "licenseUrl": "https://www.gutenberg.org/policy/license",
+      "collectedAt": "2026-08-27",
+      "languages": [
+        "en"
+      ],
+      "authors": [
+        "William Shakespeare"
+      ],
+      "count": 6
+    },
+    {
+      "sourceName": "Project Gutenberg · Emma",
+      "sourceUrl": "https://www.gutenberg.org/ebooks/158",
+      "license": "public-domain",
+      "licenseUrl": "https://www.gutenberg.org/policy/license",
+      "collectedAt": "2026-08-27",
+      "languages": [
+        "en"
+      ],
+      "authors": [
+        "Jane Austen"
+      ],
+      "count": 4
+    },
+    {
+      "sourceName": "Project Gutenberg · Persuasion",
+      "sourceUrl": "https://www.gutenberg.org/ebooks/1342",
+      "license": "public-domain",
+      "licenseUrl": "https://www.gutenberg.org/policy/license",
+      "collectedAt": "2026-08-27",
+      "languages": [
+        "en"
+      ],
+      "authors": [
+        "Jane Austen"
+      ],
+      "count": 4
+    },
+    {
+      "sourceName": "Project Gutenberg · The Importance of Being Earnest",
+      "sourceUrl": "https://www.gutenberg.org/ebooks/844",
+      "license": "public-domain",
+      "licenseUrl": "https://www.gutenberg.org/policy/license",
+      "collectedAt": "2026-08-27",
+      "languages": [
+        "en"
+      ],
+      "authors": [
+        "Oscar Wilde"
+      ],
+      "count": 4
+    },
+    {
+      "sourceName": "Project Gutenberg · Nature",
+      "sourceUrl": "https://www.gutenberg.org/ebooks/16643",
+      "license": "public-domain",
+      "licenseUrl": "https://www.gutenberg.org/policy/license",
+      "collectedAt": "2026-08-27",
+      "languages": [
+        "en"
+      ],
+      "authors": [
+        "Ralph Waldo Emerson"
+      ],
+      "count": 3
+    },
+    {
+      "sourceName": "Project Gutenberg · The Soul of Man under Socialism",
+      "sourceUrl": "https://www.gutenberg.org/ebooks/174",
+      "license": "public-domain",
+      "licenseUrl": "https://www.gutenberg.org/policy/license",
+      "collectedAt": "2026-08-27",
+      "languages": [
+        "en"
+      ],
+      "authors": [
+        "Oscar Wilde"
+      ],
+      "count": 3
+    },
+    {
+      "sourceName": "Project Gutenberg · The Tempest",
+      "sourceUrl": "https://www.gutenberg.org/ebooks/100",
+      "license": "public-domain",
+      "licenseUrl": "https://www.gutenberg.org/policy/license",
+      "collectedAt": "2026-08-27",
+      "languages": [
+        "en"
+      ],
+      "authors": [
+        "William Shakespeare"
+      ],
+      "count": 3
+    },
+    {
+      "sourceName": "Project Gutenberg · A Midsummer Night's Dream",
+      "sourceUrl": "https://www.gutenberg.org/ebooks/100",
+      "license": "public-domain",
+      "licenseUrl": "https://www.gutenberg.org/policy/license",
+      "collectedAt": "2026-08-27",
+      "languages": [
+        "en"
+      ],
+      "authors": [
+        "William Shakespeare"
+      ],
+      "count": 2
+    },
+    {
+      "sourceName": "Project Gutenberg · A Week on the Concord and Merrimack Rivers",
+      "sourceUrl": "https://www.gutenberg.org/ebooks/205",
+      "license": "public-domain",
+      "licenseUrl": "https://www.gutenberg.org/policy/license",
+      "collectedAt": "2026-08-27",
+      "languages": [
+        "en"
+      ],
+      "authors": [
+        "Henry David Thoreau"
+      ],
+      "count": 2
+    },
+    {
+      "sourceName": "Project Gutenberg · As You Like It",
+      "sourceUrl": "https://www.gutenberg.org/ebooks/100",
+      "license": "public-domain",
+      "licenseUrl": "https://www.gutenberg.org/policy/license",
+      "collectedAt": "2026-08-27",
+      "languages": [
+        "en"
+      ],
+      "authors": [
+        "William Shakespeare"
+      ],
+      "count": 2
+    },
+    {
+      "sourceName": "Project Gutenberg · Essays: Second Series",
+      "sourceUrl": "https://www.gutenberg.org/ebooks/16643",
+      "license": "public-domain",
+      "licenseUrl": "https://www.gutenberg.org/policy/license",
+      "collectedAt": "2026-08-27",
+      "languages": [
+        "en"
+      ],
+      "authors": [
+        "Ralph Waldo Emerson"
+      ],
+      "count": 2
+    },
+    {
+      "sourceName": "Project Gutenberg · Julius Caesar",
+      "sourceUrl": "https://www.gutenberg.org/ebooks/100",
+      "license": "public-domain",
+      "licenseUrl": "https://www.gutenberg.org/policy/license",
+      "collectedAt": "2026-08-27",
+      "languages": [
+        "en"
+      ],
+      "authors": [
+        "William Shakespeare"
+      ],
+      "count": 2
+    },
+    {
+      "sourceName": "Project Gutenberg · King Lear",
+      "sourceUrl": "https://www.gutenberg.org/ebooks/100",
+      "license": "public-domain",
+      "licenseUrl": "https://www.gutenberg.org/policy/license",
+      "collectedAt": "2026-08-27",
+      "languages": [
+        "en"
+      ],
+      "authors": [
+        "William Shakespeare"
+      ],
+      "count": 2
+    },
+    {
+      "sourceName": "Project Gutenberg · Northanger Abbey",
+      "sourceUrl": "https://www.gutenberg.org/ebooks/1342",
+      "license": "public-domain",
+      "licenseUrl": "https://www.gutenberg.org/policy/license",
+      "collectedAt": "2026-08-27",
+      "languages": [
+        "en"
+      ],
+      "authors": [
+        "Jane Austen"
+      ],
+      "count": 2
+    },
+    {
+      "sourceName": "Project Gutenberg · Self-Reliance",
+      "sourceUrl": "https://www.gutenberg.org/ebooks/16643",
+      "license": "public-domain",
+      "licenseUrl": "https://www.gutenberg.org/policy/license",
+      "collectedAt": "2026-08-27",
+      "languages": [
+        "en"
+      ],
+      "authors": [
+        "Ralph Waldo Emerson"
+      ],
+      "count": 2
+    },
+    {
+      "sourceName": "Project Gutenberg · Sense and Sensibility",
+      "sourceUrl": "https://www.gutenberg.org/ebooks/1342",
+      "license": "public-domain",
+      "licenseUrl": "https://www.gutenberg.org/policy/license",
+      "collectedAt": "2026-08-27",
+      "languages": [
+        "en"
+      ],
+      "authors": [
+        "Jane Austen"
+      ],
+      "count": 2
+    },
+    {
+      "sourceName": "Project Gutenberg · The Complete Works",
+      "sourceUrl": "https://www.gutenberg.org/ebooks/100",
+      "license": "public-domain",
+      "licenseUrl": "https://www.gutenberg.org/policy/license",
+      "collectedAt": "2026-08-27",
+      "languages": [
+        "en"
+      ],
+      "authors": [
+        "William Shakespeare"
+      ],
+      "count": 2
+    },
+    {
+      "sourceName": "Project Gutenberg · The Merchant of Venice",
+      "sourceUrl": "https://www.gutenberg.org/ebooks/100",
+      "license": "public-domain",
+      "licenseUrl": "https://www.gutenberg.org/policy/license",
+      "collectedAt": "2026-08-27",
+      "languages": [
+        "en"
+      ],
+      "authors": [
+        "William Shakespeare"
+      ],
+      "count": 2
+    },
+    {
+      "sourceName": "Project Gutenberg · Through the Looking-Glass",
+      "sourceUrl": "https://www.gutenberg.org/ebooks/11",
+      "license": "public-domain",
+      "licenseUrl": "https://www.gutenberg.org/policy/license",
+      "collectedAt": "2026-08-27",
+      "languages": [
+        "en"
+      ],
+      "authors": [
+        "Lewis Carroll"
+      ],
+      "count": 2
+    },
+    {
+      "sourceName": "Project Gutenberg · Twelfth Night",
+      "sourceUrl": "https://www.gutenberg.org/ebooks/100",
+      "license": "public-domain",
+      "licenseUrl": "https://www.gutenberg.org/policy/license",
+      "collectedAt": "2026-08-27",
+      "languages": [
+        "en"
+      ],
+      "authors": [
+        "William Shakespeare"
+      ],
+      "count": 2
+    },
+    {
+      "sourceName": "Project Gutenberg · A Woman of No Importance",
+      "sourceUrl": "https://www.gutenberg.org/ebooks/844",
+      "license": "public-domain",
+      "licenseUrl": "https://www.gutenberg.org/policy/license",
+      "collectedAt": "2026-08-27",
+      "languages": [
+        "en"
+      ],
+      "authors": [
+        "Oscar Wilde"
+      ],
+      "count": 1
+    },
+    {
+      "sourceName": "Project Gutenberg · Henry V",
+      "sourceUrl": "https://www.gutenberg.org/ebooks/100",
+      "license": "public-domain",
+      "licenseUrl": "https://www.gutenberg.org/policy/license",
+      "collectedAt": "2026-08-27",
+      "languages": [
+        "en"
+      ],
+      "authors": [
+        "William Shakespeare"
+      ],
+      "count": 1
+    },
+    {
+      "sourceName": "Project Gutenberg · Macbeth",
+      "sourceUrl": "https://www.gutenberg.org/ebooks/100",
+      "license": "public-domain",
+      "licenseUrl": "https://www.gutenberg.org/policy/license",
+      "collectedAt": "2026-08-27",
+      "languages": [
+        "en"
+      ],
+      "authors": [
+        "William Shakespeare"
+      ],
+      "count": 1
+    },
+    {
+      "sourceName": "Project Gutenberg · Mansfield Park",
+      "sourceUrl": "https://www.gutenberg.org/ebooks/1342",
+      "license": "public-domain",
+      "licenseUrl": "https://www.gutenberg.org/policy/license",
+      "collectedAt": "2026-08-27",
+      "languages": [
+        "en"
+      ],
+      "authors": [
+        "Jane Austen"
+      ],
+      "count": 1
+    },
+    {
+      "sourceName": "Project Gutenberg · Much Ado About Nothing",
+      "sourceUrl": "https://www.gutenberg.org/ebooks/100",
+      "license": "public-domain",
+      "licenseUrl": "https://www.gutenberg.org/policy/license",
+      "collectedAt": "2026-08-27",
+      "languages": [
+        "en"
+      ],
+      "authors": [
+        "William Shakespeare"
+      ],
+      "count": 1
+    },
+    {
+      "sourceName": "Project Gutenberg · Romeo and Juliet",
+      "sourceUrl": "https://www.gutenberg.org/ebooks/100",
+      "license": "public-domain",
+      "licenseUrl": "https://www.gutenberg.org/policy/license",
+      "collectedAt": "2026-08-27",
+      "languages": [
+        "en"
+      ],
+      "authors": [
+        "William Shakespeare"
+      ],
+      "count": 1
+    },
+    {
+      "sourceName": "Project Gutenberg · The Comedy of Errors",
+      "sourceUrl": "https://www.gutenberg.org/ebooks/100",
+      "license": "public-domain",
+      "licenseUrl": "https://www.gutenberg.org/policy/license",
+      "collectedAt": "2026-08-27",
+      "languages": [
+        "en"
+      ],
+      "authors": [
+        "William Shakespeare"
+      ],
+      "count": 1
+    },
+    {
+      "sourceName": "Project Gutenberg · The Critic as Artist",
+      "sourceUrl": "https://www.gutenberg.org/ebooks/844",
+      "license": "public-domain",
+      "licenseUrl": "https://www.gutenberg.org/policy/license",
+      "collectedAt": "2026-08-27",
+      "languages": [
+        "en"
+      ],
+      "authors": [
+        "Oscar Wilde"
+      ],
+      "count": 1
+    },
+    {
+      "sourceName": "Project Gutenberg · The Merry Wives of Windsor",
+      "sourceUrl": "https://www.gutenberg.org/ebooks/100",
+      "license": "public-domain",
+      "licenseUrl": "https://www.gutenberg.org/policy/license",
+      "collectedAt": "2026-08-27",
+      "languages": [
+        "en"
+      ],
+      "authors": [
+        "William Shakespeare"
+      ],
+      "count": 1
+    },
+    {
+      "sourceName": "Project Gutenberg · Troilus and Cressida",
+      "sourceUrl": "https://www.gutenberg.org/ebooks/100",
+      "license": "public-domain",
+      "licenseUrl": "https://www.gutenberg.org/policy/license",
+      "collectedAt": "2026-08-27",
+      "languages": [
+        "en"
+      ],
+      "authors": [
+        "William Shakespeare"
+      ],
+      "count": 1
+    }
+  ],
+  "errors": [],
+  "counts": {
+    "total": 1000,
+    "chinese": 885,
+    "foreign": 115,
+    "authors": 14
+  },
+  "uniqueOriginals": 1000,
+  "uniqueTranslations": 115,
+  "uniqueSourcePairs": 1000
+}
