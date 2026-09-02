@@ -332,8 +332,10 @@ test("records page turns a long history into date groups and achievement insight
 
   await expect(page.getByRole("heading", { name: "看见自己留下的节奏" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "最近 7 天" })).toBeVisible();
-  await expect(page.locator(".records-momentum")).toContainText("2 天连续投入");
-  await expect(page.locator(".records-momentum__daily-quote")).toContainText("今日一句");
+  await expect(page.locator(".records-hero__streak strong")).toHaveText("2");
+  await expect(page.locator(".records-hero__letter-label")).toHaveText("TODAY / 今日一句");
+  await expect(page.locator(".records-hero__dial")).toContainText("3");
+  await expect(page.locator(".records-trajectory")).toContainText("你的节奏正在成形");
   await expect(page.locator(".records-stats__progress")).toContainText("0%");
   await expect(page.locator(".record-history__heading")).toContainText("3 轮");
 

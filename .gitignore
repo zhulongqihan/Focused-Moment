@@ -6,6 +6,8 @@ docs/
 .release/
 *.log
 test-results/
+output/
+/.playwright-cli/
 /*.exe
 /*.msi
 /Focused Moment Backups/

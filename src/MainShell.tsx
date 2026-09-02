@@ -1602,6 +1602,7 @@ function MainShell() {
         "minimal-app--running": timer().isRunning,
         "minimal-app--paused": !timer().isRunning && timerHasProgress(),
         "minimal-app--break": timer().phaseKey === "break",
+        "minimal-app--records": activeView() === "records",
       }}
     >
       <a class="skip-link" href="#main-content">跳到主要内容</a>
@@ -1703,7 +1704,13 @@ function MainShell() {
           </button>
         </nav>
 
-        <section class="minimal-content" aria-busy={busy() || loadState() === "loading"}>
+        <section
+          classList={{
+            "minimal-content": true,
+            "minimal-content--records": activeView() === "records",
+          }}
+          aria-busy={busy() || loadState() === "loading"}
+        >
           <Show when={alertIsVisible()}>
             <div class="timer-alert timer-alert--global" role="alert">
               <div class="timer-alert__signal" aria-hidden="true">
@@ -2314,66 +2321,90 @@ function MainShell() {
 
           <Show when={activeView() === "records"}>
             <section class="records-page">
-              <div class="page-heading">
-                <span>记录</span>
-                <h1>看见自己留下的节奏</h1>
-              </div>
+              <header class="records-page__masthead">
+                <div>
+                  <span class="records-page__eyebrow">RECORDS / PERSONAL ARCHIVE</span>
+                  <h1>看见自己留下的节奏</h1>
+                  <p>每一次回到这里，都会在时间里留下一个清晰的坐标。</p>
+                </div>
+                <div class="records-page__counter" aria-label={`共 ${records().length} 条专注记录`}>
+                  <span>LOCAL LOG</span>
+                  <strong>{String(records().length).padStart(2, "0")}</strong>
+                  <small>条专注记录</small>
+                </div>
+              </header>
               <Show when={analytics()}>
                 {(summary) => (
                   <>
-                    <section class="records-momentum" aria-label="专注成就">
-                      <div class="records-momentum__lead">
-                        <span class="records-momentum__label">
-                          <span class="records-momentum__dot" aria-hidden="true" />
-                          当前节奏
+                    <section class="records-hero" aria-label="专注成就">
+                      <div class="records-hero__grid" aria-hidden="true" />
+                      <div class="records-hero__main">
+                        <span class="records-hero__eyebrow">
+                          <span class="records-hero__pulse" aria-hidden="true" />
+                          CURRENT STREAK / 当前连续
                         </span>
-                        <strong>
+                        <div class="records-hero__streak">
+                          <strong>{summary().currentStreakDays}</strong>
+                          <span>天<br />连续投入</span>
+                        </div>
+                        <p>
                           {summary().currentStreakDays > 0
-                            ? `${summary().currentStreakDays} 天连续投入`
-                            : "今天还没开始"}
-                        </strong>
-                        <p>今天的句子来自一段被保存下来的时间，给正在与时间相处的你。</p>
-                        <div class="records-momentum__daily-quote">
-                          <div class="records-momentum__daily-heading">
-                            <span>今日一句</span>
-                            <small>{dailyCopy().tags.slice(0, 2).join(" · ")}</small>
+                            ? "你已经把专注变成了会回来的节奏。今天，再为这条轨迹添上一笔。"
+                            : "今天还没有新的投入。先完成一小段，让这条轨迹重新亮起来。"}
+                        </p>
+                        <div class="records-hero__week">
+                          <div>
+                            <span>本周节奏</span>
+                            <strong>{recentWeekActiveDays()} / 7 天</strong>
                           </div>
-                          <strong>“{getCopyDisplayText(dailyCopy())}”</strong>
-                          <Show when={getCopyOriginalText(dailyCopy())}>
-                            <small class="records-momentum__daily-original">{getCopyOriginalText(dailyCopy())}</small>
-                          </Show>
-                          <small class="records-momentum__daily-source">{getCopyAttribution(dailyCopy())} · 本地语料库 {copyLibrarySize} 条</small>
+                          <div class="records-hero__week-meter" aria-hidden="true">
+                            <span style={{ width: `${Math.round((recentWeekActiveDays() / 7) * 100)}%` }} />
+                          </div>
                         </div>
                       </div>
-                      <div class="records-momentum__best">
-                        <span>最佳单日</span>
-                        <strong>
-                          {summary().bestFocusDate
-                            ? formatAnalyticsDate(summary().bestFocusDate!)
-                            : "还没有记录"}
-                        </strong>
-                        <small>{summary().bestFocusDurationLabel ?? "完成一轮后，这里会出现你的最高投入。"}</small>
+                      <div class="records-hero__dial" aria-label={`已完成 ${summary().sessionCount} 轮专注`}>
+                        <div class="records-hero__dial-ring records-hero__dial-ring--outer" />
+                        <div class="records-hero__dial-ring records-hero__dial-ring--inner" />
+                        <div class="records-hero__dial-core">
+                          <span>FOCUS LOG</span>
+                          <strong>{summary().sessionCount}</strong>
+                          <small>次专注记录</small>
+                        </div>
+                        <i class="records-hero__dial-marker" aria-hidden="true" />
+                      </div>
+                      <div class="records-hero__letter">
+                        <span class="records-hero__letter-label">TODAY / 今日一句</span>
+                        <strong>“{getCopyDisplayText(dailyCopy())}”</strong>
+                        <Show when={getCopyOriginalText(dailyCopy())}>
+                          <small class="records-hero__letter-original">{getCopyOriginalText(dailyCopy())}</small>
+                        </Show>
+                        <small class="records-hero__letter-source">{getCopyAttribution(dailyCopy())} · {copyLibrarySize} 条本地语料</small>
+                        <div class="records-hero__best">
+                          <span>BEST DAY / 最佳单日</span>
+                          <strong>{summary().bestFocusDate ? formatAnalyticsDate(summary().bestFocusDate!) : "还没有记录"}</strong>
+                          <small>{summary().bestFocusDurationLabel ?? "完成一轮后，这里会出现你的最高投入。"}</small>
+                        </div>
                       </div>
                     </section>
                     <section class="records-stats" aria-label="专注概览">
                       <div>
-                        <span>今日专注</span>
+                        <span>今天留下</span>
                         <strong>{summary().todayFocusDurationLabel}</strong>
                         <small>{summary().todaySessionCount} 轮</small>
                       </div>
                       <div>
-                        <span>累计专注</span>
+                        <span>累计时间</span>
                         <strong>{summary().totalFocusDurationLabel}</strong>
                         <small>{summary().sessionCount} 轮记录</small>
                       </div>
                       <div>
-                        <span>活跃天数</span>
+                        <span>回来的日子</span>
                         <strong>{summary().activeDays}</strong>
                         <small>平均每天 {summary().averageDailyDurationLabel}</small>
                       </div>
                       <div class="records-stats__progress">
                         <div class="records-stats__progress-heading">
-                          <span>待办完成度</span>
+                          <span>待办完成轨迹</span>
                           <strong>{todoCompletionPercent()}%</strong>
                         </div>
                         <div class="records-progress" aria-hidden="true">
@@ -2384,6 +2415,30 @@ function MainShell() {
                         </small>
                       </div>
                     </section>
+                    <section class="records-trajectory" aria-label="专注轨迹">
+                      <div class="records-trajectory__heading">
+                        <div>
+                          <span>RETURN / KEEP GOING</span>
+                          <h2>你的节奏正在成形</h2>
+                        </div>
+                        <p>不需要一次走很远，只要继续回来。</p>
+                      </div>
+                      <div class="records-trajectory__rail">
+                        <div class="records-trajectory__rail-line" aria-hidden="true">
+                          <span style={{ width: `${Math.round((recentWeekActiveDays() / 7) * 100)}%` }} />
+                          <i style={{ left: `${Math.round((recentWeekActiveDays() / 7) * 100)}%` }} />
+                        </div>
+                        <div class="records-trajectory__rail-labels">
+                          <span>本周开始</span>
+                          <strong>{recentWeekActiveDays()} 天有投入</strong>
+                          <span>今天</span>
+                        </div>
+                      </div>
+                      <div class="records-trajectory__side">
+                        <strong>{summary().averageDailyDurationLabel}</strong>
+                        <span>平均每个活跃日</span>
+                      </div>
+                    </section>
                   </>
                 )}
               </Show>
@@ -2391,15 +2446,15 @@ function MainShell() {
                 <section class="records-trend" aria-label="最近七天专注趋势">
                   <div class="records-trend__heading">
                     <div>
-                      <h2>最近 7 天</h2>
+                      <h2>最近 7 天的节奏</h2>
                       <span>
                         {recentWeekActiveDays()} 天有投入 · 共 {formatDurationMs(recentWeekDurationMs())}
                       </span>
                     </div>
-                    <span class="records-trend__hint">每根柱子代表一天</span>
+                    <span class="records-trend__hint">每个节点都是你回来过的证据</span>
                   </div>
                   <div class="records-chart">
-                    <For each={recentBreakdown().slice().reverse()}>
+                    <For each={recentBreakdown()}>
                       {(day) => (
                         <div
                           class="records-chart__item"
