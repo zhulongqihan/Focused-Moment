@@ -41,8 +41,8 @@ const DEFAULT_COUNTDOWN_MINUTES: u64 = 25;
 const MIN_COUNTDOWN_MINUTES: u64 = 1;
 const MAX_COUNTDOWN_MINUTES: u64 = 12 * 60;
 const MAX_TODO_TITLE_CHARS: usize = 200;
-const APP_VERSION: &str = "2.2.0";
-const APP_MILESTONE: &str = "v2.2.0 \u{7ecf}\u{5178}\u{8bed}\u{6599}\u{5e93}";
+const APP_VERSION: &str = "2.2.1";
+const APP_MILESTONE: &str = "v2.2.1 \u{89e3}\u{9501}\u{4fee}\u{590d}";
 const APP_BACKUP_KIND: &str = "focused-moment-backup";
 const APP_BACKUP_FORMAT_VERSION: u64 = 2;
 
@@ -2839,16 +2839,18 @@ fn unlock_floating_todos(app: tauri::AppHandle) -> Result<(), String> {
         .get_webview_window("todo-float")
         .ok_or_else(|| "找不到悬浮待办窗口".to_string())?;
 
+    // Restore interaction before hiding the fallback unlock window. If a
+    // native focus/show call is delayed, the user must still have a visible
+    // button to retry instead of being left with a click-through window.
+    floating_window.show().map_err(|error| error.to_string())?;
     floating_window
         .set_ignore_cursor_events(false)
         .map_err(|error| error.to_string())?;
+    floating_window.set_focus().map_err(|error| error.to_string())?;
     if let Some(unlock_window) = app.get_webview_window("todo-unlock") {
         unlock_window.hide().map_err(|error| error.to_string())?;
     }
-    floating_window.show().map_err(|error| error.to_string())?;
-    floating_window
-        .set_focus()
-        .map_err(|error| error.to_string())
+    Ok(())
 }
 
 #[tauri::command]
@@ -2911,14 +2913,18 @@ fn unlock_focus_floating(app: tauri::AppHandle) -> Result<(), String> {
     let focus_window = app
         .get_webview_window("focus-float")
         .ok_or_else(|| "找不到专注小窗".to_string())?;
+    // Keep the fallback unlock window alive until the floating window is
+    // visible, interactive, and focused. Hiding it first can strand the
+    // floating window in click-through mode when Windows delays a focus call.
+    focus_window.show().map_err(|error| error.to_string())?;
     focus_window
         .set_ignore_cursor_events(false)
         .map_err(|error| error.to_string())?;
+    focus_window.set_focus().map_err(|error| error.to_string())?;
     if let Some(unlock_window) = app.get_webview_window("focus-unlock") {
         unlock_window.hide().map_err(|error| error.to_string())?;
     }
-    focus_window.show().map_err(|error| error.to_string())?;
-    focus_window.set_focus().map_err(|error| error.to_string())
+    Ok(())
 }
 
 #[tauri::command]

@@ -81,6 +81,7 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
     ] : [];
     window.__todoItemsCalls = 0;
     window.__focusFloatingShown = false;
+    window.__focusFloatingUnlocked = false;
     window.__flashMainWindowAttention = false;
     let timerPreferences = {
       pomodoroFocusMinutes: 25,
@@ -200,6 +201,9 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
           case "show_focus_floating":
             window.__focusFloatingShown = true;
             return null;
+          case "unlock_focus_floating":
+            window.__focusFloatingUnlocked = true;
+            return null;
           case "flash_main_window_attention":
             window.__flashMainWindowAttention = true;
             return null;
@@ -240,6 +244,8 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
   await page.goto("/");
   if (windowLabel === "main") {
     await expect(page.getByRole("heading", { name: "今天，从一件事开始" })).toBeVisible();
+  } else if (windowLabel === "todo-unlock" || windowLabel === "focus-unlock") {
+    await expect(page.getByRole("button", { name: /解除.*锁定/ })).toBeVisible();
   } else {
     await expect(page.getByRole("button", { name: "返回" })).toBeVisible();
   }
@@ -381,6 +387,16 @@ test("paused focus floating window can continue without returning to the main wi
 
   await expect(page.getByRole("button", { name: "暂停" })).toBeEnabled();
   await expect(page.getByRole("button", { name: "继续" })).toBeHidden();
+});
+
+test("focus unlock window exposes a retryable unlock control", async ({ page }) => {
+  await bootWithTauriMock(page, { windowLabel: "focus-unlock" });
+
+  const unlockButton = page.getByRole("button", { name: "解除专注锁定，恢复计时操作" });
+  await expect(unlockButton).toBeVisible();
+  await unlockButton.click();
+  await expect.poll(() => page.evaluate(() => window.__focusFloatingUnlocked)).toBe(true);
+  await expect(unlockButton).toBeVisible();
 });
 
 test("todo editor saves a date selected from the native date picker", async ({ page }) => {
