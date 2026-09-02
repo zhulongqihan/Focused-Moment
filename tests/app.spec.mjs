@@ -119,6 +119,9 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
       alertTitle: completedCountdown ? "倒计时已结束" : null,
       alertMessage: completedCountdown ? "倒计时已完成，已累计专注 60 分钟。点击“保存并记录”后写入专注记录。" : null,
     };
+    window.__replaceTimer = (patch) => {
+      timer = { ...timer, ...patch };
+    };
     const analytics = {
       totalFocusDurationMs: focusRecords.reduce((total, record) => total + record.durationMs, 0),
       totalFocusDurationLabel: includeRecords ? "01:30:00" : "0 分钟",
@@ -397,6 +400,25 @@ test("focus unlock window exposes a retryable unlock control", async ({ page }) 
   await unlockButton.click();
   await expect.poll(() => page.evaluate(() => window.__focusFloatingUnlocked)).toBe(true);
   await expect(unlockButton).toBeVisible();
+});
+
+test("main window clears a stale title after another window finishes the session", async ({ page }) => {
+  await bootWithTauriMock(page, { pausedFocus: true });
+
+  await page.getByRole("button", { name: "计时", exact: true }).click();
+  const sessionTitle = page.locator('input[name="sessionTitle"]');
+  await expect(sessionTitle).toHaveValue("写完产品复盘");
+
+  await page.evaluate(() => window.__replaceTimer({
+    status: "待开始",
+    elapsedMs: 0,
+    elapsedLabel: "00:00:00",
+    activeTaskTitle: "",
+    linkedTodoId: null,
+    recoveredFromLastSession: false,
+  }));
+
+  await expect.poll(() => sessionTitle.inputValue()).toBe("");
 });
 
 test("todo editor saves a date selected from the native date picker", async ({ page }) => {

@@ -562,6 +562,7 @@ function MainShell() {
   const [records, setRecords] = createSignal<FocusRecord[]>([]);
   const [analytics, setAnalytics] = createSignal<AnalyticsSnapshot | null>(null);
   const [sessionTitle, setSessionTitle] = createSignal("");
+  const [sessionTitleDirty, setSessionTitleDirty] = createSignal(false);
   const [linkedTodoId, setLinkedTodoId] = createSignal<number | null>(null);
   const [completeLinkedTodo, setCompleteLinkedTodo] = createSignal(false);
   const [countdownMinutes, setCountdownMinutes] = createSignal(25);
@@ -654,6 +655,12 @@ function MainShell() {
 
   function applyTimerSnapshot(next: TimerSnapshot) {
     setTimer(next);
+    const hasCommittedContext =
+      next.isRunning ||
+      next.elapsedMs > 0 ||
+      next.recoveredFromLastSession ||
+      next.activeTaskTitle.trim().length > 0;
+
     if (next.isRunning || next.elapsedMs > 0 || next.recoveredFromLastSession) {
       setCompleteLinkedTodo(next.completeLinkedTodoOnFinish);
     }
@@ -661,12 +668,13 @@ function MainShell() {
       setCountdownMinutes(Math.max(1, Math.round(next.targetDurationMs / 60_000)));
     }
 
-    // Polling must not erase an unfinished title while the user is typing.
-    if (!sessionTitle().trim() && next.activeTaskTitle.trim()) {
-      setSessionTitle(next.activeTaskTitle);
-    }
-    if (linkedTodoId() === null && next.linkedTodoId !== null) {
-      setLinkedTodoId(next.linkedTodoId);
+    // Each window has its own form state. Sync the persisted timer context into
+    // an untouched form, and clear stale context after another window finishes
+    // or resets the session. Never overwrite a title the user is editing.
+    if (!sessionTitleDirty()) {
+      setSessionTitle(hasCommittedContext ? next.activeTaskTitle : "");
+      setLinkedTodoId(hasCommittedContext ? next.linkedTodoId : null);
+      setCompleteLinkedTodo(hasCommittedContext ? next.completeLinkedTodoOnFinish : false);
     }
   }
 
@@ -803,6 +811,7 @@ function MainShell() {
         await updateTimerContext(title, linkedTodoId(), completeLinkedTodo())
       );
       applyTimerSnapshot(await startTimer());
+      setSessionTitleDirty(false);
       if (timer().modeKey === "stopwatch" || timer().modeKey === "countdown") {
         await showFocusFloating();
       }
@@ -821,6 +830,7 @@ function MainShell() {
     await run(async () => {
       applyTimerSnapshot(await resetTimer());
       setSessionTitle("");
+      setSessionTitleDirty(false);
       setLinkedTodoId(null);
       setCompleteLinkedTodo(false);
       showMessage("本轮已重置，没有生成记录。", "info");
@@ -838,6 +848,7 @@ function MainShell() {
       setAnalytics(await getAnalyticsSnapshot());
       applyTimerSnapshot(payload.timerSnapshot);
       setSessionTitle("");
+      setSessionTitleDirty(false);
       setLinkedTodoId(null);
       setCompleteLinkedTodo(false);
       if (isFocusFloatingWindow) {
@@ -1171,6 +1182,7 @@ function MainShell() {
   function useTodoForFocus(item: TodoItem) {
     setLinkedTodoId(item.id);
     setSessionTitle(item.title);
+    setSessionTitleDirty(true);
     setActiveView("focus");
   }
 
@@ -1190,6 +1202,7 @@ function MainShell() {
 
     setLinkedTodoId(item.id);
     setSessionTitle(item.title);
+    setSessionTitleDirty(true);
     setActiveView("focus");
     await startFocus();
   }
@@ -1842,7 +1855,10 @@ function MainShell() {
                     value={sessionTitle()}
                     placeholder="例如：完成项目方案…"
                     disabled={busy() || !ready() || timerHasProgress()}
-                    onInput={(event) => setSessionTitle(event.currentTarget.value)}
+                    onInput={(event) => {
+                      setSessionTitleDirty(true);
+                      setSessionTitle(event.currentTarget.value);
+                    }}
                   />
                 </label>
                 <label>
@@ -1857,6 +1873,7 @@ function MainShell() {
                         : null;
                       const item = todos().find((todo) => todo.id === id);
                       setLinkedTodoId(id);
+                      setSessionTitleDirty(true);
                       if (item) {
                         setSessionTitle(item.title);
                       }
