@@ -1,5 +1,5 @@
 import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount } from "solid-js";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import { listen } from "@tauri-apps/api/event";
 import { LockKeyhole, LockKeyholeOpen, SlidersHorizontal } from "lucide-solid";
 import type {
@@ -614,6 +614,8 @@ function MainShell() {
   let observedAlertSequence: number | null = null;
   let customAlertSoundInput: HTMLInputElement | undefined;
   let floatingTimerWasAvailable = false;
+  let floatingWorkspaceElement: HTMLElement | undefined;
+  let floatingResizeFrame: number | undefined;
 
   const ready = () => loadState() === "ready";
 
@@ -690,6 +692,47 @@ function MainShell() {
     setFloatingOpacity(nextValue);
     writeLocalStorageValue(floatingOpacityKey, String(nextValue));
   }
+
+  function scheduleFloatingWorkspaceFit() {
+    if (!isFloatingWindow || floatingResizeFrame !== undefined) {
+      return;
+    }
+
+    floatingResizeFrame = window.requestAnimationFrame(() => {
+      floatingResizeFrame = undefined;
+      const element = floatingWorkspaceElement;
+      if (!element) {
+        return;
+      }
+
+      const desiredHeight = Math.max(260, Math.min(560, Math.ceil(element.scrollHeight + 2)));
+      void getCurrentWindow()
+        .scaleFactor()
+        .then(async (scaleFactor) => {
+          const currentSize = await getCurrentWindow().innerSize();
+          const currentLogicalSize = currentSize.toLogical(scaleFactor);
+          if (Math.abs(currentLogicalSize.height - desiredHeight) < 4) {
+            return;
+          }
+          await getCurrentWindow().setSize(new LogicalSize(currentLogicalSize.width, desiredHeight));
+        })
+        .catch(() => undefined);
+    });
+  }
+
+  createEffect(() => {
+    if (!isFloatingWindow || loadState() !== "ready") {
+      return;
+    }
+
+    floatingTab();
+    timer().activeTaskTitle;
+    timer().isRunning;
+    timer().alertSequence;
+    timer().alertTitle;
+    timer().linkedTodoId;
+    scheduleFloatingWorkspaceFit();
+  });
 
   function applyTimerSnapshot(next: TimerSnapshot) {
     setTimer(next);
@@ -1431,6 +1474,10 @@ function MainShell() {
       if (interval !== undefined) {
         window.clearInterval(interval);
       }
+      if (floatingResizeFrame !== undefined) {
+        window.cancelAnimationFrame(floatingResizeFrame);
+        floatingResizeFrame = undefined;
+      }
       floatingSyncActive = false;
       if (floatingSyncUnlisten) {
         void floatingSyncUnlisten();
@@ -1602,6 +1649,9 @@ function MainShell() {
       <aside
         class="floating-todo"
         aria-label="桌面悬浮工作台"
+        ref={(element) => {
+          floatingWorkspaceElement = element;
+        }}
         style={{ opacity: floatingOpacity() / 100 }}
       >
         <header class="floating-todo__header">

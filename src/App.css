@@ -650,10 +650,12 @@ html.floating-window body { overflow: hidden; }
 
 .floating-todo {
   position: relative;
-  height: 100vh;
+  height: auto;
+  min-height: 0;
   padding: 10px;
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto auto;
+  align-content: start;
   border: 1px solid rgba(189, 215, 199, 0.72);
   border-radius: 8px;
   background: rgba(242, 250, 244, 0.76);
@@ -768,7 +770,7 @@ html.floating-window body { overflow: hidden; }
   background: rgba(242, 250, 244, 0.92);
   box-shadow: 0 5px 15px rgba(24, 54, 38, 0.2);
 }
-.floating-todo__list { min-height: 0; overflow: auto; display: grid; align-content: start; gap: 6px; }
+.floating-todo__list { min-height: 0; max-height: min(360px, calc(100vh - 120px)); overflow: auto; display: grid; align-content: start; gap: 6px; }
 .floating-todo__item {
   width: 100%;
   display: grid;
