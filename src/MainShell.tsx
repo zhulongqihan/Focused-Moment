@@ -67,6 +67,7 @@ import "./App.css";
 type AppView = "today" | "focus" | "todos" | "records" | "settings";
 type TimerMode = "stopwatch" | "countdown";
 type LoadState = "loading" | "ready" | "error";
+type FloatingTab = "todos" | "timer";
 type UndoAction =
   | { kind: "todo"; item: TodoItem }
   | { kind: "record"; item: FocusRecord };
@@ -590,12 +591,14 @@ function MainShell() {
   const [loadError, setLoadError] = createSignal("");
   const [syncError, setSyncError] = createSignal("");
   const [undoAction, setUndoAction] = createSignal<UndoAction | null>(null);
+  const [floatingTab, setFloatingTab] = createSignal<FloatingTab>("todos");
   let undoTimer: number | undefined;
   let commandInput: HTMLInputElement | undefined;
   let commandTrigger: HTMLButtonElement | undefined;
   let refreshVersion = 0;
   let observedAlertSequence: number | null = null;
   let customAlertSoundInput: HTMLInputElement | undefined;
+  let floatingTimerWasAvailable = false;
 
   const ready = () => loadState() === "ready";
 
@@ -642,6 +645,20 @@ function MainShell() {
     { id: "finish", label: "完成并记录当前专注", detail: "保存这一轮并回到可继续的状态" },
     { id: "backup", label: "导出本地备份", detail: "把当前待办、记录和运行态保存下来" },
   ];
+
+  createEffect(() => {
+    if (!isFloatingWindow || loadState() !== "ready") {
+      return;
+    }
+
+    const timerAvailable = timerHasProgress();
+    if (timerAvailable && !floatingTimerWasAvailable) {
+      setFloatingTab("timer");
+    } else if (!timerAvailable && floatingTab() === "timer") {
+      setFloatingTab("todos");
+    }
+    floatingTimerWasAvailable = timerAvailable;
+  });
 
   function showMessage(text: string, kind: FeedbackKind = "info") {
     setMessage(text);
@@ -839,7 +856,7 @@ function MainShell() {
 
   async function finishFocus() {
     await run(async () => {
-      const title = isFocusFloatingWindow
+      const title = isFloatingWindow || isFocusFloatingWindow
         ? timer().activeTaskTitle
         : activeTitle();
       const payload = await completeFocusSession(title);
@@ -851,7 +868,9 @@ function MainShell() {
       setSessionTitleDirty(false);
       setLinkedTodoId(null);
       setCompleteLinkedTodo(false);
-      if (isFocusFloatingWindow) {
+      if (isFloatingWindow) {
+        await restoreMainFromFloatingTodos();
+      } else if (isFocusFloatingWindow) {
         await restoreMainFromFocusFloating();
       }
       showMessage("已保存为一条专注记录。", "success");
@@ -1209,7 +1228,7 @@ function MainShell() {
 
   async function changeCompletionPreference(value: boolean) {
     setCompleteLinkedTodo(value);
-    if (!isFocusFloatingWindow) {
+    if (!isFloatingWindow && !isFocusFloatingWindow) {
       return;
     }
 
@@ -1522,7 +1541,7 @@ function MainShell() {
 
   if (isFloatingWindow) {
     return (
-      <aside class="floating-todo" aria-label="桌面悬浮待办">
+      <aside class="floating-todo" aria-label="桌面悬浮工作台">
         <header class="floating-todo__header">
           <div
             class="floating-todo__drag-handle"
@@ -1534,7 +1553,7 @@ function MainShell() {
             }}
           >
             <span>Focused Moment</span>
-            <strong>待办</strong>
+            <strong>悬浮工作台</strong>
           </div>
           <div class="floating-todo__actions">
             <button
@@ -1557,40 +1576,161 @@ function MainShell() {
           </div>
         </header>
 
-        <div class="floating-todo__list">
-          <Show when={loadState() === "loading"}>
-            <p class="floating-empty">正在读取待办…</p>
+        <nav class="floating-tabs" aria-label="悬浮内容">
+          <button
+            type="button"
+            classList={{ "floating-tab": true, "floating-tab--active": floatingTab() === "todos" }}
+            aria-selected={floatingTab() === "todos"}
+            onClick={() => setFloatingTab("todos")}
+          >
+            待办
+            <span>{pendingTodos().length}</span>
+          </button>
+          <Show when={timerHasProgress()}>
+            <button
+              type="button"
+              classList={{ "floating-tab": true, "floating-tab--active": floatingTab() === "timer" }}
+              aria-selected={floatingTab() === "timer"}
+              onClick={() => setFloatingTab("timer")}
+            >
+              当前计时
+              <span class="floating-tab__signal" aria-label={timer().isRunning ? "正在运行" : "已暂停"} />
+            </button>
           </Show>
-          <Show when={loadState() === "error"}>
-            <div class="floating-empty floating-empty--error">
-              <p>读取失败</p>
-              <button type="button" class="text-button" onClick={() => void retryLoad()}>
-                重试
-              </button>
+        </nav>
+
+        <Show
+          when={floatingTab() === "timer" && timerHasProgress()}
+          fallback={
+            <div class="floating-todo__list" role="tabpanel" aria-label="待办列表">
+              <Show when={loadState() === "loading"}>
+                <p class="floating-empty">正在读取待办…</p>
+              </Show>
+              <Show when={loadState() === "error"}>
+                <div class="floating-empty floating-empty--error">
+                  <p>读取失败</p>
+                  <button type="button" class="text-button" onClick={() => void retryLoad()}>
+                    重试
+                  </button>
+                </div>
+              </Show>
+              <Show when={ready() && pendingTodos().length > 0}>
+                <For each={pendingTodos()}>
+                  {(item) => (
+                    <button
+                      type="button"
+                      class="floating-todo__item"
+                      disabled={busy()}
+                      onClick={() => void toggleTodo(item.id)}
+                    >
+                      <span class="floating-check" aria-hidden="true" />
+                      <span class="floating-todo__copy">
+                        <strong>{item.title}</strong>
+                        <small>{formatTodoDue(item)}</small>
+                      </span>
+                    </button>
+                  )}
+                </For>
+              </Show>
+              <Show when={ready() && pendingTodos().length === 0}>
+                <p class="floating-empty">没有未完成的待办</p>
+              </Show>
             </div>
-          </Show>
-          <Show when={ready() && pendingTodos().length > 0}>
-            <For each={pendingTodos()}>
-              {(item) => (
+          }
+        >
+          <section class="floating-timer" role="tabpanel" aria-label="当前正在的计时">
+            <div class="floating-timer__identity">
+              <span>当前专注</span>
+              <strong>{timer().activeTaskTitle || "未命名事项"}</strong>
+            </div>
+            <div class="floating-timer__clock">
+              <span>{timer().status}</span>
+              <strong>{timer().elapsedLabel}</strong>
+            </div>
+            <Show when={timer().alertTitle && timerPreferences().toastReminderEnabled}>
+              <div class="floating-alert" role="alert">
+                <strong>{timer().alertTitle}</strong>
+                <span>{timer().alertMessage}</span>
+                <Show
+                  when={timer().alertKey === "countdown_complete"}
+                  fallback={
+                    <button
+                      type="button"
+                      class="text-button"
+                      disabled={busy()}
+                      onClick={() => void dismissTimerAlert()}
+                    >
+                      知道了
+                    </button>
+                  }
+                >
+                  <div class="floating-alert__actions">
+                    <button
+                      type="button"
+                      class="primary-button"
+                      disabled={busy() || !canFinish()}
+                      onClick={() => void finishFocus()}
+                    >
+                      保存并记录
+                    </button>
+                    <button
+                      type="button"
+                      class="text-button"
+                      disabled={busy()}
+                      onClick={() => void dismissTimerAlert()}
+                    >
+                      稍后处理
+                    </button>
+                  </div>
+                </Show>
+              </div>
+            </Show>
+            <Show when={timer().linkedTodoId !== null}>
+              <label class="linked-todo-option linked-todo-option--floating">
+                <input
+                  type="checkbox"
+                  name="completeLinkedTodoFloating"
+                  checked={timer().completeLinkedTodoOnFinish}
+                  disabled={busy()}
+                  onChange={(event) => void changeCompletionPreference(event.currentTarget.checked)}
+                />
+                <span>完成后标记待办</span>
+              </label>
+            </Show>
+            <div class="focus-floating__controls">
+              <Show
+                when={timer().isRunning}
+                fallback={
+                  <button
+                    type="button"
+                    class="primary-button"
+                    disabled={busy() || !timerCanContinue()}
+                    onClick={() => void startFocus()}
+                  >
+                    继续
+                  </button>
+                }
+              >
                 <button
                   type="button"
-                  class="floating-todo__item"
+                  class="secondary-button"
                   disabled={busy()}
-                  onClick={() => void toggleTodo(item.id)}
+                  onClick={() => void pauseFocus()}
                 >
-                  <span class="floating-check" aria-hidden="true" />
-                  <span class="floating-todo__copy">
-                    <strong>{item.title}</strong>
-                    <small>{formatTodoDue(item)}</small>
-                  </span>
+                  暂停
                 </button>
-              )}
-            </For>
-          </Show>
-          <Show when={ready() && pendingTodos().length === 0}>
-            <p class="floating-empty">没有未完成的待办</p>
-          </Show>
-        </div>
+              </Show>
+              <button
+                type="button"
+                class="primary-button"
+                disabled={busy() || !canFinish()}
+                onClick={() => void finishFocus()}
+              >
+                完成并记录
+              </button>
+            </div>
+          </section>
+        </Show>
       </aside>
     );
   }
@@ -1630,7 +1770,7 @@ function MainShell() {
             disabled={busy()}
             onClick={() => void showFloatingTodos()}
           >
-            悬浮待办
+            悬浮工作台
           </button>
           <button
             type="button"

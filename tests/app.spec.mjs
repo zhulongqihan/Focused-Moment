@@ -283,7 +283,7 @@ test("countdown duration keeps the user value while timer snapshots refresh", as
   await expect(page.locator(".timer-readout strong")).toHaveText("01:00:00");
 });
 
-test("starting a countdown opens the focus floating window", async ({ page }) => {
+test("starting a countdown opens the floating workspace", async ({ page }) => {
   await bootWithTauriMock(page);
 
   await page.getByRole("button", { name: "计时", exact: true }).click();
@@ -293,6 +293,32 @@ test("starting a countdown opens the focus floating window", async ({ page }) =>
   await page.getByRole("button", { name: "开始", exact: true }).click();
 
   await expect.poll(() => page.evaluate(() => window.__focusFloatingShown)).toBe(true);
+});
+
+test("floating workspace switches between todos and the active timer", async ({ page }) => {
+  await bootWithTauriMock(page, { windowLabel: "todo-float", pausedFocus: true });
+
+  const todoTab = page.locator(".floating-tab").filter({ hasText: "待办" });
+  const timerTab = page.locator(".floating-tab").filter({ hasText: "当前计时" });
+  await expect(todoTab).toBeVisible();
+  await expect(timerTab).toBeVisible();
+  await expect(timerTab).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator(".floating-timer")).toContainText("00:00:30");
+
+  await todoTab.click();
+  await expect(todoTab).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator(".floating-todo__item")).toContainText("写完产品复盘");
+
+  await timerTab.click();
+  await expect(page.locator(".floating-timer")).toContainText("写完产品复盘");
+});
+
+test("floating workspace only shows todos when there is no active timer", async ({ page }) => {
+  await bootWithTauriMock(page, { windowLabel: "todo-float" });
+
+  await expect(page.locator(".floating-tab")).toHaveCount(1);
+  await expect(page.locator(".floating-tab").first()).toContainText("待办");
+  await expect(page.locator(".floating-tab").filter({ hasText: "当前计时" })).toBeHidden();
 });
 
 test("completed countdown clearly offers to save the focus record", async ({ page }) => {

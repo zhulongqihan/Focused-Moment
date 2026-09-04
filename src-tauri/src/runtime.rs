@@ -41,8 +41,8 @@ const DEFAULT_COUNTDOWN_MINUTES: u64 = 25;
 const MIN_COUNTDOWN_MINUTES: u64 = 1;
 const MAX_COUNTDOWN_MINUTES: u64 = 12 * 60;
 const MAX_TODO_TITLE_CHARS: usize = 200;
-const APP_VERSION: &str = "2.3.0";
-const APP_MILESTONE: &str = "v2.3.0 \u{65f6}\u{95f4}\u{6863}\u{6848}\u{91cd}\u{65b0}\u{8bbe}\u{8ba1}";
+const APP_VERSION: &str = "2.3.1";
+const APP_MILESTONE: &str = "v2.3.1 \u{60ac}\u{6d6e}\u{5de5}\u{4f5c}\u{53f0}\u{4fee}\u{590d}";
 const APP_BACKUP_KIND: &str = "focused-moment-backup";
 const APP_BACKUP_FORMAT_VERSION: u64 = 2;
 
@@ -2795,6 +2795,9 @@ fn show_floating_todos(app: tauri::AppHandle) -> Result<(), String> {
     floating_window
         .set_focus()
         .map_err(|error| error.to_string())?;
+    if let Some(focus_window) = app.get_webview_window("focus-float") {
+        focus_window.hide().map_err(|error| error.to_string())?;
+    }
     main_window.hide().map_err(|error| error.to_string())
 }
 
@@ -2855,23 +2858,26 @@ fn unlock_floating_todos(app: tauri::AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 fn show_focus_floating(app: tauri::AppHandle) -> Result<(), String> {
-    let focus_window = app
-        .get_webview_window("focus-float")
-        .ok_or_else(|| "找不到专注小窗".to_string())?;
+    let floating_window = app
+        .get_webview_window("todo-float")
+        .ok_or_else(|| "找不到悬浮工作台窗口".to_string())?;
     let main_window = app
         .get_webview_window("main")
         .ok_or_else(|| "找不到主窗口".to_string())?;
 
-    focus_window
+    floating_window
         .set_ignore_cursor_events(false)
         .map_err(|error| error.to_string())?;
-    if let Some(unlock_window) = app.get_webview_window("focus-unlock") {
+    if let Some(unlock_window) = app.get_webview_window("todo-unlock") {
         unlock_window.hide().map_err(|error| error.to_string())?;
     }
-    focus_window.show().map_err(|error| error.to_string())?;
-    focus_window
+    floating_window.show().map_err(|error| error.to_string())?;
+    floating_window
         .set_focus()
         .map_err(|error| error.to_string())?;
+    if let Some(focus_window) = app.get_webview_window("focus-float") {
+        focus_window.hide().map_err(|error| error.to_string())?;
+    }
     main_window.hide().map_err(|error| error.to_string())
 }
 
@@ -2929,6 +2935,12 @@ fn unlock_focus_floating(app: tauri::AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 fn restore_main_from_focus_floating(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(floating_window) = app.get_webview_window("todo-float") {
+        floating_window
+            .set_ignore_cursor_events(false)
+            .map_err(|error| error.to_string())?;
+        floating_window.hide().map_err(|error| error.to_string())?;
+    }
     if let Some(focus_window) = app.get_webview_window("focus-float") {
         focus_window
             .set_ignore_cursor_events(false)
