@@ -1323,7 +1323,6 @@ function MainShell() {
     setLinkedTodoId(item.id);
     setSessionTitle(item.title);
     setSessionTitleDirty(true);
-    setActiveView("focus");
     await startFocus();
   }
 
@@ -1924,6 +1923,7 @@ function MainShell() {
         "minimal-app--paused": !timer().isRunning && timerHasProgress(),
         "minimal-app--break": timer().phaseKey === "break",
         "minimal-app--records": activeView() === "records",
+        "minimal-app--trail": activeView() === "today",
       }}
     >
       <a class="skip-link" href="#main-content">跳到主要内容</a>
@@ -2098,6 +2098,7 @@ function MainShell() {
           </Show>
           <Show when={activeView() === "today"}>
             <TodayDashboard
+              todayDate={getToday()}
               todayLabel={formatAnalyticsDate(getToday())}
               timer={() => timer()}
               ready={ready}
@@ -2107,14 +2108,17 @@ function MainShell() {
               nextTodo={nextTodo}
               todayTodos={todayTodos}
               todayCompletedTodos={todayCompletedTodos}
+              records={() => records()}
               analytics={() => analytics()}
+              defaultFocusMinutes={() => timerPreferences().stopwatchReminderMinutes ?? timerPreferences().pomodoroFocusMinutes}
               formatTodoDue={formatTodoDue}
               importanceLabel={importanceLabel}
               onPause={() => void pauseFocus()}
               onContinue={() => void startFocus()}
-              onFinish={() => void finishFocus()}
+              onFinish={() => finishFocus()}
               onStartNext={() => void startNextTodo()}
               onOpenFocus={() => changeView("focus")}
+              onOpenRecords={() => changeView("records")}
               onUseTodo={useTodoForFocus}
               onOpenTodos={() => changeView("todos")}
             />

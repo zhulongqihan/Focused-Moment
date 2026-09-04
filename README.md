@@ -151,7 +151,7 @@ scripts/                构建、导出与发布脚本
 
 ## 版本发布
 
-当前稳定版本：[v2.3.9](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.3.9)
+当前稳定版本：[v2.3.13](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.3.13)
 
 完整变更记录见 [`docs/`](./docs/) 下的版本发布说明。
 

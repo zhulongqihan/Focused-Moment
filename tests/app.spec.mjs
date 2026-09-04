@@ -284,6 +284,16 @@ test("Today cockpit exposes the next action and command palette", async ({ page 
   await expect(page.getByRole("button", { name: /命令 Ctrl K/ })).toBeFocused();
 });
 
+test("Today trail starts the next task without leaving the path page", async ({ page }) => {
+  await bootWithTauriMock(page);
+
+  await page.getByRole("button", { name: "开始下一件事" }).click();
+
+  await expect(page.getByText("今日路径", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "暂停这一轮" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "计时", exact: true })).toBeVisible();
+});
+
 test("main window keeps its top bar available while scrolling and exposes a drag surface", async ({ page }) => {
   await bootWithTauriMock(page, { includeRecords: true });
 
