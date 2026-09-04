@@ -255,6 +255,7 @@ const defaultTimerPreferences: TimerPreferences = {
 
 const customAlertSoundDataKey = "focused-moment.custom-alert-sound.data";
 const customAlertSoundNameKey = "focused-moment.custom-alert-sound.name";
+const viralQuoteAudioUrl = new URL("./assets/viral-quote-sample.mp3", import.meta.url).href;
 const floatingOpacityKey = "focused-moment.floating-window.opacity";
 const defaultFloatingOpacity = 100;
 const minFloatingOpacity = 45;
@@ -316,7 +317,13 @@ function playAlertSound(soundKey: AlertSoundKey) {
   }
 
   if (soundKey === "viral_quote") {
-    if (typeof SpeechSynthesisUtterance !== "undefined" && "speechSynthesis" in window) {
+    const audio = new Audio(viralQuoteAudioUrl);
+    audio.volume = 1;
+    audio.currentTime = 0;
+    void audio.play().catch(() => {
+      if (typeof SpeechSynthesisUtterance === "undefined" || !("speechSynthesis" in window)) {
+        return;
+      }
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance("你的胆子真是肥嘟嘟的");
       utterance.lang = "zh-CN";
@@ -324,9 +331,8 @@ function playAlertSound(soundKey: AlertSoundKey) {
       utterance.pitch = 1.08;
       utterance.volume = 1;
       window.speechSynthesis.speak(utterance);
-      return;
-    }
-    soundKey = "bright_bell";
+    });
+    return;
   }
 
   const AudioContextConstructor = window.AudioContext
@@ -2507,7 +2513,7 @@ function MainShell() {
                       <option value="soft_chime">柔和铃音</option>
                       <option value="bright_bell">明亮三连</option>
                       <option value="deep_pulse">沉稳脉冲</option>
-                      <option value="viral_quote">胆子真是肥嘟嘟的（系统语音）</option>
+                      <option value="viral_quote">胆子真是肥嘟嘟的（老牧师原声）</option>
                       <option value="custom" disabled={!customAlertSoundName()}>自定义音效{customAlertSoundName() ? ` · ${customAlertSoundName()}` : " · 请先导入"}</option>
                     </select>
                   </label>
