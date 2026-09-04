@@ -649,6 +649,7 @@ html.floating-window, html.floating-window body, html.floating-window #root { ba
 html.floating-window body { overflow: hidden; }
 
 .floating-todo {
+  position: relative;
   height: 100vh;
   padding: 10px;
   display: grid;
@@ -665,6 +666,40 @@ html.floating-window body { overflow: hidden; }
 .floating-todo__header span { color: #5c7868; font-size: 0.72rem; }
 .floating-todo__header strong { font-size: 0.98rem; }
 .floating-todo__actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+.floating-opacity-button {
+  display: inline-grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 1px solid rgba(118, 156, 133, 0.58);
+  border-radius: 5px;
+  background: rgba(248, 253, 248, 0.5);
+  color: #527160;
+}
+.floating-opacity-button:hover, .floating-opacity-button[aria-expanded="true"] { background: rgba(221, 237, 225, 0.92); color: #285e45; }
+.floating-opacity-panel {
+  position: absolute;
+  top: 53px;
+  right: 10px;
+  z-index: 3;
+  width: 198px;
+  display: grid;
+  gap: 9px;
+  padding: 11px 12px 10px;
+  border: 1px solid rgba(134, 170, 147, 0.72);
+  border-radius: 7px;
+  background: rgba(247, 252, 247, 0.96);
+  box-shadow: 0 10px 22px rgba(24, 54, 38, 0.16);
+  color: #285e45;
+  animation: floating-opacity-panel-in 150ms ease-out;
+}
+.floating-opacity-panel__heading, .floating-opacity-panel__scale { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.floating-opacity-panel__heading { font-size: 0.78rem; }
+.floating-opacity-panel__heading strong { color: #173f2e; font-variant-numeric: tabular-nums; }
+.floating-opacity-panel__slider { display: block; line-height: 0; }
+.floating-opacity-panel__slider input { width: 100%; height: 18px; accent-color: #2d7b5a; }
+.floating-opacity-panel__scale { color: #789084; font-size: 0.66rem; }
+@keyframes floating-opacity-panel-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
 .floating-tabs {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

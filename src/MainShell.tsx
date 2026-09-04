@@ -1,7 +1,7 @@
 import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount } from "solid-js";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { listen } from "@tauri-apps/api/event";
-import { LockKeyhole, LockKeyholeOpen } from "lucide-solid";
+import { LockKeyhole, LockKeyholeOpen, SlidersHorizontal } from "lucide-solid";
 import type {
   AnalyticsSnapshot,
   AlertSoundKey,
@@ -255,6 +255,9 @@ const defaultTimerPreferences: TimerPreferences = {
 
 const customAlertSoundDataKey = "focused-moment.custom-alert-sound.data";
 const customAlertSoundNameKey = "focused-moment.custom-alert-sound.name";
+const floatingOpacityKey = "focused-moment.floating-window.opacity";
+const defaultFloatingOpacity = 100;
+const minFloatingOpacity = 45;
 const alertClaimKeyPrefix = "focused-moment.alert-claimed.";
 const maxCustomAlertSoundBytes = 5 * 1024 * 1024;
 const floatingWorkspaceSyncEvent = "floating-workspace-sync";
@@ -282,6 +285,14 @@ function writeLocalStorageValue(key: string, value: string) {
   } catch {
     return false;
   }
+}
+
+function readFloatingOpacity() {
+  const storedValue = Number(readLocalStorageValue(floatingOpacityKey));
+  if (!Number.isFinite(storedValue)) {
+    return defaultFloatingOpacity;
+  }
+  return Math.min(defaultFloatingOpacity, Math.max(minFloatingOpacity, Math.round(storedValue)));
 }
 
 function claimAlertSequence(sequence: number) {
@@ -594,6 +605,8 @@ function MainShell() {
   const [syncError, setSyncError] = createSignal("");
   const [undoAction, setUndoAction] = createSignal<UndoAction | null>(null);
   const [floatingTab, setFloatingTab] = createSignal<FloatingTab>("todos");
+  const [floatingOpacity, setFloatingOpacity] = createSignal(readFloatingOpacity());
+  const [floatingOpacityPanelOpen, setFloatingOpacityPanelOpen] = createSignal(false);
   let undoTimer: number | undefined;
   let commandInput: HTMLInputElement | undefined;
   let commandTrigger: HTMLButtonElement | undefined;
@@ -670,6 +683,12 @@ function MainShell() {
   function clearMessage() {
     setMessage("");
     setMessageKind("info");
+  }
+
+  function updateFloatingOpacity(value: number) {
+    const nextValue = Math.min(defaultFloatingOpacity, Math.max(minFloatingOpacity, Math.round(value)));
+    setFloatingOpacity(nextValue);
+    writeLocalStorageValue(floatingOpacityKey, String(nextValue));
   }
 
   function applyTimerSnapshot(next: TimerSnapshot) {
@@ -1580,7 +1599,11 @@ function MainShell() {
 
   if (isFloatingWindow) {
     return (
-      <aside class="floating-todo" aria-label="桌面悬浮工作台">
+      <aside
+        class="floating-todo"
+        aria-label="桌面悬浮工作台"
+        style={{ opacity: floatingOpacity() / 100 }}
+      >
         <header class="floating-todo__header">
           <div
             class="floating-todo__drag-handle"
@@ -1606,6 +1629,17 @@ function MainShell() {
             </button>
             <button
               type="button"
+              class="floating-opacity-button"
+              title="调整悬浮窗透明度"
+              aria-label="调整悬浮窗透明度"
+              aria-expanded={floatingOpacityPanelOpen()}
+              aria-controls="floating-opacity-panel"
+              onClick={() => setFloatingOpacityPanelOpen((open) => !open)}
+            >
+              <SlidersHorizontal size={16} strokeWidth={1.9} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
               class="icon-button"
               title="返回主窗口"
               onClick={() => void restoreMainFromFloatingTodos()}
@@ -1614,6 +1648,31 @@ function MainShell() {
             </button>
           </div>
         </header>
+
+        <Show when={floatingOpacityPanelOpen()}>
+          <section id="floating-opacity-panel" class="floating-opacity-panel" role="dialog" aria-label="悬浮窗透明度">
+            <div class="floating-opacity-panel__heading">
+              <span>悬浮窗透明度</span>
+              <strong>{floatingOpacity()}%</strong>
+            </div>
+            <label class="floating-opacity-panel__slider">
+              <span class="sr-only">悬浮窗透明度</span>
+              <input
+                type="range"
+                min={minFloatingOpacity}
+                max={defaultFloatingOpacity}
+                step="1"
+                value={floatingOpacity()}
+                aria-label="悬浮窗透明度"
+                onInput={(event) => updateFloatingOpacity(Number(event.currentTarget.value))}
+              />
+            </label>
+            <div class="floating-opacity-panel__scale" aria-hidden="true">
+              <span>更透明</span>
+              <span>更清晰</span>
+            </div>
+          </section>
+        </Show>
 
         <nav class="floating-tabs" aria-label="悬浮内容">
           <button

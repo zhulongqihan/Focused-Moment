@@ -344,6 +344,20 @@ test("floating workspace switches between todos and the active timer", async ({ 
   await expect(page.locator(".floating-timer")).toContainText("写完产品复盘");
 });
 
+test("floating workspace can adjust and remember its opacity", async ({ page }) => {
+  await bootWithTauriMock(page, { windowLabel: "todo-float", pausedFocus: true });
+
+  const opacityButton = page.getByRole("button", { name: "调整悬浮窗透明度" });
+  await opacityButton.click();
+  await expect(page.getByRole("dialog", { name: "悬浮窗透明度" })).toBeVisible();
+
+  const slider = page.getByRole("slider", { name: "悬浮窗透明度" });
+  await slider.fill("62");
+  await expect(slider).toHaveValue("62");
+  await expect(page.locator(".floating-todo")).toHaveCSS("opacity", "0.62");
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("focused-moment.floating-window.opacity"))).toBe("62");
+});
+
 test("floating timer refreshes its snapshot every second", async ({ page }) => {
   await bootWithTauriMock(page, { windowLabel: "todo-float", pausedFocus: true });
 
