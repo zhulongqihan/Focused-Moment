@@ -17,7 +17,7 @@ use storage::{
 };
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};
-use tauri::{AppHandle, Manager, PhysicalPosition, Window, WindowEvent};
+use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, Window, WindowEvent};
 
 #[cfg(windows)]
 use windows_sys::Win32::UI::WindowsAndMessaging::{
@@ -41,10 +41,11 @@ const DEFAULT_COUNTDOWN_MINUTES: u64 = 25;
 const MIN_COUNTDOWN_MINUTES: u64 = 1;
 const MAX_COUNTDOWN_MINUTES: u64 = 12 * 60;
 const MAX_TODO_TITLE_CHARS: usize = 200;
-const APP_VERSION: &str = "2.3.4";
-const APP_MILESTONE: &str = "v2.3.4 \u{62d6}\u{52a8}\u{4e0e}\u{5bfc}\u{822a}\u{680f}\u{4fee}\u{590d}";
+const APP_VERSION: &str = "2.3.5";
+const APP_MILESTONE: &str = "v2.3.5 \u{60ac}\u{6d6e}\u{540c}\u{6b65}\u{4e0e}\u{5e03}\u{5c40}\u{4fee}\u{590d}";
 const APP_BACKUP_KIND: &str = "focused-moment-backup";
 const APP_BACKUP_FORMAT_VERSION: u64 = 2;
+const FLOATING_WORKSPACE_SYNC_EVENT: &str = "floating-workspace-sync";
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -2795,6 +2796,7 @@ fn show_floating_todos(app: tauri::AppHandle) -> Result<(), String> {
     floating_window
         .set_focus()
         .map_err(|error| error.to_string())?;
+    let _ = floating_window.emit(FLOATING_WORKSPACE_SYNC_EVENT, ());
     if let Some(focus_window) = app.get_webview_window("focus-float") {
         focus_window.hide().map_err(|error| error.to_string())?;
     }
@@ -2875,6 +2877,7 @@ fn show_focus_floating(app: tauri::AppHandle) -> Result<(), String> {
     floating_window
         .set_focus()
         .map_err(|error| error.to_string())?;
+    let _ = floating_window.emit(FLOATING_WORKSPACE_SYNC_EVENT, ());
     if let Some(focus_window) = app.get_webview_window("focus-float") {
         focus_window.hide().map_err(|error| error.to_string())?;
     }

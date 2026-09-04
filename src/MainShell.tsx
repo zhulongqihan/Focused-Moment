@@ -1,5 +1,6 @@
 import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount } from "solid-js";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { listen } from "@tauri-apps/api/event";
 import { LockKeyhole, LockKeyholeOpen } from "lucide-solid";
 import type {
   AnalyticsSnapshot,
@@ -256,6 +257,7 @@ const customAlertSoundDataKey = "focused-moment.custom-alert-sound.data";
 const customAlertSoundNameKey = "focused-moment.custom-alert-sound.name";
 const alertClaimKeyPrefix = "focused-moment.alert-claimed.";
 const maxCustomAlertSoundBytes = 5 * 1024 * 1024;
+const floatingWorkspaceSyncEvent = "floating-workspace-sync";
 
 function readLocalStorageValue(key: string) {
   try {
@@ -945,6 +947,23 @@ function MainShell() {
     }, "正在保存…");
   }
 
+  async function syncFloatingWorkspace() {
+    if (busy() || editingTodo() !== null || editingRecord() !== null) {
+      return;
+    }
+
+    try {
+      const refreshed = await refresh(true);
+      if (refreshed) {
+        setLoadState("ready");
+        setLoadError("");
+        setSyncError("");
+      }
+    } catch (error) {
+      setSyncError(getErrorMessage(error));
+    }
+  }
+
   function beginEditRecord(record: FocusRecord) {
     setEditingRecord({ id: record.id, title: record.title });
   }
@@ -1316,6 +1335,8 @@ function MainShell() {
     }
 
     let interval: number | undefined;
+    let floatingSyncActive = true;
+    let floatingSyncUnlisten: (() => void) | undefined;
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
@@ -1335,6 +1356,20 @@ function MainShell() {
 
     if (!isFloatingWindow && !isUnlockWindow && !isFocusFloatingWindow && !isFocusUnlockWindow) {
       window.addEventListener("keydown", onKeyDown);
+    }
+
+    if (isFloatingWindow) {
+      void listen(floatingWorkspaceSyncEvent, () => {
+        void syncFloatingWorkspace();
+      })
+        .then((unlisten) => {
+          if (floatingSyncActive) {
+            floatingSyncUnlisten = unlisten;
+          } else {
+            void unlisten();
+          }
+        })
+        .catch(() => undefined);
     }
 
     if (!isUnlockWindow && !isFocusUnlockWindow) {
@@ -1376,6 +1411,10 @@ function MainShell() {
     onCleanup(() => {
       if (interval !== undefined) {
         window.clearInterval(interval);
+      }
+      floatingSyncActive = false;
+      if (floatingSyncUnlisten) {
+        void floatingSyncUnlisten();
       }
       if (undoTimer !== undefined) {
         window.clearTimeout(undoTimer);

@@ -84,6 +84,7 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
     window.__focusFloatingUnlocked = false;
     window.__mainWindowDragged = false;
     window.__flashMainWindowAttention = false;
+    window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
     let timerPreferences = {
       pomodoroFocusMinutes: 25,
       pomodoroBreakMinutes: 5,
@@ -163,8 +164,16 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
         currentWindow: { label: windowLabel },
         currentWebview: { label: windowLabel },
       },
+      transformCallback: (callback) => {
+        window.__floatingWorkspaceEventCallback = callback;
+        return 1;
+      },
       invoke: async (command, args = {}) => {
         switch (command) {
+          case "plugin:event|listen":
+            return 1;
+          case "plugin:event|unlisten":
+            return null;
           case "get_timer_snapshot":
             return timer;
           case "get_timer_preferences":
