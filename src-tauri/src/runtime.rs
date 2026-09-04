@@ -41,8 +41,8 @@ const DEFAULT_COUNTDOWN_MINUTES: u64 = 25;
 const MIN_COUNTDOWN_MINUTES: u64 = 1;
 const MAX_COUNTDOWN_MINUTES: u64 = 12 * 60;
 const MAX_TODO_TITLE_CHARS: usize = 200;
-const APP_VERSION: &str = "2.3.10";
-const APP_MILESTONE: &str = "v2.3.10 \u{6c34}\u{5e73}\u{7a7a}\u{95f4}\u{4fee}\u{590d}";
+const APP_VERSION: &str = "2.3.11";
+const APP_MILESTONE: &str = "v2.3.11 \u{80c6}\u{5b50}\u{80a5}\u{563f}\u{563f}";
 const APP_BACKUP_KIND: &str = "focused-moment-backup";
 const APP_BACKUP_FORMAT_VERSION: u64 = 2;
 const FLOATING_WORKSPACE_SYNC_EVENT: &str = "floating-workspace-sync";
@@ -140,6 +140,7 @@ enum AlertSoundKey {
     SoftChime,
     BrightBell,
     DeepPulse,
+    ViralQuote,
     Custom,
 }
 
@@ -185,6 +186,7 @@ impl AlertSoundKey {
             Self::SoftChime => "soft_chime",
             Self::BrightBell => "bright_bell",
             Self::DeepPulse => "deep_pulse",
+            Self::ViralQuote => "viral_quote",
             Self::Custom => "custom",
         }
     }

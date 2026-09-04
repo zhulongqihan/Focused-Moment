@@ -398,6 +398,11 @@ test("reminder settings expose popup, taskbar and custom sound controls", async 
   await expect(page.getByRole("checkbox", { name: /任务栏闪烁/ })).toBeChecked();
   await expect(page.getByRole("checkbox", { name: /声音提醒/ })).toBeChecked();
   await expect(page.locator('select[name="alertSoundKey"]')).toHaveValue("soft_chime");
+  await expect(page.locator('select[name="alertSoundKey"] option[value="viral_quote"]')).toHaveText("胆子真是肥嘟嘟的（系统语音）");
+  await page.locator('select[name="alertSoundKey"]').selectOption("viral_quote");
+  await expect.poll(() => page.evaluate(() => window.__TAURI_INTERNALS__.invoke("get_timer_preferences"))).toMatchObject({
+    alertSoundKey: "viral_quote",
+  });
 
   await page.getByRole("checkbox", { name: /任务栏闪烁/ }).uncheck();
   await expect.poll(() => page.evaluate(() => window.__TAURI_INTERNALS__.invoke("get_timer_preferences"))).toMatchObject({

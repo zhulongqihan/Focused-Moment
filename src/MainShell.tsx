@@ -315,6 +315,20 @@ function playAlertSound(soundKey: AlertSoundKey) {
     }
   }
 
+  if (soundKey === "viral_quote") {
+    if (typeof SpeechSynthesisUtterance !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance("你的胆子真是肥嘟嘟的");
+      utterance.lang = "zh-CN";
+      utterance.rate = 0.88;
+      utterance.pitch = 1.08;
+      utterance.volume = 1;
+      window.speechSynthesis.speak(utterance);
+      return;
+    }
+    soundKey = "bright_bell";
+  }
+
   const AudioContextConstructor = window.AudioContext
     ?? (window as Window & typeof globalThis & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   if (!AudioContextConstructor) {
@@ -2493,6 +2507,7 @@ function MainShell() {
                       <option value="soft_chime">柔和铃音</option>
                       <option value="bright_bell">明亮三连</option>
                       <option value="deep_pulse">沉稳脉冲</option>
+                      <option value="viral_quote">胆子真是肥嘟嘟的（系统语音）</option>
                       <option value="custom" disabled={!customAlertSoundName()}>自定义音效{customAlertSoundName() ? ` · ${customAlertSoundName()}` : " · 请先导入"}</option>
                     </select>
                   </label>
