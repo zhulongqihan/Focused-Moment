@@ -1735,6 +1735,19 @@ function MainShell() {
     );
   }
 
+  function handleMainWindowMouseDown(event: MouseEvent) {
+    if (event.button !== 0) {
+      return;
+    }
+
+    const target = event.target as HTMLElement;
+    if (target.closest("button, input, select, a")) {
+      return;
+    }
+
+    void startDraggingWindow();
+  }
+
   return (
     <div
       classList={{
@@ -1746,7 +1759,7 @@ function MainShell() {
       }}
     >
       <a class="skip-link" href="#main-content">跳到主要内容</a>
-      <header class="app-bar">
+      <header class="app-bar" onMouseDown={handleMainWindowMouseDown}>
         <div class="app-brand" data-tauri-drag-region>
           <span class="app-brand__mark" />
           <strong>Focused Moment</strong>

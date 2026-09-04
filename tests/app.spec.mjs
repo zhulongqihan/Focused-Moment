@@ -82,6 +82,7 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
     window.__todoItemsCalls = 0;
     window.__focusFloatingShown = false;
     window.__focusFloatingUnlocked = false;
+    window.__mainWindowDragged = false;
     window.__flashMainWindowAttention = false;
     let timerPreferences = {
       pomodoroFocusMinutes: 25,
@@ -207,6 +208,9 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
           case "unlock_focus_floating":
             window.__focusFloatingUnlocked = true;
             return null;
+          case "start_dragging_main_window":
+            window.__mainWindowDragged = true;
+            return null;
           case "flash_main_window_attention":
             window.__flashMainWindowAttention = true;
             return null;
@@ -267,6 +271,18 @@ test("Today cockpit exposes the next action and command palette", async ({ page 
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog", { name: "你想做什么？" })).toBeHidden();
   await expect(page.getByRole("button", { name: /命令 Ctrl K/ })).toBeFocused();
+});
+
+test("main window keeps its top bar available while scrolling and exposes a drag surface", async ({ page }) => {
+  await bootWithTauriMock(page, { includeRecords: true });
+
+  await expect(page.locator(".app-bar")).toHaveCSS("position", "sticky");
+  await page.getByRole("button", { name: "记录", exact: true }).click();
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  await expect(page.locator(".app-bar")).toBeVisible();
+
+  await page.locator(".app-bar").click({ position: { x: 220, y: 24 } });
+  await expect.poll(() => page.evaluate(() => window.__mainWindowDragged)).toBe(true);
 });
 
 test("countdown duration keeps the user value while timer snapshots refresh", async ({ page }) => {

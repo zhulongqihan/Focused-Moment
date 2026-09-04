@@ -59,8 +59,8 @@ export async function flashMainWindowAttention() {
 
 export async function startDraggingWindow() {
   try {
-    await getCurrentWindow().startDragging();
-  } catch {
     await invoke("start_dragging_main_window");
+  } catch {
+    await getCurrentWindow().startDragging();
   }
 }

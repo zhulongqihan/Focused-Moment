@@ -61,6 +61,9 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 .minimal-app--break { background: #edf3eb; }
 
 .app-bar {
+  position: sticky;
+  top: 16px;
+  z-index: 20;
   height: 52px;
   display: flex;
   align-items: center;
@@ -754,7 +757,7 @@ html.floating-window body { overflow: hidden; }
 .floating-timer {
   min-height: 0;
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto;
   align-content: start;
   gap: 10px;
   overflow: auto;
@@ -803,7 +806,7 @@ html.floating-window body { overflow: hidden; }
 
 @media (max-width: 760px) {
   .minimal-app { padding: 10px; }
-  .app-bar { height: auto; min-height: 52px; align-items: flex-start; padding: 10px; }
+  .app-bar { top: 10px; height: auto; min-height: 52px; align-items: flex-start; padding: 10px; }
   .app-bar__actions { flex-wrap: wrap; justify-content: flex-end; }
   .minimal-workspace { grid-template-columns: minmax(0, 1fr); gap: 22px; margin-top: 24px; }
   .minimal-nav { grid-template-columns: repeat(5, minmax(0, 1fr)); }
