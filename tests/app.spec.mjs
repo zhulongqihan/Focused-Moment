@@ -304,6 +304,10 @@ test("floating workspace switches between todos and the active timer", async ({ 
   await expect(timerTab).toBeVisible();
   await expect(timerTab).toHaveAttribute("aria-selected", "true");
   await expect(page.locator(".floating-timer")).toContainText("00:00:30");
+  const controlHeights = await page.locator(".floating-timer .focus-floating__controls button").evaluateAll((buttons) =>
+    buttons.map((button) => Math.round(button.getBoundingClientRect().height))
+  );
+  expect(Math.max(...controlHeights)).toBeLessThan(60);
 
   await todoTab.click();
   await expect(todoTab).toHaveAttribute("aria-selected", "true");

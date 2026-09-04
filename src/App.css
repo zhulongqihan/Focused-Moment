@@ -755,7 +755,7 @@ html.floating-window body { overflow: hidden; }
   min-height: 0;
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr) auto;
-  align-content: stretch;
+  align-content: start;
   gap: 10px;
   overflow: auto;
   padding: 5px 3px 2px;
@@ -767,6 +767,7 @@ html.floating-window body { overflow: hidden; }
 .floating-timer__clock span { color: #5c7868; font-size: 0.8rem; }
 .floating-timer__clock strong { color: #173f2e; font-size: clamp(2rem, 9vw, 3.3rem); font-variant-numeric: tabular-nums; line-height: 1; }
 .floating-timer .linked-todo-option { align-self: end; }
+.floating-timer .focus-floating__controls { align-self: end; }
 .focus-floating {
   height: 100vh;
   padding: 12px;
