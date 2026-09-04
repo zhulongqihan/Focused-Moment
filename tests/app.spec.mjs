@@ -80,6 +80,7 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
       },
     ] : [];
     window.__todoItemsCalls = 0;
+    window.__timerSnapshotCalls = 0;
     window.__focusFloatingShown = false;
     window.__focusFloatingUnlocked = false;
     window.__mainWindowDragged = false;
@@ -175,6 +176,7 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
           case "plugin:event|unlisten":
             return null;
           case "get_timer_snapshot":
+            window.__timerSnapshotCalls += 1;
             return timer;
           case "get_timer_preferences":
             return timerPreferences;
@@ -340,6 +342,13 @@ test("floating workspace switches between todos and the active timer", async ({ 
 
   await timerTab.click();
   await expect(page.locator(".floating-timer")).toContainText("写完产品复盘");
+});
+
+test("floating timer refreshes its snapshot every second", async ({ page }) => {
+  await bootWithTauriMock(page, { windowLabel: "todo-float", pausedFocus: true });
+
+  const initialCalls = await page.evaluate(() => window.__timerSnapshotCalls);
+  await expect.poll(() => page.evaluate(() => window.__timerSnapshotCalls), { timeout: 2500 }).toBeGreaterThan(initialCalls);
 });
 
 test("floating workspace only shows todos when there is no active timer", async ({ page }) => {
