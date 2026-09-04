@@ -41,8 +41,8 @@ const DEFAULT_COUNTDOWN_MINUTES: u64 = 25;
 const MIN_COUNTDOWN_MINUTES: u64 = 1;
 const MAX_COUNTDOWN_MINUTES: u64 = 12 * 60;
 const MAX_TODO_TITLE_CHARS: usize = 200;
-const APP_VERSION: &str = "2.3.8";
-const APP_MILESTONE: &str = "v2.3.8 \u{6f02}\u{6d6e}\u{7a97}\u{900f}\u{660e}\u{5ea6}";
+const APP_VERSION: &str = "2.3.9";
+const APP_MILESTONE: &str = "v2.3.9 \u{652f}\u{6301}\u{6b64}\u{5730}\u{5e73}\u{53f0}";
 const APP_BACKUP_KIND: &str = "focused-moment-backup";
 const APP_BACKUP_FORMAT_VERSION: u64 = 2;
 const FLOATING_WORKSPACE_SYNC_EVENT: &str = "floating-workspace-sync";
@@ -2370,7 +2370,16 @@ fn open_app_backup_folder(state: tauri::State<'_, TimerEngineState>) -> Result<(
         return Ok(());
     }
 
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(target_os = "macos")]
+    {
+        Command::new("open")
+            .arg(&backup_dir)
+            .spawn()
+            .map_err(|error| error.to_string())?;
+        return Ok(());
+    }
+
+    #[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
     {
         let _ = backup_dir;
         Err("当前平台暂不支持打开备份目录。".to_string())
