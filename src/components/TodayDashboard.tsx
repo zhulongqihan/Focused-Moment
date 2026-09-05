@@ -182,6 +182,8 @@ export default function TodayDashboard(props: TodayDashboardProps) {
   let trailViewportElement: HTMLDivElement | undefined;
   let completionCueTimer: number | undefined;
   let trailScrollFrame: number | undefined;
+  let trailMetaObserver: IntersectionObserver | undefined;
+  let trailMetaFrame: number | undefined;
 
   onMount(() => {
     if (!trailPageElement || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
@@ -228,6 +230,10 @@ export default function TodayDashboard(props: TodayDashboardProps) {
     if (trailScrollFrame !== undefined) {
       window.cancelAnimationFrame(trailScrollFrame);
     }
+    if (trailMetaFrame !== undefined) {
+      window.cancelAnimationFrame(trailMetaFrame);
+    }
+    trailMetaObserver?.disconnect();
   });
 
   const timerFinished = () =>
@@ -401,6 +407,35 @@ export default function TodayDashboard(props: TodayDashboardProps) {
       );
       trailViewportElement.scrollTo({ left: targetScrollLeft, behavior: "smooth" });
       trailScrollFrame = undefined;
+    });
+  });
+
+  createEffect(() => {
+    trailNodes();
+    if (trailMetaFrame !== undefined) {
+      window.cancelAnimationFrame(trailMetaFrame);
+    }
+    trailMetaFrame = window.requestAnimationFrame(() => {
+      const viewport = trailViewportElement;
+      if (!viewport || typeof IntersectionObserver === "undefined") {
+        return;
+      }
+
+      trailMetaObserver?.disconnect();
+      trailMetaObserver = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            const node = entry.target.closest<HTMLElement>(".trail-node");
+            node?.classList.toggle("trail-node--meta-clipped", entry.intersectionRatio < 0.999);
+          }
+        },
+        { root: viewport, threshold: [0, 0.01, 0.999, 1] },
+      );
+
+      viewport.querySelectorAll<HTMLElement>(".trail-node__meta").forEach((meta) => {
+        trailMetaObserver?.observe(meta);
+      });
+      trailMetaFrame = undefined;
     });
   });
 

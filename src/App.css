@@ -2577,3 +2577,17 @@ html.floating-window body { overflow: hidden; }
     margin: 0 0 18px;
   }
 }
+
+/* A horizontally scrollable trail should never leave half a label at the
+   viewport edge. The orb and route remain visible as a cue; the full label
+   returns as soon as that node is brought into view. */
+.minimal-app--trail .trail-node__meta {
+  transition: opacity 180ms ease, transform 180ms ease, visibility 0s linear 180ms;
+}
+
+.minimal-app--trail .trail-node--meta-clipped .trail-node__meta {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(5px);
+  visibility: hidden;
+}
