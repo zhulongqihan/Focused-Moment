@@ -1,7 +1,16 @@
 import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount } from "solid-js";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import { listen } from "@tauri-apps/api/event";
-import { LockKeyhole, LockKeyholeOpen, SlidersHorizontal } from "lucide-solid";
+import {
+  ChartNoAxesCombined,
+  CircleDot,
+  Clock3,
+  LockKeyhole,
+  LockKeyholeOpen,
+  Settings,
+  SlidersHorizontal,
+  SquareCheck,
+} from "lucide-solid";
 import type {
   AnalyticsSnapshot,
   AlertSoundKey,
@@ -1982,12 +1991,21 @@ function MainShell() {
 
         <main id="main-content" class="minimal-workspace">
         <nav class="minimal-nav" aria-label="主导航">
+          <div class="trail-nav__brand" data-tauri-drag-region aria-label="Focused Moment">
+            <span class="trail-nav__logo" aria-hidden="true">
+              <span class="trail-nav__logo-ring" />
+              <span class="trail-nav__logo-dot" />
+            </span>
+            <strong>FOCUSED</strong>
+            <span>MOMENT</span>
+          </div>
           <button
             type="button"
             classList={{ active: activeView() === "today" }}
             aria-current={activeView() === "today" ? "page" : undefined}
             onClick={() => changeView("today")}
           >
+            <CircleDot class="trail-nav__icon trail-nav__icon--today" size={23} strokeWidth={1.7} aria-hidden="true" />
             今日
           </button>
           <button
@@ -1996,6 +2014,7 @@ function MainShell() {
             aria-current={activeView() === "focus" ? "page" : undefined}
             onClick={() => changeView("focus")}
           >
+            <Clock3 class="trail-nav__icon trail-nav__icon--focus" size={23} strokeWidth={1.7} aria-hidden="true" />
             计时
           </button>
           <button
@@ -2004,8 +2023,9 @@ function MainShell() {
             aria-current={activeView() === "todos" ? "page" : undefined}
             onClick={() => changeView("todos")}
           >
+            <SquareCheck class="trail-nav__icon trail-nav__icon--todos" size={23} strokeWidth={1.7} aria-hidden="true" />
             待办
-            <span>{pendingTodos().length}</span>
+            <span class="minimal-nav__count">{pendingTodos().length}</span>
           </button>
           <button
             type="button"
@@ -2013,6 +2033,7 @@ function MainShell() {
             aria-current={activeView() === "records" ? "page" : undefined}
             onClick={() => changeView("records")}
           >
+            <ChartNoAxesCombined class="trail-nav__icon trail-nav__icon--records" size={23} strokeWidth={1.7} aria-hidden="true" />
             记录
           </button>
           <button
@@ -2021,6 +2042,7 @@ function MainShell() {
             aria-current={activeView() === "settings" ? "page" : undefined}
             onClick={() => changeView("settings")}
           >
+            <Settings class="trail-nav__icon trail-nav__icon--settings" size={23} strokeWidth={1.7} aria-hidden="true" />
             设置
           </button>
         </nav>

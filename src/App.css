@@ -151,7 +151,8 @@ kbd {
 
 .minimal-nav button.active { background: #dcebe0; color: #173f2e; font-weight: 700; }
 .minimal-nav button:not(.active):hover { background: #e8f1e9; color: #2d5943; }
-.minimal-nav span { color: #789084; font-size: 0.8rem; }
+.minimal-nav .trail-nav__icon { display: none; }
+.minimal-nav .minimal-nav__count { margin-left: auto; color: #789084; font-size: 0.8rem; }
 
 .minimal-content { min-width: 0; max-width: 760px; padding-bottom: 12px; }
 .minimal-app--records { background: #dfe8e0; }
@@ -1115,7 +1116,7 @@ html.floating-window body { overflow: hidden; }
 .minimal-app--trail .trail-link-button {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 21px;
   min-height: 38px;
   padding: 0 13px;
   border: 1px solid rgba(193, 239, 212, 0.18);
@@ -1391,4 +1392,671 @@ html.floating-window body { overflow: hidden; }
   .minimal-app--trail .trail-node__meta small { font-size: 0.65rem; }
   .minimal-app--trail .trail-arrival-cue { right: 14px; bottom: 18px; min-width: 0; width: calc(100vw - 28px); transform: none; }
   @keyframes trail-cue-in { from { opacity: 0; transform: translateY(12px) scale(0.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
+}
+
+/* Reference recreation: Focused Moment's Today page follows the supplied Focus Trail artwork. */
+.minimal-app--trail {
+  --trail-ink: #e9f1e6;
+  --trail-muted: #94aaa4;
+  --trail-dim: #6e8886;
+  --trail-line: rgba(190, 224, 210, 0.17);
+  --trail-gold: #efb967;
+  --trail-gold-soft: #f1c87b;
+  --trail-mint: #c4edd3;
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  height: 100vh;
+  min-height: 760px;
+  overflow: hidden;
+  padding: 0;
+  background: #061823;
+  color: var(--trail-ink);
+}
+
+.minimal-app--trail::before {
+  position: fixed;
+  inset: 0;
+  z-index: -3;
+  background: #061823;
+  content: "";
+}
+
+.minimal-app--trail::after { display: none; content: none; }
+
+.minimal-app--trail .trail-page__backdrop {
+  position: fixed;
+  inset: -28px;
+  z-index: -2;
+  overflow: hidden;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(2, 13, 23, 0.58) 0%, rgba(3, 24, 39, 0.24) 44%, rgba(7, 31, 45, 0.2) 59%, rgba(1, 12, 22, 0.62) 100%),
+    linear-gradient(90deg, rgba(2, 14, 25, 0.12), transparent 42%, rgba(2, 12, 21, 0.24)),
+    url("./assets/focus-trail-atmosphere-v3.png") center / cover no-repeat;
+  transform: translate3d(var(--trail-scene-x, 0px), var(--trail-scene-y, 0px), 0) scale(1.035);
+  transition: transform 900ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
+}
+
+.minimal-app--trail .trail-page__backdrop-haze,
+.minimal-app--trail .trail-page__backdrop-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.minimal-app--trail .trail-page__backdrop-haze {
+  background:
+    radial-gradient(ellipse at 52% 57%, rgba(174, 134, 125, 0.1), transparent 29%),
+    radial-gradient(ellipse at 77% 61%, rgba(227, 164, 132, 0.08), transparent 22%),
+    linear-gradient(180deg, transparent 0 45%, rgba(95, 136, 143, 0.08) 58%, transparent 78%);
+  filter: blur(9px);
+  opacity: 0.24;
+  transform: translate3d(calc(var(--trail-scene-x, 0px) * 0.36), calc(var(--trail-scene-y, 0px) * 0.36), 0) scale(1.04);
+  transition: transform 1200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.minimal-app--trail .trail-page__backdrop-vignette {
+  background:
+    radial-gradient(ellipse at 58% 48%, transparent 0 35%, rgba(0, 9, 17, 0.16) 79%, rgba(0, 7, 14, 0.38) 100%),
+    linear-gradient(180deg, rgba(0, 7, 14, 0.1), transparent 25%, transparent 68%, rgba(0, 7, 14, 0.22));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .minimal-app--trail .trail-page__backdrop,
+  .minimal-app--trail .trail-page__backdrop-haze {
+    transform: none;
+    transition: none;
+  }
+}
+
+.minimal-app--trail .app-bar {
+  position: sticky;
+  inset: 0 0 auto;
+  z-index: 60;
+  height: 52px;
+  margin-bottom: -52px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  pointer-events: auto;
+}
+
+.minimal-app--trail .app-brand { display: none; }
+.minimal-app--trail .app-bar__actions { display: block; }
+.minimal-app--trail .app-bar__actions .quiet-button,
+.minimal-app--trail .app-bar__actions .icon-button { display: none; }
+.minimal-app--trail .command-trigger {
+  position: fixed;
+  left: 24px;
+  bottom: 40px;
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 7px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #829c99;
+  font-size: 0;
+  pointer-events: auto;
+}
+.minimal-app--trail .command-trigger::after {
+  color: #8aa39e;
+  content: "快速命令";
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+}
+.minimal-app--trail .command-trigger kbd {
+  order: -1;
+  padding: 4px 7px;
+  border: 1px solid rgba(190, 224, 210, 0.16);
+  border-bottom-width: 1px;
+  border-radius: 4px;
+  background: rgba(5, 25, 35, 0.62);
+  color: #9bb2ad;
+  font-size: 0.7rem;
+}
+.minimal-app--trail .command-trigger:hover { border: 0; background: transparent; color: #d9eddf; }
+.minimal-app--trail .command-trigger:hover kbd { border-color: rgba(196, 237, 211, 0.48); background: rgba(20, 54, 58, 0.72); }
+
+.minimal-app--trail .minimal-workspace {
+  display: grid;
+  grid-template-columns: 124px minmax(0, 1fr);
+  gap: 0;
+  width: 100%;
+  max-width: none;
+  height: 100vh;
+  min-height: 760px;
+  margin: 0;
+}
+
+.minimal-app--trail .minimal-nav {
+  position: relative;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  height: 100vh;
+  min-height: 760px;
+  gap: 21px;
+  padding: 33px 7px 25px 0;
+  border-right: 1px solid rgba(190, 224, 210, 0.2);
+  background: linear-gradient(180deg, rgba(2, 16, 25, 0.42), rgba(4, 25, 35, 0.2));
+}
+.minimal-app--trail .minimal-nav::before,
+.minimal-app--trail .minimal-nav > button::before { display: none; content: none; }
+
+.minimal-app--trail .trail-nav__brand {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 7px;
+  height: 123px;
+  color: #b8d4c7;
+  cursor: move;
+  user-select: none;
+}
+.minimal-app--trail .trail-nav__brand span,
+.minimal-app--trail .minimal-nav > button .trail-nav__icon { margin-left: 0; }
+.minimal-app--trail .trail-nav__brand strong,
+.minimal-app--trail .trail-nav__brand > span:last-child {
+  font-family: "Cascadia Mono", "Segoe UI Mono", monospace;
+  font-size: 0.63rem;
+  font-weight: 500;
+  letter-spacing: 0.17em;
+  line-height: 1;
+}
+.minimal-app--trail .trail-nav__brand > span:last-child { color: #92aaa5; letter-spacing: 0.2em; }
+.minimal-app--trail .trail-nav__logo {
+  position: relative;
+  display: block;
+  width: 46px;
+  height: 46px;
+  margin-bottom: 5px;
+}
+.minimal-app--trail .trail-nav__logo-ring {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 36px;
+  height: 36px;
+  border: 2px solid #c8e8d2;
+  border-top-color: transparent;
+  border-radius: 50%;
+  transform: rotate(-32deg);
+  box-shadow: 0 0 16px rgba(196, 237, 211, 0.16);
+}
+.minimal-app--trail .trail-nav__logo-dot {
+  position: absolute;
+  top: 0;
+  right: 1px;
+  width: 11px;
+  height: 11px;
+  border: 2px solid rgba(239, 185, 103, 0.42);
+  border-radius: 50%;
+  background: var(--trail-gold);
+  box-shadow: 0 0 13px rgba(239, 185, 103, 0.78);
+}
+
+.minimal-app--trail .minimal-nav > button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 14px 0 22px;
+  border: 1px solid transparent;
+  border-left: 0;
+  border-radius: 0 11px 11px 0;
+  background: transparent;
+  color: #8ea7a2;
+  font-size: 0.91rem;
+  font-weight: 400;
+  text-align: left;
+  transition: background 180ms ease, border-color 180ms ease, color 180ms ease, transform 180ms ease;
+}
+.minimal-app--trail .minimal-nav > button.active {
+  min-height: 56px;
+  margin-top: -4px;
+  margin-bottom: -4px;
+  border-color: rgba(196, 237, 211, 0.06);
+  background: linear-gradient(90deg, rgba(21, 58, 56, 0.86), rgba(15, 40, 45, 0.2));
+  color: #c8eed5;
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 rgba(239, 185, 103, 0.76), 0 0 30px rgba(20, 72, 62, 0.14);
+}
+.minimal-app--trail .minimal-nav > button:not(.active):hover {
+  background: rgba(196, 237, 211, 0.06);
+  color: #c6ddd2;
+  transform: translateX(2px);
+}
+.minimal-app--trail .minimal-nav > button:focus-visible {
+  outline: 2px solid rgba(196, 237, 211, 0.76);
+  outline-offset: -3px;
+}
+.minimal-app--trail .minimal-nav__count { margin-left: auto; color: #83a49a; font-size: 0.75rem; }
+.minimal-app--trail .trail-nav__icon {
+  position: relative;
+  display: inline-block;
+  width: 23px;
+  height: 23px;
+  flex: 0 0 23px;
+  margin-right: 14px;
+  color: currentColor;
+  stroke-width: 1.7;
+}
+
+.minimal-app--trail .minimal-content {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  height: 100vh;
+  min-height: 760px;
+  padding: 0 63px 0 91px;
+  overflow: visible;
+}
+.minimal-app--trail .today-page {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  margin: 0;
+  gap: 0;
+}
+.minimal-app--trail .trail-page__heading {
+  display: grid;
+  gap: 0;
+  padding: 65px 0 0;
+}
+.minimal-app--trail .trail-page__date {
+  display: flex;
+  align-items: baseline;
+  gap: 15px;
+  color: #c3d8cd;
+  font-family: "Cascadia Mono", "Segoe UI Mono", monospace;
+  font-size: 1.28rem;
+  letter-spacing: 0.02em;
+  line-height: 1.25;
+}
+.minimal-app--trail .trail-page__date strong { color: #d9e8dc; font-weight: 500; }
+.minimal-app--trail .trail-page__date span { color: #b0c6bb; font-size: 1rem; }
+.minimal-app--trail .trail-page__heading h1 {
+  margin: 13px 0 10px;
+  color: #e9f0e5;
+  font-family: "Noto Serif SC", "Source Han Serif SC", "Songti SC", Georgia, serif;
+  font-size: 3.35rem;
+  font-weight: 400;
+  letter-spacing: -0.1em;
+  line-height: 1;
+}
+.minimal-app--trail .trail-page__heading p { margin: 0; color: #819b99; font-size: 0.94rem; line-height: 1.5; }
+
+.minimal-app--trail .trail-page__headline-actions {
+  position: absolute;
+  top: 128px;
+  right: -14px;
+  display: flex;
+  align-items: center;
+  gap: 136px;
+  margin: 0;
+}
+.minimal-app--trail .trail-streak { display: flex; align-items: center; gap: 13px; white-space: nowrap; }
+.minimal-app--trail .trail-streak__icon {
+  display: inline-grid;
+  width: 52px;
+  height: 52px;
+  place-items: center;
+  border: 1px solid rgba(239, 185, 103, 0.62);
+  border-radius: 50%;
+  color: var(--trail-gold);
+  box-shadow: inset 0 0 0 7px rgba(239, 185, 103, 0.04), 0 0 20px rgba(239, 185, 103, 0.06);
+}
+.minimal-app--trail .trail-streak__icon svg { fill: currentColor; filter: drop-shadow(0 0 5px rgba(239, 185, 103, 0.42)); }
+.minimal-app--trail .trail-streak > div { display: grid; gap: 4px; }
+.minimal-app--trail .trail-streak strong { color: #dfeadf; font-size: 1.05rem; font-weight: 500; }
+.minimal-app--trail .trail-streak small { color: #819b99; font-size: 0.75rem; }
+.minimal-app--trail .trail-link-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 173px;
+  min-height: 50px;
+  padding: 0 16px;
+  border: 1px solid rgba(196, 237, 211, 0.21);
+  border-radius: 11px;
+  background: rgba(7, 29, 38, 0.42);
+  color: #c0ded0;
+  font-size: 0.96rem;
+  transition: border-color 180ms ease, background 180ms ease, transform 180ms ease;
+}
+.minimal-app--trail .trail-link-button svg:last-child { margin-left: auto; }
+.minimal-app--trail .trail-link-button:hover { border-color: rgba(196, 237, 211, 0.55); background: rgba(22, 54, 59, 0.7); transform: translateY(-1px); }
+
+.minimal-app--trail .trail-stage {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 346px;
+  gap: 0;
+  width: calc(100% + 91px);
+  height: calc(100vh - 256px);
+  min-height: 700px;
+  margin-top: 66px;
+  margin-left: -91px;
+}
+.minimal-app--trail .trail-map {
+  position: relative;
+  isolation: isolate;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background:
+    radial-gradient(ellipse at 66% 61%, rgba(132, 74, 72, 0.18), transparent 34%),
+    radial-gradient(ellipse at 41% 67%, rgba(104, 71, 75, 0.1), transparent 35%);
+  box-shadow: none;
+}
+.minimal-app--trail .trail-map::before {
+  position: absolute;
+  right: -5%;
+  bottom: -2%;
+  left: -4%;
+  z-index: 0;
+  height: 58%;
+  background:
+    linear-gradient(170deg, transparent 0 19%, rgba(147, 80, 74, 0.25) 20% 36%, rgba(6, 26, 38, 0.9) 37%),
+    linear-gradient(164deg, transparent 0 42%, rgba(24, 52, 60, 0.76) 43% 64%, rgba(3, 17, 29, 0.96) 65%);
+  clip-path: polygon(0 46%, 8% 35%, 15% 39%, 24% 18%, 31% 41%, 39% 28%, 47% 48%, 56% 23%, 64% 41%, 72% 17%, 80% 39%, 90% 24%, 100% 42%, 100% 100%, 0 100%);
+  content: "";
+}
+.minimal-app--trail .trail-map::after {
+  position: absolute;
+  right: -5%;
+  bottom: -2%;
+  left: -4%;
+  z-index: 0;
+  height: 37%;
+  background: linear-gradient(177deg, transparent 0 26%, rgba(3, 16, 28, 0.99) 27%);
+  clip-path: polygon(0 33%, 12% 20%, 23% 39%, 36% 17%, 48% 43%, 61% 22%, 73% 38%, 86% 15%, 100% 35%, 100% 100%, 0 100%);
+  content: "";
+}
+.minimal-app--trail .trail-map::before,
+.minimal-app--trail .trail-map::after,
+.minimal-app--trail .trail-map__landscape { display: none; content: none; }
+.minimal-app--trail .trail-map__stars {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-image:
+    radial-gradient(circle at 7% 8%, rgba(232, 191, 128, 0.72) 0 1px, transparent 1.6px),
+    radial-gradient(circle at 20% 19%, rgba(194, 238, 211, 0.56) 0 1px, transparent 1.6px),
+    radial-gradient(circle at 36% 15%, rgba(239, 185, 103, 0.42) 0 1px, transparent 1.6px),
+    radial-gradient(circle at 51% 7%, rgba(219, 242, 219, 0.48) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 64% 22%, rgba(226, 188, 131, 0.48) 0 1px, transparent 1.6px),
+    radial-gradient(circle at 78% 5%, rgba(198, 239, 214, 0.42) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 91% 17%, rgba(239, 185, 103, 0.36) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 85% 36%, rgba(198, 239, 214, 0.36) 0 1px, transparent 1.5px);
+  opacity: 0.22;
+}
+.minimal-app--trail .trail-map__horizon {
+  position: absolute;
+  right: 0;
+  bottom: 29%;
+  left: 0;
+  z-index: 1;
+  height: 1px;
+  display: none;
+}
+.minimal-app--trail .trail-map__mountains,
+.minimal-app--trail .trail-map__lighthouse { display: none; }
+.minimal-app--trail .trail-map__lighthouse { display: none; }
+.minimal-app--trail .trail-map__lighthouse-beam {
+  position: absolute;
+  top: -13px;
+  left: -118px;
+  width: 130px;
+  height: 18px;
+  background: linear-gradient(90deg, rgba(239, 185, 103, 0.38), transparent);
+  clip-path: polygon(100% 42%, 0 0, 0 100%);
+  opacity: 0.52;
+  transform: rotate(10deg);
+  transform-origin: right center;
+}
+.minimal-app--trail .trail-map__lighthouse-tower {
+  position: absolute;
+  bottom: 0;
+  left: 11px;
+  width: 10px;
+  height: 35px;
+  border-top: 4px solid #e2ae67;
+  background: linear-gradient(90deg, #211d25, #8e6250 54%, #171a21);
+  clip-path: polygon(22% 0, 78% 0, 100% 100%, 0 100%);
+  box-shadow: 0 0 9px rgba(239, 185, 103, 0.3);
+}
+.minimal-app--trail .trail-map__route {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.minimal-app--trail .trail-map__route path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.minimal-app--trail .trail-map__route-shadow { stroke: rgba(239, 185, 103, 0.19); stroke-width: 10; filter: url(#trail-route-glow); }
+.minimal-app--trail .trail-map__route-line { stroke: url(#trail-route-gradient); stroke-width: 1.75; filter: url(#trail-route-glow); }
+.minimal-app--trail .trail-map__route-dash { stroke: rgba(255, 241, 207, 0.68); stroke-width: 1.05; stroke-dasharray: 2 13; animation: trail-route-flow-reference 12s linear infinite; }
+
+.minimal-app--trail .trail-node {
+  position: absolute;
+  z-index: 5;
+  width: 180px;
+  height: 140px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--trail-muted);
+  text-align: left;
+  transform: translate(-50%, -50%);
+}
+.minimal-app--trail .trail-node__meta {
+  position: absolute;
+  bottom: calc(50% + 58px);
+  left: calc(50% - 24px);
+  display: grid;
+  gap: 4px;
+  width: 180px;
+  transform: none;
+}
+.minimal-app--trail .trail-node__meta b { color: #b9e4cd; font-family: "Cascadia Mono", "Segoe UI Mono", monospace; font-size: 1rem; font-weight: 500; line-height: 1; }
+.minimal-app--trail .trail-node__meta strong { overflow: hidden; color: #b6d8ca; font-size: 0.96rem; font-weight: 500; line-height: 1.15; text-overflow: ellipsis; white-space: nowrap; }
+.minimal-app--trail .trail-node__meta small { color: #8ba69e; font-size: 0.83rem; line-height: 1.15; }
+.minimal-app--trail .trail-node__orb {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: inline-grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 1px solid rgba(196, 237, 211, 0.69);
+  border-radius: 50%;
+  background: rgba(7, 29, 37, 0.62);
+  color: var(--trail-mint);
+  box-shadow: 0 0 0 5px rgba(196, 237, 211, 0.04), 0 0 19px rgba(196, 237, 211, 0.18);
+  transform: translate(-50%, -50%);
+  transition: background 180ms ease, border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+.minimal-app--trail .trail-node--done .trail-node__orb { border-color: var(--trail-gold-soft); background: rgba(102, 71, 42, 0.32); color: #fff0c8; box-shadow: 0 0 0 6px rgba(239, 185, 103, 0.08), 0 0 24px rgba(239, 185, 103, 0.38); }
+.minimal-app--trail .trail-node--current .trail-node__orb { width: 48px; height: 48px; border-color: var(--trail-gold); color: var(--trail-gold); box-shadow: 0 0 0 8px rgba(239, 185, 103, 0.12), 0 0 0 13px rgba(196, 237, 211, 0.06), 0 0 30px rgba(239, 185, 103, 0.54); animation: trail-node-pulse-reference 2.6s ease-in-out infinite; }
+.minimal-app--trail .trail-node--upcoming .trail-node__orb { border-color: rgba(196, 237, 211, 0.66); color: transparent; }
+.minimal-app--trail .trail-node__current-dot { width: 16px; height: 16px; border: 1px solid rgba(196, 237, 211, 0.34); border-radius: 50%; background: rgba(211, 238, 216, 0.18); }
+.minimal-app--trail .trail-node:not(:disabled):hover .trail-node__orb { background: rgba(196, 237, 211, 0.14); border-color: #f2f8ea; transform: translate(-50%, -50%) scale(1.1); }
+.minimal-app--trail .trail-node:focus-visible { outline: 0; }
+.minimal-app--trail .trail-node:focus-visible .trail-node__orb { outline: 2px solid rgba(196, 237, 211, 0.78); outline-offset: 5px; }
+
+.minimal-app--trail .trail-map__footer {
+  position: absolute;
+  right: auto;
+  bottom: 58px;
+  left: 58px;
+  z-index: 6;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 30px;
+  width: 312px;
+}
+.minimal-app--trail .trail-map__footer > div:first-child { display: grid; gap: 7px; }
+.minimal-app--trail .trail-map__footer strong { color: #e6eee2; font-size: 1.33rem; font-weight: 500; line-height: 1; }
+.minimal-app--trail .trail-map__footer span { color: #94aca4; font-size: 0.84rem; line-height: 1.3; }
+.minimal-app--trail .trail-map__progress {
+  position: relative;
+  width: 312px;
+  height: 3px;
+  overflow: visible;
+  border-radius: 0;
+  background: repeating-linear-gradient(90deg, rgba(196, 237, 211, 0.27) 0 9px, transparent 9px 17px);
+}
+.minimal-app--trail .trail-map__progress span { position: relative; display: block; height: 100%; border-radius: 2px; background: linear-gradient(90deg, #f4bd68, #eac07a); box-shadow: 0 0 13px rgba(239, 185, 103, 0.65); transition: width 700ms cubic-bezier(0.16, 1, 0.3, 1); }
+.minimal-app--trail .trail-map__progress span::after { position: absolute; top: 50%; right: -4px; width: 7px; height: 7px; border: 1px solid #f2c77f; border-radius: 50%; background: #152b31; box-shadow: 0 0 8px rgba(239, 185, 103, 0.62); content: ""; transform: translateY(-50%); }
+.minimal-app--trail .trail-add-button {
+  position: absolute;
+  right: -5px;
+  bottom: 55px;
+  z-index: 8;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 11px;
+  width: 154px;
+  min-height: 58px;
+  padding: 0 17px;
+  border: 1px solid rgba(196, 237, 211, 0.24);
+  border-radius: 11px;
+  background: rgba(6, 26, 35, 0.26);
+  color: #bccdc4;
+  font-size: 0.91rem;
+  transition: border-color 180ms ease, background 180ms ease, transform 180ms ease;
+}
+.minimal-app--trail .trail-add-button:hover { border-color: rgba(196, 237, 211, 0.6); background: rgba(22, 54, 59, 0.68); color: #edf5e8; transform: translateY(-1px); }
+
+.minimal-app--trail .trail-focus-panel {
+  position: relative;
+  z-index: 8;
+  display: grid;
+  align-content: start;
+  gap: 0;
+  height: 604px;
+  min-height: 604px;
+  padding: 27px 24px 18px;
+  border: 1px solid rgba(239, 185, 103, 0.84);
+  border-radius: 17px;
+  background: linear-gradient(145deg, rgba(32, 54, 58, 0.84), rgba(15, 34, 42, 0.88));
+  box-shadow: inset 0 0 0 1px rgba(196, 237, 211, 0.04), 0 22px 48px rgba(1, 11, 18, 0.28);
+  backdrop-filter: blur(13px);
+}
+.minimal-app--trail .trail-focus-panel--running { border-color: rgba(196, 237, 211, 0.8); }
+.minimal-app--trail .trail-focus-panel__topline { display: flex; align-items: center; min-height: 20px; color: #b9d6c8; font-size: 0.92rem; }
+.minimal-app--trail .trail-focus-panel__topline .trail-live-indicator,
+.minimal-app--trail .trail-focus-panel__topline kbd { display: none; }
+.minimal-app--trail .trail-focus-panel h2 { max-width: 15ch; margin: 14px 0 7px; color: #edf2e8; font-family: "Noto Serif SC", "Source Han Serif SC", "Songti SC", Georgia, serif; font-size: 1.86rem; font-weight: 400; letter-spacing: -0.04em; line-height: 1.15; }
+.minimal-app--trail .trail-focus-panel__schedule { min-height: 20px; margin: 0; color: #cad8d0; font-size: 0.91rem; line-height: 1.35; }
+.minimal-app--trail .trail-focus-panel__description { min-height: 20px; margin: 9px 0 0; color: #93aaa3; font-size: 0.81rem; line-height: 1.45; }
+.minimal-app--trail .trail-focus-panel > p.trail-focus-panel__schedule,
+.minimal-app--trail .trail-focus-panel > p.trail-focus-panel__schedule { min-height: 0; margin-top: 2px; }
+.minimal-app--trail .trail-focus-panel > p.trail-focus-panel__description { min-height: 0; margin-top: 8px; }
+.minimal-app--trail .trail-timer { position: relative; display: grid; width: 178px; height: 178px; place-items: center; align-self: center; justify-self: center; margin: 4px auto 0; }
+.minimal-app--trail .trail-timer__ring { width: 100%; height: 100%; transform: rotate(-90deg); }
+.minimal-app--trail .trail-timer__ring circle { fill: none; stroke-width: 1.15; }
+.minimal-app--trail .trail-timer__track { stroke: rgba(196, 237, 211, 0.18); }
+.minimal-app--trail .trail-timer__arc { stroke: var(--trail-mint); stroke-linecap: round; stroke-dasharray: 264; filter: drop-shadow(0 0 7px rgba(196, 237, 211, 0.46)); transition: stroke-dashoffset 600ms ease; }
+.minimal-app--trail .trail-timer__center { position: absolute; display: grid; justify-items: center; gap: 9px; }
+.minimal-app--trail .trail-timer__center strong { color: #c7ecd4; font-family: "Cascadia Mono", "Segoe UI Mono", monospace; font-size: 3.13rem; font-weight: 500; letter-spacing: -0.09em; line-height: 1; font-variant-numeric: tabular-nums; }
+.minimal-app--trail .trail-timer__center span { color: #a6cbb9; font-size: 0.82rem; }
+.minimal-app--trail .trail-focus-panel__actions { display: grid; gap: 8px; margin-top: 11px; }
+.minimal-app--trail .trail-action { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 47px; padding: 0 14px; border-radius: 10px; font-size: 0.94rem; font-weight: 600; transition: transform 180ms ease, border-color 180ms ease, background 180ms ease; }
+.minimal-app--trail .trail-action kbd { margin-left: auto; padding: 4px 7px; border-color: rgba(22, 57, 57, 0.22); border-bottom-width: 1px; background: rgba(211, 239, 213, 0.25); color: #52776a; font-size: 0.69rem; }
+.minimal-app--trail .trail-action--primary { border: 1px solid #c6ead1; background: linear-gradient(135deg, #b6e4c7, #d0f0d1); color: #123937; box-shadow: 0 8px 22px rgba(159, 218, 181, 0.14); }
+.minimal-app--trail .trail-action--primary:hover { border-color: #f2f8e9; background: #ddf5dc; transform: translateY(-1px); }
+.minimal-app--trail .trail-action--secondary { border: 1px solid rgba(196, 237, 211, 0.26); background: rgba(10, 31, 38, 0.54); color: #c3dbce; }
+.minimal-app--trail .trail-action--secondary:hover { border-color: rgba(196, 237, 211, 0.62); background: rgba(26, 56, 58, 0.76); transform: translateY(-1px); }
+.minimal-app--trail .trail-task-list { margin-top: 18px; border-top: 1px solid rgba(196, 237, 211, 0.15); }
+.minimal-app--trail .trail-task-list summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 13px 0 8px; color: #bfd9cc; cursor: pointer; font-size: 0.81rem; list-style: none; }
+.minimal-app--trail .trail-task-list summary::-webkit-details-marker { display: none; }
+.minimal-app--trail .trail-task-list summary > span { display: inline-flex; align-items: center; gap: 8px; }
+.minimal-app--trail .trail-task-list summary b { color: #c6e4d2; font-weight: 500; }
+.minimal-app--trail .trail-task-list summary > svg { transition: transform 180ms ease; }
+.minimal-app--trail .trail-task-list[open] summary > svg { transform: rotate(180deg); }
+.minimal-app--trail .trail-task-list__items { display: grid; gap: 0; }
+.minimal-app--trail .trail-task-row { display: grid; grid-template-columns: 21px minmax(0, 1fr) auto; gap: 9px; align-items: center; width: 100%; min-width: 0; min-height: 37px; padding: 5px 0; border: 0; border-top: 1px solid rgba(196, 237, 211, 0.08); background: transparent; color: #bbd1c7; text-align: left; }
+.minimal-app--trail .trail-task-row:hover:not(:disabled) { color: #f0f7e9; }
+.minimal-app--trail .trail-task-row__check { display: inline-block; width: 19px; height: 19px; border: 1px solid rgba(196, 237, 211, 0.52); border-radius: 50%; }
+.minimal-app--trail .trail-task-row:first-child .trail-task-row__check { border-color: rgba(239, 185, 103, 0.62); box-shadow: 0 0 0 4px rgba(239, 185, 103, 0.06); }
+.minimal-app--trail .trail-task-row strong { overflow: hidden; font-size: 0.78rem; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.minimal-app--trail .trail-task-row small { color: #849e96; font-size: 0.7rem; white-space: nowrap; }
+
+.minimal-app--trail .trail-arrival-cue { position: fixed; right: calc(50% + 27px); bottom: 94px; z-index: 70; display: grid; grid-template-columns: 36px minmax(0, 1fr) 20px; align-items: center; gap: 12px; width: 294px; min-height: 64px; padding: 10px 14px; border: 1px solid rgba(196, 237, 211, 0.32); border-radius: 13px; background: rgba(8, 29, 35, 0.91); color: #e0f0e2; box-shadow: 0 16px 36px rgba(1, 11, 16, 0.38), 0 0 28px rgba(196, 237, 211, 0.09); transform: translateX(50%); animation: trail-cue-in-reference 260ms cubic-bezier(0.16, 1, 0.3, 1) both; backdrop-filter: blur(15px); }
+.minimal-app--trail .trail-arrival-cue__icon { display: inline-grid; width: 34px; height: 34px; place-items: center; border-radius: 50%; background: #c4ebc9; color: #153a35; box-shadow: 0 0 18px rgba(196, 237, 211, 0.18); }
+.minimal-app--trail .trail-arrival-cue > span:nth-child(2) { display: grid; gap: 3px; }
+.minimal-app--trail .trail-arrival-cue strong { font-size: 0.87rem; font-weight: 600; }
+.minimal-app--trail .trail-arrival-cue small { color: #9bb9ae; font-size: 0.71rem; }
+.minimal-app--trail .trail-arrival-cue__close { display: inline-grid; width: 20px; height: 20px; place-items: center; padding: 0; border: 0; background: transparent; color: #8ca69f; }
+.minimal-app--trail .trail-arrival-cue__close:hover { color: #e5f0e5; }
+
+.minimal-app--trail .trail-page__facts { display: none; }
+.minimal-app--trail .app-message { border-color: rgba(196, 237, 211, 0.22); background: rgba(22, 54, 58, 0.84); color: #c6e4d2; }
+
+@keyframes trail-route-flow-reference { to { stroke-dashoffset: -160; } }
+@keyframes trail-node-pulse-reference { 0%, 100% { opacity: 0.84; } 50% { opacity: 1; } }
+@keyframes trail-cue-in-reference { from { opacity: 0; transform: translate(50%, 12px) scale(0.96); } to { opacity: 1; transform: translate(50%, 0) scale(1); } }
+
+@media (max-width: 1180px) and (min-width: 761px) {
+  .minimal-app--trail .minimal-content { padding-right: 30px; padding-left: 50px; }
+  .minimal-app--trail .trail-stage { width: calc(100% + 50px); margin-left: -50px; grid-template-columns: minmax(0, 1fr) 320px; }
+  .minimal-app--trail .trail-page__headline-actions { gap: 42px; }
+  .minimal-app--trail .trail-focus-panel { padding-right: 19px; padding-left: 19px; }
+  .minimal-app--trail .trail-map__footer { left: 40px; width: 430px; }
+  .minimal-app--trail .trail-map__progress { width: 430px; }
+  .minimal-app--trail .trail-node { width: 146px; }
+  .minimal-app--trail .trail-node__meta { width: 146px; }
+}
+
+@media (max-width: 760px) {
+  .minimal-app--trail { height: auto; min-height: 100vh; overflow: visible; }
+  .minimal-app--trail .minimal-workspace { display: block; height: auto; min-height: 100vh; }
+  .minimal-app--trail .minimal-nav { position: sticky; top: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); height: auto; min-height: 0; gap: 4px; padding: 8px; border-right: 0; border-bottom: 1px solid var(--trail-line); background: rgba(3, 17, 27, 0.88); backdrop-filter: blur(16px); }
+  .minimal-app--trail .trail-nav__brand { display: none; }
+  .minimal-app--trail .minimal-nav > button { justify-content: center; min-height: 42px; padding: 0 4px; border-radius: 7px; font-size: 0.72rem; }
+  .minimal-app--trail .trail-nav__icon { display: none; }
+  .minimal-app--trail .minimal-nav__count { margin-left: 4px; }
+  .minimal-app--trail .minimal-content { height: auto; min-height: 0; padding: 0 14px 30px; }
+  .minimal-app--trail .trail-page { min-height: 0; }
+  .minimal-app--trail .trail-page__heading { padding-top: 28px; }
+  .minimal-app--trail .trail-page__date { font-size: 1rem; }
+  .minimal-app--trail .trail-page__date span { font-size: 0.86rem; }
+  .minimal-app--trail .trail-page__heading h1 { font-size: 2.8rem; }
+  .minimal-app--trail .trail-page__headline-actions { position: static; align-items: flex-start; flex-direction: column; gap: 18px; margin: 28px 0 24px; }
+  .minimal-app--trail .trail-link-button { min-height: 44px; }
+  .minimal-app--trail .trail-stage { display: grid; grid-template-columns: minmax(0, 1fr); width: 100%; height: auto; min-height: 0; margin: 0; }
+  .minimal-app--trail .trail-map { min-height: 620px; }
+  .minimal-app--trail .trail-focus-panel { height: auto; min-height: 604px; }
+  .minimal-app--trail .trail-map__footer { bottom: 30px; left: 22px; width: calc(100% - 44px); }
+  .minimal-app--trail .trail-map__progress { width: 100%; }
+  .minimal-app--trail .trail-add-button { right: 22px; bottom: 108px; }
+  .minimal-app--trail .trail-node { width: 120px; }
+  .minimal-app--trail .trail-node__meta { width: 120px; }
+  .minimal-app--trail .trail-node__meta strong { font-size: 0.76rem; }
+  .minimal-app--trail .trail-node__meta small { font-size: 0.7rem; }
+  .minimal-app--trail .trail-arrival-cue { right: 14px; bottom: 18px; width: calc(100vw - 28px); transform: none; }
+  .minimal-app--trail .command-trigger { left: 16px; bottom: 18px; }
+  @keyframes trail-cue-in-reference { from { opacity: 0; transform: translateY(12px) scale(0.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
 }
