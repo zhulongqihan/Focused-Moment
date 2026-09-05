@@ -8,8 +8,8 @@ function localDate() {
   return `${year}-${month}-${day}`;
 }
 
-async function bootWithTauriMock(page, { includeOverdue = false, includeRecords = false, windowLabel = "main", pausedFocus = false, completedCountdown = false } = {}) {
-  await page.addInitScript(({ today, includeOverdue, includeRecords, windowLabel, pausedFocus, completedCountdown }) => {
+async function bootWithTauriMock(page, { includeOverdue = false, includeRecords = false, windowLabel = "main", pausedFocus = false, completedCountdown = false, todayRecordCount = includeRecords ? 1 : 0, todayTodoCount = 1 } = {}) {
+  await page.addInitScript(({ today, includeOverdue, includeRecords, windowLabel, pausedFocus, completedCountdown, todayRecordCount, todayTodoCount }) => {
     const yesterday = new Date(`${today}T00:00:00`);
     yesterday.setDate(yesterday.getDate() - 1);
     const dateKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -79,6 +79,35 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
         completedTime: "21:10",
       },
     ] : [];
+    const existingTodayRecordCount = focusRecords.filter((record) => record.completedDate === today).length;
+    for (let index = existingTodayRecordCount; index < todayRecordCount; index += 1) {
+      const hour = String(12 + index).padStart(2, "0");
+      focusRecords.push({
+        id: 100 + index,
+        title: `专注段 ${index + 1}`,
+        durationMs: 45 * 60 * 1000,
+        durationLabel: "00:45:00",
+        modeKey: "stopwatch",
+        modeLabel: "正向计时",
+        phaseLabel: "正向计时",
+        linkedTodoId: null,
+        linkedTodoTitle: `路线节点 ${index + 1}`,
+        completedAt: `${today}T${hour}:00:00`,
+        completedDate: today,
+        completedTime: `${hour}:00`,
+      });
+    }
+    const existingTodayTodoCount = todos.filter((item) => item.scheduledDate === today).length;
+    for (let index = existingTodayTodoCount; index < todayTodoCount; index += 1) {
+      todos.push({
+        id: 300 + index,
+        title: `额外时段 ${index + 1}`,
+        isCompleted: false,
+        scheduledDate: today,
+        scheduledTime: `${String(15 + Math.floor(index / 2)).padStart(2, "0")}:${index % 2 ? "30" : "00"}`,
+        importanceKey: "medium",
+      });
+    }
     window.__todoItemsCalls = 0;
     window.__timerSnapshotCalls = 0;
     window.__focusFloatingShown = false;
@@ -257,7 +286,7 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
         }
       },
     };
-  }, { today: localDate(), includeOverdue, includeRecords, windowLabel, pausedFocus, completedCountdown });
+  }, { today: localDate(), includeOverdue, includeRecords, windowLabel, pausedFocus, completedCountdown, todayRecordCount, todayTodoCount });
 
   await page.goto("/");
   if (windowLabel === "main") {
@@ -292,6 +321,24 @@ test("Today trail starts the next task without leaving the path page", async ({ 
   await expect(page.getByText("今日路径", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "暂停这一轮" })).toBeVisible();
   await expect(page.getByRole("button", { name: "计时", exact: true })).toBeVisible();
+});
+
+test("Today trail expands into a scrollable route beyond five segments", async ({ page }) => {
+  await bootWithTauriMock(page, { includeRecords: true, todayRecordCount: 7, todayTodoCount: 6 });
+
+  await expect(page.locator(".trail-node")).toHaveCount(13);
+  const dimensions = await page.locator(".trail-map__viewport").evaluate((element) => ({
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth,
+    canvasWidth: element.querySelector(".trail-map__canvas")?.getBoundingClientRect().width ?? 0,
+  }));
+  expect(dimensions.canvasWidth).toBeGreaterThan(dimensions.clientWidth);
+  expect(dimensions.scrollWidth).toBeGreaterThan(dimensions.clientWidth);
+
+  await page.locator(".trail-map__viewport").evaluate((element) => {
+    element.scrollLeft = element.scrollWidth;
+  });
+  await expect(page.getByRole("button", { name: /^13\./ })).toBeVisible();
 });
 
 test("main window keeps its top bar available while scrolling and exposes a drag surface", async ({ page }) => {

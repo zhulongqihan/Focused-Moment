@@ -48,6 +48,22 @@ interface TrailNode {
   time: string;
   state: TrailNodeState;
   item: TodoItem | null;
+  record: FocusRecord | null;
+  position: TrailPoint;
+}
+
+interface TrailPoint {
+  left: number;
+  top: number;
+}
+
+interface TrailSegment {
+  key: string;
+  title: string;
+  time: string;
+  completed: boolean;
+  item: TodoItem | null;
+  record: FocusRecord | null;
 }
 
 interface PanelTask {
@@ -57,7 +73,7 @@ interface PanelTask {
   item: TodoItem | null;
 }
 
-const trailSlots = [
+const referenceTrailSlots = [
   { title: "早间启动", time: "08:00–09:00" },
   { title: "深度工作", time: "09:30–11:30" },
   { title: "专注时段", time: "14:00–15:30" },
@@ -65,13 +81,15 @@ const trailSlots = [
   { title: "今日收尾", time: "19:00–20:00" },
 ];
 
-const trailNodePositions = [
+const referenceTrailPositions: TrailPoint[] = [
   { left: 12, top: 23.5 },
   { left: 29, top: 41.5 },
   { left: 50, top: 35.8 },
   { left: 69, top: 55.7 },
   { left: 88, top: 30.6 },
 ];
+
+const extendedTrailLanes = [23.5, 41.5, 35.8, 55.7, 30.6, 47.2, 27.5, 52.2];
 
 const samplePanelTasks = [
   "整理今天的会议笔记",
@@ -93,6 +111,66 @@ function weekdayFromLabel(label: string, dateValue: string) {
   return Number.isNaN(date.getTime())
     ? ""
     : new Intl.DateTimeFormat("zh-CN", { weekday: "short" }).format(date);
+}
+
+function formatRecordTime(record: FocusRecord) {
+  const completedTime = record.completedTime || record.completedAt.match(/T(\d{2}:\d{2})/)?.[1] || "";
+  return completedTime ? `${completedTime} · ${record.durationLabel}` : record.durationLabel;
+}
+
+function formatTodoTime(item: TodoItem) {
+  return item.scheduledTime ? `${item.scheduledTime} · 待开始` : "待安排";
+}
+
+function sortByTime<T extends { scheduledTime?: string; completedTime?: string; completedAt?: string }>(items: T[]) {
+  return [...items].sort((left, right) => {
+    const leftTime = left.scheduledTime || left.completedTime || left.completedAt || "";
+    const rightTime = right.scheduledTime || right.completedTime || right.completedAt || "";
+    return leftTime.localeCompare(rightTime);
+  });
+}
+
+function createTrailPositions(count: number): TrailPoint[] {
+  if (count <= 0) {
+    return [];
+  }
+
+  if (count <= referenceTrailPositions.length) {
+    return Array.from({ length: count }, (_, index) => {
+      const referenceIndex = count === 1
+        ? 2
+        : Math.round((index * (referenceTrailPositions.length - 1)) / (count - 1));
+      return referenceTrailPositions[referenceIndex];
+    });
+  }
+
+  return Array.from({ length: count }, (_, index) => ({
+    left: 10 + (80 * index) / (count - 1),
+    top: extendedTrailLanes[index % extendedTrailLanes.length],
+  }));
+}
+
+function createTrailPath(points: TrailPoint[]) {
+  if (points.length === 0) {
+    return "M 0 320";
+  }
+
+  const routePoints = [
+    { left: 0, top: points[0].top },
+    ...points,
+    { left: 100, top: points[points.length - 1].top },
+  ];
+  const coordinates = routePoints.map((point) => ({ x: point.left * 10, y: point.top * 8 }));
+  let path = `M ${coordinates[0].x} ${coordinates[0].y}`;
+
+  for (let index = 1; index < coordinates.length; index += 1) {
+    const previous = coordinates[index - 1];
+    const current = coordinates[index];
+    const distance = (current.x - previous.x) * 0.44;
+    path += ` C ${previous.x + distance} ${previous.y}, ${current.x - distance} ${current.y}, ${current.x} ${current.y}`;
+  }
+
+  return path;
 }
 
 export default function TodayDashboard(props: TodayDashboardProps) {
@@ -149,39 +227,98 @@ export default function TodayDashboard(props: TodayDashboardProps) {
     props.timer().modeKey === "countdown" && props.timer().remainingMs === 0;
 
   const todayRecords = createMemo(() =>
-    props.records().filter((record) => record.completedDate === props.todayDate),
+    sortByTime(props.records().filter((record) => record.completedDate === props.todayDate)),
   );
 
-  const completedNodeCount = () =>
-    Math.min(5, todayRecords().length + props.todayCompletedTodos().length);
+  const completedTodayTodos = createMemo(() => {
+    const linkedTodoIds = new Set(todayRecords().map((record) => record.linkedTodoId).filter((id): id is number => id !== null));
+    return sortByTime(props.todayCompletedTodos().filter((item) => !linkedTodoIds.has(item.id)));
+  });
+
+  const trailSegments = createMemo<TrailSegment[]>(() => {
+    const completedSegments: TrailSegment[] = [
+      ...todayRecords().map((record) => ({
+        key: `record-${record.id}`,
+        title: record.linkedTodoTitle || record.title || "专注记录",
+        time: formatRecordTime(record),
+        completed: true,
+        item: null,
+        record,
+      })),
+      ...completedTodayTodos().map((item) => ({
+        key: `completed-todo-${item.id}`,
+        title: item.title,
+        time: item.scheduledTime ? `${item.scheduledTime} · 已完成` : "已完成",
+        completed: true,
+        item,
+        record: null,
+      })),
+    ];
+    const upcomingSegments = sortByTime(props.todayTodos()).map((item) => ({
+      key: `todo-${item.id}`,
+      title: item.title,
+      time: formatTodoTime(item),
+      completed: false,
+      item,
+      record: null,
+    }));
+
+    if (completedSegments.length === 0 && upcomingSegments.length === 0) {
+      return referenceTrailSlots.map((slot, index) => ({
+        key: `reference-slot-${index + 1}`,
+        title: slot.title,
+        time: slot.time,
+        completed: false,
+        item: null,
+        record: null,
+      }));
+    }
+
+    return [...completedSegments, ...upcomingSegments];
+  });
+
+  const completedNodeCount = () => trailSegments().filter((segment) => segment.completed).length;
 
   const trailNodes = createMemo<TrailNode[]>(() => {
-    const completed = completedNodeCount();
-    const activeIndex = 4;
+    const segments = trailSegments();
+    const positions = createTrailPositions(segments.length);
+    const isReferenceMode = segments[0]?.key === "reference-slot-1";
+    const nextOpenIndex = segments.findIndex((segment) => !segment.completed);
+    const activeIndex = isReferenceMode
+      ? Math.min(4, segments.length - 1)
+      : nextOpenIndex === -1 ? segments.length - 1 : nextOpenIndex;
 
-    return trailSlots.map((slot, index) => ({
-      key: `trail-slot-${index + 1}`,
+    return segments.map((segment, index) => ({
+      key: segment.key,
       index: index + 1,
-      title: slot.title,
-      time: slot.time,
-      state: index < completed ? "done" : index === activeIndex ? "current" : "upcoming",
-      item: props.todayTodos()[index] ?? null,
+      title: segment.title,
+      time: segment.time,
+      state: segment.completed ? "done" : index === activeIndex ? "current" : "upcoming",
+      item: segment.item,
+      record: segment.record,
+      position: positions[index],
     }));
   });
 
-  const trailCompletion = () => Math.round((completedNodeCount() / trailSlots.length) * 100);
+  const trailTotalCount = () => trailNodes().length;
+  const trailCanvasWidth = () => Math.max(954, trailTotalCount() * 230);
+  const trailRoutePath = createMemo(() => createTrailPath(trailNodes().map((node) => node.position)));
+  const activeTrailNode = createMemo(() => trailNodes().find((node) => node.state === "current"));
+  const trailCompletion = () => trailTotalCount() === 0
+    ? 0
+    : Math.round((completedNodeCount() / trailTotalCount()) * 100);
 
   const focusTitle = () =>
     props.timerHasProgress()
       ? props.timer().activeTaskTitle || "当前专注"
-      : "今日收尾";
+      : activeTrailNode()?.title || "今日收尾";
 
   const focusSchedule = () =>
     props.timerHasProgress()
       ? props.timer().isRunning
         ? "这一轮正在进行 · 保持当前节奏"
         : "这一轮已暂停 · 可以继续回来"
-      : "19:00 – 20:00 · 60 分钟";
+      : activeTrailNode()?.time || "19:00 – 20:00 · 60 分钟";
 
   const focusDescription = () =>
     props.timerHasProgress()
@@ -289,93 +426,66 @@ export default function TodayDashboard(props: TodayDashboardProps) {
 
       <section class="trail-stage" aria-label="今日专注路径">
         <div class="trail-map">
-          <div class="trail-map__stars" aria-hidden="true" />
-          <div class="trail-map__horizon" aria-hidden="true" />
-          <svg class="trail-map__landscape" viewBox="0 0 1000 800" preserveAspectRatio="none" aria-hidden="true">
-            <defs>
-              <linearGradient id="trail-dusk-ridge" x1="0" x2="0" y1="0" y2="1">
-                <stop offset="0" stop-color="#9e6b6d" stop-opacity="0.32" />
-                <stop offset="0.6" stop-color="#253e4d" stop-opacity="0.72" />
-                <stop offset="1" stop-color="#071d2a" stop-opacity="0.98" />
-              </linearGradient>
-              <linearGradient id="trail-mid-ridge" x1="0" x2="0.12" y1="0" y2="1">
-                <stop offset="0" stop-color="#123645" stop-opacity="0.92" />
-                <stop offset="1" stop-color="#061b2a" />
-              </linearGradient>
-              <linearGradient id="trail-front-ridge" x1="0" x2="0" y1="0" y2="1">
-                <stop offset="0" stop-color="#061927" />
-                <stop offset="1" stop-color="#020d18" />
-              </linearGradient>
-              <filter id="trail-road-soft" x="-20%" y="-80%" width="140%" height="260%">
-                <feGaussianBlur stdDeviation="3" />
-              </filter>
-            </defs>
-            <path fill="url(#trail-dusk-ridge)" d="M0 540 C76 501 114 530 171 489 C228 448 257 505 319 468 C367 439 414 505 473 477 C535 447 584 505 643 461 C704 415 744 488 806 449 C871 409 910 478 1000 432 L1000 800 L0 800Z" />
-            <path fill="url(#trail-mid-ridge)" d="M0 603 C74 571 118 594 183 558 C246 523 282 585 342 546 C399 508 449 583 511 543 C574 502 621 571 682 526 C749 476 788 557 850 515 C908 475 944 534 1000 504 L1000 800 L0 800Z" />
-            <path fill="url(#trail-front-ridge)" d="M0 682 C78 649 132 688 202 660 C271 632 313 695 384 654 C457 612 505 687 579 651 C653 614 700 682 770 648 C842 613 887 670 951 634 C972 622 987 623 1000 628 L1000 800 L0 800Z" />
-            <path d="M472 800 C500 781 555 783 571 765 C590 743 548 740 559 718 C571 696 627 704 646 680" fill="none" stroke="#d39a62" stroke-opacity="0.55" stroke-width="2.2" filter="url(#trail-road-soft)" />
-            <path d="M472 800 C500 781 555 783 571 765 C590 743 548 740 559 718 C571 696 627 704 646 680" fill="none" stroke="#e7b36b" stroke-opacity="0.62" stroke-width="1" />
-          </svg>
-          <div class="trail-map__lighthouse" aria-hidden="true">
-            <span class="trail-map__lighthouse-beam" />
-            <span class="trail-map__lighthouse-tower" />
-          </div>
-          <svg class="trail-map__route" viewBox="0 0 954 800" role="img" aria-label="今日专注节点路径">
-            <defs>
-              <linearGradient id="trail-route-gradient" x1="0" x2="1" y1="0" y2="0">
-                <stop offset="0" stop-color="#e4a95b" />
-                <stop offset="0.62" stop-color="#efc36f" />
-                <stop offset="1" stop-color="#d2f2d4" />
-              </linearGradient>
-              <filter id="trail-route-glow" x="-30%" y="-30%" width="160%" height="160%">
-                <feGaussianBlur stdDeviation="6" result="blur" />
-                <feMerge>
-                  <feMergeNode in="blur" />
-                  <feMergeNode in="SourceGraphic" />
-                </feMerge>
-              </filter>
-            </defs>
-            <path class="trail-map__route-shadow" d="M 0 192 C 47 163 83 176 114 189 S 197 322 276 332 S 418 309 477 287 S 584 323 658 446 S 785 281 839 245 S 902 223 954 224" />
-            <path class="trail-map__route-line" d="M 0 192 C 47 163 83 176 114 189 S 197 322 276 332 S 418 309 477 287 S 584 323 658 446 S 785 281 839 245 S 902 223 954 224" />
-            <path class="trail-map__route-dash" d="M 0 192 C 47 163 83 176 114 189 S 197 322 276 332 S 418 309 477 287 S 584 323 658 446 S 785 281 839 245 S 902 223 954 224" />
-          </svg>
+          <div class="trail-map__viewport" aria-label="可横向浏览的专注路径">
+            <div
+              class="trail-map__canvas"
+              style={{ width: `max(100%, ${trailCanvasWidth()}px)` }}
+            >
+              <svg class="trail-map__route" viewBox="0 0 1000 800" preserveAspectRatio="none" role="img" aria-label="今日专注节点路径">
+                <defs>
+                  <linearGradient id="trail-route-gradient" x1="0" x2="1" y1="0" y2="0">
+                    <stop offset="0" stop-color="#e4a95b" />
+                    <stop offset="0.62" stop-color="#efc36f" />
+                    <stop offset="1" stop-color="#d2f2d4" />
+                  </linearGradient>
+                  <filter id="trail-route-glow" x="-30%" y="-30%" width="160%" height="160%">
+                    <feGaussianBlur stdDeviation="6" result="blur" />
+                    <feMerge>
+                      <feMergeNode in="blur" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
+                </defs>
+                <path class="trail-map__route-shadow" d={trailRoutePath()} />
+                <path class="trail-map__route-line" d={trailRoutePath()} />
+                <path class="trail-map__route-dash" d={trailRoutePath()} />
+              </svg>
 
-          <For each={trailNodes()}>
-            {(node, index) => {
-              const position = trailNodePositions[index()];
-              return (
-                <button
-                  type="button"
-                  classList={{
-                    "trail-node": true,
-                    "trail-node--done": node.state === "done",
-                    "trail-node--current": node.state === "current",
-                    "trail-node--upcoming": node.state === "upcoming",
-                  }}
-                  style={{ left: `${position.left}%`, top: `${position.top}%` }}
-                  aria-label={`${node.index}. ${node.title} · ${node.time}`}
-                  disabled={props.busy() || (node.state === "done" && !node.item)}
-                  onClick={() => node.item ? props.onUseTodo(node.item) : props.onOpenFocus()}
-                >
-                  <span class="trail-node__meta">
-                    <b>{node.index}</b>
-                    <strong>{node.title}</strong>
-                    <small>{node.time}</small>
-                  </span>
-                  <span class="trail-node__orb" aria-hidden="true">
-                    <Show when={node.state === "done"} fallback={<Show when={node.state === "current"}><span class="trail-node__current-dot" /></Show>}>
-                      <Check size={19} strokeWidth={2.4} />
-                    </Show>
-                  </span>
-                </button>
-              );
-            }}
-          </For>
+              <For each={trailNodes()}>
+                {(node) => (
+                  <button
+                    type="button"
+                    classList={{
+                      "trail-node": true,
+                      "trail-node--done": node.state === "done",
+                      "trail-node--current": node.state === "current",
+                      "trail-node--upcoming": node.state === "upcoming",
+                    }}
+                    style={{ left: `${node.position.left}%`, top: `${node.position.top}%` }}
+                    aria-label={`${node.index}. ${node.title} · ${node.time}`}
+                    disabled={props.busy()}
+                    onClick={() => node.item ? props.onUseTodo(node.item) : node.record ? props.onOpenRecords() : props.onOpenFocus()}
+                  >
+                    <span class="trail-node__meta">
+                      <b>{node.index}</b>
+                      <strong>{node.title}</strong>
+                      <small>{node.time}</small>
+                    </span>
+                    <span class="trail-node__orb" aria-hidden="true">
+                      <Show when={node.state === "done"} fallback={<Show when={node.state === "current"}><span class="trail-node__current-dot" /></Show>}>
+                        <Check size={19} strokeWidth={2.4} />
+                      </Show>
+                    </span>
+                  </button>
+                )}
+              </For>
+            </div>
+          </div>
 
           <div class="trail-map__footer">
             <div>
-              <strong>已走 {completedNodeCount()} / 5 段</strong>
-              <span>完成 {completedNodeCount()} 段专注，继续前行。</span>
+              <strong>已走 {completedNodeCount()} / {trailTotalCount()} 段</strong>
+              <span>完成 {completedNodeCount()} 段专注，{trailTotalCount() > 5 ? "左右滑动查看更多。" : "继续前行。"}</span>
             </div>
             <div class="trail-map__progress" aria-label={`已完成 ${trailCompletion()}%`}>
               <span style={{ width: `${trailCompletion()}%` }} />
@@ -469,7 +579,7 @@ export default function TodayDashboard(props: TodayDashboardProps) {
       <Show when={completionCueVisible()}>
         <div class="trail-arrival-cue" role="status" aria-live="polite">
           <span class="trail-arrival-cue__icon"><Check size={19} strokeWidth={2.5} /></span>
-          <span><strong>已到达 · +1 节点</strong><small>完成 3 段专注，继续前行。</small></span>
+          <span><strong>已到达 · +1 节点</strong><small>完成 {completedNodeCount()} 段专注，继续前行。</small></span>
           <button type="button" class="trail-arrival-cue__close" aria-label="关闭提示" onClick={() => setCompletionCueVisible(false)}>
             <X size={17} strokeWidth={1.7} />
           </button>

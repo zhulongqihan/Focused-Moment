@@ -2060,3 +2060,174 @@ html.floating-window body { overflow: hidden; }
   .minimal-app--trail .command-trigger { left: 16px; bottom: 18px; }
   @keyframes trail-cue-in-reference { from { opacity: 0; transform: translateY(12px) scale(0.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
 }
+
+/* Responsive trail surface: the reference composition stays proportional,
+   while the route itself becomes a real horizontal track when it has more
+   nodes than the viewport can safely display. */
+.minimal-app--trail {
+  height: auto;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.minimal-app--trail .minimal-workspace {
+  height: auto;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.minimal-app--trail .minimal-nav {
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+}
+
+.minimal-app--trail .minimal-content {
+  height: auto;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow: visible;
+}
+
+.minimal-app--trail .today-page {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.minimal-app--trail .trail-stage {
+  height: clamp(604px, calc(100dvh - 256px), 801px);
+  min-height: 604px;
+}
+
+.minimal-app--trail .trail-map {
+  min-height: 0;
+  height: 100%;
+}
+
+.minimal-app--trail .trail-map__viewport {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-color: rgba(196, 237, 211, 0.35) transparent;
+  scrollbar-width: thin;
+}
+
+.minimal-app--trail .trail-map__viewport::-webkit-scrollbar { height: 7px; }
+.minimal-app--trail .trail-map__viewport::-webkit-scrollbar-track { background: transparent; }
+.minimal-app--trail .trail-map__viewport::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 99px;
+  background: rgba(196, 237, 211, 0.34);
+  background-clip: padding-box;
+}
+
+.minimal-app--trail .trail-map__canvas {
+  position: relative;
+  height: 100%;
+  min-height: 100%;
+}
+
+.minimal-app--trail .trail-map__route {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.minimal-app--trail .trail-map__route path {
+  vector-effect: non-scaling-stroke;
+}
+
+.minimal-app--trail .trail-map__footer {
+  width: min(312px, calc(100% - 80px));
+}
+
+.minimal-app--trail .trail-map__progress {
+  width: 100%;
+}
+
+@media (max-width: 1180px) and (min-width: 761px) {
+  .minimal-app--trail .trail-map__footer {
+    left: 40px;
+    width: min(312px, calc(100% - 80px));
+  }
+
+  .minimal-app--trail .trail-map__progress { width: 100%; }
+  .minimal-app--trail .trail-node { width: 156px; }
+  .minimal-app--trail .trail-node__meta { width: 156px; }
+}
+
+@media (max-width: 960px) and (min-width: 761px) {
+  .minimal-app--trail .trail-page__headline-actions {
+    position: static;
+    justify-content: flex-start;
+    gap: 24px;
+    margin: 24px 0 20px;
+  }
+
+  .minimal-app--trail .trail-stage {
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    margin-left: 0;
+    margin-top: 0;
+  }
+
+  .minimal-app--trail .trail-map {
+    height: clamp(560px, calc(100dvh - 180px), 620px);
+    min-height: 0;
+  }
+
+  .minimal-app--trail .trail-focus-panel {
+    height: 604px;
+    min-height: 604px;
+    padding-right: 18px;
+    padding-left: 18px;
+  }
+
+  .minimal-app--trail .trail-timer { width: 162px; height: 162px; }
+  .minimal-app--trail .trail-timer__center strong { font-size: 2.75rem; }
+}
+
+@media (max-width: 760px) {
+  .minimal-app--trail {
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .minimal-app--trail .minimal-workspace {
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  .minimal-app--trail .minimal-nav {
+    height: auto;
+    min-height: 0;
+  }
+
+  .minimal-app--trail .trail-stage {
+    height: auto;
+    min-height: 0;
+  }
+
+  .minimal-app--trail .trail-map {
+    height: clamp(560px, 145vw, 620px);
+    min-height: 0;
+  }
+
+  .minimal-app--trail .trail-map__footer {
+    left: 22px;
+    width: calc(100% - 44px);
+  }
+
+  .minimal-app--trail .trail-map__progress { width: 100%; }
+  .minimal-app--trail .trail-node { width: 132px; }
+  .minimal-app--trail .trail-node__meta { width: 132px; }
+}
