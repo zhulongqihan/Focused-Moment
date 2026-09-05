@@ -2,6 +2,7 @@ import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount }
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import { listen } from "@tauri-apps/api/event";
 import {
+  ArrowUpRight,
   ChartNoAxesCombined,
   CircleDot,
   Clock3,
@@ -594,6 +595,55 @@ function getRecentTrendDays(items: AnalyticsSnapshot["dailyBreakdown"]) {
   return days;
 }
 
+function mergeArchiveDays(days: AnalyticsSnapshot["dailyBreakdown"], items: FocusRecord[]) {
+  const recordsByDate = new Map(
+    groupRecordsByDate(items).map((group) => [group.date, group]),
+  );
+
+  return days.map((day) => {
+    const group = recordsByDate.get(day.date);
+    if (!group || group.records.length === 0 || day.sessionCount > 0 || day.totalDurationMs > 0) {
+      return day;
+    }
+
+    const linkedSessionCount = group.records.filter((record) => record.linkedTodoId !== null).length;
+    return {
+      ...day,
+      totalDurationMs: group.totalDurationMs,
+      totalDurationLabel: formatDurationMs(group.totalDurationMs),
+      sessionCount: group.records.length,
+      linkedSessionCount,
+      independentSessionCount: group.records.length - linkedSessionCount,
+    };
+  });
+}
+
+function createArchivePath(days: AnalyticsSnapshot["dailyBreakdown"]) {
+  if (days.length === 0) {
+    return "M 0 72";
+  }
+
+  const maxDuration = Math.max(1, ...days.map((day) => day.totalDurationMs));
+  const points = days.map((day, index) => {
+    const x = days.length === 1 ? 50 : 7 + (86 * index) / (days.length - 1);
+    const intensity = day.totalDurationMs / maxDuration;
+    return { x, y: 70 - intensity * 42 };
+  });
+
+  if (points.length === 1) {
+    return `M 0 ${points[0].y + 18} C 20 ${points[0].y + 18}, 34 ${points[0].y}, ${points[0].x} ${points[0].y}`;
+  }
+
+  let path = `M ${points[0].x - 8} ${points[0].y + 8}`;
+  for (let index = 1; index < points.length; index += 1) {
+    const previous = points[index - 1];
+    const current = points[index];
+    const distance = (current.x - previous.x) * 0.42;
+    path += ` C ${previous.x + distance} ${previous.y}, ${current.x - distance} ${current.y}, ${current.x} ${current.y}`;
+  }
+  return path;
+}
+
 function importanceLabel(value: TodoImportance) {
   return value === "high" ? "高" : value === "low" ? "低" : "中";
 }
@@ -636,6 +686,7 @@ function MainShell() {
   const [floatingTab, setFloatingTab] = createSignal<FloatingTab>("todos");
   const [floatingOpacity, setFloatingOpacity] = createSignal(readFloatingOpacity());
   const [floatingOpacityPanelOpen, setFloatingOpacityPanelOpen] = createSignal(false);
+  const [selectedArchiveDate, setSelectedArchiveDate] = createSignal(getToday());
   let undoTimer: number | undefined;
   let commandInput: HTMLInputElement | undefined;
   let commandTrigger: HTMLButtonElement | undefined;
@@ -660,10 +711,19 @@ function MainShell() {
   const recentBreakdown = createMemo(() => getRecentTrendDays(analytics()?.dailyBreakdown ?? []));
   const dailyCopy = createMemo(() => getDailyCopy(getToday()));
   const recordGroups = createMemo(() => groupRecordsByDate(records()));
+  const archiveDays = createMemo(() => mergeArchiveDays(recentBreakdown(), records()));
+  const archivePath = createMemo(() => createArchivePath(archiveDays()));
+  const selectedArchiveDay = createMemo(() =>
+    archiveDays().find((day) => day.date === selectedArchiveDate()) ?? archiveDays()[archiveDays().length - 1] ?? null,
+  );
+  const selectedArchiveRecords = createMemo(() => {
+    const selectedDate = selectedArchiveDay()?.date;
+    return selectedDate ? records().filter((record) => recordDateKey(record) === selectedDate) : [];
+  });
   const recentWeekDurationMs = () =>
-    recentBreakdown().reduce((total, day) => total + day.totalDurationMs, 0);
+    archiveDays().reduce((total, day) => total + day.totalDurationMs, 0);
   const recentWeekActiveDays = () =>
-    recentBreakdown().filter((day) => day.totalDurationMs > 0).length;
+    archiveDays().filter((day) => day.totalDurationMs > 0).length;
   const totalTodoCount = () =>
     (analytics()?.completedTodoCount ?? 0) + (analytics()?.pendingTodoCount ?? 0);
   const todoCompletionPercent = () => {
@@ -671,7 +731,7 @@ function MainShell() {
     return total === 0 ? 0 : Math.round(((analytics()?.completedTodoCount ?? 0) / total) * 100);
   };
   const maxDailyDuration = () =>
-    Math.max(1, ...recentBreakdown().map((day) => day.totalDurationMs));
+    Math.max(1, ...archiveDays().map((day) => day.totalDurationMs));
   const selectedTodo = () =>
     todos().find((item) => item.id === linkedTodoId() && !item.isCompleted) ?? null;
   const activeTitle = () =>
@@ -680,6 +740,13 @@ function MainShell() {
   const timerCanContinue = () =>
     timerHasProgress() && !(timer().modeKey === "countdown" && timer().remainingMs === 0);
   const canFinish = () => timer().elapsedMs > 0 && timer().canCompleteSession;
+
+  createEffect(() => {
+    const days = archiveDays();
+    if (days.length > 0 && !days.some((day) => day.date === selectedArchiveDate())) {
+      setSelectedArchiveDate(days[days.length - 1].date);
+    }
+  });
   const paletteCommands = (): PaletteCommand[] => [
     { id: "today", label: "打开今日驾驶舱", detail: "查看当前状态、下一件事和今日进展" },
     { id: "focus", label: "打开完整计时", detail: "进入模式、任务和计时控制" },
@@ -1928,10 +1995,14 @@ function MainShell() {
     <div
       classList={{
         "minimal-app": true,
+        "minimal-app--cinematic": true,
         "minimal-app--running": timer().isRunning,
         "minimal-app--paused": !timer().isRunning && timerHasProgress(),
         "minimal-app--break": timer().phaseKey === "break",
+        "minimal-app--focus": activeView() === "focus",
+        "minimal-app--todos": activeView() === "todos",
         "minimal-app--records": activeView() === "records",
+        "minimal-app--settings": activeView() === "settings",
         "minimal-app--trail": activeView() === "today",
       }}
     >
@@ -2672,8 +2743,8 @@ function MainShell() {
               <header class="records-page__masthead">
                 <div>
                   <span class="records-page__eyebrow">RECORDS / PERSONAL ARCHIVE</span>
-                  <h1>看见自己留下的节奏</h1>
-                  <p>每一次回到这里，都会在时间里留下一个清晰的坐标。</p>
+                  <h1>专注记录</h1>
+                  <p>把走过的路，收成看得见的节奏。</p>
                 </div>
                 <div class="records-page__counter" aria-label={`共 ${records().length} 条专注记录`}>
                   <span>LOCAL LOG</span>
@@ -2681,6 +2752,153 @@ function MainShell() {
                   <small>条专注记录</small>
                 </div>
               </header>
+              <Show when={analytics()}>
+                {(summary) => (
+                  <section class="records-archive" aria-label="专注记录档案">
+                    <div class="records-archive__summary">
+                      <div class="records-archive__summary-copy">
+                        <span class="records-archive__kicker"><span aria-hidden="true" /> ARCHIVE / PERSONAL RHYTHM</span>
+                        <h2>每个节点，都是你回来过的证据。</h2>
+                        <p>专注不会凭空消失，它会在日期、时长和一次次回到这里的动作里，留下可以回看的轨迹。</p>
+                      </div>
+                      <div class="records-archive__metric">
+                        <span>累计专注</span>
+                        <strong>{summary().totalFocusDurationLabel}</strong>
+                        <small>累计专注时长</small>
+                      </div>
+                      <div class="records-archive__metric">
+                        <span>完成段数</span>
+                        <strong>{summary().sessionCount}</strong>
+                        <small>条真实记录</small>
+                      </div>
+                      <div class="records-archive__metric records-archive__metric--accent">
+                        <span>最长连续</span>
+                        <strong>{summary().currentStreakDays}</strong>
+                        <small>天保持节奏</small>
+                      </div>
+                    </div>
+
+                    <div class="records-archive__body">
+                      <section class="records-archive__timeline" aria-label="最近七天专注轨迹">
+                        <div class="records-archive__timeline-heading">
+                          <div>
+                            <span>ARCHIVE TRAIL / 专注档案</span>
+                            <h2>把时间连成一条路</h2>
+                          </div>
+                          <strong>{archiveDays().length} 天窗口</strong>
+                        </div>
+                        <div class="records-archive__map">
+                          <div class="records-archive__map-glow" aria-hidden="true" />
+                          <svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="最近七天的专注路径">
+                            <path class="records-archive__route-shadow" d={archivePath()} />
+                            <path class="records-archive__route-line" d={archivePath()} />
+                            <path class="records-archive__route-dash" d={archivePath()} />
+                          </svg>
+                          <For each={archiveDays()}>
+                            {(day, index) => {
+                              const peak = Math.max(1, ...archiveDays().map((item) => item.totalDurationMs));
+                              const left = archiveDays().length === 1 ? 50 : 7 + (86 * index()) / (archiveDays().length - 1);
+                              const top = 70 - (day.totalDurationMs / peak) * 42;
+                              const isSelected = () => selectedArchiveDay()?.date === day.date;
+                              return (
+                                <button
+                                  type="button"
+                                  classList={{
+                                    "records-archive__node": true,
+                                    "records-archive__node--selected": isSelected(),
+                                    "records-archive__node--empty": day.totalDurationMs === 0,
+                                    "records-archive__node--first": index() === 0,
+                                    "records-archive__node--last": index() === archiveDays().length - 1,
+                                  }}
+                                  style={`left: ${left}%; top: ${top}%; --archive-node-x: ${left * 7.4}px;`}
+                                  aria-label={`${formatAnalyticsDate(day.date)}，专注 ${day.totalDurationLabel}，${day.sessionCount} 段`}
+                                  aria-pressed={isSelected()}
+                                  onClick={() => setSelectedArchiveDate(day.date)}
+                                >
+                                  <span class="records-archive__node-label">
+                                    <b>{formatAnalyticsDate(day.date)}</b>
+                                    <small>{day.sessionCount > 0 ? `${day.sessionCount} 段 · ${day.totalDurationLabel}` : "尚未留下记录"}</small>
+                                  </span>
+                                  <span class="records-archive__node-orb" aria-hidden="true" />
+                                </button>
+                              );
+                            }}
+                          </For>
+                        </div>
+                        <div class="records-archive__timeline-footer">
+                          <span>最近 7 天</span>
+                          <strong>{recentWeekActiveDays()} 天有投入</strong>
+                          <span>今天</span>
+                        </div>
+                      </section>
+
+                      <aside class="records-archive__detail" aria-label="选中日期详情">
+                        <div class="records-archive__detail-heading">
+                          <span>SELECTED DAY / 选中日期</span>
+                          <span class="records-archive__detail-signal" aria-hidden="true" />
+                        </div>
+                        <h2>{selectedArchiveDay() ? formatRecordDay(selectedArchiveDay()!.date) : "还没有记录"}</h2>
+                        <p>{selectedArchiveDay()?.sessionCount ?? 0} 段专注 · {selectedArchiveDay()?.totalDurationLabel ?? "00:00:00"}</p>
+                        <div class="records-archive__detail-mountain" aria-hidden="true">
+                          <span />
+                          <i />
+                          <b />
+                        </div>
+                        <div class="records-hero__dial" aria-label={`已完成 ${selectedArchiveDay()?.sessionCount ?? 0} 段专注`}>
+                          <div class="records-hero__dial-ring records-hero__dial-ring--outer" />
+                          <div class="records-hero__dial-ring records-hero__dial-ring--inner" />
+                          <div class="records-hero__dial-core">
+                            <span>FOCUS LOG</span>
+                            <strong>{selectedArchiveDay()?.sessionCount ?? 0}</strong>
+                            <small>段专注</small>
+                          </div>
+                          <i class="records-hero__dial-marker" aria-hidden="true" />
+                        </div>
+                        <button
+                          type="button"
+                          class="records-archive__detail-action"
+                          disabled={selectedArchiveRecords().length === 0}
+                          onClick={() => document.querySelector(".record-history")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                        >
+                          {selectedArchiveRecords().length > 0 ? "查看这一天的记录" : "这一天还没有记录"}
+                          <ArrowUpRight size={16} strokeWidth={1.8} aria-hidden="true" />
+                        </button>
+                        <div class="records-archive__quote">
+                          <span class="records-hero__letter-label">TODAY / 今日一句</span>
+                          <strong>“{getCopyDisplayText(dailyCopy())}”</strong>
+                          <small>{getCopyAttribution(dailyCopy())}</small>
+                        </div>
+                      </aside>
+                    </div>
+
+                    <section class="records-stats records-archive__stats" aria-label="专注概览">
+                      <div>
+                        <span>今天留下</span>
+                        <strong>{summary().todayFocusDurationLabel}</strong>
+                        <small>{summary().todaySessionCount} 段</small>
+                      </div>
+                      <div>
+                        <span>累计时间</span>
+                        <strong>{summary().totalFocusDurationLabel}</strong>
+                        <small>{summary().sessionCount} 段记录</small>
+                      </div>
+                      <div>
+                        <span>回来的日子</span>
+                        <strong>{summary().activeDays}</strong>
+                        <small>平均每天 {summary().averageDailyDurationLabel}</small>
+                      </div>
+                      <div class="records-stats__progress">
+                        <div class="records-stats__progress-heading">
+                          <span>待办完成轨迹</span>
+                          <strong>{todoCompletionPercent()}%</strong>
+                        </div>
+                        <div class="records-progress" aria-hidden="true"><span style={{ width: `${todoCompletionPercent()}%` }} /></div>
+                        <small>{summary().completedTodoCount} 已完成 · {summary().pendingTodoCount} 待处理</small>
+                      </div>
+                    </section>
+                  </section>
+                )}
+              </Show>
               <Show when={analytics()}>
                 {(summary) => (
                   <>

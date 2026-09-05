@@ -481,19 +481,25 @@ test("reminder settings expose popup, taskbar and custom sound controls", async 
   });
 });
 
-test("records page turns a long history into date groups and achievement insights", async ({ page }) => {
+test("records page turns a long history into a selectable archive trail", async ({ page }) => {
   await bootWithTauriMock(page, { includeRecords: true });
 
   await page.getByRole("button", { name: "记录", exact: true }).click();
 
-  await expect(page.getByRole("heading", { name: "看见自己留下的节奏" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "最近 7 天" })).toBeVisible();
-  await expect(page.locator(".records-hero__streak strong")).toHaveText("2");
-  await expect(page.locator(".records-hero__letter-label")).toHaveText("TODAY / 今日一句");
-  await expect(page.locator(".records-hero__dial")).toContainText("3");
-  await expect(page.locator(".records-trajectory")).toContainText("你的节奏正在成形");
-  await expect(page.locator(".records-stats__progress")).toContainText("0%");
+  await expect(page.getByRole("heading", { name: "专注记录" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "把时间连成一条路" })).toBeVisible();
+  await expect(page.locator(".records-archive__summary")).toContainText("01:30:00");
+  await expect(page.locator(".records-archive__timeline-footer")).toContainText("2 天有投入");
+  await expect(page.locator(".records-archive__detail")).toContainText("1 段专注");
+  await expect(page.locator(".records-archive__detail .records-hero__dial")).toContainText("1");
+  await expect(page.locator(".records-archive__stats .records-stats__progress")).toContainText("0%");
   await expect(page.locator(".record-history__heading")).toContainText("3 轮");
+
+  const archiveNodes = page.locator(".records-archive__node");
+  await expect(archiveNodes).toHaveCount(7);
+  await archiveNodes.nth(5).click();
+  await expect(page.locator(".records-archive__detail")).toContainText("昨天");
+  await expect(page.locator(".records-archive__detail")).toContainText("2 段专注");
 
   const recordDays = page.locator(".record-day");
   await expect(recordDays).toHaveCount(2);
