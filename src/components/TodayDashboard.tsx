@@ -3,11 +3,9 @@ import {
   ArrowUpRight,
   BookOpen,
   Check,
-  ChevronDown,
   CircleCheck,
   Clock3,
   Flame,
-  ListChecks,
   Plus,
   X,
 } from "lucide-solid";
@@ -66,21 +64,6 @@ interface TrailSegment {
   record: FocusRecord | null;
 }
 
-interface PanelTask {
-  key: string;
-  title: string;
-  duration: string;
-  item: TodoItem | null;
-}
-
-const referenceTrailSlots = [
-  { title: "早间启动", time: "08:00–09:00" },
-  { title: "深度工作", time: "09:30–11:30" },
-  { title: "专注时段", time: "14:00–15:30" },
-  { title: "创作专注", time: "16:00–17:30" },
-  { title: "今日收尾", time: "19:00–20:00" },
-];
-
 const referenceTrailPositions: TrailPoint[] = [
   { left: 12, top: 23.5 },
   { left: 29, top: 41.5 },
@@ -91,11 +74,24 @@ const referenceTrailPositions: TrailPoint[] = [
 
 const extendedTrailLanes = [23.5, 41.5, 35.8, 55.7, 30.6, 47.2, 27.5, 52.2];
 
-const samplePanelTasks = [
-  "整理今天的会议笔记",
-  "复盘重点事项与收获",
-  "规划明日优先清单",
-];
+const compactTrailPositions: Record<number, TrailPoint[]> = {
+  1: [{ left: 50, top: 38 }],
+  2: [
+    { left: 22, top: 30 },
+    { left: 76, top: 49 },
+  ],
+  3: [
+    { left: 15, top: 32 },
+    { left: 50, top: 54 },
+    { left: 85, top: 28 },
+  ],
+  4: [
+    { left: 12, top: 27 },
+    { left: 36, top: 48 },
+    { left: 63, top: 36 },
+    { left: 88, top: 54 },
+  ],
+};
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
@@ -135,17 +131,16 @@ function createTrailPositions(count: number): TrailPoint[] {
     return [];
   }
 
-  if (count <= referenceTrailPositions.length) {
-    return Array.from({ length: count }, (_, index) => {
-      const referenceIndex = count === 1
-        ? 2
-        : Math.round((index * (referenceTrailPositions.length - 1)) / (count - 1));
-      return referenceTrailPositions[referenceIndex];
-    });
+  if (count < referenceTrailPositions.length) {
+    return compactTrailPositions[count].map((point) => ({ ...point }));
+  }
+
+  if (count === referenceTrailPositions.length) {
+    return referenceTrailPositions.map((point) => ({ ...point }));
   }
 
   return Array.from({ length: count }, (_, index) => ({
-    left: 10 + (80 * index) / (count - 1),
+    left: 10 + (76 * index) / (count - 1),
     top: extendedTrailLanes[index % extendedTrailLanes.length],
   }));
 }
@@ -161,6 +156,14 @@ function createTrailPath(points: TrailPoint[]) {
     { left: 100, top: points[points.length - 1].top },
   ];
   const coordinates = routePoints.map((point) => ({ x: point.left * 10, y: point.top * 8 }));
+
+  if (points.length === 1) {
+    const point = coordinates[1];
+    const startY = point.y + 96;
+    const distance = point.x * 0.42;
+    return `M 0 ${startY} C ${distance} ${startY}, ${point.x - distance * 0.7} ${point.y - 28}, ${point.x} ${point.y}`;
+  }
+
   let path = `M ${coordinates[0].x} ${coordinates[0].y}`;
 
   for (let index = 1; index < coordinates.length; index += 1) {
@@ -176,8 +179,9 @@ function createTrailPath(points: TrailPoint[]) {
 export default function TodayDashboard(props: TodayDashboardProps) {
   const [completionCueVisible, setCompletionCueVisible] = createSignal(false);
   let trailPageElement: HTMLElement | undefined;
+  let trailViewportElement: HTMLDivElement | undefined;
   let completionCueTimer: number | undefined;
-  let arrivalCueShown = false;
+  let trailScrollFrame: number | undefined;
 
   onMount(() => {
     if (!trailPageElement || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
@@ -220,6 +224,9 @@ export default function TodayDashboard(props: TodayDashboardProps) {
   onCleanup(() => {
     if (completionCueTimer !== undefined) {
       window.clearTimeout(completionCueTimer);
+    }
+    if (trailScrollFrame !== undefined) {
+      window.cancelAnimationFrame(trailScrollFrame);
     }
   });
 
@@ -264,14 +271,14 @@ export default function TodayDashboard(props: TodayDashboardProps) {
     }));
 
     if (completedSegments.length === 0 && upcomingSegments.length === 0) {
-      return referenceTrailSlots.map((slot, index) => ({
-        key: `reference-slot-${index + 1}`,
-        title: slot.title,
-        time: slot.time,
+      return [{
+        key: "empty-start",
+        title: "今天的第一段",
+        time: "准备开始",
         completed: false,
         item: null,
         record: null,
-      }));
+      }];
     }
 
     return [...completedSegments, ...upcomingSegments];
@@ -282,11 +289,8 @@ export default function TodayDashboard(props: TodayDashboardProps) {
   const trailNodes = createMemo<TrailNode[]>(() => {
     const segments = trailSegments();
     const positions = createTrailPositions(segments.length);
-    const isReferenceMode = segments[0]?.key === "reference-slot-1";
     const nextOpenIndex = segments.findIndex((segment) => !segment.completed);
-    const activeIndex = isReferenceMode
-      ? Math.min(4, segments.length - 1)
-      : nextOpenIndex === -1 ? segments.length - 1 : nextOpenIndex;
+    const activeIndex = nextOpenIndex === -1 ? segments.length - 1 : nextOpenIndex;
 
     return segments.map((segment, index) => ({
       key: segment.key,
@@ -301,29 +305,32 @@ export default function TodayDashboard(props: TodayDashboardProps) {
   });
 
   const trailTotalCount = () => trailNodes().length;
-  const trailCanvasWidth = () => Math.max(954, trailTotalCount() * 230);
+  const trailCanvasWidth = () => Math.max(954, 210 + Math.max(0, trailTotalCount() - 1) * 214);
   const trailRoutePath = createMemo(() => createTrailPath(trailNodes().map((node) => node.position)));
   const activeTrailNode = createMemo(() => trailNodes().find((node) => node.state === "current"));
-  const trailCompletion = () => trailTotalCount() === 0
-    ? 0
-    : Math.round((completedNodeCount() / trailTotalCount()) * 100);
 
   const focusTitle = () =>
     props.timerHasProgress()
       ? props.timer().activeTaskTitle || "当前专注"
-      : activeTrailNode()?.title || "今日收尾";
+      : activeTrailNode()?.title || "下一段专注";
 
   const focusSchedule = () =>
     props.timerHasProgress()
       ? props.timer().isRunning
         ? "这一轮正在进行 · 保持当前节奏"
         : "这一轮已暂停 · 可以继续回来"
-      : activeTrailNode()?.time || "19:00 – 20:00 · 60 分钟";
+      : activeTrailNode()?.time || "准备好后再走一段";
 
   const focusDescription = () =>
     props.timerHasProgress()
       ? "把注意力交给眼前这一件事，其他事情稍后再处理。"
-      : "梳理与总结，为今天画上句号。";
+      : activeTrailNode()?.item
+        ? "下一段从这里开始，完成后会留在今天的路径里。"
+        : activeTrailNode()
+          ? "从一段专注开始，为今天留下一个清晰的坐标。"
+          : completedNodeCount() > 0
+            ? "今天的路径已经留下坐标，想继续就再走一段。"
+            : "准备好后，从今天的第一段开始。";
 
   const focusTime = () => {
     if (props.timerHasProgress()) {
@@ -334,9 +341,8 @@ export default function TodayDashboard(props: TodayDashboardProps) {
         : props.timer().elapsedLabel.slice(-5);
     }
 
-    // The reference screen uses a 45-minute next station. The real preference
-    // still controls the timer after the user starts it.
-    return "45:00";
+    const minutes = Math.max(1, Math.round(props.defaultFocusMinutes() || 45));
+    return `${String(minutes).padStart(2, "0")}:00`;
   };
 
   const focusProgress = () => {
@@ -354,26 +360,6 @@ export default function TodayDashboard(props: TodayDashboardProps) {
     );
   };
 
-  const panelTasks = createMemo<PanelTask[]>(() => {
-    const liveTasks = props.todayTodos().slice(0, 3).map((item) => ({
-      key: `todo-${item.id}`,
-      title: item.title,
-      duration: "20 分钟",
-      item,
-    }));
-
-    if (liveTasks.length > 0) {
-      return liveTasks;
-    }
-
-    return samplePanelTasks.map((title, index) => ({
-      key: `sample-task-${index}`,
-      title,
-      duration: "20 分钟",
-      item: null,
-    }));
-  });
-
   function showCompletionCue() {
     setCompletionCueVisible(true);
     if (completionCueTimer !== undefined) {
@@ -388,10 +374,34 @@ export default function TodayDashboard(props: TodayDashboardProps) {
   }
 
   createEffect(() => {
-    if (!arrivalCueShown && completedNodeCount() >= 3) {
-      arrivalCueShown = true;
-      showCompletionCue();
+    const nodes = trailNodes();
+    const viewport = trailViewportElement;
+    const activeIndex = nodes.findIndex((node) => node.state === "current");
+    if (!viewport || nodes.length <= referenceTrailPositions.length || activeIndex <= 0) {
+      return;
     }
+
+    const activeElement = viewport.querySelector<HTMLElement>(`[data-trail-index="${activeIndex + 1}"]`);
+    if (!activeElement) {
+      return;
+    }
+
+    if (trailScrollFrame !== undefined) {
+      window.cancelAnimationFrame(trailScrollFrame);
+    }
+    trailScrollFrame = window.requestAnimationFrame(() => {
+      if (!trailViewportElement || !activeElement.isConnected) {
+        return;
+      }
+      const maxScrollLeft = Math.max(0, trailViewportElement.scrollWidth - trailViewportElement.clientWidth);
+      const targetScrollLeft = clamp(
+        activeElement.offsetLeft - trailViewportElement.clientWidth * 0.56,
+        0,
+        maxScrollLeft,
+      );
+      trailViewportElement.scrollTo({ left: targetScrollLeft, behavior: "smooth" });
+      trailScrollFrame = undefined;
+    });
   });
 
   return (
@@ -426,7 +436,14 @@ export default function TodayDashboard(props: TodayDashboardProps) {
 
       <section class="trail-stage" aria-label="今日专注路径">
         <div class="trail-map">
-          <div class="trail-map__viewport" aria-label="可横向浏览的专注路径">
+          <div class="trail-map__atmosphere trail-map__atmosphere--light" aria-hidden="true" />
+          <div class="trail-map__atmosphere trail-map__atmosphere--mist" aria-hidden="true" />
+          <div class="trail-map__atmosphere trail-map__atmosphere--foreground" aria-hidden="true" />
+          <div
+            class="trail-map__viewport"
+            aria-label="可横向浏览的专注路径"
+            ref={(element) => { trailViewportElement = element; }}
+          >
             <div
               class="trail-map__canvas"
               style={{ width: `max(100%, ${trailCanvasWidth()}px)` }}
@@ -447,6 +464,7 @@ export default function TodayDashboard(props: TodayDashboardProps) {
                   </filter>
                 </defs>
                 <path class="trail-map__route-shadow" d={trailRoutePath()} />
+                <path class="trail-map__route-depth" d={trailRoutePath()} />
                 <path class="trail-map__route-line" d={trailRoutePath()} />
                 <path class="trail-map__route-dash" d={trailRoutePath()} />
               </svg>
@@ -462,6 +480,7 @@ export default function TodayDashboard(props: TodayDashboardProps) {
                       "trail-node--upcoming": node.state === "upcoming",
                     }}
                     style={{ left: `${node.position.left}%`, top: `${node.position.top}%` }}
+                    data-trail-index={node.index}
                     aria-label={`${node.index}. ${node.title} · ${node.time}`}
                     disabled={props.busy()}
                     onClick={() => node.item ? props.onUseTodo(node.item) : node.record ? props.onOpenRecords() : props.onOpenFocus()}
@@ -484,12 +503,13 @@ export default function TodayDashboard(props: TodayDashboardProps) {
 
           <div class="trail-map__footer">
             <div>
-              <strong>已走 {completedNodeCount()} / {trailTotalCount()} 段</strong>
-              <span>完成 {completedNodeCount()} 段专注，{trailTotalCount() > 5 ? "左右滑动查看更多。" : "继续前行。"}</span>
+              <strong>{completedNodeCount() > 0 ? `今日已留下 ${completedNodeCount()} 段专注` : "今天的第一段，从这里开始"}</strong>
+              <span>{completedNodeCount() > 0 ? "每多走一段，今天就多一个清晰的坐标。" : "准备好后，开始你的第一段专注。"}</span>
             </div>
-            <div class="trail-map__progress" aria-label={`已完成 ${trailCompletion()}%`}>
-              <span style={{ width: `${trailCompletion()}%` }} />
-            </div>
+            <Show when={trailTotalCount() > 5}>
+              <span class="trail-map__scroll-hint">左右滑动，继续看见后面的路</span>
+            </Show>
+            <div class="trail-map__trace" aria-hidden="true"><span /></div>
           </div>
         </div>
 
@@ -545,29 +565,12 @@ export default function TodayDashboard(props: TodayDashboardProps) {
             </Show>
           </div>
 
-          <details class="trail-task-list" open>
-            <summary>
-              <span><ListChecks size={17} strokeWidth={1.7} aria-hidden="true" /> 本段任务 <b>{panelTasks().length}</b></span>
-              <ChevronDown size={17} strokeWidth={1.7} aria-hidden="true" />
-            </summary>
-            <div class="trail-task-list__items">
-              <For each={panelTasks()}>
-                {(task) => (
-                  <button
-                    type="button"
-                    class="trail-task-row"
-                    disabled={props.busy() || props.timerHasProgress()}
-                    aria-label={task.item ? `开始${task.title}` : task.title}
-                    onClick={() => task.item ? props.onUseTodo(task.item) : props.onOpenTodos()}
-                  >
-                    <span class="trail-task-row__check" />
-                    <strong>{task.title}</strong>
-                    <small>{task.duration}</small>
-                  </button>
-                )}
-              </For>
-            </div>
-          </details>
+          <div class="trail-focus-panel__quiet-note">
+            {activeTrailNode()?.item
+              ? "完成这段后，它会成为今天的新坐标。"
+              : "每一次完成，都会成为今天的新坐标。"}
+          </div>
+
         </aside>
 
         <button type="button" class="trail-add-button" onClick={props.onOpenTodos}>
@@ -579,7 +582,7 @@ export default function TodayDashboard(props: TodayDashboardProps) {
       <Show when={completionCueVisible()}>
         <div class="trail-arrival-cue" role="status" aria-live="polite">
           <span class="trail-arrival-cue__icon"><Check size={19} strokeWidth={2.5} /></span>
-          <span><strong>已到达 · +1 节点</strong><small>完成 {completedNodeCount()} 段专注，继续前行。</small></span>
+          <span><strong>已留下 · +1 段专注</strong><small>今天已留下 {completedNodeCount()} 段专注，下一段随时开始。</small></span>
           <button type="button" class="trail-arrival-cue__close" aria-label="关闭提示" onClick={() => setCompletionCueVisible(false)}>
             <X size={17} strokeWidth={1.7} />
           </button>

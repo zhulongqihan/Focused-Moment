@@ -2231,3 +2231,349 @@ html.floating-window body { overflow: hidden; }
   .minimal-app--trail .trail-node { width: 132px; }
   .minimal-app--trail .trail-node__meta { width: 132px; }
 }
+
+/* Final depth pass: keep the landscape, route, and interface on separate
+   planes so the path feels embedded in the scene instead of painted on top. */
+.minimal-app--trail .trail-page__backdrop::before,
+.minimal-app--trail .trail-page__backdrop::after {
+  position: absolute;
+  inset: -8%;
+  pointer-events: none;
+  content: "";
+  will-change: transform;
+}
+
+.minimal-app--trail .trail-page__backdrop::before {
+  background:
+    radial-gradient(ellipse at 51% 61%, rgba(233, 177, 116, 0.2) 0 3%, transparent 30%),
+    radial-gradient(ellipse at 79% 57%, rgba(243, 183, 125, 0.18) 0 4%, transparent 25%),
+    linear-gradient(180deg, transparent 38%, rgba(117, 154, 163, 0.11) 61%, transparent 82%);
+  filter: blur(18px);
+  mix-blend-mode: screen;
+  opacity: 0.7;
+  transform: translate3d(calc(var(--trail-scene-x, 0px) * 0.52), calc(var(--trail-scene-y, 0px) * 0.52), 0) scale(1.025);
+  transition: transform 1200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.minimal-app--trail .trail-page__backdrop::after {
+  background:
+    radial-gradient(ellipse at 52% 50%, transparent 0 30%, rgba(0, 8, 16, 0.18) 73%, rgba(0, 5, 11, 0.46) 100%),
+    linear-gradient(180deg, rgba(0, 7, 15, 0.1), transparent 30%, transparent 63%, rgba(0, 7, 14, 0.34));
+  opacity: 0.82;
+  transform: translate3d(calc(var(--trail-scene-x, 0px) * -0.16), calc(var(--trail-scene-y, 0px) * -0.16), 0) scale(1.015);
+  transition: transform 1100ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.minimal-app--trail .trail-map::before,
+.minimal-app--trail .trail-map::after {
+  position: absolute;
+  inset: -10%;
+  z-index: 0;
+  display: block;
+  height: auto;
+  pointer-events: none;
+  clip-path: none;
+  content: "";
+  will-change: transform;
+}
+
+.minimal-app--trail .trail-map::before {
+  background:
+    radial-gradient(ellipse at 50% 55%, rgba(119, 181, 171, 0.13) 0 5%, transparent 33%),
+    radial-gradient(ellipse at 24% 59%, rgba(243, 185, 107, 0.1) 0 4%, transparent 25%),
+    linear-gradient(180deg, transparent 0 38%, rgba(39, 75, 85, 0.13) 63%, transparent 82%);
+  filter: blur(17px);
+  mix-blend-mode: screen;
+  opacity: 0.72;
+  transform: translate3d(calc(var(--trail-scene-x, 0px) * 0.28), calc(var(--trail-scene-y, 0px) * 0.28), 0) scale(1.04);
+  transition: transform 1000ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.minimal-app--trail .trail-map::after {
+  top: 43%;
+  bottom: -15%;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(224, 157, 120, 0.13), transparent 47%),
+    linear-gradient(180deg, transparent 0 5%, rgba(7, 20, 31, 0.15) 42%, rgba(3, 13, 24, 0.64) 100%);
+  filter: blur(8px);
+  opacity: 0.72;
+  transform: translate3d(calc(var(--trail-scene-x, 0px) * -0.18), calc(var(--trail-scene-y, 0px) * -0.18), 0) scale(1.03);
+  transition: transform 1100ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.minimal-app--trail .trail-map__atmosphere {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+.minimal-app--trail .trail-map__atmosphere--light {
+  background:
+    radial-gradient(ellipse at 22% 35%, rgba(236, 174, 98, 0.16) 0 3%, transparent 20%),
+    radial-gradient(ellipse at 79% 45%, rgba(193, 233, 205, 0.13) 0 3%, transparent 22%),
+    radial-gradient(ellipse at 52% 58%, rgba(213, 144, 122, 0.12), transparent 35%);
+  filter: blur(15px);
+  mix-blend-mode: screen;
+  opacity: 0.78;
+  transform: translate3d(calc(var(--trail-scene-x, 0px) * 0.36), calc(var(--trail-scene-y, 0px) * 0.36), 0) scale(1.03);
+  animation: trail-atmosphere-breathe 9s ease-in-out infinite;
+}
+
+.minimal-app--trail .trail-map__atmosphere--mist {
+  top: 34%;
+  bottom: -10%;
+  background:
+    radial-gradient(ellipse at 24% 31%, rgba(220, 170, 157, 0.18), transparent 30%),
+    radial-gradient(ellipse at 70% 28%, rgba(226, 181, 155, 0.15), transparent 34%),
+    linear-gradient(180deg, transparent, rgba(126, 148, 151, 0.1) 42%, transparent 78%);
+  filter: blur(23px);
+  opacity: 0.6;
+  transform: translate3d(calc(var(--trail-scene-x, 0px) * 0.2), calc(var(--trail-scene-y, 0px) * 0.2), 0) scale(1.06);
+  animation: trail-mist-drift 15s ease-in-out infinite alternate;
+}
+
+.minimal-app--trail .trail-map__atmosphere--foreground {
+  top: 63%;
+  bottom: -15%;
+  background: linear-gradient(180deg, transparent 0 4%, rgba(2, 12, 22, 0.14) 37%, rgba(1, 9, 17, 0.55) 100%);
+  filter: blur(3px);
+  opacity: 0.82;
+  transform: translate3d(calc(var(--trail-scene-x, 0px) * -0.12), calc(var(--trail-scene-y, 0px) * -0.12), 0) scale(1.02);
+  transition: transform 1200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.minimal-app--trail .trail-map__route-shadow {
+  stroke: rgba(239, 185, 103, 0.22);
+  stroke-width: 16;
+  opacity: 0.78;
+}
+
+.minimal-app--trail .trail-map__route-depth {
+  stroke: rgba(2, 10, 16, 0.68);
+  stroke-width: 7;
+  opacity: 0.88;
+  transform: translateY(7px);
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.minimal-app--trail .trail-map__route-line {
+  stroke-width: 2.25;
+  filter: url(#trail-route-glow);
+}
+
+.minimal-app--trail .trail-map__route-dash {
+  stroke-width: 1.25;
+  stroke-dasharray: 2 15;
+  opacity: 0.78;
+}
+
+.minimal-app--trail .trail-node {
+  text-shadow: 0 2px 11px rgba(1, 8, 14, 0.64);
+}
+
+.minimal-app--trail .trail-node__orb {
+  overflow: visible;
+  background:
+    radial-gradient(circle at 31% 25%, rgba(234, 250, 230, 0.26) 0 5%, transparent 18%),
+    radial-gradient(circle at 67% 76%, rgba(1, 9, 16, 0.6) 0 21%, transparent 62%),
+    rgba(7, 29, 37, 0.72);
+  box-shadow:
+    inset 5px 5px 9px rgba(221, 248, 224, 0.12),
+    inset -8px -9px 13px rgba(0, 7, 13, 0.48),
+    0 0 0 5px rgba(196, 237, 211, 0.05),
+    0 0 22px rgba(196, 237, 211, 0.2);
+}
+
+.minimal-app--trail .trail-node__orb::before {
+  position: absolute;
+  inset: -8px;
+  border: 1px solid rgba(196, 237, 211, 0.15);
+  border-radius: inherit;
+  content: "";
+}
+
+.minimal-app--trail .trail-node__orb::after {
+  position: absolute;
+  right: -8px;
+  bottom: -8px;
+  width: 17px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(0, 7, 13, 0.4);
+  filter: blur(4px);
+  content: "";
+  transform: rotate(-16deg);
+}
+
+.minimal-app--trail .trail-node__orb > svg,
+.minimal-app--trail .trail-node__current-dot {
+  position: relative;
+  z-index: 1;
+}
+
+.minimal-app--trail .trail-node:last-child .trail-node__meta {
+  right: calc(50% - 24px);
+  left: auto;
+  text-align: right;
+}
+
+.minimal-app--trail .trail-node:nth-last-child(-n + 2) .trail-node__meta {
+  right: calc(50% - 24px);
+  left: auto;
+  text-align: right;
+}
+
+.minimal-app--trail .trail-node--done .trail-node__orb {
+  background:
+    radial-gradient(circle at 30% 24%, rgba(255, 246, 203, 0.38) 0 6%, transparent 20%),
+    radial-gradient(circle at 70% 78%, rgba(45, 22, 12, 0.56), transparent 62%),
+    rgba(102, 71, 42, 0.5);
+  box-shadow:
+    inset 5px 5px 10px rgba(255, 233, 176, 0.15),
+    inset -8px -9px 14px rgba(37, 20, 10, 0.44),
+    0 0 0 6px rgba(239, 185, 103, 0.1),
+    0 0 28px rgba(239, 185, 103, 0.46);
+}
+
+.minimal-app--trail .trail-node--current .trail-node__orb {
+  box-shadow:
+    inset 5px 5px 11px rgba(255, 239, 190, 0.2),
+    inset -9px -10px 15px rgba(35, 18, 9, 0.42),
+    0 0 0 8px rgba(239, 185, 103, 0.14),
+    0 0 0 15px rgba(196, 237, 211, 0.06),
+    0 0 36px rgba(239, 185, 103, 0.62);
+}
+
+.minimal-app--trail .trail-map__footer {
+  width: min(370px, calc(100% - 80px));
+  gap: 12px;
+}
+
+.minimal-app--trail .trail-map__footer > div:first-child { gap: 8px; }
+.minimal-app--trail .trail-map__footer strong { line-height: 1.14; text-shadow: 0 2px 12px rgba(0, 8, 14, 0.6); }
+.minimal-app--trail .trail-map__footer span { line-height: 1.45; }
+.minimal-app--trail .trail-map__scroll-hint { color: #b7d8c8; font-size: 0.72rem; }
+.minimal-app--trail .trail-map__trace {
+  position: relative;
+  width: 138px;
+  height: 2px;
+  margin-top: 4px;
+  background: linear-gradient(90deg, rgba(244, 189, 104, 0.92), rgba(244, 189, 104, 0));
+  box-shadow: 0 0 13px rgba(239, 185, 103, 0.62);
+}
+.minimal-app--trail .trail-map__trace span {
+  position: absolute;
+  top: 50%;
+  right: -3px;
+  width: 7px;
+  height: 7px;
+  border: 1px solid #f2c77f;
+  border-radius: 50%;
+  background: #152b31;
+  box-shadow: 0 0 8px rgba(239, 185, 103, 0.62);
+  transform: translateY(-50%);
+}
+
+.minimal-app--trail .trail-focus-panel__actions + .trail-focus-panel__quiet-note {
+  display: flex;
+}
+
+.minimal-app--trail .trail-focus-panel__quiet-note {
+  display: none;
+  align-items: center;
+  gap: 9px;
+  margin-top: 18px;
+  padding-top: 15px;
+  border-top: 1px solid rgba(196, 237, 211, 0.12);
+  color: #8ea9a0;
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.minimal-app--trail .trail-focus-panel__quiet-note::before {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border: 1px solid rgba(239, 185, 103, 0.68);
+  border-radius: 50%;
+  background: rgba(239, 185, 103, 0.28);
+  box-shadow: 0 0 12px rgba(239, 185, 103, 0.4);
+  content: "";
+}
+
+@keyframes trail-atmosphere-breathe {
+  0%, 100% { opacity: 0.68; }
+  50% { opacity: 0.86; }
+}
+
+@keyframes trail-mist-drift {
+  from { opacity: 0.46; transform: translate3d(calc(var(--trail-scene-x, 0px) * 0.2 - 8px), calc(var(--trail-scene-y, 0px) * 0.2), 0) scale(1.06); }
+  to { opacity: 0.68; transform: translate3d(calc(var(--trail-scene-x, 0px) * 0.2 + 8px), calc(var(--trail-scene-y, 0px) * 0.2), 0) scale(1.08); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .minimal-app--trail .trail-page__backdrop::before,
+  .minimal-app--trail .trail-page__backdrop::after,
+  .minimal-app--trail .trail-map::before,
+  .minimal-app--trail .trail-map::after,
+  .minimal-app--trail .trail-map__atmosphere {
+    animation: none;
+    transform: none;
+    transition: none;
+  }
+}
+
+/* The two-column composition needs a real map width. Once the map becomes
+   narrower than the reference rhythm, stack it before any labels are forced
+   underneath the focus card. */
+@media (max-width: 1180px) and (min-width: 761px) {
+  .minimal-app--trail .minimal-content { padding-right: 30px; padding-left: 38px; }
+  .minimal-app--trail .trail-page__headline-actions {
+    position: static;
+    justify-content: flex-start;
+    gap: 26px;
+    margin: 24px 0 26px;
+  }
+  .minimal-app--trail .trail-stage {
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    margin: 0;
+    gap: 18px;
+  }
+  .minimal-app--trail .trail-map {
+    height: clamp(560px, calc(100dvh - 226px), 700px);
+    min-height: 560px;
+  }
+  .minimal-app--trail .trail-node { width: 220px; }
+  .minimal-app--trail .trail-node__meta { width: 220px; max-width: none; }
+  .minimal-app--trail .trail-focus-panel {
+    height: auto;
+    min-height: 500px;
+    padding-right: 26px;
+    padding-left: 26px;
+  }
+  .minimal-app--trail .trail-add-button {
+    position: static;
+    justify-self: end;
+    min-height: 52px;
+    margin: 0 0 20px;
+  }
+}
+
+@media (max-width: 760px) {
+  .minimal-app--trail .trail-stage { gap: 16px; }
+  .minimal-app--trail .trail-map { height: clamp(560px, 145vw, 620px); }
+  .minimal-app--trail .trail-focus-panel { min-height: 500px; }
+  .minimal-app--trail .trail-node__meta { width: 132px; max-width: 132px; }
+  .minimal-app--trail .trail-add-button {
+    position: static;
+    justify-self: end;
+    min-height: 50px;
+    margin: 0 0 18px;
+  }
+}

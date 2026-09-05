@@ -35,6 +35,9 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
         importanceKey: "medium",
       });
     }
+    if (todayTodoCount === 0) {
+      todos = todos.filter((item) => item.scheduledDate !== today);
+    }
     let focusRecords = includeRecords ? [
       {
         id: 3,
@@ -339,6 +342,17 @@ test("Today trail expands into a scrollable route beyond five segments", async (
     element.scrollLeft = element.scrollWidth;
   });
   await expect(page.getByRole("button", { name: /^13\./ })).toBeVisible();
+});
+
+test("Today trail does not invent tasks when there are no todos", async ({ page }) => {
+  await bootWithTauriMock(page, { todayTodoCount: 0 });
+
+  await expect(page.locator(".trail-node")).toHaveCount(1);
+  await expect(page.getByRole("heading", { name: "今天的第一段" })).toBeVisible();
+  await expect(page.getByText("本段任务", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("整理今天的会议笔记", { exact: true })).toHaveCount(0);
+  await expect(page.locator(".trail-map__footer strong")).toHaveText("今天的第一段，从这里开始");
+  await expect(page.locator(".trail-map__footer strong")).not.toContainText("/");
 });
 
 test("main window keeps its top bar available while scrolling and exposes a drag surface", async ({ page }) => {
