@@ -65,14 +65,24 @@ interface TrailSegment {
 }
 
 const referenceTrailPositions: TrailPoint[] = [
-  { left: 12, top: 23.5 },
-  { left: 29, top: 41.5 },
-  { left: 50, top: 35.8 },
-  { left: 69, top: 55.7 },
-  { left: 88, top: 30.6 },
+  { left: 10, top: 21.6 },
+  { left: 21, top: 33.0 },
+  { left: 39.4, top: 47.8 },
+  { left: 48.8, top: 70.3 },
+  { left: 61, top: 89.2 },
 ];
 
-const extendedTrailLanes = [23.5, 41.5, 35.8, 55.7, 30.6, 47.2, 27.5, 52.2];
+const extendedTrailLanes = [21.6, 33.0, 47.8, 70.3, 89.2, 83.5, 63.1, 92.5];
+const extendedReferenceTrailPositions: TrailPoint[] = [
+  { left: 10, top: 21.6 },
+  { left: 21, top: 33.0 },
+  { left: 39.4, top: 47.8 },
+  { left: 48.8, top: 70.3 },
+  { left: 61, top: 89.2 },
+  { left: 73.2, top: 83.5 },
+  { left: 85.6, top: 63.1 },
+  { left: 98.9, top: 92.5 },
+];
 
 const compactTrailPositions: Record<number, TrailPoint[]> = {
   1: [{ left: 50, top: 38 }],
@@ -139,8 +149,12 @@ function createTrailPositions(count: number): TrailPoint[] {
     return referenceTrailPositions.map((point) => ({ ...point }));
   }
 
+  if (count <= extendedReferenceTrailPositions.length) {
+    return extendedReferenceTrailPositions.slice(0, count).map((point) => ({ ...point }));
+  }
+
   return Array.from({ length: count }, (_, index) => ({
-    left: 10 + (76 * index) / (count - 1),
+    left: 8 + (83 * index) / (count - 1),
     top: extendedTrailLanes[index % extendedTrailLanes.length],
   }));
 }
@@ -311,7 +325,10 @@ export default function TodayDashboard(props: TodayDashboardProps) {
   });
 
   const trailTotalCount = () => trailNodes().length;
-  const trailCanvasWidth = () => Math.max(954, 210 + Math.max(0, trailTotalCount() - 1) * 214);
+  // Keep the first eight real segments inside the reference rhythm. Once the
+  // route grows beyond that, the viewport becomes horizontally scrollable
+  // instead of shrinking labels until they overlap.
+  const trailCanvasWidth = () => Math.max(1080, 110 + Math.max(0, trailTotalCount() - 1) * 134);
   const trailRoutePath = createMemo(() => createTrailPath(trailNodes().map((node) => node.position)));
   const activeTrailNode = createMemo(() => trailNodes().find((node) => node.state === "current"));
 
@@ -481,6 +498,7 @@ export default function TodayDashboard(props: TodayDashboardProps) {
           >
             <div
               class="trail-map__canvas"
+              data-trail-count={trailTotalCount()}
               style={{ width: `max(100%, ${trailCanvasWidth()}px)` }}
             >
               <svg class="trail-map__route" viewBox="0 0 1000 800" preserveAspectRatio="none" role="img" aria-label="今日专注节点路径">
@@ -538,13 +556,22 @@ export default function TodayDashboard(props: TodayDashboardProps) {
 
           <div class="trail-map__footer">
             <div>
-              <strong>{completedNodeCount() > 0 ? `今日已留下 ${completedNodeCount()} 段专注` : "今天的第一段，从这里开始"}</strong>
-              <span>{completedNodeCount() > 0 ? "每多走一段，今天就多一个清晰的坐标。" : "准备好后，开始你的第一段专注。"}</span>
+              <strong>{completedNodeCount() > 0 ? `今天已完成 ${completedNodeCount()} 段专注，继续保持这条节奏` : "今天的第一段，从这里开始"}</strong>
+              <span>{completedNodeCount() > 0 ? "继续保持这条节奏。" : "准备好后，开始你的第一段专注。"}</span>
             </div>
             <Show when={trailTotalCount() > 5}>
               <span class="trail-map__scroll-hint">左右滑动，继续看见后面的路</span>
             </Show>
-            <div class="trail-map__trace" aria-hidden="true"><span /></div>
+            <div class="trail-map__trace" aria-hidden="true">
+              <For each={trailNodes()}>
+                {(node) => (
+                  <span classList={{
+                    "trail-map__trace-node": true,
+                    "trail-map__trace-node--done": node.state === "done",
+                  }} />
+                )}
+              </For>
+            </div>
           </div>
         </div>
 

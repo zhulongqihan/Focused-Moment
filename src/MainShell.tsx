@@ -72,7 +72,14 @@ import {
 } from "./lib/window-controls";
 import CommandPalette, { type PaletteCommand } from "./components/CommandPalette";
 import TodayDashboard from "./components/TodayDashboard";
+import {
+  NightValleyFocus,
+  NightValleyRecords,
+  NightValleySettings,
+  NightValleyTodo,
+} from "./components/NightValleyViews";
 import { copyLibrarySize, getCopyAttribution, getCopyDisplayText, getCopyOriginalText, getDailyCopy } from "./lib/copy-library";
+import { getTheme, implementedThemeId, type ThemeId } from "./lib/themes";
 import "./App.css";
 
 type AppView = "today" | "focus" | "todos" | "records" | "settings";
@@ -272,6 +279,10 @@ const minFloatingOpacity = 45;
 const alertClaimKeyPrefix = "focused-moment.alert-claimed.";
 const maxCustomAlertSoundBytes = 5 * 1024 * 1024;
 const floatingWorkspaceSyncEvent = "floating-workspace-sync";
+const themeStorageKey = "focused-moment.theme";
+const visualIntensityKey = "focused-moment.visual-intensity";
+const motionIntensityKey = "focused-moment.motion-intensity";
+const densityKey = "focused-moment.density";
 
 function readLocalStorageValue(key: string) {
   try {
@@ -304,6 +315,20 @@ function readFloatingOpacity() {
     return defaultFloatingOpacity;
   }
   return Math.min(defaultFloatingOpacity, Math.max(minFloatingOpacity, Math.round(storedValue)));
+}
+
+function readPercentage(key: string, fallback: number) {
+  const storedValue = Number(readLocalStorageValue(key));
+  return Number.isFinite(storedValue) ? Math.min(100, Math.max(0, Math.round(storedValue))) : fallback;
+}
+
+function readThemeId(): ThemeId {
+  const theme = getTheme(readLocalStorageValue(themeStorageKey));
+  return theme.implemented ? theme.id : implementedThemeId;
+}
+
+function readDensity(): "roomy" | "compact" {
+  return readLocalStorageValue(densityKey) === "compact" ? "compact" : "roomy";
 }
 
 function claimAlertSequence(sequence: number) {
@@ -687,6 +712,10 @@ function MainShell() {
   const [floatingOpacity, setFloatingOpacity] = createSignal(readFloatingOpacity());
   const [floatingOpacityPanelOpen, setFloatingOpacityPanelOpen] = createSignal(false);
   const [selectedArchiveDate, setSelectedArchiveDate] = createSignal(getToday());
+  const [themeId, setThemeId] = createSignal<ThemeId>(readThemeId());
+  const [visualIntensity, setVisualIntensity] = createSignal(readPercentage(visualIntensityKey, 72));
+  const [motionIntensity, setMotionIntensity] = createSignal(readPercentage(motionIntensityKey, 44));
+  const [density, setDensity] = createSignal<"roomy" | "compact">(readDensity());
   let undoTimer: number | undefined;
   let commandInput: HTMLInputElement | undefined;
   let commandTrigger: HTMLButtonElement | undefined;
@@ -781,6 +810,22 @@ function MainShell() {
   function clearMessage() {
     setMessage("");
     setMessageKind("info");
+  }
+
+  function selectTheme(nextThemeId: ThemeId) {
+    const theme = getTheme(nextThemeId);
+    if (!theme.implemented) {
+      return;
+    }
+    setThemeId(theme.id);
+    writeLocalStorageValue(themeStorageKey, theme.id);
+  }
+
+  function saveVisualSettings() {
+    writeLocalStorageValue(visualIntensityKey, String(visualIntensity()));
+    writeLocalStorageValue(motionIntensityKey, String(motionIntensity()));
+    writeLocalStorageValue(densityKey, density());
+    showMessage("外观设置已保存。", "success");
   }
 
   function updateFloatingOpacity(value: number) {
@@ -1505,6 +1550,28 @@ function MainShell() {
         return;
       }
 
+      if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+        event.preventDefault();
+        if (timer().isRunning) {
+          showMessage("当前专注正在进行中。", "info");
+        } else if (timerHasProgress()) {
+          void startFocus();
+        } else {
+          void startNextTodo();
+        }
+        return;
+      }
+
+      if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === "e") {
+        event.preventDefault();
+        if (canFinish()) {
+          void finishFocus();
+        } else {
+          showMessage("当前还没有可以保存的专注进度。", "info");
+        }
+        return;
+      }
+
       if (commandPaletteOpen() && event.key === "Escape") {
         event.preventDefault();
         closeCommandPalette();
@@ -2005,6 +2072,7 @@ function MainShell() {
         "minimal-app--settings": activeView() === "settings",
         "minimal-app--trail": activeView() === "today",
       }}
+      data-theme={themeId()}
     >
       <a class="skip-link" href="#main-content">跳到主要内容</a>
       <header class="app-bar" onMouseDown={handleMainWindowMouseDown}>
@@ -2067,8 +2135,18 @@ function MainShell() {
               <span class="trail-nav__logo-ring" />
               <span class="trail-nav__logo-dot" />
             </span>
-            <strong>FOCUSED</strong>
-            <span>MOMENT</span>
+            <Show
+              when={activeView() === "today"}
+              fallback={
+                <>
+                  <strong>FOCUSED</strong>
+                  <span>MOMENT</span>
+                </>
+              }
+            >
+              <strong>Focused</strong>
+              <span>Moment</span>
+            </Show>
           </div>
           <button
             type="button"
@@ -2217,6 +2295,36 @@ function MainShell() {
             />
           </Show>
           <Show when={activeView() === "focus"}>
+            <NightValleyFocus
+              timer={() => timer()}
+              timerPreferences={() => timerPreferences()}
+              todos={() => todos()}
+              pendingTodos={pendingTodos}
+              ready={ready}
+              busy={busy}
+              timerHasProgress={timerHasProgress}
+              timerCanContinue={timerCanContinue}
+              canFinish={canFinish}
+              sessionTitle={() => sessionTitle()}
+              linkedTodoId={() => linkedTodoId()}
+              completeLinkedTodo={() => completeLinkedTodo()}
+              countdownMinutes={() => countdownMinutes()}
+              countdownDraftDirty={() => countdownDraftDirty()}
+              busyLabel={() => busyLabel()}
+              onSessionTitleChange={setSessionTitle}
+              onSessionTitleDirty={() => setSessionTitleDirty(true)}
+              onLinkedTodoChange={setLinkedTodoId}
+              onCompleteLinkedTodoChange={setCompleteLinkedTodo}
+              onCountdownMinutesChange={setCountdownMinutes}
+              onCountdownDraftDirty={() => setCountdownDraftDirty(true)}
+              onChangeMode={(mode) => void changeMode(mode)}
+              onStart={() => void startFocus()}
+              onPause={() => void pauseFocus()}
+              onFinish={() => void finishFocus()}
+              onReset={() => void resetFocus()}
+            />
+          </Show>
+          <Show when={false}>
             <section class="focus-page">
               <div class="page-heading">
                 <span>专注</span>
@@ -2379,6 +2487,38 @@ function MainShell() {
           </Show>
 
           <Show when={activeView() === "todos"}>
+            <NightValleyTodo
+              todos={() => todos()}
+              activeTodos={activeTodos}
+              overdueTodos={overdueTodos}
+              completedTodos={completedTodos}
+              timer={() => timer()}
+              timerHasProgress={timerHasProgress}
+              ready={ready}
+              busy={busy}
+              busyLabel={() => busyLabel()}
+              todoTitle={() => todoTitle()}
+              todoDueDate={() => todoDueDate()}
+              todoDueTime={() => todoDueTime()}
+              todoImportance={() => todoImportance()}
+              editingTodo={() => editingTodo()}
+              onTodoTitleChange={setTodoTitle}
+              onTodoDueDateChange={setTodoDueDate}
+              onTodoDueTimeChange={setTodoDueTime}
+              onTodoImportanceChange={setTodoImportance}
+              onAddTodo={() => void addTodo()}
+              onToggle={(id) => void toggleTodo(id)}
+              onBeginEdit={beginEditTodo}
+              onUseForFocus={useTodoForFocus}
+              onRemove={(id) => void removeTodo(id)}
+              onPatch={patchEditingTodo}
+              onSave={() => void saveTodoEdit()}
+              onCancel={cancelEditTodo}
+              formatTodoDue={formatTodoDue}
+              importanceLabel={importanceLabel}
+            />
+          </Show>
+          <Show when={false}>
             <section class="todo-page">
               <div class="page-heading">
                 <span>待办</span>
@@ -2546,6 +2686,43 @@ function MainShell() {
           </Show>
 
           <Show when={activeView() === "settings"}>
+            <NightValleySettings
+              timerPreferences={() => timerPreferences()}
+              busy={busy}
+              busyLabel={() => busyLabel()}
+              customAlertSoundName={() => customAlertSoundName()}
+              customAlertSoundInputRef={(element) => (customAlertSoundInput = element)}
+              backups={() => backups()}
+              backupLoadState={() => backupLoadState()}
+              backupLoadError={() => backupLoadError()}
+              selectedBackupFile={() => selectedBackupFile()}
+              selectedBackup={() => selectedBackup()}
+              lastBackupPath={() => lastBackupPath()}
+              themeId={() => themeId()}
+              visualIntensity={() => visualIntensity()}
+              motionIntensity={() => motionIntensity()}
+              density={() => density()}
+              onThemeSelect={selectTheme}
+              onVisualIntensityChange={setVisualIntensity}
+              onMotionIntensityChange={setMotionIntensity}
+              onDensityChange={setDensity}
+              onSaveVisualSettings={saveVisualSettings}
+              onSaveTimerPreferences={saveTimerPreferences}
+              onPreviewAlertSound={previewAlertSound}
+              onChooseCustomAlertSound={chooseCustomAlertSound}
+              onClearCustomAlertSound={clearCustomAlertSound}
+              onSelectedBackupFile={setSelectedBackupFile}
+              onLoadBackups={loadBackups}
+              onCreateBackup={createBackup}
+              onOpenBackupFolder={() => void run(async () => {
+                await openAppBackupFolder();
+                showMessage("已打开备份目录。", "success");
+              }, "正在打开…")}
+              onRestoreBackup={restoreBackup}
+              onClearAllData={clearAllData}
+            />
+          </Show>
+          <Show when={false}>
             <section class="settings-page">
               <div class="page-heading">
                 <span>设置</span>
@@ -2739,6 +2916,34 @@ function MainShell() {
           </Show>
 
           <Show when={activeView() === "records"}>
+            <NightValleyRecords
+              analytics={() => analytics()}
+              records={() => records()}
+              archiveDays={() => archiveDays()}
+              archivePath={() => archivePath()}
+              selectedArchiveDate={() => selectedArchiveDate()}
+              selectedArchiveDay={() => selectedArchiveDay()}
+              selectedArchiveRecords={() => selectedArchiveRecords()}
+              recordGroups={() => recordGroups()}
+              ready={ready}
+              busy={busy}
+              editingRecord={() => editingRecord()}
+              todoCompletionPercent={todoCompletionPercent}
+              recentWeekActiveDays={recentWeekActiveDays}
+              recentWeekDurationMs={recentWeekDurationMs}
+              formatAnalyticsDate={formatAnalyticsDate}
+              formatRecordDate={formatRecordDate}
+              formatRecordDay={formatRecordDay}
+              formatDurationMs={formatDurationMs}
+              onSelectDate={setSelectedArchiveDate}
+              onBeginEdit={beginEditRecord}
+              onPatchEdit={patchEditingRecordTitle}
+              onSaveEdit={() => void saveRecordEdit()}
+              onCancelEdit={cancelEditRecord}
+              onRemove={(id) => void removeRecord(id)}
+            />
+          </Show>
+          <Show when={false}>
             <section class="records-page">
               <header class="records-page__masthead">
                 <div>

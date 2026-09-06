@@ -41,8 +41,9 @@ const DEFAULT_COUNTDOWN_MINUTES: u64 = 25;
 const MIN_COUNTDOWN_MINUTES: u64 = 1;
 const MAX_COUNTDOWN_MINUTES: u64 = 12 * 60;
 const MAX_TODO_TITLE_CHARS: usize = 200;
-const APP_VERSION: &str = "2.6.0";
-const APP_MILESTONE: &str = "v2.6.0 \u{5168}\u{9762}\u{6c1b}\u{56f4}\u{5316}\u{5de5}\u{4f5c}\u{53f0}";
+const APP_VERSION: &str = "2.6.1";
+const APP_MILESTONE: &str =
+    "v2.6.1 \u{591c}\u{8c37}\u{4e3b}\u{9898}\u{524d}\u{7aef}\u{5b8c}\u{6210}";
 const APP_BACKUP_KIND: &str = "focused-moment-backup";
 const APP_BACKUP_FORMAT_VERSION: u64 = 2;
 const FLOATING_WORKSPACE_SYNC_EVENT: &str = "floating-workspace-sync";
@@ -2862,7 +2863,9 @@ fn unlock_floating_todos(app: tauri::AppHandle) -> Result<(), String> {
     floating_window
         .set_ignore_cursor_events(false)
         .map_err(|error| error.to_string())?;
-    floating_window.set_focus().map_err(|error| error.to_string())?;
+    floating_window
+        .set_focus()
+        .map_err(|error| error.to_string())?;
     if let Some(unlock_window) = app.get_webview_window("todo-unlock") {
         unlock_window.hide().map_err(|error| error.to_string())?;
     }
@@ -2940,7 +2943,9 @@ fn unlock_focus_floating(app: tauri::AppHandle) -> Result<(), String> {
     focus_window
         .set_ignore_cursor_events(false)
         .map_err(|error| error.to_string())?;
-    focus_window.set_focus().map_err(|error| error.to_string())?;
+    focus_window
+        .set_focus()
+        .map_err(|error| error.to_string())?;
     if let Some(unlock_window) = app.get_webview_window("focus-unlock") {
         unlock_window.hide().map_err(|error| error.to_string())?;
     }
