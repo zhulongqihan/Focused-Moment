@@ -253,6 +253,45 @@ test("Night Valley keeps one shared brand mark across every page", async ({ page
   expect(brandStates.every((state) => state.dotAngle > 28 && state.dotAngle < 82)).toBe(true);
 });
 
+test("Night Valley uses one shared sidebar tab module across every page", async ({ page }) => {
+  await page.setViewportSize({ width: 1082, height: 720 });
+  await bootTodayReferenceMock(page);
+
+  const tabStates = [];
+  for (const label of ["今日", "计时", "待办", "记录", "设置"]) {
+    await page.locator(".minimal-nav > button").filter({ hasText: label }).click();
+    tabStates.push(await page.locator(".minimal-nav").evaluate((nav) => {
+      const navStyle = getComputedStyle(nav);
+      const buttons = [...nav.querySelectorAll(":scope > button")];
+      return {
+        width: navStyle.width,
+        activeIndex: buttons.findIndex((button) => button.classList.contains("active")),
+        buttons: buttons.map((button) => {
+          const style = getComputedStyle(button);
+          const icon = button.querySelector(".trail-nav__icon");
+          const iconStyle = icon ? getComputedStyle(icon) : null;
+          return {
+            borderRadius: style.borderRadius,
+            display: style.display,
+            iconDisplay: iconStyle?.display,
+            iconWidth: iconStyle?.width,
+            iconHeight: iconStyle?.height,
+            backgroundImage: style.backgroundImage,
+          };
+        }),
+      };
+    }));
+  }
+
+  expect(new Set(tabStates.map((state) => state.width))).toEqual(new Set(["130px"]));
+  expect(tabStates.map((state) => state.activeIndex)).toEqual([0, 1, 2, 3, 4]);
+  expect(tabStates.every((state) => state.buttons.every((button) => button.display === "flex"))).toBe(true);
+  expect(tabStates.every((state) => state.buttons.every((button) => button.iconDisplay !== "none"))).toBe(true);
+  expect(tabStates.every((state) => state.buttons.every((button) => button.iconWidth === "22px" && button.iconHeight === "22px"))).toBe(true);
+  expect(tabStates.every((state) => state.buttons[state.activeIndex].borderRadius === "28px")).toBe(true);
+  expect(tabStates.every((state) => state.buttons[state.activeIndex].backgroundImage.includes("linear-gradient"))).toBe(true);
+});
+
 test("Theme registry exposes one implemented surface and four disabled previews", async ({ page }) => {
   await page.setViewportSize({ width: 1487, height: 1058 });
   await bootTodayReferenceMock(page);
