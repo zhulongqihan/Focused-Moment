@@ -3,6 +3,8 @@ import {
   ArrowUpRight,
   BookOpen,
   Check,
+  ChevronLeft,
+  ChevronRight,
   CircleCheck,
   Clock3,
   Flame,
@@ -553,6 +555,25 @@ export default function TodayDashboard(props: TodayDashboardProps) {
               </For>
             </div>
           </div>
+
+          <Show when={trailTotalCount() > 5}>
+            <div class="trail-map__viewport-controls" aria-label="浏览专注路径">
+              <button
+                type="button"
+                aria-label="查看前面的专注节点"
+                onClick={() => trailViewportElement?.scrollBy({ left: -280, behavior: "smooth" })}
+              >
+                <ChevronLeft size={17} strokeWidth={1.7} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                aria-label="查看后面的专注节点"
+                onClick={() => trailViewportElement?.scrollBy({ left: 280, behavior: "smooth" })}
+              >
+                <ChevronRight size={17} strokeWidth={1.7} aria-hidden="true" />
+              </button>
+            </div>
+          </Show>
 
           <div class="trail-map__footer">
             <div>

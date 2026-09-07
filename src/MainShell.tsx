@@ -8,9 +8,12 @@ import {
   Clock3,
   LockKeyhole,
   LockKeyholeOpen,
+  Maximize2,
+  Minus,
   Settings,
   SlidersHorizontal,
   SquareCheck,
+  X,
 } from "lucide-solid";
 import type {
   AnalyticsSnapshot,
@@ -61,12 +64,12 @@ import {
   lockFocusFloating,
   lockFloatingTodos,
   minimizeMainWindow,
-  quitApplication,
   restoreMainFromFloatingTodos,
   restoreMainFromFocusFloating,
   showFocusFloating,
   showFloatingTodos,
   startDraggingWindow,
+  toggleMaximizeMainWindow,
   unlockFloatingTodos,
   unlockFocusFloating,
 } from "./lib/window-controls";
@@ -2101,30 +2104,35 @@ function MainShell() {
           >
             悬浮工作台
           </button>
-          <button
-            type="button"
-            class="icon-button"
-            title="最小化"
-            onClick={() => void minimizeMainWindow()}
-          >
-            最小化
-          </button>
-          <button
-            type="button"
-            class="icon-button"
-            title="隐藏到托盘"
-            onClick={() => void closeMainWindow()}
-          >
-            隐藏
-          </button>
-          <button
-            type="button"
-            class="icon-button icon-button--danger"
-            title="退出"
-            onClick={() => void quitApplication()}
-          >
-            退出
-          </button>
+          <div class="window-controls" aria-label="窗口控制">
+            <button
+              type="button"
+              class="window-control"
+              aria-label="最小化窗口"
+              title="最小化"
+              onClick={() => void minimizeMainWindow()}
+            >
+              <Minus size={15} strokeWidth={1.8} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              class="window-control"
+              aria-label="最大化或还原窗口"
+              title="最大化 / 还原"
+              onClick={() => void toggleMaximizeMainWindow()}
+            >
+              <Maximize2 size={14} strokeWidth={1.7} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              class="window-control window-control--close"
+              aria-label="关闭窗口"
+              title="关闭窗口（隐藏到托盘）"
+              onClick={() => void closeMainWindow()}
+            >
+              <X size={15} strokeWidth={1.8} aria-hidden="true" />
+            </button>
+          </div>
         </div>
       </header>
 
