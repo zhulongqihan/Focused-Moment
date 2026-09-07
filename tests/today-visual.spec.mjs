@@ -167,7 +167,7 @@ test("Today reference composition stays aligned at the concept viewport", async 
   await page.screenshot({ path: "output/playwright/today-after.png" });
 });
 
-test("Today route keeps the panel and path separated as the window narrows", async ({ page }) => {
+test("Today route keeps the panel and path usable as the window narrows", async ({ page }) => {
   for (const [width, height, screenshotPath] of [
     [1280, 900, "output/playwright/today-1280.png"],
     [1024, 900, "output/playwright/today-1024.png"],
@@ -186,7 +186,11 @@ test("Today route keeps the panel and path separated as the window narrows", asy
     expect(panel.right).toBeLessThanOrEqual(width);
     expect(panel.x).toBeGreaterThanOrEqual(0);
     if (width <= 1160) {
-      expect(panel.y).toBeGreaterThan(map.bottom - 1);
+      expect(panel.y).toBeLessThan(map.bottom);
+      expect(panel.bottom).toBeLessThanOrEqual(height);
+      await expect(page.locator(".trail-nav__brand")).toBeVisible();
+      await expect(page.locator(".trail-nav__icon").first()).toBeVisible();
+      await expect(page.getByRole("button", { name: "开始下一件事" })).toBeVisible();
     }
     await page.screenshot({ path: screenshotPath });
   }
