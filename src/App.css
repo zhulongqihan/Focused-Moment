@@ -6030,3 +6030,38 @@ body,
   .minimal-app--settings .nv-settings-preview__screen { height: 430px; }
   .minimal-app--settings .nv-settings-save { right: 23px; bottom: 60px; left: 23px; }
 }
+
+/* Mobile pages must grow with their real content.  The desktop reference
+   shell clips the content viewport, which otherwise hides the lower half of
+   the Today composition once the window becomes shorter than the route. */
+@media (max-width: 820px) {
+  .minimal-app--cinematic .minimal-workspace {
+    height: auto;
+    min-height: 100dvh;
+  }
+
+  .minimal-app--cinematic .minimal-content {
+    height: auto;
+    min-height: calc(100dvh - 66px);
+    overflow: visible;
+  }
+
+  /* Keep the decorative layers inside the mobile page while leaving the
+     nested trail viewport free to scroll its wide route canvas. */
+  .minimal-app--cinematic.minimal-app--trail .today-page {
+    overflow-x: clip;
+  }
+
+  .minimal-app--cinematic:not(.minimal-app--trail) .app-bar {
+    position: fixed !important;
+    top: 0;
+    height: 1px;
+    min-height: 1px;
+    margin: 0;
+    pointer-events: none;
+  }
+
+  .minimal-app--cinematic:not(.minimal-app--trail) .command-trigger {
+    pointer-events: auto;
+  }
+}
