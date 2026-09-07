@@ -6065,3 +6065,36 @@ body,
     pointer-events: auto;
   }
 }
+
+/* Brand mark: the concept uses a centered mint orbit with a warm point
+   hovering at its upper-right edge.  The older selector zeroed the logo's
+   auto margins and moved the orbit against the nav's left edge. */
+.minimal-app--cinematic.minimal-app--trail .trail-nav__logo {
+  width: 48px;
+  height: 48px;
+  margin: 8px auto 3px;
+  justify-self: center;
+}
+
+.minimal-app--cinematic.minimal-app--trail .trail-nav__logo-ring {
+  top: 12px;
+  left: -5px;
+  width: 43px;
+  height: 43px;
+  border: 3px solid #c8e8d2;
+  border-bottom-color: transparent;
+  border-radius: 50%;
+  transform: rotate(-30deg);
+  box-shadow: 0 0 16px rgba(196, 237, 211, 0.16);
+}
+
+.minimal-app--cinematic.minimal-app--trail .trail-nav__logo-dot {
+  top: 9px;
+  right: 2px;
+  width: 13px;
+  height: 12px;
+  border: 2px solid rgba(239, 185, 103, 0.42);
+  border-radius: 50%;
+  background: var(--trail-gold);
+  box-shadow: 0 0 13px rgba(239, 185, 103, 0.78);
+}
