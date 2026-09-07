@@ -6835,3 +6835,12 @@ body,
     font-size: 0.75rem;
   }
 }
+
+/* v2.6.9 timer route: keep the seven stages close to the chronograph and
+   give the path a deliberate sequence of valleys and rises like the concept. */
+@media (min-width: 821px) {
+  .minimal-app--focus .nv-focus-route__labels span:nth-child(1) { top: 38px; left: 5px; }
+  .minimal-app--focus .nv-focus-route__labels span:nth-child(2) { top: 238px; left: 83px; }
+  .minimal-app--focus .nv-focus-route__labels span:nth-child(3) { top: 342px; left: 178px; }
+  .minimal-app--focus .nv-focus-route__labels span:nth-child(4) { top: 278px; right: 3px; bottom: auto; }
+}

@@ -292,6 +292,39 @@ test("Night Valley uses one shared sidebar tab module across every page", async 
   expect(tabStates.every((state) => state.buttons[state.activeIndex].backgroundImage.includes("linear-gradient"))).toBe(true);
 });
 
+test("Timer route follows a tighter winding concept path", async ({ page }) => {
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page);
+  await page.getByRole("button", { name: "计时", exact: true }).click();
+
+  const geometry = await page.locator(".nv-focus-route").evaluate((route) => {
+    const routeRect = route.getBoundingClientRect();
+    const points = [...route.querySelectorAll(".nv-focus-route__point")].map((point) => {
+      const rect = point.getBoundingClientRect();
+      return {
+        x: rect.left + rect.width / 2 - routeRect.left,
+        y: rect.top + rect.height / 2 - routeRect.top,
+      };
+    });
+    const labels = [...route.querySelectorAll(".nv-focus-route__labels span")].map((label) => (
+      label.getBoundingClientRect().top - routeRect.top
+    ));
+    return {
+      points,
+      labels,
+      path: route.querySelector(".nv-focus-route__line")?.getAttribute("d") ?? "",
+    };
+  });
+
+  expect(geometry.points).toHaveLength(7);
+  expect(geometry.points[6].y).toBeGreaterThan(geometry.points[0].y + 180);
+  expect(geometry.points[4].x).toBeGreaterThan(geometry.points[3].x + 180);
+  expect(geometry.points[5].y).toBeLessThan(geometry.points[4].y);
+  expect(geometry.points[6].x).toBeGreaterThan(geometry.points[5].x);
+  expect((geometry.path.match(/\bC\b/g) ?? []).length).toBe(6);
+  expect(geometry.labels[3]).toBeLessThan(340);
+});
+
 test("Theme registry exposes one implemented surface and four disabled previews", async ({ page }) => {
   await page.setViewportSize({ width: 1487, height: 1058 });
   await bootTodayReferenceMock(page);

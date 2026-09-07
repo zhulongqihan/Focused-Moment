@@ -103,15 +103,15 @@ export function NightValleyFocus(props: NightValleyFocusProps) {
 
   const phases = ["准备", "专注", "休息", "完成"];
   const routePoints = [
-    { x: 28, y: 24 },
-    { x: 104, y: 194 },
-    { x: 198, y: 350 },
-    { x: 356, y: 391 },
-    { x: 518, y: 424 },
-    { x: 682, y: 362 },
-    { x: 845, y: 24 },
+    { x: 20, y: 24 },
+    { x: 102, y: 226 },
+    { x: 200, y: 326 },
+    { x: 376, y: 415 },
+    { x: 610, y: 443 },
+    { x: 800, y: 392 },
+    { x: 838, y: 286 },
   ];
-  const routePath = "M 28 24 C 16 66, 76 112, 104 194 S 158 314, 198 350 S 278 426, 356 391 S 446 350, 518 424 S 610 476, 682 362 S 790 110, 845 24";
+  const routePath = "M 20 24 C 10 72, 61 126, 102 226 C 124 268, 147 286, 200 326 C 249 385, 292 466, 376 415 C 445 373, 510 402, 610 443 C 690 480, 758 450, 800 392 C 824 358, 824 310, 838 286";
 
   return (
     <section class="nv-page nv-focus-page focus-page" aria-label="专注计时">
