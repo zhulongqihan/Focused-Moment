@@ -214,6 +214,45 @@ test("Night Valley pages expose the measured reference surfaces", async ({ page 
   }
 });
 
+test("Night Valley keeps one shared brand mark across every page", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await bootTodayReferenceMock(page);
+
+  const brandStates = [];
+  for (const label of ["今日", "计时", "待办", "记录", "设置"]) {
+    await page.locator(".minimal-nav > button").filter({ hasText: label }).click();
+    brandStates.push(await page.locator(".trail-nav__brand").evaluate((brand) => {
+      const ring = brand.querySelector(".trail-nav__logo-ring");
+      const dot = brand.querySelector(".trail-nav__logo-dot");
+      const brandStyle = getComputedStyle(brand);
+      const ringStyle = getComputedStyle(ring);
+      const ringRect = ring.getBoundingClientRect();
+      const dotRect = dot.getBoundingClientRect();
+      const ringCenterX = ringRect.left + ringRect.width / 2;
+      const ringCenterY = ringRect.top + ringRect.height / 2;
+      const dotCenterX = dotRect.left + dotRect.width / 2;
+      const dotCenterY = dotRect.top + dotRect.height / 2;
+      const dotAngle = (Math.atan2(dotCenterX - ringCenterX, ringCenterY - dotCenterY) * 180) / Math.PI;
+      return {
+        text: brand.textContent?.replace(/\s+/g, "").trim(),
+        brandGap: brandStyle.gap,
+        brandTextTransform: brandStyle.textTransform,
+        ringBackground: ringStyle.backgroundImage,
+        ringMask: ringStyle.maskImage,
+        dotAngle,
+      };
+    }));
+  }
+
+  expect(new Set(brandStates.map((state) => state.text))).toEqual(new Set(["FocusedMoment"]));
+  expect(new Set(brandStates.map((state) => state.brandGap))).toEqual(new Set(["17px"]));
+  expect(new Set(brandStates.map((state) => state.brandTextTransform))).toEqual(new Set(["none"]));
+  expect(new Set(brandStates.map((state) => state.ringBackground)).size).toBe(1);
+  expect(new Set(brandStates.map((state) => state.ringMask)).size).toBe(1);
+  expect(brandStates.every((state) => state.ringBackground.includes("from 28deg"))).toBe(true);
+  expect(brandStates.every((state) => state.dotAngle > 28 && state.dotAngle < 82)).toBe(true);
+});
+
 test("Theme registry exposes one implemented surface and four disabled previews", async ({ page }) => {
   await page.setViewportSize({ width: 1487, height: 1058 });
   await bootTodayReferenceMock(page);

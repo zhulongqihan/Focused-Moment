@@ -6655,3 +6655,72 @@ body,
     gap: 14px;
   }
 }
+
+/* v2.6.7 shared navigation mark: the brand belongs to the shell, not to the
+   active page.  The orbit opens in the upper-right and the warm point sits in
+   that opening on every desktop surface. */
+.minimal-app--cinematic.minimal-app--trail .minimal-nav .trail-nav__logo,
+.minimal-app--cinematic:not(.minimal-app--trail) .minimal-nav .trail-nav__logo {
+  position: relative;
+  display: block;
+  width: 48px;
+  height: 48px;
+  margin: 8px auto 3px;
+}
+
+.minimal-app--cinematic.minimal-app--trail .minimal-nav .trail-nav__logo-ring,
+.minimal-app--cinematic:not(.minimal-app--trail) .minimal-nav .trail-nav__logo-ring {
+  position: absolute;
+  top: 12px;
+  left: -4px;
+  width: 43px;
+  height: 43px;
+  border: 0;
+  border-radius: 50%;
+  background: conic-gradient(from 28deg, transparent 0deg 54deg, #c8e8d2 54deg 360deg);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));
+  box-shadow: 0 0 16px rgba(196, 237, 211, 0.16);
+  transform: none;
+}
+
+.minimal-app--cinematic.minimal-app--trail .minimal-nav .trail-nav__logo-dot,
+.minimal-app--cinematic:not(.minimal-app--trail) .minimal-nav .trail-nav__logo-dot {
+  position: absolute;
+  top: 9px;
+  right: 2px;
+  width: 13px;
+  height: 12px;
+  box-sizing: border-box;
+  border: 2px solid rgba(239, 185, 103, 0.42);
+  border-radius: 50%;
+  background: var(--trail-gold);
+  box-shadow: 0 0 13px rgba(239, 185, 103, 0.78);
+}
+
+.minimal-app--cinematic.minimal-app--trail .minimal-nav .trail-nav__brand,
+.minimal-app--cinematic:not(.minimal-app--trail) .minimal-nav .trail-nav__brand {
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  gap: 17px;
+  height: 135px;
+  text-transform: none;
+}
+
+.minimal-app--cinematic.minimal-app--trail .minimal-nav .trail-nav__brand strong,
+.minimal-app--cinematic.minimal-app--trail .minimal-nav .trail-nav__brand > span:last-child,
+.minimal-app--cinematic:not(.minimal-app--trail) .minimal-nav .trail-nav__brand strong,
+.minimal-app--cinematic:not(.minimal-app--trail) .minimal-nav .trail-nav__brand > span:last-child {
+  font-family: "Avenir Next", "Segoe UI", "Microsoft YaHei UI", sans-serif;
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  text-transform: none;
+}
+
+.minimal-app--cinematic.minimal-app--trail .minimal-nav .trail-nav__brand > span:last-child,
+.minimal-app--cinematic:not(.minimal-app--trail) .minimal-nav .trail-nav__brand > span:last-child {
+  letter-spacing: 0.07em;
+}

@@ -2143,18 +2143,8 @@ function MainShell() {
               <span class="trail-nav__logo-ring" />
               <span class="trail-nav__logo-dot" />
             </span>
-            <Show
-              when={activeView() === "today"}
-              fallback={
-                <>
-                  <strong>FOCUSED</strong>
-                  <span>MOMENT</span>
-                </>
-              }
-            >
-              <strong>Focused</strong>
-              <span>Moment</span>
-            </Show>
+            <strong>Focused</strong>
+            <span>Moment</span>
           </div>
           <button
             type="button"
