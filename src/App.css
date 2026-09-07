@@ -6098,3 +6098,28 @@ body,
   background: var(--trail-gold);
   box-shadow: 0 0 13px rgba(239, 185, 103, 0.78);
 }
+
+/* Scale-aware narrow desktop: keep the measured side rail beside Today.
+   The 761–1160px legacy rule made the workspace block-flow while a later
+   rail rule kept the nav vertical, pushing the whole page below the viewport. */
+@media (min-width: 821px) and (max-width: 1160px) {
+  .minimal-app--cinematic.minimal-app--trail {
+    height: auto;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .minimal-app--cinematic.minimal-app--trail .minimal-workspace {
+    display: grid;
+    grid-template-columns: var(--nv-nav-width) minmax(0, 1fr);
+    height: auto;
+    min-height: 100dvh;
+  }
+
+  .minimal-app--cinematic.minimal-app--trail .minimal-content {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+}
