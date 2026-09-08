@@ -7,17 +7,17 @@
 
 | 字段 | 当前值 |
 | --- | --- |
-| as_of / updated_at | 2026-09-08 17:05 +08:00；NV-06 完成、DESK-01 开始时点 |
+| as_of / updated_at | 2026-09-08 18:45 +08:00；DESK-01 完成、DESK-03 开始时点 |
 | 产品目标 | 本地优先的桌面专注工具：待办 → 专注 → 桌面提醒 → 保存记录 → 回看投入 → 可恢复地长期保留 |
 | 当前阶段 | 第一套 Night Valley 已覆盖五页并发布，进入整体验收与可靠性收口；第二至第五套尚未实现 |
-| 代码基线 | 当前 main HEAD `a52796f`（NV-06 视觉精修、Today 起点行为与视觉专项提交；NV-05 交互/响应式/错误态源码与测试为 `85308f1`；NV-04 应用/测试基线为 `94e0b2e`；NV-03 状态语义提交 `ff6daf5`；NV-02 源码提交为 `ab5ba9b`；NV-01 外观设置源码提交为 `66b5da5`；CORE-03 证据提交为 `25ebdfc`、源码为 `348b2e9`；源码版本仍为 `2.6.9`，发布 tag 为 `473cc67`） |
-| 当前工作分支 | `main`；CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06 源码、测试与证据已提交并推送，DESK-01 已领取，工作树应保持干净 |
+| 代码基线 | 当前 main HEAD `7fd5766`（DESK-01 修正专注小窗路由；NV-06 视觉精修、Today 起点行为与视觉专项提交为 `a52796f`；NV-05 交互/响应式/错误态源码与测试为 `85308f1`；NV-04 应用/测试基线为 `94e0b2e`；NV-03 状态语义提交 `ff6daf5`；NV-02 源码提交为 `ab5ba9b`；NV-01 外观设置源码提交为 `66b5da5`；CORE-03 证据提交为 `25ebdfc`、源码为 `348b2e9`；源码版本仍为 `2.6.9`，发布 tag 为 `473cc67`） |
+| 当前工作分支 | `main`；CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06/DESK-01 源码、测试与证据已提交，DESK-03 已领取，工作树应保持干净 |
 | 发布基线 | GitHub `v2.6.9`，tag 实际提交为 `473cc67` |
-| 远程 main | `a52796f`，已包含 NV-06 视觉精修/Today 起点修复、NV-05 交互/响应式/错误态收口、NV-04 基线测试/报告、NV-03、NV-02、NV-01、CORE-03 与此前功能集成/ENG-01 证据；v2.6.9 tag 仍指向 `473cc67` |
-| 本轮交付 | CORE-01、CORE-02、CORE-04、CORE-05、ENG-01、NV-01、NV-02、NV-03、NV-04、NV-05、NV-06 完成；CORE-03 的目录实现已提交为 `348b2e9`，但 macOS 原生验收暂缺，任务保留 BLOCKED |
-| 下一项 | **DESK-01：Windows 原生闭环**；随后进入 DESK-03，并保留 CORE-03 依赖的 DESK-02 阻塞 |
-| 当前执行人 / 在做任务 | Codex / DESK-01 DOING（起始 SHA `a52796f`）；本轮不触碰真实用户数据、不重指已发布 tag |
-| 首套验收结论 | **NV-06 的 Chromium + Tauri mock 首套视觉验收已完成**；整体仍未完成原生 Windows/macOS、QA、性能、数据搬移和发布闭环 |
+| 远程 main | `aa19201`（DESK-01 修复、原生证据与本轮计划尚未推送）；已包含 NV-06 视觉精修/Today 起点修复、NV-05 交互/响应式/错误态收口、NV-04 基线测试/报告、NV-03、NV-02、NV-01、CORE-03 与此前功能集成/ENG-01 证据；v2.6.9 tag 仍指向 `473cc67` |
+| 本轮交付 | CORE-01、CORE-02、CORE-04、CORE-05、ENG-01、NV-01、NV-02、NV-03、NV-04、NV-05、NV-06、DESK-01 完成；CORE-03 的目录实现已提交为 `348b2e9`，但 macOS 原生验收暂缺，任务保留 BLOCKED |
+| 下一项 | **DESK-03：编辑时计时仍更新**；随后进入 ARCH-01，并保留 CORE-03 依赖的 DESK-02 阻塞 |
+| 当前执行人 / 在做任务 | Codex / DESK-03 DOING（起始 SHA `7fd5766`）；本轮不触碰真实用户数据、不重指已发布 tag |
+| 首套验收结论 | **Windows 原生核心闭环已通过**；DESK-01 的专注/待办浮窗、锁定解锁、主窗恢复与包构建证据已记录；真实休眠/托盘菜单点击/正式安装器执行留有明确边界，整体仍未完成 macOS、QA、性能、数据搬移和发布闭环 |
 | source | 本轮用户说明；当前源码与测试；Git 提交/远程 refs；GitHub Release/Actions；本轮命令结果 |
 | supersedes | 旧文档中的 v1.4.1/v1.5.x/v1.10.0/v2.0 当前进度，以及 2026-09-06 摘要中的“其他四页未实现、主题注册未建立” |
 | pending | 版本/包/Release 闭环、原生 Windows/macOS 窗口与平台验证、QA/性能/数据搬移 |
@@ -146,9 +146,9 @@ CORE-03、DESK-02 为 macOS 下一次发布门槛，可与 Windows 首套验收�
 | NV-04 | P1 | DONE | NV-01/02/03 | 五页固定视觉/状态基线与差异清单 |
 | NV-05 | P1 | DONE | NV-04 | 五页响应式、键盘、焦点、错误态收口 |
 | NV-06 | P2 | DONE | NV-04/05 | 分页视觉精修并完成第一套视觉验收 |
-| DESK-01 | P1 | DOING | CORE-02、NV-03 | Windows 真机计时/悬浮/托盘/恢复冒烟 |
+| DESK-01 | P1 | DONE | CORE-02、NV-03 | Windows 真机计时/悬浮/托盘/恢复冒烟 |
 | DESK-02 | P1 | TODO | CORE-03 | macOS 数据、窗口、单实例与安装冒烟 |
-| DESK-03 | P1 | TODO | CORE-02、NV-03 | 计时刷新与列表编辑解耦，多窗口状态一致 |
+| DESK-03 | P1 | DOING | CORE-02、NV-03 | 计时刷新与列表编辑解耦，多窗口状态一致 |
 | ARCH-01 | P2 | TODO | G1 | 有限拆分视图/CSS，建立最小主题渲染边界 |
 | QA-01 | P1 | TODO | NV-04、ENG-01 | 公共业务回归、主题专用视觉回归、CI 证据留存 |
 | TH-02 | P2 | TODO | G0/G1/G2 | 第二套 Editorial Paper 五页 |
@@ -289,6 +289,10 @@ NV-05 的具体键盘缺口：`CommandPalette.tsx` 声明 modal/listbox，但缺
 - 存储或恢复失败时，不允许只见成功通知。使用合成数据，升级/备份恢复前后核对条目数、总时长、关联 ID 和运行态。
 - 交付 OS/WebView/缩放/版本/提交/用例/结果；浏览器 mock 通过只能列为辅助证据。
 
+- **DESK-01 本轮结果（2026-09-08）**：源码提交为 `7fd5766`。Windows 11 专业版 `10.0.26200`、WebView2 `152.0.4191.66`、DPI 144/150%、屏幕 `2560×1440`；隔离目录启动、二次启动单实例聚焦、主窗最大化/还原/最小化/关闭隐藏、计时开始/暂停/恢复/完成、待办浮窗和专注浮窗锁定/独立解锁均完成原生 UI Automation 冒烟。定位并修复 `show_focus_floating` 误操作 `todo-float` 的根因，使开始计时真正显示 `focus-float`。
+- **DESK-01 验证证据**：`cargo fmt --check`、`cargo check --locked`、Rust `32/32`、`pnpm check`、`tests/app.spec.mjs` `29/29`、`pnpm tauri build --debug`、`git diff --check` 均 PASS；MSI/NSIS 和 exe 已生成并核对 SHA-256；报告与截图见 `docs/qa/DESK-01-7fd5766.md`、`output/qa/DESK-01/`。版本仍为 `2.6.9`，Release 资产交给 REL-01。
+- **DESK-01 剩余边界**：未执行真实休眠/唤醒、倒计时自然到点/声音播放、正式安装器安装；系统通知区没有向 UI Automation 暴露图标，托盘菜单未直接点击，但托盘创建/恢复/退出回调已核对，关闭隐藏和二次启动恢复已实测；CORE-03/DESK-02 的 macOS 原生证据仍缺。下一步进入 DESK-03。
+
 ### DESK-03 · 编辑时计时仍更新
 
 - **事实**：MainShell 每秒 `refresh` 并行读取计时/待办/记录/统计/设置五个接口；`busy`、编辑待办或记录时整个轮询跳过，计时展示也随之停更。
@@ -392,6 +396,8 @@ NV-05 的具体键盘缺口：`CommandPalette.tsx` 声明 modal/listbox，但缺
 | 2026-09-08 | NV-04 | `7ed8f7b`→`94e0b2e`；修改 `tests/today-visual.spec.mjs` 与显式跟踪的 `docs/qa/NV-04-94e0b2e.md`；新增五页静态截图、几何/环境元数据、默认/最小/最大化代理和 125/150/200% DPR 代理矩阵，固定 reduced-motion 截图并登记 8 项差异；`pnpm check` PASS，`pnpm test:frontend` 41/41 PASS（约1.6分钟），视觉专项通过，`git diff --check` PASS；最近一次应用构建 PASS，版本/Release 资产未变；原生系统缩放、字体/材质一比一和全交互状态留给后续验收 | NV-05（CORE-03 仍待 macOS 原生证据） |
 | 2026-09-08 | NV-05 | `ccf2885`→`85308f1`；修改 `src/components/CommandPalette.tsx`、`src/App.css`、`tests/app.spec.mjs`、`tests/today-visual.spec.mjs`；命令面板补齐 listbox 活动项、方向键/Enter/Esc/Space、Tab 焦点循环与 aria 关系，新增启动读取失败可见并重试恢复，五页压力窗口/Today 首节点起点/Settings 底部可达性回归；`pnpm check` PASS、命令面板定向 2/2、压力窗口 1/1、`pnpm test:frontend` 44/44 PASS、`pnpm build` PASS、`git diff --check` PASS；报告 `docs/qa/NV-05-85308f1.md`；源码/测试已推送，版本/Release 资产未变；原生平台与 NV-06 材质差异保留 | NV-06（CORE-03 仍待 macOS 原生证据） |
 | 2026-09-08 | NV-06 | `85308f1`→`a52796f`；修改 `src/App.css`、`src/components/TodayDashboard.tsx`、`tests/today-visual.spec.mjs`，新增 `docs/qa/NV-06-a52796f.md`；Today 首屏起点与 ready 后新增节点自动跟随边界修正，非 Today 四页统一离线 v4 山谷材质并调光；`pnpm check` PASS、`pnpm test:frontend` 44/44 PASS（最终提交后复跑）、视觉专项 15/15 PASS、`pnpm build` PASS、`git diff --check` PASS；五页截图/几何矩阵与 SHA 见报告和 `output/qa/NV-04/a52796f/`；源码/测试已推送，版本/Release 资产未变；原生平台、字体/素材一比一与 QA 长数据仍留后续 | DESK-01（CORE-03 仍待 macOS 原生证据） |
+
+| 2026-09-08 | DESK-01 | `a52796f`→`7fd5766`；修改 `src-tauri/src/runtime.rs`，新增 `docs/qa/DESK-01-7fd5766.md`；修复开始计时误开待办浮窗而不显示专注浮窗，Windows 11/WebView2 152/DPI 144 原生验证隔离启动、单实例、主窗恢复、计时跨窗、两类浮窗锁定/独立解锁、主窗尺寸控制；`cargo fmt --check`、`cargo check --locked`、Rust 32/32、`pnpm check`、前端 29/29、`pnpm tauri build --debug`、`git diff --check` PASS；MSI/NSIS/exe SHA 见报告；版本/Release 资产未变；真实休眠/托盘菜单点击/正式安装器未执行，明确记录边界；源码与报告待推送 | DESK-03（CORE-03 仍待 macOS 原生证据） |
 
 每条后续记录使用：`日期｜任务ID｜开始SHA→结束SHA｜修改文件｜验证命令与结果｜证据路径/链接｜版本/发布状态｜剩余问题｜下一ID`。没有执行的测试必须写“未执行”，不可复制上一版结果。
 
