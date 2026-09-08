@@ -2,7 +2,6 @@ import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount }
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import { listen } from "@tauri-apps/api/event";
 import {
-  ArrowUpRight,
   ChartNoAxesCombined,
   CircleDot,
   Clock3,
@@ -74,14 +73,7 @@ import {
   unlockFocusFloating,
 } from "./lib/window-controls";
 import CommandPalette, { type PaletteCommand } from "./components/CommandPalette";
-import TodayDashboard from "./components/TodayDashboard";
-import {
-  NightValleyFocus,
-  NightValleyRecords,
-  NightValleySettings,
-  NightValleyTodo,
-} from "./components/NightValleyViews";
-import { copyLibrarySize, getCopyAttribution, getCopyDisplayText, getCopyOriginalText, getDailyCopy } from "./lib/copy-library";
+import ThemeSurface from "./components/ThemeSurface";
 import { getTheme, implementedThemeId, type ThemeId } from "./lib/themes";
 import "./App.css";
 
@@ -96,131 +88,6 @@ type UndoAction =
 
 type TodoEditDraft = TodoDraft & { id: number };
 type RecordEditDraft = { id: number; title: string };
-
-interface TodoRowProps {
-  item: TodoItem;
-  editingTodo: () => TodoEditDraft | null;
-  busy: () => boolean;
-  timerHasProgress: () => boolean;
-  onToggle: (id: number) => void;
-  onBeginEdit: (item: TodoItem) => void;
-  onUseForFocus: (item: TodoItem) => void;
-  onRemove: (id: number) => void;
-  onPatch: (patch: Partial<TodoEditDraft>) => void;
-  onSave: () => void;
-  onCancel: () => void;
-}
-
-function TodoRow(props: TodoRowProps) {
-  return (
-    <article classList={{ "todo-row": true, "todo-row--overdue": isOverdue(props.item.scheduledDate) }}>
-      <Show
-        when={props.editingTodo()?.id === props.item.id}
-        fallback={
-          <>
-            <button
-              type="button"
-              class="todo-check"
-              title="标记完成"
-              aria-label={`标记“${props.item.title}”完成`}
-              disabled={props.busy()}
-              onClick={() => props.onToggle(props.item.id)}
-            />
-            <div>
-              <strong title={props.item.title}>{props.item.title}</strong>
-              <small>
-                {formatTodoDue(props.item)} · 重要程度：{importanceLabel(props.item.importanceKey)}
-                <Show when={isOverdue(props.item.scheduledDate)}>
-                  <span class="todo-row__overdue-label">已过期</span>
-                </Show>
-              </small>
-            </div>
-            <div class="todo-row__actions">
-              <button
-                type="button"
-                class="row-action"
-                disabled={props.busy()}
-                onClick={() => props.onBeginEdit(props.item)}
-              >
-                编辑
-              </button>
-              <button
-                type="button"
-                class="row-action"
-                disabled={props.busy() || props.timerHasProgress()}
-                onClick={() => props.onUseForFocus(props.item)}
-              >
-                专注
-              </button>
-              <button
-                type="button"
-                class="row-action row-action--danger"
-                title="删除待办"
-                disabled={props.busy()}
-                onClick={() => props.onRemove(props.item.id)}
-              >
-                删除
-              </button>
-            </div>
-          </>
-        }
-      >
-        <div class="todo-edit-form">
-          <label>
-            <span>待办事项</span>
-            <input
-              type="text"
-              name={`editTodoTitle-${props.item.id}`}
-              autocomplete="off"
-              value={props.editingTodo()?.title ?? ""}
-              onInput={(event) => props.onPatch({ title: event.currentTarget.value })}
-            />
-          </label>
-          <label>
-            <span>截止日期</span>
-            <input
-              type="date"
-              name={`editTodoDate-${props.item.id}`}
-              autocomplete="off"
-              value={props.editingTodo()?.scheduledDate ?? ""}
-              onChange={(event) => props.onPatch({ scheduledDate: event.currentTarget.value })}
-            />
-          </label>
-          <label>
-            <span>时间</span>
-            <input
-              type="time"
-              name={`editTodoTime-${props.item.id}`}
-              autocomplete="off"
-              value={props.editingTodo()?.scheduledTime ?? ""}
-              onInput={(event) => props.onPatch({ scheduledTime: event.currentTarget.value })}
-            />
-          </label>
-          <label>
-            <span>重要程度</span>
-            <select
-              name={`editTodoImportance-${props.item.id}`}
-              value={props.editingTodo()?.importanceKey ?? "medium"}
-              onChange={(event) => props.onPatch({ importanceKey: event.currentTarget.value as TodoImportance })}
-            >
-              <option value="high">高</option>
-              <option value="medium">中</option>
-              <option value="low">低</option>
-            </select>
-          </label>
-          <div class="todo-edit-form__actions">
-            <button type="button" class="primary-button" disabled={props.busy()} onClick={props.onSave}>
-              保存
-            </button>
-            <button type="button" class="text-button" disabled={props.busy()} onClick={props.onCancel}>
-              取消
-            </button>
-          </div>
-        </div>
-      </Show>
-    </article>
-  );
-}
 
 function getWindowLabel() {
   try {
@@ -446,10 +313,6 @@ const recordDateFormatter = new Intl.DateTimeFormat("zh-CN", {
   hour: "2-digit",
   minute: "2-digit",
 });
-const backupDateFormatter = new Intl.DateTimeFormat("zh-CN", {
-  dateStyle: "medium",
-  timeStyle: "short",
-});
 
 function parseLocalDate(value: string) {
   const date = new Date(`${value}T00:00:00`);
@@ -492,11 +355,6 @@ function formatRecordDate(record: FocusRecord) {
   return `${record.completedDate} ${record.completedTime}`.trim();
 }
 
-function formatBackupDate(value: string) {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : backupDateFormatter.format(date);
-}
-
 function formatAnalyticsDate(value: string) {
   const date = parseLocalDate(value);
   return date ? calendarDateFormatter.format(date) : value;
@@ -534,14 +392,6 @@ function sortTodos(items: TodoItem[]) {
 
 function formatTodoDue(item: TodoItem) {
   return `${formatDueDate(item.scheduledDate)}${item.scheduledTime ? ` · ${item.scheduledTime}` : ""}`;
-}
-
-function formatCountdownPreview(minutes: number) {
-  const totalSeconds = Math.max(0, Math.round((Number.isFinite(minutes) ? minutes : 0) * 60));
-  const hours = Math.floor(totalSeconds / 3600);
-  const remainingMinutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  return [hours, remainingMinutes, seconds].map((value) => String(value).padStart(2, "0")).join(":");
 }
 
 function formatDurationMs(value: number) {
@@ -747,7 +597,6 @@ function MainShell() {
   let refreshVersion = 0;
   let timerRefreshVersion = 0;
   let observedAlertSequence: number | null = null;
-  let customAlertSoundInput: HTMLInputElement | undefined;
   let floatingTimerWasAvailable = false;
   let floatingWorkspaceElement: HTMLElement | undefined;
   let floatingResizeFrame: number | undefined;
@@ -764,7 +613,6 @@ function MainShell() {
   const nextTodo = () => pendingTodos()[0] ?? null;
   const selectedBackup = () => backups().find((backup) => backup.fileName === selectedBackupFile()) ?? null;
   const recentBreakdown = createMemo(() => getRecentTrendDays(analytics()?.dailyBreakdown ?? []));
-  const dailyCopy = createMemo(() => getDailyCopy(getToday()));
   const recordGroups = createMemo(() => groupRecordsByDate(records()));
   const archiveDays = createMemo(() => mergeArchiveDays(recentBreakdown(), records()));
   const archivePath = createMemo(() => createArchivePath(archiveDays()));
@@ -785,8 +633,6 @@ function MainShell() {
     const total = totalTodoCount();
     return total === 0 ? 0 : Math.round(((analytics()?.completedTodoCount ?? 0) / total) * 100);
   };
-  const maxDailyDuration = () =>
-    Math.max(1, ...archiveDays().map((day) => day.totalDurationMs));
   const selectedTodo = () =>
     todos().find((item) => item.id === linkedTodoId() && !item.isCompleted) ?? null;
   const activeTitle = () =>
@@ -1273,16 +1119,6 @@ function MainShell() {
       setEditingRecord(null);
       showMessage("专注记录名称已更新。", "success");
     }, "正在保存…");
-  }
-
-  function handleRecordEditKeyDown(event: KeyboardEvent) {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      void saveRecordEdit();
-    } else if (event.key === "Escape") {
-      event.preventDefault();
-      cancelEditRecord();
-    }
   }
 
   async function toggleTodo(id: number) {
@@ -2342,1107 +2178,156 @@ function MainShell() {
               </button>
             </div>
           </Show>
-          <Show when={activeView() === "today"}>
-            <TodayDashboard
-              todayDate={getToday()}
-              todayLabel={formatAnalyticsDate(getToday())}
-              timer={() => timer()}
-              ready={ready}
-              busy={busy}
-              timerHasProgress={timerHasProgress}
-              timerCanContinue={timerCanContinue}
-              nextTodo={nextTodo}
-              todayTodos={todayTodos}
-              todayCompletedTodos={todayCompletedTodos}
-              records={() => records()}
-              analytics={() => analytics()}
-              defaultFocusMinutes={() => timerPreferences().stopwatchReminderMinutes ?? timerPreferences().pomodoroFocusMinutes}
-              formatTodoDue={formatTodoDue}
-              importanceLabel={importanceLabel}
-              onPause={() => void pauseFocus()}
-              onContinue={() => void startFocus()}
-              onFinish={() => finishFocus()}
-              onStartNext={() => void startNextTodo()}
-              onOpenFocus={() => changeView("focus")}
-              onOpenRecords={() => changeView("records")}
-              onUseTodo={useTodoForFocus}
-              onOpenTodos={() => changeView("todos")}
-            />
-          </Show>
-          <Show when={activeView() === "focus"}>
-            <NightValleyFocus
-              timer={() => timer()}
-              timerPreferences={() => timerPreferences()}
-              todos={() => todos()}
-              pendingTodos={pendingTodos}
-              ready={ready}
-              busy={busy}
-              timerHasProgress={timerHasProgress}
-              timerCanContinue={timerCanContinue}
-              canFinish={canFinish}
-              savedConfirmation={savedConfirmation}
-              sessionTitle={() => sessionTitle()}
-              linkedTodoId={() => linkedTodoId()}
-              completeLinkedTodo={() => completeLinkedTodo()}
-              countdownMinutes={() => countdownMinutes()}
-              countdownDraftDirty={() => countdownDraftDirty()}
-              busyLabel={() => busyLabel()}
-              onSessionTitleChange={setSessionTitle}
-              onSessionTitleDirty={() => setSessionTitleDirty(true)}
-              onLinkedTodoChange={setLinkedTodoId}
-              onCompleteLinkedTodoChange={setCompleteLinkedTodo}
-              onCountdownMinutesChange={setCountdownMinutes}
-              onCountdownDraftDirty={() => setCountdownDraftDirty(true)}
-              onChangeMode={(mode) => void changeMode(mode)}
-              onStart={() => void startFocus()}
-              onPause={() => void pauseFocus()}
-              onFinish={() => void finishFocus()}
-              onReset={() => void resetFocus()}
-            />
-          </Show>
-          <Show when={false}>
-            <section class="focus-page">
-              <div class="page-heading">
-                <span>专注</span>
-                <h1>现在只做一件事</h1>
-              </div>
-
-              <Show when={timer().recoveredFromLastSession}>
-                <div class="recovery-banner" role="status">
-                  <strong>已恢复上一轮专注</strong>
-                  <span>当前计时和事项仍然保留，可以继续、完成记录或重置。</span>
-                </div>
-              </Show>
-
-              <div class="mode-switcher">
-                <button
-                  type="button"
-                  classList={{ active: timer().modeKey === "stopwatch" }}
-                  aria-pressed={timer().modeKey === "stopwatch"}
-                  disabled={busy() || !ready() || timerHasProgress()}
-                  onClick={() => void changeMode("stopwatch")}
-                >
-                  正向计时
-                </button>
-                <button
-                  type="button"
-                  classList={{ active: timer().modeKey === "countdown" }}
-                  aria-pressed={timer().modeKey === "countdown"}
-                  disabled={busy() || !ready() || timerHasProgress()}
-                  onClick={() => void changeMode("countdown")}
-                >
-                  倒计时
-                </button>
-              </div>
-
-              <Show when={timer().modeKey === "countdown"}>
-                <label class="inline-field countdown-field">
-                  <span>专注时长</span>
-                  <input
-                    type="number"
-                    name="countdownMinutes"
-                    min="1"
-                    max="720"
-                    value={countdownMinutes()}
-                    disabled={busy() || !ready() || timerHasProgress()}
-                    onInput={(event) => {
-                      setCountdownDraftDirty(true);
-                      setCountdownMinutes(Number(event.currentTarget.value || 0));
-                    }}
-                  />
-                  <em>分钟</em>
-                </label>
-              </Show>
-
-              <div class="session-form">
-                <label>
-                  <span>这一轮要做什么</span>
-                  <input
-                    type="text"
-                    name="sessionTitle"
-                    autocomplete="off"
-                    value={sessionTitle()}
-                    placeholder="例如：完成项目方案…"
-                    disabled={busy() || !ready() || timerHasProgress()}
-                    onInput={(event) => {
-                      setSessionTitleDirty(true);
-                      setSessionTitle(event.currentTarget.value);
-                    }}
-                  />
-                </label>
-                <label>
-                  <span>关联待办（可选）</span>
-                  <select
-                    name="linkedTodoId"
-                    value={linkedTodoId() ?? ""}
-                    disabled={busy() || !ready() || timerHasProgress()}
-                    onChange={(event) => {
-                      const id = event.currentTarget.value
-                        ? Number(event.currentTarget.value)
-                        : null;
-                      const item = todos().find((todo) => todo.id === id);
-                      setLinkedTodoId(id);
-                      setSessionTitleDirty(true);
-                      if (item) {
-                        setSessionTitle(item.title);
-                      }
-                    }}
-                  >
-                    <option value="">不关联待办</option>
-                    <For each={pendingTodos()}>
-                      {(item) => <option value={item.id}>{item.title}</option>}
-                    </For>
-                  </select>
-                </label>
-              </div>
-
-              <Show when={linkedTodoId() !== null}>
-                <label class="linked-todo-option">
-                  <input
-                    type="checkbox"
-                    name="completeLinkedTodo"
-                    checked={completeLinkedTodo()}
-                    disabled={busy() || !ready() || timerHasProgress()}
-                    onChange={(event) => setCompleteLinkedTodo(event.currentTarget.checked)}
-                  />
-                  <span>本轮完成后同时标记关联待办</span>
-                </label>
-              </Show>
-
-              <div class="timer-readout">
-                <span>{timer().status}</span>
-                <strong>
-                  {timer().modeKey === "countdown" && countdownDraftDirty()
-                    ? formatCountdownPreview(countdownMinutes())
-                    : timer().elapsedLabel}
-                </strong>
-                <small>
-                  {timer().modeKey === "countdown"
-                    ? `设定 ${countdownMinutes()} 分钟`
-                    : timer().targetDurationMs !== null
-                      ? `下一阶段目标：${Math.round(timer().targetDurationMs! / 60_000)} 分钟`
-                      : "阶段目标已完成"}
-                </small>
-              </div>
-
-              <div class="timer-controls">
-                <button
-                  type="button"
-                  class="primary-button"
-                  disabled={busy() || !ready() || timer().isRunning || (timer().modeKey === "countdown" && timer().remainingMs === 0)}
-                  onClick={() => void startFocus()}
-                >
-                  {busy() && !timer().isRunning ? busyLabel() : "开始"}
-                </button>
-                <button
-                  type="button"
-                  class="secondary-button"
-                  disabled={busy() || !timer().isRunning}
-                  onClick={() => void pauseFocus()}
-                >
-                  {busy() && timer().isRunning ? busyLabel() : "暂停"}
-                </button>
-                <button
-                  type="button"
-                  class="secondary-button"
-                  disabled={busy() || !canFinish()}
-                  onClick={() => void finishFocus()}
-                >
-                  {busy() && canFinish() ? busyLabel() : "完成并记录"}
-                </button>
-                <button
-                  type="button"
-                  class="text-button"
-                  disabled={busy() || !timerHasProgress()}
-                  onClick={() => void resetFocus()}
-                >
-                  重置
-                </button>
-              </div>
-            </section>
-          </Show>
-
-          <Show when={activeView() === "todos"}>
-            <NightValleyTodo
-              todos={() => todos()}
-              activeTodos={activeTodos}
-              overdueTodos={overdueTodos}
-              completedTodos={completedTodos}
-              timer={() => timer()}
-              timerHasProgress={timerHasProgress}
-              ready={ready}
-              busy={busy}
-              busyLabel={() => busyLabel()}
-              todoTitle={() => todoTitle()}
-              todoDueDate={() => todoDueDate()}
-              todoDueTime={() => todoDueTime()}
-              todoImportance={() => todoImportance()}
-              editingTodo={() => editingTodo()}
-              onTodoTitleChange={setTodoTitle}
-              onTodoDueDateChange={setTodoDueDate}
-              onTodoDueTimeChange={setTodoDueTime}
-              onTodoImportanceChange={setTodoImportance}
-              onAddTodo={() => void addTodo()}
-              onToggle={(id) => void toggleTodo(id)}
-              onBeginEdit={beginEditTodo}
-              onUseForFocus={useTodoForFocus}
-              onRemove={(id) => void removeTodo(id)}
-              onPatch={patchEditingTodo}
-              onSave={() => void saveTodoEdit()}
-              onCancel={cancelEditTodo}
-              formatTodoDue={formatTodoDue}
-              importanceLabel={importanceLabel}
-            />
-          </Show>
-          <Show when={false}>
-            <section class="todo-page">
-              <div class="page-heading">
-                <span>待办</span>
-                <h1>写下要完成的事</h1>
-              </div>
-
-              <div class="todo-create">
-                <label>
-                  <span>待办事项</span>
-                  <input
-                    type="text"
-                    name="todoTitle"
-                    autocomplete="off"
-                    value={todoTitle()}
-                    placeholder="例如：完成项目方案…"
-                    onInput={(event) => setTodoTitle(event.currentTarget.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        event.preventDefault();
-                        void addTodo();
-                      }
-                    }}
-                  />
-                </label>
-                <label>
-                  <span>截止日期</span>
-                  <input
-                    type="date"
-                    name="todoDueDate"
-                    autocomplete="off"
-                    value={todoDueDate()}
-                    onChange={(event) => setTodoDueDate(event.currentTarget.value)}
-                  />
-                </label>
-                <label>
-                  <span>时间（可选）</span>
-                  <input
-                    type="time"
-                    name="todoDueTime"
-                    autocomplete="off"
-                    value={todoDueTime()}
-                    onInput={(event) => setTodoDueTime(event.currentTarget.value)}
-                  />
-                </label>
-                <label>
-                  <span>重要程度</span>
-                  <select
-                    name="todoImportance"
-                    value={todoImportance()}
-                    onChange={(event) => setTodoImportance(event.currentTarget.value as TodoImportance)}
-                  >
-                    <option value="high">高</option>
-                    <option value="medium">中</option>
-                    <option value="low">低</option>
-                  </select>
-                </label>
-                <button
-                  type="button"
-                  class="primary-button"
-                  disabled={busy()}
-                  onClick={() => void addTodo()}
-                >
-                  {busy() ? busyLabel() : "添加"}
-                </button>
-              </div>
-
-              <div class="todo-list">
-                <Show when={loadState() === "loading"}>
-                  <p class="load-copy">正在读取待办…</p>
-                </Show>
-                <Show when={loadState() === "error"}>
-                  <p class="empty-copy">读取失败，请点击上方“重试读取”。</p>
-                </Show>
-                <Show when={ready()}>
-                  <For each={activeTodos()}>
-                    {(item) => (
-                      <TodoRow
-                        item={item}
-                        editingTodo={editingTodo}
-                        busy={busy}
-                        timerHasProgress={timerHasProgress}
-                        onToggle={(id) => void toggleTodo(id)}
-                        onBeginEdit={beginEditTodo}
-                        onUseForFocus={useTodoForFocus}
-                        onRemove={(id) => void removeTodo(id)}
-                        onPatch={patchEditingTodo}
-                        onSave={() => void saveTodoEdit()}
-                        onCancel={cancelEditTodo}
-                      />
-                    )}
-                  </For>
-                </Show>
-                <Show when={ready() && activeTodos().length === 0 && overdueTodos().length === 0}>
-                  <p class="empty-copy">还没有待办，先写下今天要完成的一件事。</p>
-                </Show>
-              </div>
-
-              <Show when={ready() && overdueTodos().length > 0}>
-                <section class="todo-status-section todo-status-section--overdue" aria-labelledby="overdue-todos-heading">
-                  <div class="todo-status-section__heading">
-                    <div>
-                      <h2 id="overdue-todos-heading">已过期</h2>
-                      <span>截止日期已过去，仍可编辑或标记完成</span>
-                    </div>
-                    <strong>{overdueTodos().length}</strong>
-                  </div>
-                  <For each={overdueTodos()}>
-                    {(item) => (
-                      <TodoRow
-                        item={item}
-                        editingTodo={editingTodo}
-                        busy={busy}
-                        timerHasProgress={timerHasProgress}
-                        onToggle={(id) => void toggleTodo(id)}
-                        onBeginEdit={beginEditTodo}
-                        onUseForFocus={useTodoForFocus}
-                        onRemove={(id) => void removeTodo(id)}
-                        onPatch={patchEditingTodo}
-                        onSave={() => void saveTodoEdit()}
-                        onCancel={cancelEditTodo}
-                      />
-                    )}
-                  </For>
-                </section>
-              </Show>
-
-              <Show when={completedTodos().length > 0}>
-                <section class="completed-section">
-                  <span>已完成</span>
-                  <For each={completedTodos()}>
-                    {(item) => (
-                      <div class="completed-row">
-                        <span class="completed-row__marker" aria-hidden="true">✓</span>
-                        <button
-                          type="button"
-                          class="completed-row__title"
-                          disabled={busy()}
-                          onClick={() => void toggleTodo(item.id)}
-                        >
-                          {item.title}
-                        </button>
-                        <span class="completed-row__label">已完成</span>
-                        <button
-                          type="button"
-                          class="row-action"
-                          disabled={busy()}
-                          onClick={() => void toggleTodo(item.id)}
-                        >
-                          恢复
-                        </button>
-                        <button
-                          type="button"
-                          class="row-action row-action--danger"
-                          disabled={busy()}
-                          onClick={() => void removeTodo(item.id)}
-                        >
-                          删除
-                        </button>
-                      </div>
-                    )}
-                  </For>
-                </section>
-              </Show>
-            </section>
-          </Show>
-
-          <Show when={activeView() === "settings"}>
-            <NightValleySettings
-              timerPreferences={() => timerPreferences()}
-              busy={busy}
-              busyLabel={() => busyLabel()}
-              customAlertSoundName={() => customAlertSoundName()}
-              customAlertSoundInputRef={(element) => (customAlertSoundInput = element)}
-              backups={() => backups()}
-              backupLoadState={() => backupLoadState()}
-              backupLoadError={() => backupLoadError()}
-              selectedBackupFile={() => selectedBackupFile()}
-              selectedBackup={() => selectedBackup()}
-              lastBackupPath={() => lastBackupPath()}
-              themeId={() => themeId()}
-              visualIntensity={() => visualIntensity()}
-              motionIntensity={() => motionIntensity()}
-              density={() => density()}
-              onThemeSelect={selectTheme}
-              onVisualIntensityChange={setVisualIntensity}
-              onMotionIntensityChange={setMotionIntensity}
-              onDensityChange={setDensity}
-              onSaveVisualSettings={saveVisualSettings}
-              onSaveTimerPreferences={saveTimerPreferences}
-              onPreviewAlertSound={previewAlertSound}
-              onChooseCustomAlertSound={chooseCustomAlertSound}
-              onClearCustomAlertSound={clearCustomAlertSound}
-              onSelectedBackupFile={setSelectedBackupFile}
-              onLoadBackups={loadBackups}
-              onCreateBackup={createBackup}
-              onOpenBackupFolder={() => void run(async () => {
-                await openAppBackupFolder();
-                showMessage("已打开备份目录。", "success");
-              }, "正在打开…")}
-              onRestoreBackup={restoreBackup}
-              onClearAllData={clearAllData}
-            />
-          </Show>
-          <Show when={false}>
-            <section class="settings-page">
-              <div class="page-heading">
-                <span>设置</span>
-                <h1>数据留在你手里</h1>
-              </div>
-
-              <section class="settings-section reminder-settings">
-                <div class="settings-section__heading">
-                  <h2>结束提醒</h2>
-                  <p>倒计时结束、番茄钟阶段切换或正向计时达到目标时，用更明显的方式把你叫回来。</p>
-                </div>
-                <div class="reminder-options">
-                  <label class="reminder-option">
-                    <input
-                      type="checkbox"
-                      name="toastReminderEnabled"
-                      checked={timerPreferences().toastReminderEnabled}
-                      disabled={busy()}
-                      onChange={(event) => void saveTimerPreferences({ toastReminderEnabled: event.currentTarget.checked })}
-                    />
-                    <span>
-                      <strong>应用内弹窗</strong>
-                      <small>无论当前在哪个页面，时间到都会显示醒目提醒。</small>
-                    </span>
-                  </label>
-                  <label class="reminder-option">
-                    <input
-                      type="checkbox"
-                      name="windowAttentionReminderEnabled"
-                      checked={timerPreferences().windowAttentionReminderEnabled}
-                      disabled={busy()}
-                      onChange={(event) => void saveTimerPreferences({ windowAttentionReminderEnabled: event.currentTarget.checked })}
-                    />
-                    <span>
-                      <strong>任务栏闪烁</strong>
-                      <small>应用在后台时，让 Windows 任务栏图标短暂闪烁。</small>
-                    </span>
-                  </label>
-                  <label class="reminder-option">
-                    <input
-                      type="checkbox"
-                      name="soundReminderEnabled"
-                      checked={timerPreferences().soundReminderEnabled}
-                      disabled={busy()}
-                      onChange={(event) => void saveTimerPreferences({ soundReminderEnabled: event.currentTarget.checked })}
-                    />
-                    <span>
-                      <strong>声音提醒</strong>
-                      <small>播放一次短促音效；浏览器或系统静音时会自动安静处理。</small>
-                    </span>
-                  </label>
-                </div>
-                <div class="sound-picker">
-                  <label class="settings-select">
-                    <span>提醒音效</span>
-                    <select
-                      name="alertSoundKey"
-                      value={timerPreferences().alertSoundKey}
-                      disabled={busy()}
-                      onChange={(event) => void saveTimerPreferences({ alertSoundKey: event.currentTarget.value as AlertSoundKey })}
-                    >
-                      <option value="soft_chime">柔和铃音</option>
-                      <option value="bright_bell">明亮三连</option>
-                      <option value="deep_pulse">沉稳脉冲</option>
-                      <option value="viral_quote">胆子真是肥嘟嘟的（老牧师原声）</option>
-                      <option value="custom" disabled={!customAlertSoundName()}>自定义音效{customAlertSoundName() ? ` · ${customAlertSoundName()}` : " · 请先导入"}</option>
-                    </select>
-                  </label>
-                  <div class="sound-picker__actions">
-                    <button type="button" class="secondary-button" disabled={busy()} onClick={previewAlertSound}>
-                      试听
-                    </button>
-                    <button type="button" class="secondary-button" disabled={busy()} onClick={() => customAlertSoundInput?.click()}>
-                      导入音效
-                    </button>
-                    <Show when={customAlertSoundName()}>
-                      <button type="button" class="text-button" disabled={busy()} onClick={() => void clearCustomAlertSound()}>
-                        移除自定义
-                      </button>
-                    </Show>
-                    <input
-                      ref={(element) => (customAlertSoundInput = element)}
-                      class="sr-only"
-                      type="file"
-                      accept="audio/*"
-                      aria-label="导入自定义音效"
-                      onChange={(event) => void chooseCustomAlertSound(event)}
-                    />
-                  </div>
-                </div>
-              </section>
-
-              <section class="settings-section">
-                <div class="settings-section__heading">
-                  <h2>本地备份</h2>
-                  <p>备份包含待办、专注记录和当前未完成的计时状态，只保存在这台电脑上。</p>
-                </div>
-                <div class="settings-actions">
-                  <button type="button" class="primary-button" disabled={busy()} onClick={() => void createBackup()}>
-                    {busy() ? busyLabel() : "导出备份"}
-                  </button>
-                  <button
-                    type="button"
-                    class="secondary-button"
-                    disabled={busy()}
-                    onClick={() => void run(async () => {
-                      await openAppBackupFolder();
-                      showMessage("已打开备份目录。", "success");
-                    }, "正在打开…")}
-                  >
-                    打开备份目录
-                  </button>
-                </div>
-                <Show when={lastBackupPath()}>
-                  <p class="settings-path">最近备份：{lastBackupPath()}</p>
-                </Show>
-              </section>
-
-              <section class="settings-section">
-                <div class="settings-section__heading">
-                  <h2>恢复备份</h2>
-                  <p>导入会替换当前数据。应用会先自动保存一份回滚备份。</p>
-                </div>
-                <Show when={backupLoadState() === "loading"}>
-                  <p class="load-copy">正在读取备份列表…</p>
-                </Show>
-                <Show when={backupLoadState() === "error"}>
-                  <div class="load-error">
-                    <strong>备份列表读取失败</strong>
-                    <span>{backupLoadError()}</span>
-                    <button type="button" class="secondary-button" disabled={busy()} onClick={() => void loadBackups()}>
-                      重试读取
-                    </button>
-                  </div>
-                </Show>
-                <Show when={backupLoadState() === "ready" && backups().length > 0}>
-                  <label class="settings-select">
-                    <span>选择备份</span>
-                    <select
-                      name="backupFile"
-                      value={selectedBackupFile()}
-                      disabled={busy()}
-                      onChange={(event) => setSelectedBackupFile(event.currentTarget.value)}
-                    >
-                      <For each={backups()}>
-                        {(backup) => (
-                          <option value={backup.fileName}>
-                            {formatBackupDate(backup.exportedAt)} · {backup.todoCount} 项待办 · {backup.focusRecordCount} 条记录{backup.migrationNeeded ? " · 旧版" : ""}
-                          </option>
-                        )}
-                      </For>
-                    </select>
-                  </label>
-                  <Show when={selectedBackup()}>
-                    {(backup) => (
-                      <div class="backup-preview" aria-label="备份摘要">
-                        <div>
-                          <span>备份版本</span>
-                          <strong>{backup().migrationNeeded ? "v1 · 导入时自动升级" : `v${backup().schemaVersion}`}</strong>
-                        </div>
-                        <div>
-                          <span>数据内容</span>
-                          <strong>{backup().todoCount} 项待办 · {backup().focusRecordCount} 条记录</strong>
-                        </div>
-                        <div>
-                          <span>运行中会话</span>
-                          <strong>{backup().hasRuntimeSession ? "包含" : "不包含"}</strong>
-                        </div>
-                      </div>
-                    )}
-                  </Show>
-                  <button type="button" class="secondary-button" disabled={busy() || !selectedBackupFile()} onClick={() => void restoreBackup()}>
-                    导入并替换当前数据
-                  </button>
-                </Show>
-                <Show when={backupLoadState() === "ready" && backups().length === 0}>
-                  <p class="empty-copy">还没有备份。建议在更换电脑或清理数据前先导出一份。</p>
-                </Show>
-              </section>
-
-              <section class="settings-section settings-section--danger">
-                <div class="settings-section__heading">
-                  <h2>清空当前数据</h2>
-                  <p>只清空当前待办、记录和未完成计时，不会删除已经导出的备份。</p>
-                </div>
-                <button type="button" class="secondary-button" disabled={busy()} onClick={() => void clearAllData()}>
-                  清空当前数据
-                </button>
-              </section>
-            </section>
-          </Show>
-
-          <Show when={activeView() === "records"}>
-            <NightValleyRecords
-              analytics={() => analytics()}
-              records={() => records()}
-              archiveDays={() => archiveDays()}
-              archivePath={() => archivePath()}
-              selectedArchiveDate={() => selectedArchiveDate()}
-              selectedArchiveDay={() => selectedArchiveDay()}
-              selectedArchiveRecords={() => selectedArchiveRecords()}
-              recordGroups={() => recordGroups()}
-              ready={ready}
-              busy={busy}
-              editingRecord={() => editingRecord()}
-              todoCompletionPercent={todoCompletionPercent}
-              recentWeekActiveDays={recentWeekActiveDays}
-              recentWeekDurationMs={recentWeekDurationMs}
-              formatAnalyticsDate={formatAnalyticsDate}
-              formatArchiveRangeDate={formatArchiveRangeDate}
-              formatRecordDate={formatRecordDate}
-              formatRecordDay={formatRecordDay}
-              formatDurationMs={formatDurationMs}
-              onSelectDate={setSelectedArchiveDate}
-              onBeginEdit={beginEditRecord}
-              onPatchEdit={patchEditingRecordTitle}
-              onSaveEdit={() => void saveRecordEdit()}
-              onCancelEdit={cancelEditRecord}
-              onRemove={(id) => void removeRecord(id)}
-            />
-          </Show>
-          <Show when={false}>
-            <section class="records-page">
-              <header class="records-page__masthead">
-                <div>
-                  <span class="records-page__eyebrow">RECORDS / PERSONAL ARCHIVE</span>
-                  <h1>专注记录</h1>
-                  <p>把走过的路，收成看得见的节奏。</p>
-                </div>
-                <div class="records-page__counter" aria-label={`共 ${records().length} 条专注记录`}>
-                  <span>LOCAL LOG</span>
-                  <strong>{String(records().length).padStart(2, "0")}</strong>
-                  <small>条专注记录</small>
-                </div>
-              </header>
-              <Show when={analytics()}>
-                {(summary) => (
-                  <section class="records-archive" aria-label="专注记录档案">
-                    <div class="records-archive__summary">
-                      <div class="records-archive__summary-copy">
-                        <span class="records-archive__kicker"><span aria-hidden="true" /> ARCHIVE / PERSONAL RHYTHM</span>
-                        <h2>每个节点，都是你回来过的证据。</h2>
-                        <p>专注不会凭空消失，它会在日期、时长和一次次回到这里的动作里，留下可以回看的轨迹。</p>
-                      </div>
-                      <div class="records-archive__metric">
-                        <span>累计专注</span>
-                        <strong>{summary().totalFocusDurationLabel}</strong>
-                        <small>累计专注时长</small>
-                      </div>
-                      <div class="records-archive__metric">
-                        <span>完成段数</span>
-                        <strong>{summary().sessionCount}</strong>
-                        <small>条真实记录</small>
-                      </div>
-                      <div class="records-archive__metric records-archive__metric--accent">
-                        <span>最长连续</span>
-                        <strong>{summary().currentStreakDays}</strong>
-                        <small>天保持节奏</small>
-                      </div>
-                    </div>
-
-                    <div class="records-archive__body">
-                      <section class="records-archive__timeline" aria-label="最近七天专注轨迹">
-                        <div class="records-archive__timeline-heading">
-                          <div>
-                            <span>ARCHIVE TRAIL / 专注档案</span>
-                            <h2>把时间连成一条路</h2>
-                          </div>
-                          <strong>{archiveDays().length} 天窗口</strong>
-                        </div>
-                        <div class="records-archive__map">
-                          <div class="records-archive__map-glow" aria-hidden="true" />
-                          <svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="最近七天的专注路径">
-                            <path class="records-archive__route-shadow" d={archivePath()} />
-                            <path class="records-archive__route-line" d={archivePath()} />
-                            <path class="records-archive__route-dash" d={archivePath()} />
-                          </svg>
-                          <For each={archiveDays()}>
-                            {(day, index) => {
-                              const peak = Math.max(1, ...archiveDays().map((item) => item.totalDurationMs));
-                              const left = archiveDays().length === 1 ? 50 : 7 + (86 * index()) / (archiveDays().length - 1);
-                              const top = 70 - (day.totalDurationMs / peak) * 42;
-                              const isSelected = () => selectedArchiveDay()?.date === day.date;
-                              return (
-                                <button
-                                  type="button"
-                                  classList={{
-                                    "records-archive__node": true,
-                                    "records-archive__node--selected": isSelected(),
-                                    "records-archive__node--empty": day.totalDurationMs === 0,
-                                    "records-archive__node--first": index() === 0,
-                                    "records-archive__node--last": index() === archiveDays().length - 1,
-                                  }}
-                                  style={`left: ${left}%; top: ${top}%; --archive-node-x: ${left * 7.4}px;`}
-                                  aria-label={`${formatAnalyticsDate(day.date)}，专注 ${day.totalDurationLabel}，${day.sessionCount} 段`}
-                                  aria-pressed={isSelected()}
-                                  onClick={() => setSelectedArchiveDate(day.date)}
-                                >
-                                  <span class="records-archive__node-label">
-                                    <b>{formatAnalyticsDate(day.date)}</b>
-                                    <small>{day.sessionCount > 0 ? `${day.sessionCount} 段 · ${day.totalDurationLabel}` : "尚未留下记录"}</small>
-                                  </span>
-                                  <span class="records-archive__node-orb" aria-hidden="true" />
-                                </button>
-                              );
-                            }}
-                          </For>
-                        </div>
-                        <div class="records-archive__timeline-footer">
-                          <span>最近 7 天</span>
-                          <strong>{recentWeekActiveDays()} 天有投入</strong>
-                          <span>今天</span>
-                        </div>
-                      </section>
-
-                      <aside class="records-archive__detail" aria-label="选中日期详情">
-                        <div class="records-archive__detail-heading">
-                          <span>SELECTED DAY / 选中日期</span>
-                          <span class="records-archive__detail-signal" aria-hidden="true" />
-                        </div>
-                        <h2>{selectedArchiveDay() ? formatRecordDay(selectedArchiveDay()!.date) : "还没有记录"}</h2>
-                        <p>{selectedArchiveDay()?.sessionCount ?? 0} 段专注 · {selectedArchiveDay()?.totalDurationLabel ?? "00:00:00"}</p>
-                        <div class="records-archive__detail-mountain" aria-hidden="true">
-                          <span />
-                          <i />
-                          <b />
-                        </div>
-                        <div class="records-hero__dial" aria-label={`已完成 ${selectedArchiveDay()?.sessionCount ?? 0} 段专注`}>
-                          <div class="records-hero__dial-ring records-hero__dial-ring--outer" />
-                          <div class="records-hero__dial-ring records-hero__dial-ring--inner" />
-                          <div class="records-hero__dial-core">
-                            <span>FOCUS LOG</span>
-                            <strong>{selectedArchiveDay()?.sessionCount ?? 0}</strong>
-                            <small>段专注</small>
-                          </div>
-                          <i class="records-hero__dial-marker" aria-hidden="true" />
-                        </div>
-                        <button
-                          type="button"
-                          class="records-archive__detail-action"
-                          disabled={selectedArchiveRecords().length === 0}
-                          onClick={() => document.querySelector(".record-history")?.scrollIntoView({ behavior: "smooth", block: "start" })}
-                        >
-                          {selectedArchiveRecords().length > 0 ? "查看这一天的记录" : "这一天还没有记录"}
-                          <ArrowUpRight size={16} strokeWidth={1.8} aria-hidden="true" />
-                        </button>
-                        <div class="records-archive__quote">
-                          <span class="records-hero__letter-label">TODAY / 今日一句</span>
-                          <strong>“{getCopyDisplayText(dailyCopy())}”</strong>
-                          <small>{getCopyAttribution(dailyCopy())}</small>
-                        </div>
-                      </aside>
-                    </div>
-
-                    <section class="records-stats records-archive__stats" aria-label="专注概览">
-                      <div>
-                        <span>今天留下</span>
-                        <strong>{summary().todayFocusDurationLabel}</strong>
-                        <small>{summary().todaySessionCount} 段</small>
-                      </div>
-                      <div>
-                        <span>累计时间</span>
-                        <strong>{summary().totalFocusDurationLabel}</strong>
-                        <small>{summary().sessionCount} 段记录</small>
-                      </div>
-                      <div>
-                        <span>回来的日子</span>
-                        <strong>{summary().activeDays}</strong>
-                        <small>平均每天 {summary().averageDailyDurationLabel}</small>
-                      </div>
-                      <div class="records-stats__progress">
-                        <div class="records-stats__progress-heading">
-                          <span>待办完成轨迹</span>
-                          <strong>{todoCompletionPercent()}%</strong>
-                        </div>
-                        <div class="records-progress" aria-hidden="true"><span style={{ width: `${todoCompletionPercent()}%` }} /></div>
-                        <small>{summary().completedTodoCount} 已完成 · {summary().pendingTodoCount} 待处理</small>
-                      </div>
-                    </section>
-                  </section>
-                )}
-              </Show>
-              <Show when={analytics()}>
-                {(summary) => (
-                  <>
-                    <section class="records-hero" aria-label="专注成就">
-                      <div class="records-hero__grid" aria-hidden="true" />
-                      <div class="records-hero__main">
-                        <span class="records-hero__eyebrow">
-                          <span class="records-hero__pulse" aria-hidden="true" />
-                          CURRENT STREAK / 当前连续
-                        </span>
-                        <div class="records-hero__streak">
-                          <strong>{summary().currentStreakDays}</strong>
-                          <span>天<br />连续投入</span>
-                        </div>
-                        <p>
-                          {summary().currentStreakDays > 0
-                            ? "你已经把专注变成了会回来的节奏。今天，再为这条轨迹添上一笔。"
-                            : "今天还没有新的投入。先完成一小段，让这条轨迹重新亮起来。"}
-                        </p>
-                        <div class="records-hero__week">
-                          <div>
-                            <span>本周节奏</span>
-                            <strong>{recentWeekActiveDays()} / 7 天</strong>
-                          </div>
-                          <div class="records-hero__week-meter" aria-hidden="true">
-                            <span style={{ width: `${Math.round((recentWeekActiveDays() / 7) * 100)}%` }} />
-                          </div>
-                        </div>
-                      </div>
-                      <div class="records-hero__dial" aria-label={`已完成 ${summary().sessionCount} 轮专注`}>
-                        <div class="records-hero__dial-ring records-hero__dial-ring--outer" />
-                        <div class="records-hero__dial-ring records-hero__dial-ring--inner" />
-                        <div class="records-hero__dial-core">
-                          <span>FOCUS LOG</span>
-                          <strong>{summary().sessionCount}</strong>
-                          <small>次专注记录</small>
-                        </div>
-                        <i class="records-hero__dial-marker" aria-hidden="true" />
-                      </div>
-                      <div class="records-hero__letter">
-                        <span class="records-hero__letter-label">TODAY / 今日一句</span>
-                        <strong>“{getCopyDisplayText(dailyCopy())}”</strong>
-                        <Show when={getCopyOriginalText(dailyCopy())}>
-                          <small class="records-hero__letter-original">{getCopyOriginalText(dailyCopy())}</small>
-                        </Show>
-                        <small class="records-hero__letter-source">{getCopyAttribution(dailyCopy())} · {copyLibrarySize} 条本地语料</small>
-                        <div class="records-hero__best">
-                          <span>BEST DAY / 最佳单日</span>
-                          <strong>{summary().bestFocusDate ? formatAnalyticsDate(summary().bestFocusDate!) : "还没有记录"}</strong>
-                          <small>{summary().bestFocusDurationLabel ?? "完成一轮后，这里会出现你的最高投入。"}</small>
-                        </div>
-                      </div>
-                    </section>
-                    <section class="records-stats" aria-label="专注概览">
-                      <div>
-                        <span>今天留下</span>
-                        <strong>{summary().todayFocusDurationLabel}</strong>
-                        <small>{summary().todaySessionCount} 轮</small>
-                      </div>
-                      <div>
-                        <span>累计时间</span>
-                        <strong>{summary().totalFocusDurationLabel}</strong>
-                        <small>{summary().sessionCount} 轮记录</small>
-                      </div>
-                      <div>
-                        <span>回来的日子</span>
-                        <strong>{summary().activeDays}</strong>
-                        <small>平均每天 {summary().averageDailyDurationLabel}</small>
-                      </div>
-                      <div class="records-stats__progress">
-                        <div class="records-stats__progress-heading">
-                          <span>待办完成轨迹</span>
-                          <strong>{todoCompletionPercent()}%</strong>
-                        </div>
-                        <div class="records-progress" aria-hidden="true">
-                          <span style={{ width: `${todoCompletionPercent()}%` }} />
-                        </div>
-                        <small>
-                          {summary().completedTodoCount} 已完成 · {summary().pendingTodoCount} 待处理
-                        </small>
-                      </div>
-                    </section>
-                    <section class="records-trajectory" aria-label="专注轨迹">
-                      <div class="records-trajectory__heading">
-                        <div>
-                          <span>RETURN / KEEP GOING</span>
-                          <h2>你的节奏正在成形</h2>
-                        </div>
-                        <p>不需要一次走很远，只要继续回来。</p>
-                      </div>
-                      <div class="records-trajectory__rail">
-                        <div class="records-trajectory__rail-line" aria-hidden="true">
-                          <span style={{ width: `${Math.round((recentWeekActiveDays() / 7) * 100)}%` }} />
-                          <i style={{ left: `${Math.round((recentWeekActiveDays() / 7) * 100)}%` }} />
-                        </div>
-                        <div class="records-trajectory__rail-labels">
-                          <span>本周开始</span>
-                          <strong>{recentWeekActiveDays()} 天有投入</strong>
-                          <span>今天</span>
-                        </div>
-                      </div>
-                      <div class="records-trajectory__side">
-                        <strong>{summary().averageDailyDurationLabel}</strong>
-                        <span>平均每个活跃日</span>
-                      </div>
-                    </section>
-                  </>
-                )}
-              </Show>
-              <Show when={recentBreakdown().length > 0}>
-                <section class="records-trend" aria-label="最近七天专注趋势">
-                  <div class="records-trend__heading">
-                    <div>
-                      <h2>最近 7 天的节奏</h2>
-                      <span>
-                        {recentWeekActiveDays()} 天有投入 · 共 {formatDurationMs(recentWeekDurationMs())}
-                      </span>
-                    </div>
-                    <span class="records-trend__hint">每个节点都是你回来过的证据</span>
-                  </div>
-                  <div class="records-chart">
-                    <For each={recentBreakdown()}>
-                      {(day) => (
-                        <div
-                          class="records-chart__item"
-                          title={`${formatAnalyticsDate(day.date)} · ${day.totalDurationLabel}`}
-                        >
-                          <div class="records-chart__bar-area">
-                            <span
-                              classList={{ "records-chart__bar": true, "records-chart__bar--empty": day.totalDurationMs === 0 }}
-                              style={{ height: `${Math.max(8, (day.totalDurationMs / maxDailyDuration()) * 100)}%` }}
-                            />
-                          </div>
-                          <strong>{day.totalDurationLabel}</strong>
-                          <small>{formatAnalyticsDate(day.date)}</small>
-                          <span class="sr-only">
-                            {formatAnalyticsDate(day.date)}，专注 {day.totalDurationLabel}，{day.sessionCount} 轮
-                          </span>
-                        </div>
-                      )}
-                    </For>
-                  </div>
-                </section>
-              </Show>
-              <section class="record-history" aria-label="专注记录">
-                <div class="record-history__heading">
-                  <div>
-                    <h2>全部记录</h2>
-                    <span>按日期收纳，想回看时再展开</span>
-                  </div>
-                  <strong>{records().length} 轮</strong>
-                </div>
-                <div class="record-list">
-                  <Show when={loadState() === "loading"}>
-                    <p class="load-copy">正在读取专注记录…</p>
-                  </Show>
-                  <Show when={loadState() === "error"}>
-                    <p class="empty-copy">读取失败，请点击上方“重试读取”。</p>
-                  </Show>
-                  <Show when={ready() && records().length > 0}>
-                    <For each={recordGroups()}>
-                      {(group, groupIndex) => (
-                        <details class="record-day" open={groupIndex() === 0}>
-                          <summary class="record-day__summary">
-                            <span class="record-day__date">
-                              <strong>{formatRecordDay(group.date)}</strong>
-                              <small>{group.records.length} 轮 · {formatDurationMs(group.totalDurationMs)}</small>
-                            </span>
-                            <span class="record-day__chevron" aria-hidden="true">⌄</span>
-                          </summary>
-                          <div class="record-day__items">
-                            <For each={group.records}>
-                              {(record) => (
-                                <article class="record-row">
-                                  <Show
-                                    when={editingRecord()?.id === record.id}
-                                    fallback={
-                                      <>
-                                        <div class="record-row__details">
-                                          <div class="record-row__title-line">
-                                            <strong title={record.title}>{record.title}</strong>
-                                            <span class="record-row__mode">{record.modeLabel}</span>
-                                          </div>
-                                          <small>{formatRecordDate(record)}</small>
-                                        </div>
-                                        <b>{record.durationLabel}</b>
-                                        <div class="record-row__actions">
-                                          <button
-                                            type="button"
-                                            class="row-action"
-                                            aria-label={`编辑记录“${record.title}”`}
-                                            disabled={busy()}
-                                            onClick={() => beginEditRecord(record)}
-                                          >
-                                            编辑
-                                          </button>
-                                          <button
-                                            type="button"
-                                            class="row-action row-action--danger"
-                                            aria-label={`删除记录“${record.title}”`}
-                                            disabled={busy()}
-                                            onClick={() => void removeRecord(record.id)}
-                                          >
-                                            删除
-                                          </button>
-                                        </div>
-                                      </>
-                                    }
-                                  >
-                                    <div class="record-row__details record-row__details--editing">
-                                      <label class="sr-only" for={`editRecordTitle-${record.id}`}>
-                                        记录名称
-                                      </label>
-                                      <input
-                                        id={`editRecordTitle-${record.id}`}
-                                        type="text"
-                                        name={`editRecordTitle-${record.id}`}
-                                        autocomplete="off"
-                                        maxlength="200"
-                                        autofocus
-                                        aria-label="记录名称"
-                                        value={editingRecord()?.title ?? ""}
-                                        onInput={(event) => patchEditingRecordTitle(event.currentTarget.value)}
-                                        onKeyDown={handleRecordEditKeyDown}
-                                      />
-                                      <small>{formatRecordDate(record)}</small>
-                                    </div>
-                                    <b>{record.durationLabel}</b>
-                                    <div class="record-row__actions">
-                                      <button
-                                        type="button"
-                                        class="primary-button"
-                                        disabled={busy()}
-                                        onClick={() => void saveRecordEdit()}
-                                      >
-                                        保存
-                                      </button>
-                                      <button
-                                        type="button"
-                                        class="text-button"
-                                        disabled={busy()}
-                                        onClick={cancelEditRecord}
-                                      >
-                                        取消
-                                      </button>
-                                    </div>
-                                  </Show>
-                                </article>
-                              )}
-                            </For>
-                          </div>
-                        </details>
-                      )}
-                    </For>
-                  </Show>
-                  <Show when={ready() && records().length === 0}>
-                    <p class="empty-copy">完成一次计时后，记录会显示在这里。</p>
-                  </Show>
-                </div>
-              </section>
-            </section>
-          </Show>
+          <ThemeSurface
+            activeView={() => activeView()}
+            themeId={() => themeId()}
+            today={{
+              todayDate: getToday(),
+              todayLabel: formatAnalyticsDate(getToday()),
+              timer: () => timer(),
+              ready,
+              busy,
+              timerHasProgress,
+              timerCanContinue,
+              nextTodo,
+              todayTodos,
+              todayCompletedTodos,
+              records: () => records(),
+              analytics: () => analytics(),
+              defaultFocusMinutes: () => timerPreferences().stopwatchReminderMinutes ?? timerPreferences().pomodoroFocusMinutes,
+              formatTodoDue,
+              importanceLabel,
+              onPause: () => void pauseFocus(),
+              onContinue: () => void startFocus(),
+              onFinish: () => finishFocus(),
+              onStartNext: () => void startNextTodo(),
+              onOpenFocus: () => changeView("focus"),
+              onOpenRecords: () => changeView("records"),
+              onUseTodo: useTodoForFocus,
+              onOpenTodos: () => changeView("todos"),
+            }}
+            focus={{
+              timer: () => timer(),
+              timerPreferences: () => timerPreferences(),
+              todos: () => todos(),
+              pendingTodos,
+              ready,
+              busy,
+              timerHasProgress,
+              timerCanContinue,
+              canFinish,
+              savedConfirmation,
+              sessionTitle: () => sessionTitle(),
+              linkedTodoId: () => linkedTodoId(),
+              completeLinkedTodo: () => completeLinkedTodo(),
+              countdownMinutes: () => countdownMinutes(),
+              countdownDraftDirty: () => countdownDraftDirty(),
+              busyLabel: () => busyLabel(),
+              onSessionTitleChange: setSessionTitle,
+              onSessionTitleDirty: () => setSessionTitleDirty(true),
+              onLinkedTodoChange: setLinkedTodoId,
+              onCompleteLinkedTodoChange: setCompleteLinkedTodo,
+              onCountdownMinutesChange: setCountdownMinutes,
+              onCountdownDraftDirty: () => setCountdownDraftDirty(true),
+              onChangeMode: (mode) => void changeMode(mode),
+              onStart: () => void startFocus(),
+              onPause: () => void pauseFocus(),
+              onFinish: () => void finishFocus(),
+              onReset: () => void resetFocus(),
+            }}
+            todos={{
+              todos: () => todos(),
+              activeTodos,
+              overdueTodos,
+              completedTodos,
+              timer: () => timer(),
+              timerHasProgress,
+              ready,
+              busy,
+              busyLabel: () => busyLabel(),
+              todoTitle: () => todoTitle(),
+              todoDueDate: () => todoDueDate(),
+              todoDueTime: () => todoDueTime(),
+              todoImportance: () => todoImportance(),
+              editingTodo: () => editingTodo(),
+              onTodoTitleChange: setTodoTitle,
+              onTodoDueDateChange: setTodoDueDate,
+              onTodoDueTimeChange: setTodoDueTime,
+              onTodoImportanceChange: setTodoImportance,
+              onAddTodo: () => void addTodo(),
+              onToggle: (id) => void toggleTodo(id),
+              onBeginEdit: beginEditTodo,
+              onUseForFocus: useTodoForFocus,
+              onRemove: (id) => void removeTodo(id),
+              onPatch: patchEditingTodo,
+              onSave: () => void saveTodoEdit(),
+              onCancel: cancelEditTodo,
+              formatTodoDue,
+              importanceLabel,
+            }}
+            records={{
+              analytics: () => analytics(),
+              records: () => records(),
+              archiveDays: () => archiveDays(),
+              archivePath: () => archivePath(),
+              selectedArchiveDate: () => selectedArchiveDate(),
+              selectedArchiveDay: () => selectedArchiveDay(),
+              selectedArchiveRecords: () => selectedArchiveRecords(),
+              recordGroups: () => recordGroups(),
+              ready,
+              busy,
+              editingRecord: () => editingRecord(),
+              todoCompletionPercent,
+              recentWeekActiveDays,
+              recentWeekDurationMs,
+              formatAnalyticsDate,
+              formatArchiveRangeDate,
+              formatRecordDate,
+              formatRecordDay,
+              formatDurationMs,
+              onSelectDate: setSelectedArchiveDate,
+              onBeginEdit: beginEditRecord,
+              onPatchEdit: patchEditingRecordTitle,
+              onSaveEdit: () => void saveRecordEdit(),
+              onCancelEdit: cancelEditRecord,
+              onRemove: (id) => void removeRecord(id),
+            }}
+            settings={{
+              timerPreferences: () => timerPreferences(),
+              busy,
+              busyLabel: () => busyLabel(),
+              customAlertSoundName: () => customAlertSoundName(),
+              backups: () => backups(),
+              backupLoadState: () => backupLoadState(),
+              backupLoadError: () => backupLoadError(),
+              selectedBackupFile: () => selectedBackupFile(),
+              selectedBackup: () => selectedBackup(),
+              lastBackupPath: () => lastBackupPath(),
+              themeId: () => themeId(),
+              visualIntensity: () => visualIntensity(),
+              motionIntensity: () => motionIntensity(),
+              density: () => density(),
+              onThemeSelect: selectTheme,
+              onVisualIntensityChange: setVisualIntensity,
+              onMotionIntensityChange: setMotionIntensity,
+              onDensityChange: setDensity,
+              onSaveVisualSettings: saveVisualSettings,
+              onSaveTimerPreferences: saveTimerPreferences,
+              onPreviewAlertSound: previewAlertSound,
+              onChooseCustomAlertSound: chooseCustomAlertSound,
+              onClearCustomAlertSound: clearCustomAlertSound,
+              onSelectedBackupFile: setSelectedBackupFile,
+              onLoadBackups: loadBackups,
+              onCreateBackup: createBackup,
+              onOpenBackupFolder: () =>
+                void run(async () => {
+                  await openAppBackupFolder();
+                  showMessage("已打开备份目录。", "success");
+                }, "正在打开…"),
+              onRestoreBackup: restoreBackup,
+              onClearAllData: clearAllData,
+            }}
+          />
 
           <Show when={message()}>
             <p classList={{ "app-message": true, [`app-message--${messageKind()}`]: true }} role="status" aria-live="polite">

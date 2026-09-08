@@ -1,0 +1,11 @@
+.theme-surface-unavailable {
+  display: grid;
+  min-height: 240px;
+  place-items: center;
+  padding: 32px;
+  border: 1px solid var(--line, #d8d3c8);
+  border-radius: 12px;
+  color: var(--muted, #6e756d);
+  background: var(--surface, #f7f5ef);
+  text-align: center;
+}
