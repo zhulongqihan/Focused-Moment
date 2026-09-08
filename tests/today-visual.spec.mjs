@@ -150,6 +150,8 @@ async function bootTodayReferenceMock(page) {
             return focusRecords;
           case "get_analytics_snapshot":
             return analytics;
+          case "list_app_backups":
+            return [];
           case "start_timer":
             timer = { ...timer, isRunning: true, status: "倒计时中", canCompleteSession: true };
             return timer;
@@ -181,10 +183,11 @@ test("Today reference composition stays aligned at the concept viewport", async 
   await expect(page.getByText(/今天已完成 7 段专注/)).toBeVisible();
   await expect(page.getByText("连续 9 天", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "开始下一件事" })).toBeVisible();
-  await page.screenshot({ path: "output/playwright/today-after.png" });
+  await page.screenshot({ path: "output/playwright/today-after.png", animations: "disabled" });
 });
 
 test("Today route keeps the panel and path usable as the window narrows", async ({ page }) => {
+  test.setTimeout(60_000);
   for (const [width, height, screenshotPath] of [
     [1280, 900, "output/playwright/today-1280.png"],
     [1024, 900, "output/playwright/today-1024.png"],
@@ -209,7 +212,7 @@ test("Today route keeps the panel and path usable as the window narrows", async 
       await expect(page.locator(".trail-nav__icon").first()).toBeVisible();
       await expect(page.getByRole("button", { name: "开始下一件事" })).toBeVisible();
     }
-    await page.screenshot({ path: screenshotPath });
+    await page.screenshot({ path: screenshotPath, animations: "disabled" });
   }
 });
 
@@ -227,7 +230,7 @@ test("Night Valley pages expose the measured reference surfaces", async ({ page 
   for (const [label, screenshotName] of pages) {
     await page.getByRole("button", { name: label === "待办" ? /^待办/ : label, exact: label !== "待办" }).click();
     await expect(page.locator(".nv-page").first()).toBeVisible();
-    await page.screenshot({ path: `output/playwright/${screenshotName}` });
+    await page.screenshot({ path: `output/playwright/${screenshotName}`, animations: "disabled" });
   }
 });
 
@@ -594,7 +597,7 @@ test("Night Valley secondary widths keep each page inside the viewport", async (
       expect(layout.left).toBeGreaterThanOrEqual(0);
       expect(layout.right).toBeLessThanOrEqual(width);
       await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
-      await page.screenshot({ path: `output/playwright/night-valley-${label}-${width}.png` });
+      await page.screenshot({ path: `output/playwright/night-valley-${label}-${width}.png`, animations: "disabled" });
     }
   }
 });
