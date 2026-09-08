@@ -7,20 +7,20 @@
 
 | 字段 | 当前值 |
 | --- | --- |
-| as_of / updated_at | 2026-09-08 16:20 +08:00；NV-05 完成、NV-06 开始时点 |
+| as_of / updated_at | 2026-09-08 17:05 +08:00；NV-06 完成、DESK-01 开始时点 |
 | 产品目标 | 本地优先的桌面专注工具：待办 → 专注 → 桌面提醒 → 保存记录 → 回看投入 → 可恢复地长期保留 |
 | 当前阶段 | 第一套 Night Valley 已覆盖五页并发布，进入整体验收与可靠性收口；第二至第五套尚未实现 |
-| 代码基线 | 当前 main HEAD `85308f1`（NV-05 交互/响应式/错误态源码与测试提交；NV-04 应用/测试基线为 `94e0b2e`；NV-03 状态语义提交 `ff6daf5`；NV-02 源码提交为 `ab5ba9b`；NV-01 外观设置源码提交为 `66b5da5`；CORE-03 证据提交为 `25ebdfc`、源码为 `348b2e9`；源码版本仍为 `2.6.9`，发布 tag 为 `473cc67`） |
-| 当前工作分支 | `main`；CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05 源码、测试与证据已提交并推送，NV-06 已领取，工作树应保持干净 |
+| 代码基线 | 当前 main HEAD `a52796f`（NV-06 视觉精修、Today 起点行为与视觉专项提交；NV-05 交互/响应式/错误态源码与测试为 `85308f1`；NV-04 应用/测试基线为 `94e0b2e`；NV-03 状态语义提交 `ff6daf5`；NV-02 源码提交为 `ab5ba9b`；NV-01 外观设置源码提交为 `66b5da5`；CORE-03 证据提交为 `25ebdfc`、源码为 `348b2e9`；源码版本仍为 `2.6.9`，发布 tag 为 `473cc67`） |
+| 当前工作分支 | `main`；CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06 源码、测试与证据已提交并推送，DESK-01 已领取，工作树应保持干净 |
 | 发布基线 | GitHub `v2.6.9`，tag 实际提交为 `473cc67` |
-| 远程 main | `85308f1`，已包含 NV-05 交互/响应式/错误态收口、NV-04 基线测试/报告、NV-03、NV-02、NV-01、CORE-03 与此前功能集成/ENG-01 证据；v2.6.9 tag 仍指向 `473cc67` |
-| 本轮交付 | CORE-01、CORE-02、CORE-04、CORE-05、ENG-01、NV-01、NV-02、NV-03、NV-04、NV-05 完成；CORE-03 的目录实现已提交为 `348b2e9`，但 macOS 原生验收暂缺，任务保留 BLOCKED |
-| 下一项 | **NV-06：分页视觉精修并完成第一套视觉验收**；随后进入 G1 余下桌面/架构门槛 |
-| 当前执行人 / 在做任务 | Codex / NV-06 DOING（起始 SHA `85308f1`）；本轮不触碰真实用户数据、不重指已发布 tag |
-| 首套验收结论 | **未完成整体收口**。功能存在、测试通过、已发布与参考图验收通过是四件不同的事 |
+| 远程 main | `a52796f`，已包含 NV-06 视觉精修/Today 起点修复、NV-05 交互/响应式/错误态收口、NV-04 基线测试/报告、NV-03、NV-02、NV-01、CORE-03 与此前功能集成/ENG-01 证据；v2.6.9 tag 仍指向 `473cc67` |
+| 本轮交付 | CORE-01、CORE-02、CORE-04、CORE-05、ENG-01、NV-01、NV-02、NV-03、NV-04、NV-05、NV-06 完成；CORE-03 的目录实现已提交为 `348b2e9`，但 macOS 原生验收暂缺，任务保留 BLOCKED |
+| 下一项 | **DESK-01：Windows 原生闭环**；随后进入 DESK-03，并保留 CORE-03 依赖的 DESK-02 阻塞 |
+| 当前执行人 / 在做任务 | Codex / DESK-01 DOING（起始 SHA `a52796f`）；本轮不触碰真实用户数据、不重指已发布 tag |
+| 首套验收结论 | **NV-06 的 Chromium + Tauri mock 首套视觉验收已完成**；整体仍未完成原生 Windows/macOS、QA、性能、数据搬移和发布闭环 |
 | source | 本轮用户说明；当前源码与测试；Git 提交/远程 refs；GitHub Release/Actions；本轮命令结果 |
 | supersedes | 旧文档中的 v1.4.1/v1.5.x/v1.10.0/v2.0 当前进度，以及 2026-09-06 摘要中的“其他四页未实现、主题注册未建立” |
-| pending | 版本/包/Release 闭环、多页材质/字体视觉差异、原生窗口/平台验证 |
+| pending | 版本/包/Release 闭环、原生 Windows/macOS 窗口与平台验证、QA/性能/数据搬移 |
 
 **进度读取规则：**最新明确用户要求 > 当前源码/运行结果/远程事实 > 本看板 > 历史文档。后续开始工作先刷新以上版本和提交，不能把今天的基线当永久事实。任务勾选必须有结果证据，不能按版本号、文件数或截图数量计算“完成百分比”。
 
@@ -90,20 +90,20 @@
 
 ## 4. 本轮验证与限制
 
-以下结果针对当前 main `94e0b2e`、发布基线 `473cc67`，日期 2026-09-08。后续修改后按影响范围重新验证。
+以下结果针对当前 main `a52796f`、发布基线 `473cc67`，日期 2026-09-08。后续修改后按影响范围重新验证。
 
 | 验证 | 结果 | 能证明什么 / 不能证明什么 |
 | --- | --- | --- |
-| `pnpm check` | PASS | NV-03 后 TypeScript 检查通过 |
-| `pnpm build` | PASS，有 >500 kB chunk 提示 | NV-03 后主 JS 637.64 kB、CSS 255.77 kB（构建输出，压缩前）；不等于长期运行性能达标 |
-| `pnpm test:frontend` | PASS，41/41，约 1.6 分钟 | NV-04 后 Chromium + Tauri mock 下流程、五页几何/窗口/DPR 矩阵、状态映射、七日口径与空数据回归通过；不等于原生窗口、真实磁盘、像素一比一全通过 |
+| `pnpm check` | PASS | NV-06 后 TypeScript 检查通过 |
+| `pnpm build` | PASS，有 >500 kB chunk 提示 | NV-06 后主 JS 639.35 kB、CSS 255.80 kB（构建输出，压缩前）；不等于长期运行性能达标 |
+| `pnpm test:frontend` | PASS，44/44，约 1.2 分钟 | NV-06 后 Chromium + Tauri mock 下流程、五页几何/窗口/DPR 矩阵、状态映射、七日口径、空数据与交互回归通过；不等于原生窗口、真实磁盘、像素一比一全通过 |
 | `cargo fmt --check --manifest-path src-tauri/Cargo.toml` | PASS | 当前功能分支格式通过；旧 main 的 CI 失败不代表当前格式仍失败 |
 | `cargo check --manifest-path src-tauri/Cargo.toml` | PASS | 当前 Windows Rust 编译检查通过 |
 | `cargo test --locked --manifest-path src-tauri/Cargo.toml` | PASS | CORE-03 后 32/32 library PASS；binary harness 启动并返回 0（0 tests）；doc-tests 0/0 |
 | 已确认的 main Checks | PASS，run `34190010987`，SHA `abcc80a`，约 7m48s | TypeScript、Vite build、Playwright、Rust fmt/check/test 全部通过；该 run 不覆盖当前 `ff6daf5`，当前 SHA 的新 Checks 尚未单独核对 |
 | v2.6.9 macOS Release | PASS，run `34148483003`，SHA `473cc67` | Universal 构建/上传成功；不证明 macOS 数据目录、单实例和原生交互都已验收 |
 | GitHub v2.6.9 资产 | 安装 EXE、便携 EXE、MSI、Universal DMG 共 4 项存在 | 本地两个带版本 EXE 的 SHA256 与 Release digest 一致；本轮未重新打包/安装 |
-| 视觉复核 | NV-04 五页基准、几何 JSON、窗口/DPR 矩阵与差异报告；NV-05 压力窗口回归 | 已固定五页静态基线并命名 8 项差异；Today 起点首节点边界与 Settings 垂直可达性已验证，多页材质/字体/fixture 差异仍留给 NV-06 |
+| 视觉复核 | NV-04 五页基准、NV-06 最终 SHA 的 15/15 视觉专项、几何 JSON、窗口/DPR 矩阵、五张截图与报告 | Today 起点首节点边界已修正；四页非 Today 已统一离线 v4 材质并完成第一套截图验收；原生字体/材质一比一与平台缩放仍不宣称 |
 
 参考：[v2.6.9 Release](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.6.9)、[旧 main Checks](https://github.com/zhulongqihan/Focused-Moment/actions/runs/33981366154)、[macOS 构建](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34148483003)。
 
@@ -145,8 +145,8 @@ CORE-03、DESK-02 为 macOS 下一次发布门槛，可与 Windows 首套验收�
 | NV-03 | P1 | DONE | PLAN-00 | 计时状态与阶段路径语义一致 |
 | NV-04 | P1 | DONE | NV-01/02/03 | 五页固定视觉/状态基线与差异清单 |
 | NV-05 | P1 | DONE | NV-04 | 五页响应式、键盘、焦点、错误态收口 |
-| NV-06 | P2 | DOING | NV-04/05 | 分页视觉精修并完成第一套视觉验收 |
-| DESK-01 | P1 | TODO | CORE-02、NV-03 | Windows 真机计时/悬浮/托盘/恢复冒烟 |
+| NV-06 | P2 | DONE | NV-04/05 | 分页视觉精修并完成第一套视觉验收 |
+| DESK-01 | P1 | DOING | CORE-02、NV-03 | Windows 真机计时/悬浮/托盘/恢复冒烟 |
 | DESK-02 | P1 | TODO | CORE-03 | macOS 数据、窗口、单实例与安装冒烟 |
 | DESK-03 | P1 | TODO | CORE-02、NV-03 | 计时刷新与列表编辑解耦，多窗口状态一致 |
 | ARCH-01 | P2 | TODO | G1 | 有限拆分视图/CSS，建立最小主题渲染边界 |
@@ -268,15 +268,19 @@ NV-05 的具体键盘缺口：`CommandPalette.tsx` 声明 modal/listbox，但缺
 
 - **NV-06 本轮开始（2026-09-08 16:20 +08:00）**：起始 SHA 为 `85308f1`。按 NV-04 绑定的五页基线和 8 项命名差异，逐页处理结构/文字/状态之后的材质、字体、光影与构图精修；先核对报告中可复现的差异，再做一项一验，保留真实业务与状态，不扩展主题功能。
 
+- **NV-06 本轮结果（2026-09-08）**：最终源码/测试提交为 `a52796f`。Today 记录 ready 时的节点数量，初次 ready 从真实路径起点渲染，只有 ready 后节点增长才自动跟随；压力测试移除手动 `scrollLeft=0` 旁路。非 Today 四页统一使用已随应用离线打包的 v4 山谷材质，并通过两个高特异性 CSS 入口修正实际生效路径，微调普通页与 Settings 的亮度/饱和度；不改变真实业务数据、布局功能或主题入口。
+- **NV-06 验证证据**：`pnpm check` PASS；`pnpm test:frontend` PASS（44/44，约 1.2 分钟，最终提交后复跑）；`pnpm exec playwright test tests/today-visual.spec.mjs --workers=1` PASS（15/15，约 1.4 分钟）；`pnpm build` PASS（主 JS 639.35 kB、CSS 255.80 kB，保留既有 >500 kB chunk 警告）；`git diff --check` PASS；五页截图、几何/窗口矩阵和 SHA 见 `docs/qa/NV-06-a52796f.md`、`output/qa/NV-04/a52796f/`；源码/测试已推送，版本/Release 资产未变。
+- **NV-06 剩余边界**：验收传输仍为 Chromium + Tauri mock，不能替代 Windows WebView2/系统缩放、托盘/浮窗和 macOS 原生窗口；参考原始字体/分层素材不完整，未宣称像素一比一；CORE-03/DESK-02 的 macOS 证据仍缺。下一步进入 DESK-01 Windows 原生闭环。
+
 **页级看板（每行都需要截图、流程证据和剩余差异）**
 
 | 页面 | 已有实现 | 当前主要验收焦点 | 状态 |
 | --- | --- | --- | --- |
-| 今日 | 路径、无限段、下一件事、真实统计 | 首末标签、长路径可达、5 秒辨认/≤3 操作启动、空数据 | TODO |
-| 计时 | 圆盘、路线、模式、上下文、真实控制 | NV-03、主操作层级、运行/暂停/到点/完成 | TODO |
-| 待办 | 三栏、创建/编辑/完成/撤销、逾期分组 | 长标题、到期口径、忙碌态、防重复操作、快捷进入专注 | TODO |
-| 记录 | 图表、日档案、详情、编辑删除 | NV-02、长历史、空/零数据、显示范围与明细一致 | TODO |
-| 设置 | 主题预览、提醒音效、备份、外观入口 | NV-01、真实保存失败、键盘导航、备份完整可达 | TODO |
+| 今日 | 路径、无限段、下一件事、真实统计 | 首末标签、长路径可达、5 秒辨认/≤3 操作启动、空数据 | PASS（首套 fixture；原生平台留给 DESK/QA） |
+| 计时 | 圆盘、路线、模式、上下文、真实控制 | NV-03、主操作层级、运行/暂停/到点/完成 | PASS（首套 fixture；原生平台留给 DESK/QA） |
+| 待办 | 三栏、创建/编辑/完成/撤销、逾期分组 | 长标题、到期口径、忙碌态、防重复操作、快捷进入专注 | PASS（首套 fixture；长数据留给 QA） |
+| 记录 | 图表、日档案、详情、编辑删除 | NV-02、长历史、空/零数据、显示范围与明细一致 | PASS（首套 fixture；长历史留给 QA） |
+| 设置 | 主题预览、提醒音效、备份、外观入口 | NV-01、真实保存失败、键盘导航、备份完整可达 | PASS（首套 fixture；原生平台留给 DESK/QA） |
 
 ### DESK-01 · Windows 原生闭环
 
@@ -387,6 +391,7 @@ NV-05 的具体键盘缺口：`CommandPalette.tsx` 声明 modal/listbox，但缺
 | 2026-09-08 | NV-03 | `5a8099c`→`ff6daf5`；修改 `src/MainShell.tsx`、`src/components/NightValleyViews.tsx`、`src/App.css`、`tests/app.spec.mjs`；计时路径改为六态真实状态映射，七节点去编号并降为四个状态锚点，补充运行/暂停/到点/恢复/保存回归；`pnpm check`、定向状态3/3、路径几何1/1、`pnpm test:frontend`（39/39）、`pnpm build`均 PASS，计时截图已目视核对；源码和测试已推送，版本/Release 资产未变 | NV-04（CORE-03 仍待 macOS 原生证据） |
 | 2026-09-08 | NV-04 | `7ed8f7b`→`94e0b2e`；修改 `tests/today-visual.spec.mjs` 与显式跟踪的 `docs/qa/NV-04-94e0b2e.md`；新增五页静态截图、几何/环境元数据、默认/最小/最大化代理和 125/150/200% DPR 代理矩阵，固定 reduced-motion 截图并登记 8 项差异；`pnpm check` PASS，`pnpm test:frontend` 41/41 PASS（约1.6分钟），视觉专项通过，`git diff --check` PASS；最近一次应用构建 PASS，版本/Release 资产未变；原生系统缩放、字体/材质一比一和全交互状态留给后续验收 | NV-05（CORE-03 仍待 macOS 原生证据） |
 | 2026-09-08 | NV-05 | `ccf2885`→`85308f1`；修改 `src/components/CommandPalette.tsx`、`src/App.css`、`tests/app.spec.mjs`、`tests/today-visual.spec.mjs`；命令面板补齐 listbox 活动项、方向键/Enter/Esc/Space、Tab 焦点循环与 aria 关系，新增启动读取失败可见并重试恢复，五页压力窗口/Today 首节点起点/Settings 底部可达性回归；`pnpm check` PASS、命令面板定向 2/2、压力窗口 1/1、`pnpm test:frontend` 44/44 PASS、`pnpm build` PASS、`git diff --check` PASS；报告 `docs/qa/NV-05-85308f1.md`；源码/测试已推送，版本/Release 资产未变；原生平台与 NV-06 材质差异保留 | NV-06（CORE-03 仍待 macOS 原生证据） |
+| 2026-09-08 | NV-06 | `85308f1`→`a52796f`；修改 `src/App.css`、`src/components/TodayDashboard.tsx`、`tests/today-visual.spec.mjs`，新增 `docs/qa/NV-06-a52796f.md`；Today 首屏起点与 ready 后新增节点自动跟随边界修正，非 Today 四页统一离线 v4 山谷材质并调光；`pnpm check` PASS、`pnpm test:frontend` 44/44 PASS（最终提交后复跑）、视觉专项 15/15 PASS、`pnpm build` PASS、`git diff --check` PASS；五页截图/几何矩阵与 SHA 见报告和 `output/qa/NV-04/a52796f/`；源码/测试已推送，版本/Release 资产未变；原生平台、字体/素材一比一与 QA 长数据仍留后续 | DESK-01（CORE-03 仍待 macOS 原生证据） |
 
 每条后续记录使用：`日期｜任务ID｜开始SHA→结束SHA｜修改文件｜验证命令与结果｜证据路径/链接｜版本/发布状态｜剩余问题｜下一ID`。没有执行的测试必须写“未执行”，不可复制上一版结果。
 
