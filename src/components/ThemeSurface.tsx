@@ -8,6 +8,13 @@ import {
   EditorialPaperTodos,
 } from "./EditorialPaperViews";
 import {
+  GraphiteConsoleFocus,
+  GraphiteConsoleRecords,
+  GraphiteConsoleSettings,
+  GraphiteConsoleToday,
+  GraphiteConsoleTodos,
+} from "./GraphiteConsoleViews";
+import {
   NightValleyFocus,
   NightValleyRecords,
   NightValleySettings,
@@ -32,7 +39,7 @@ export interface ThemeSurfaceProps {
   settings: NightValleySettingsProps;
 }
 
-type ThemeImplementation = "night-valley" | "editorial-paper";
+type ThemeImplementation = "night-valley" | "editorial-paper" | "graphite-console";
 
 function resolveThemeImplementation(themeId: ThemeId): ThemeImplementation {
   switch (getTheme(themeId).id) {
@@ -40,6 +47,8 @@ function resolveThemeImplementation(themeId: ThemeId): ThemeImplementation {
       return "night-valley";
     case "editorial-paper":
       return "editorial-paper";
+    case "graphite-console":
+      return "graphite-console";
     default:
       return "night-valley";
   }
@@ -68,6 +77,13 @@ export default function ThemeSurface(props: ThemeSurfaceProps) {
         <Show when={props.activeView() === "todos"}><EditorialPaperTodos {...props.todos} /></Show>
         <Show when={props.activeView() === "records"}><EditorialPaperRecords {...props.records} /></Show>
         <Show when={props.activeView() === "settings"}><EditorialPaperSettings {...props.settings} /></Show>
+      </Match>
+      <Match when={themeImplementation() === "graphite-console"}>
+        <Show when={props.activeView() === "today"}><GraphiteConsoleToday {...props.today} /></Show>
+        <Show when={props.activeView() === "focus"}><GraphiteConsoleFocus {...props.focus} /></Show>
+        <Show when={props.activeView() === "todos"}><GraphiteConsoleTodos {...props.todos} /></Show>
+        <Show when={props.activeView() === "records"}><GraphiteConsoleRecords {...props.records} /></Show>
+        <Show when={props.activeView() === "settings"}><GraphiteConsoleSettings {...props.settings} /></Show>
       </Match>
     </Switch>
   );

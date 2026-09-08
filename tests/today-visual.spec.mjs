@@ -7,6 +7,7 @@ const referenceDate = "2026-09-05";
 const baselineSha = process.env.NV04_BASELINE_SHA ?? execFileSync("git", ["rev-parse", "--short", "HEAD"], { encoding: "utf8" }).trim();
 const baselineDirectory = `output/qa/NV-04/${baselineSha}`;
 const editorialDirectory = `output/qa/TH-02/${process.env.TH02_BASELINE_SHA ?? baselineSha}`;
+const graphiteDirectory = `output/qa/TH-03/${process.env.TH03_BASELINE_SHA ?? baselineSha}`;
 const performanceDirectory = `output/qa/PERF-01/${process.env.PERF_BASELINE_SHA ?? baselineSha}`;
 
 const nightValleyPages = [
@@ -509,7 +510,7 @@ test("Timer route follows a tighter winding concept path", async ({ page }) => {
   expect(geometry.labels[3]).toBeLessThan(340);
 });
 
-test("Theme registry exposes two implemented surfaces and three disabled previews", async ({ page }) => {
+test("Theme registry exposes three implemented surfaces and two disabled previews", async ({ page }) => {
   await page.setViewportSize({ width: 1487, height: 1058 });
   await bootTodayReferenceMock(page);
 
@@ -520,7 +521,8 @@ test("Theme registry exposes two implemented surfaces and three disabled preview
   await expect(themeCards.filter({ hasText: "夜谷" })).toBeEnabled();
   await expect(themeCards.filter({ hasText: "夜谷" })).toHaveAttribute("aria-pressed", "true");
   await expect(themeCards.filter({ hasText: "编辑纸页" })).toBeEnabled();
-  await expect(themeCards.filter({ hasText: "尚未实现" })).toHaveCount(3);
+  await expect(themeCards.filter({ hasText: "石墨控制台" })).toBeEnabled();
+  await expect(themeCards.filter({ hasText: "尚未实现" })).toHaveCount(2);
   await expect(themeCards.filter({ hasText: "尚未实现" }).first()).toBeDisabled();
   await expect(themeCards.locator("img")).toHaveCount(5);
 
@@ -533,6 +535,22 @@ test("Theme registry exposes two implemented surfaces and three disabled preview
   await page.reload();
   await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "editorial-paper");
   await expect(page.getByRole("heading", { name: "今日节奏" })).toBeVisible();
+});
+
+test("Graphite Console can be selected from settings and persists after reload", async ({ page }) => {
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page);
+
+  await page.getByRole("button", { name: "设置", exact: true }).click();
+  await page.locator(".nv-theme-card").filter({ hasText: "石墨控制台" }).click({ force: true });
+  await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "graphite-console");
+  await expect(page.locator(".gc-settings-page")).toBeVisible();
+  await page.getByRole("button", { name: /APPLY \/ 保存更改/ }).click();
+  await expect(page.locator(".app-message--success")).toContainText("下次启动会继续使用");
+
+  await page.reload();
+  await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "graphite-console");
+  await expect(page.getByRole("heading", { name: "TODAY / 节奏调度" })).toBeVisible();
 });
 
 test("an invalid persisted theme keeps the Night Valley surface available", async ({ page }) => {
@@ -550,7 +568,7 @@ test("an invalid persisted theme keeps the Night Valley surface available", asyn
 
 test("an unimplemented persisted theme falls back before rendering a page", async ({ page }) => {
   await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "graphite-console");
+    localStorage.setItem("focused-moment.theme", "aurora-ocean");
   });
   await page.setViewportSize({ width: 1487, height: 1058 });
   await bootTodayReferenceMock(page);
@@ -558,6 +576,77 @@ test("an unimplemented persisted theme falls back before rendering a page", asyn
   await expect(page.getByRole("heading", { name: "今天，从一件事开始" })).toBeVisible();
   await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "night-valley");
   await expect(page.locator(".theme-surface-unavailable")).toHaveCount(0);
+});
+
+test("Graphite Console renders all five pages inside the control surface", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "graphite-console");
+  });
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page, { expectedHeading: "TODAY / 节奏调度" });
+  mkdirSync(graphiteDirectory, { recursive: true });
+
+  const pages = [
+    ["今日", ".gc-today-page", "today.png"],
+    ["计时", ".gc-focus-page", "focus.png"],
+    ["待办", ".gc-todos-page", "todos.png"],
+    ["记录", ".gc-records-page", "records.png"],
+    ["设置", ".gc-settings-page", "settings.png"],
+  ];
+  const geometry = {};
+  for (const [label, selector, screenshot] of pages) {
+    if (label !== "今日") {
+      await pageButton(page, label).click();
+    }
+    const surface = page.locator(selector);
+    await expect(surface).toBeVisible();
+    geometry[label] = await surface.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return { x: Number(rect.x.toFixed(2)), y: Number(rect.y.toFixed(2)), width: Number(rect.width.toFixed(2)), height: Number(rect.height.toFixed(2)), right: Number(rect.right.toFixed(2)) };
+    });
+    expect(geometry[label].width).toBeGreaterThan(600);
+    expect(geometry[label].right).toBeLessThanOrEqual(1487);
+    await page.screenshot({ path: `${graphiteDirectory}/${screenshot}`, animations: "disabled", fullPage: true });
+  }
+  writeFileSync(`${graphiteDirectory}/geometry.json`, JSON.stringify({ viewport: { width: 1487, height: 1058 }, pages: geometry }, null, 2));
+});
+
+test("Graphite Console keeps shared actions and page bounds usable at pressure widths", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "graphite-console");
+  });
+
+  for (const [width, height] of [[1120, 760], [820, 720], [560, 720], [420, 720]]) {
+    await page.setViewportSize({ width, height });
+    await bootTodayReferenceMock(page, { expectedHeading: "TODAY / 节奏调度" });
+    const pages = [
+      ["今日", ".gc-today-page"],
+      ["计时", ".gc-focus-page"],
+      ["待办", ".gc-todos-page"],
+      ["记录", ".gc-records-page"],
+      ["设置", ".gc-settings-page"],
+    ];
+
+    for (const [label, selector] of pages) {
+      if (label !== "今日") {
+        await pageButton(page, label).click();
+      }
+      const surface = page.locator(selector);
+      await expect(surface).toBeVisible();
+      const bounds = await surface.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        return { right: rect.right, width: rect.width, scrollWidth: document.documentElement.scrollWidth };
+      });
+      expect(bounds.right).toBeLessThanOrEqual(width + 1);
+      expect(bounds.scrollWidth).toBeLessThanOrEqual(width + 1);
+    }
+
+    await pageButton(page, "今日").click();
+    await page.getByRole("button", { name: /START \/ 开始专注/ }).click();
+    await expect(page.locator(".gc-focus-page")).toBeVisible();
+    await page.locator(".gc-focus-page").getByRole("button", { name: /开始专注/ }).click();
+    await expect(page.locator(".gc-focus-page")).toContainText("运行中");
+  }
 });
 
 test("Editorial Paper renders all five pages inside the desktop surface", async ({ page }) => {

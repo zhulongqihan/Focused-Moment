@@ -23,6 +23,13 @@ import { themes, type ThemeId } from "../lib/themes";
 
 type Accessor<T> = () => T;
 
+function localDateKey(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export interface NightValleyFocusProps {
   timer: Accessor<TimerSnapshot>;
   timerPreferences: Accessor<TimerPreferences>;
@@ -51,6 +58,7 @@ export interface NightValleyFocusProps {
   onPause: () => void | Promise<void>;
   onFinish: () => void | Promise<void>;
   onReset: () => void | Promise<void>;
+  onOpenRecords: () => void;
 }
 
 function timerProgress(timer: TimerSnapshot, hasProgress: boolean) {
@@ -449,8 +457,10 @@ interface TodoCardProps {
 }
 
 function TodoCard(props: TodoCardProps) {
+  const isOverdue = props.item.scheduledDate < localDateKey();
+
   return (
-    <article classList={{ "todo-row": true, "nv-todo-card": true, "todo-row--overdue": props.item.scheduledDate < new Date().toISOString().slice(0, 10) }}>
+    <article classList={{ "todo-row": true, "nv-todo-card": true, "todo-row--overdue": isOverdue }}>
       <Show
         when={props.editingTodo()?.id === props.item.id}
         fallback={
@@ -465,7 +475,7 @@ function TodoCard(props: TodoCardProps) {
             />
             <div class="nv-todo-card__copy">
               <strong title={props.item.title}>{props.item.title}</strong>
-              <small>{props.formatTodoDue(props.item)} · {props.importanceLabel(props.item.importanceKey)}<Show when={props.item.scheduledDate < new Date().toISOString().slice(0, 10)}><span class="todo-row__overdue-label">已过期</span></Show></small>
+              <small>{props.formatTodoDue(props.item)} · {props.importanceLabel(props.item.importanceKey)}<Show when={isOverdue}><span class="todo-row__overdue-label">已过期</span></Show></small>
             </div>
             <div class="todo-row__actions nv-todo-card__actions">
               <button type="button" class="row-action" disabled={props.busy()} onClick={() => props.onBeginEdit(props.item)}>编辑</button>

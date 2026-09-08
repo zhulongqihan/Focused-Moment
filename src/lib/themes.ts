@@ -16,8 +16,8 @@ export interface ThemeDefinition {
 
 /**
  * Theme metadata is deliberately separate from the page implementation.
- * The first theme is the only production surface for this milestone; the
- * other concepts remain visible in Settings without pretending to be usable.
+ * Implemented themes are production surfaces; the remaining concepts stay
+ * visible in Settings without pretending to be usable.
  */
 export const themes: ThemeDefinition[] = [
   {
@@ -41,8 +41,8 @@ export const themes: ThemeDefinition[] = [
     name: "石墨控制台",
     englishName: "Graphite Console",
     preview: "/theme-previews/03-graphite-console.png",
-    implemented: false,
-    description: "冷静、克制的深色控制台概念。",
+    implemented: true,
+    description: "铆钉、信号灯与可执行序列的深色控制台。",
   },
   {
     id: "aurora-ocean",
