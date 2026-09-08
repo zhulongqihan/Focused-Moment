@@ -7,16 +7,16 @@
 
 | 字段 | 当前值 |
 | --- | --- |
-| as_of / updated_at | 2026-09-09 01:55 +08:00；v2.8.0 已发布，TH-04 与 REL-01 已完成，下一项进入 TH-05 |
+| as_of / updated_at | 2026-09-09 02:00 +08:00；v2.8.0 已发布，TH-04 与 REL-01 已完成，TH-05 开始执行 |
 | 产品目标 | 本地优先的桌面专注工具：待办 → 专注 → 桌面提醒 → 保存记录 → 回看投入 → 可恢复地长期保留 |
 | 当前阶段 | Night Valley、Editorial Paper、Graphite Console、Aurora Ocean 均已接入并发布五页；Botanical 仍保持禁用 |
 | 代码基线 | 当前源代码基线 `95490d1`（Aurora 功能提交 `43d53dd` + v2.8.0 版本同步 `761181d` + 发布收口；v2.8.0 tag 已指向该提交，v2.7.0 tag 仍为 `23b5dcd`） |
-| 当前工作分支 | `main`；此前 CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06/DESK-01/DESK-03/ARCH-01/QA-01/PERF-01/TH-02/TH-03/TH-04/REL-01 已完成；下一项为 TH-05 |
+| 当前工作分支 | `main`；此前 CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06/DESK-01/DESK-03/ARCH-01/QA-01/PERF-01/TH-02/TH-03/TH-04/REL-01 已完成；当前为 TH-05 DOING |
 | 发布基线 | GitHub `v2.8.0`，tag peeled commit 为 `95490d1`；旧 `v2.7.0`/`v2.6.10`/`v2.6.9` tag 未移动 |
 | 远程 main | 已推送至 `95490d1`；Checks run `34258546519` PASS，macOS Release run `34258554857` PASS；v2.8.0 Release 已核对 Windows EXE/NSIS/MSI 与 macOS Universal DMG 四项资产及 digest |
 | 本轮交付 | TH-04 与 REL-01 完成 Aurora Ocean 五页、v2.8.0 版本同步、本地 debug/release 包、隔离启动冒烟、远程 CI、Universal DMG 和 GitHub Release；证据见 `docs/qa/TH-04-43d53dd.md`、`docs/qa/REL-01-95490d1.md` 与 `output/qa/TH-04/761181d/` |
 | 下一项 | **TH-05：实现 Botanical Library 五页主题**；DATA-01 因 CORE-03 继续阻塞，CORE-03/DESK-02 仍等待真实 macOS 原生证据 |
-| 当前执行人 / 在做任务 | Codex / TH-05 TODO（TH-04、REL-01 已完成；不移动旧 tag、不触碰真实用户数据） |
+| 当前执行人 / 在做任务 | Codex / TH-05 DOING（起始 SHA `486cf09`；不移动旧 tag、不触碰真实用户数据） |
 | 首套验收结论 | **Windows 原生核心闭环、编辑态计时刷新、主题渲染边界、QA-01 回退回归、Night Valley/Editorial/Graphite/Aurora 前端回归、Editorial 长历史性能专项、v2.6.10/v2.7.0/v2.8.0 Windows 与 macOS 资产发布已通过**；macOS 原生数据目录/单实例/窗口交互、真实休眠/托盘菜单点击、数据搬移和 Botanical 仍未闭环 |
 | source | 本轮用户说明；当前源码与测试；Git 提交/远程 refs；GitHub Release/Actions；本轮命令结果 |
 | supersedes | 旧文档中的 v1.4.1/v1.5.x/v1.10.0/v2.0 当前进度，以及 2026-09-06 摘要中的“其他四页未实现、主题注册未建立” |
@@ -154,7 +154,7 @@ CORE-03、DESK-02 为 macOS 下一次发布门槛，可与 Windows 首套验收�
 | TH-02 | P2 | DONE | G0/G1/G2/REL-01 | 第二套 Editorial Paper 五页；实现、验证、版本化 Release 已完成 |
 | TH-03 | P2 | DONE | TH-02 | 第三套 Graphite Console 五页；源码、测试、证据与 v2.7.0 Release 已完成 |
 | TH-04 | P2 | DONE | TH-03 | 第四套 Aurora Ocean 五页；源码、测试、证据与 v2.8.0 Release 已完成 |
-| TH-05 | P2 | TODO | TH-04 | 第五套 Botanical Library 五页 |
+| TH-05 | P2 | DOING | TH-04 | 第五套 Botanical Library 五页 |
 | PERF-01 | P2 | DONE | G1；第二套启用前先建立基线 | 启动/常驻/大历史性能预算与优化 |
 | DATA-01 | P2 | TODO | CORE-02/03 | 备份包含范围、跨设备搬移流程、素材清单 |
 | REL-01 | P1 | DONE | ENG-01；每个版本重复 | v2.8.0 版本、包、说明、主线、CI、平台资产闭环已完成；v2.7.0/v2.6.10 同样完成 |
