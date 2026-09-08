@@ -7,20 +7,20 @@
 
 | 字段 | 当前值 |
 | --- | --- |
-| as_of / updated_at | 2026-09-08 09:14 +08:00；仅代表本轮核查时点 |
+| as_of / updated_at | 2026-09-08 13:11 +08:00；领取 ENG-01 时点 |
 | 产品目标 | 本地优先的桌面专注工具：待办 → 专注 → 桌面提醒 → 保存记录 → 回看投入 → 可恢复地长期保留 |
 | 当前阶段 | 第一套 Night Valley 已覆盖五页并发布，进入整体验收与可靠性收口；第二至第五套尚未实现 |
-| 代码基线 | `473cc6701cc6dc8608527d12e3e73bf8d2a1999e`，版本 `2.6.9` |
-| 当前工作分支 | `codex/night-valley-today`，审查开始时工作区干净 |
+| 代码基线 | 当前 SHA `afb865a`（源码仍基于发布基线 `473cc67`），版本 `2.6.9` |
+| 当前工作分支 | `codex/night-valley-today`；有本轮未提交的 CORE-01/CORE-02/CORE-04/CORE-05 源码与计划更新 |
 | 发布基线 | GitHub `v2.6.9`，tag 实际提交为 `473cc67` |
 | 远程 main | `bcf23fa`，比当前代码少 9 个提交，尚未包含第一套完整实现 |
-| 本轮交付 | 项目审查、任务排序、验收标准、可持续计划；没有修复下列产品缺陷 |
-| 下一项 | **ENG-00：先定位 Rust 测试执行障碍**；可独立复现 CORE-01 的存储失败；随后 CORE-01 → CORE-02 → CORE-04 → ENG-01，再收口第一套 |
-| 当前执行人 / 在做任务 | 无 / 无；本轮仅完成 PLAN-00 |
+| 本轮交付 | CORE-01、CORE-02、CORE-04、CORE-05 完成；领取 ENG-01，起始 SHA `afb865a`，核对当前代码、main、CI 与发布脚本的一致性 |
+| 下一项 | **ENG-01：当前代码完整验证、main 集成与 CI 对齐**；随后收口第一套 |
+| 当前执行人 / 在做任务 | Codex / ENG-01；起始 SHA `afb865a`；本轮不触碰真实用户数据、不重指已发布 tag |
 | 首套验收结论 | **未完成整体收口**。功能存在、测试通过、已发布与参考图验收通过是四件不同的事 |
 | source | 本轮用户说明；当前源码与测试；Git 提交/远程 refs；GitHub Release/Actions；本轮命令结果 |
 | supersedes | 旧文档中的 v1.4.1/v1.5.x/v1.10.0/v2.0 当前进度，以及 2026-09-06 摘要中的“其他四页未实现、主题注册未建立” |
-| pending | 存储失败保护、短倒计时恢复、主线与 CI 对齐、外观设置有效性、统计口径、阶段语义、五页视觉证据、原生窗口/平台验证 |
+| pending | 启动错误与跨文件事务、短倒计时恢复、主线与 CI 对齐、外观设置有效性、统计口径、阶段语义、五页视觉证据、原生窗口/平台验证 |
 
 **进度读取规则：**最新明确用户要求 > 当前源码/运行结果/远程事实 > 本看板 > 历史文档。后续开始工作先刷新以上版本和提交，不能把今天的基线当永久事实。任务勾选必须有结果证据，不能按版本号、文件数或截图数量计算“完成百分比”。
 
@@ -41,9 +41,9 @@
 | 待办闭环 | `src/lib/tasks.ts`、MainShell、Rust commands；截止日期、可选时间、重要度、编辑/完成/删除/撤销、带入专注 | 有流程回归；大量任务、跨窗口操作及写盘失败需补充 |
 | 专注记录与统计 | Rust analytics + `NightValleyRecords`；记录编辑/删除、日汇总、跨午夜分摊、连续活跃日、档案轨迹 | 统计引擎有测试；页面“近七天平均”口径不符；范围选择与记录导出仍禁用 |
 | 桌面集成 | `src/lib/window-controls.ts`、runtime、main；托盘、隐藏恢复、窗口拖动、悬浮待办/计时、穿透锁与解锁 | mock 流程有覆盖；不能替代 WebView2 / macOS 原生窗口实测；非 Windows 单实例分支直接返回 true |
-| 存储与恢复 | `storage.rs`；state/runtime 分文件、上一份快照备份、用户备份、旧格式迁移、恢复前备份 | 基础存在；删除再替换与读取失败默认空状态构成高优先级可靠性缺口；没有故障注入验收 |
+| 存储与恢复 | `storage.rs`；state/runtime 分文件、耐久临时写入、有效快照备份、缺失/损坏/不可读回退、用户备份、旧格式迁移 | CORE-01 已覆盖单文件保存/恢复与故障注入；CORE-02 已补齐启动保护与跨 state/runtime 事务回退；跨平台目录仍由 CORE-03 负责 |
 | 设置与本地素材 | 提醒、音效、自定义音效、每日一句、主题预览、本地偏好 | 1000 条语料本地打包且记录来源字段；外观滑块/密度没有真正驱动样式；浏览器存储偏好与 Rust 备份并非同一范围 |
-| 测试与构建 | Playwright 32 项、Rust 库 12 项、TS 检查、Vite 构建、GitHub Windows CI / macOS 打包 | 本轮浏览器全过；完整 cargo test 命令有环境执行失败；远程主线 CI 陈旧且失败 |
+| 测试与构建 | Playwright 32 项、Rust 库 28 项、TS 检查、Vite 构建、GitHub Windows CI / macOS 打包 | ENG-00、CORE-01、CORE-02、CORE-04、CORE-05 的当前工作树完整 cargo test 与 TS 检查通过；前端 32 项回归已在 CORE-02 通过；远程主线 CI 陈旧且失败 |
 | 发布与交接 | Windows EXE/MSI、macOS DMG、版本说明、发布脚本 | v2.6.9 四项资产存在；main 与 tag 脱节；README 版本陈旧；部分关键资料被 `docs/` 忽略规则挡住 |
 
 ### 历史主线（归纳，不是当前任务顺序）
@@ -90,16 +90,16 @@
 
 ## 4. 本轮验证与限制
 
-以下结果针对 `473cc67`，日期 2026-09-08。后续修改后按影响范围重新验证。
+以下结果针对发布基线 `473cc67` 与当前工作树 `afb865a` 上的未提交 CORE-01/CORE-02 修改，日期 2026-09-08。后续修改后按影响范围重新验证。
 
 | 验证 | 结果 | 能证明什么 / 不能证明什么 |
 | --- | --- | --- |
-| `pnpm check` | PASS | TypeScript 检查通过 |
+| `pnpm check` | PASS | CORE-02 后 TypeScript 检查通过 |
 | `pnpm build` | PASS，有 >500 kB chunk 提示 | 可构建；主 JS 635.33 kB、CSS 254.30 kB（构建输出，压缩前）；不等于长期运行性能达标 |
-| `pnpm test:frontend` | PASS，32/32，约 1.1 分钟 | Chromium + Tauri mock 下现有流程/几何断言通过；不等于原生窗口、真实磁盘、像素还原全通过 |
+| `pnpm test:frontend` | PASS，32/32，约 56.6 秒 | CORE-02 后 Chromium + Tauri mock 下现有流程/几何断言通过；不等于原生窗口、真实磁盘、像素还原全通过 |
 | `cargo fmt --check --manifest-path src-tauri/Cargo.toml` | PASS | 当前功能分支格式通过；旧 main 的 CI 失败不代表当前格式仍失败 |
 | `cargo check --manifest-path src-tauri/Cargo.toml` | PASS | 当前 Windows Rust 编译检查通过 |
-| `cargo test --manifest-path src-tauri/Cargo.toml` | **未通过整条命令** | 库内 12/12 PASS；随后二进制测试进程未执行，`拒绝访问 os error 5`；不是断言失败，原因待查，不得写成全绿 |
+| `cargo test --locked --manifest-path src-tauri/Cargo.toml` | PASS | CORE-05 后 28/28 library PASS；binary harness 启动并返回 0（0 tests）；doc-tests 0/0 |
 | 远程 main 最新 Checks | FAIL，run `33981366154`，SHA `bcf23fa` | 失败于 Rust format；后续 check/test 被跳过；该 run 不覆盖最新发布代码 |
 | v2.6.9 macOS Release | PASS，run `34148483003`，SHA `473cc67` | Universal 构建/上传成功；不证明 macOS 数据目录、单实例和原生交互都已验收 |
 | GitHub v2.6.9 资产 | 安装 EXE、便携 EXE、MSI、Universal DMG 共 4 项存在 | 本地两个带版本 EXE 的 SHA256 与 Release digest 一致；本轮未重新打包/安装 |
@@ -133,13 +133,13 @@ CORE-03、DESK-02 为 macOS 下一次发布门槛，可与 Windows 首套验收�
 | ID | 优先级 | 状态 | 依赖 | 任务与交付 |
 | --- | --- | --- | --- | --- |
 | PLAN-00 | P1 | DONE | 无 | 本轮整项目审查、根目录计划和历史摘要 |
-| ENG-00 | P1 | TODO | PLAN-00 | 定位 Rust binary test 的 os error 5，恢复完整验证能力 |
-| CORE-01 | P0 | TODO | PLAN-00 | 磁盘保存中断恢复、有效副本保护 |
-| CORE-02 | P0 | TODO | CORE-01 | 启动错误可见、恢复/完成事务失败一致性 |
+| ENG-00 | P1 | DONE | PLAN-00 | 定位 Rust binary test 的 os error 5，恢复完整验证能力 |
+| CORE-01 | P0 | DONE | PLAN-00 | 磁盘保存中断恢复、有效副本保护 |
+| CORE-02 | P0 | DONE | CORE-01 | 启动错误可见、恢复/完成事务失败一致性 |
 | CORE-03 | P1 | TODO | CORE-01 | 跨平台数据目录、旧目录发现与迁移 |
-| CORE-04 | P1 | TODO | PLAN-00 | 合法短倒计时重启/导入后保持原时长 |
-| CORE-05 | P2 | TODO | CORE-02/04 | 兼容番茄多轮恢复与系统时钟变化边界 |
-| ENG-01 | P1 | TODO | CORE-01/02/04 | 当前代码完整验证、main 集成与 CI 对齐 |
+| CORE-04 | P1 | DONE | PLAN-00 | 合法短倒计时重启/导入后保持原时长 |
+| CORE-05 | P2 | DONE | CORE-02/04 | 兼容番茄多轮恢复与系统时钟变化边界 |
+| ENG-01 | P1 | DOING | CORE-01/02/04 | 当前代码完整验证、main 集成与 CI 对齐 |
 | NV-01 | P1 | TODO | PLAN-00 | 外观控件实际生效与真实保存反馈 |
 | NV-02 | P1 | TODO | PLAN-00 | 记录日期/统计口径/零值修正 |
 | NV-03 | P1 | TODO | PLAN-00 | 计时状态与阶段路径语义一致 |
@@ -166,22 +166,32 @@ CORE-03、DESK-02 为 macOS 下一次发布门槛，可与 Windows 首套验收�
 - **实现目标**：选择适合 Windows/macOS 的可靠替换策略，保留最后有效副本；主文件缺失、无效、不可读分别处理；恢复成功/失败可区分。不能只把 rename 换一行就宣称断电安全。
 - **验收**：在写 temp、备份、替换各阶段注入失败/中断；重启后读取完整旧版或完整新版；不能以空数据覆盖有效副本。全新账户没有任何存档时正常初始化；检测到已有存档损坏或读写故障、又无有效恢复来源时返回明确错误。对 state/runtime 两条路径均覆盖，并记录跨文件一致性由 CORE-02 负责。
 - **交付**：失败复现测试、修复、测试输出与恢复策略说明。`cargo fmt/check/test`，不要通过删除测试或关闭保护解决失败。
+- **本轮结果（2026-09-08）**：`storage.rs` 改为写入并 `sync_all` 临时文件后再提交；更新前只从可解析的主文件生成快照，主文件移动/新文件提交失败时保留可恢复副本；主文件缺失、JSON 无效或不可读时按“有效主文件 → 有效快照 → 明确错误/全新默认”顺序处理。state/runtime 共覆盖 temp、backup、移动主文件、提交新文件四个注入阶段，以及缺失/损坏/不可读/无有效恢复源；`clear_runtime` 会同步清理快照，避免故意清空后被旧运行态复活。
+- **验证证据**：`cargo fmt --check --manifest-path src-tauri/Cargo.toml`、`cargo check --locked --manifest-path src-tauri/Cargo.toml`、`cargo test --locked --manifest-path src-tauri/Cargo.toml` 均 PASS；library 18/18、binary 0、doc-tests 0；未执行前端测试（本轮仅改 Rust 存储层）。跨 state/runtime 的事务一致性仍留给 CORE-02。
 
 ### CORE-02 · 启动和业务写入不能伪成功
 
-- **先读**：`TimerEngineState::new` 当前 `.ok().unwrap_or_default()`、`persist_all`、`apply_backup_file`、`import_app_backup`、`complete_focus_session`，以及前端加载/错误反馈。
+- **先读**：`TimerEngineState::new` 的启动加载分支、`persist_all`、`apply_backup_file`、`import_app_backup`、`complete_focus_session`，以及前端加载/错误反馈。
 - **实现目标**：区分首次启动无数据与已有数据读取失败；已有数据出错时展示可理解的恢复状态，禁止无声降成空应用并自动覆盖。复核“内存已改、磁盘失败、响应报错”后的重试结果及恢复/回滚一致性。
-- **已确认细节**：初始化存储失败会留下 `persistence: None`，`persist/persist_runtime` 此时仍返回成功；备份应用与完成专注先改内存，再分别写 state/runtime；导入前虽有回退备份，但应用失败未自动恢复。这些都需要明确的提交/回退结果，不能只增加 toast。
+- **修复前已确认细节**：初始化存储失败会留下 `persistence: None`，`persist/persist_runtime` 此时仍返回成功；备份应用与完成专注先改内存，再分别写 state/runtime；导入前虽有回退备份，但应用失败未自动恢复。CORE-02 将这些路径统一为明确的提交/回退结果，不能只增加 toast。
 - **验收**：不可写目录、损坏主/备份、导入不支持的 schema、恢复第二阶段失败、完成保存失败分别有稳定结果；失败后任务、记录、运行态相互一致；重试不重复记录，不报虚假成功。旧备份迁移夹具仍过。
 - **边界**：先补证据再选择回滚、事务协调或提交后应用状态的最小方案；不默认重写数据库，不改变用户计时规则。
+- **本轮结果（2026-09-08）**：`TimerEngineState::new` 区分存储目录准备失败、state 读取失败、runtime 读取失败和迁移写入失败，进入恢复保护并通过既有前端 `loadState/loadError` 展示错误与重试入口；恢复保护状态不会把默认空数据暴露为可操作成功，也不会继续写盘。`persist`、`persist_runtime` 和跨文件 `persist_all` 均返回明确失败，跨 state/runtime 写入在第二阶段失败时回退磁盘与内存；备份导入、完成专注、清空数据、会清理计时关联的待办删除/完成路径统一使用事务写入，避免半提交。
+- **验证证据**：新增/保留 `persistence_failure_is_not_reported_as_success`、`persist_all_rolls_back_memory_and_disk_when_runtime_commit_fails`、`backup_import_failure_restores_the_previous_bundle`，并复用 CORE-01 的 state/runtime 故障注入、损坏/缺失/不可读/无恢复源及旧备份迁移夹具；`cargo fmt --check --manifest-path src-tauri/Cargo.toml`、`cargo check --locked --manifest-path src-tauri/Cargo.toml`、`cargo test --locked --manifest-path src-tauri/Cargo.toml` 均 PASS（library 21/21、binary 0、doc-tests 0）；`pnpm check` PASS，`pnpm test:frontend` PASS（32/32）；`git diff --check` PASS。
+- **剩余边界**：不可写目录使用隔离故障注入覆盖写入阶段，未在真实用户目录做破坏性权限测试；跨平台规范数据目录与旧目录迁移留给 CORE-03；版本、发布资产和远程 main/CI 尚未因本任务发布。
 
 ### CORE-04 / CORE-05 · 恢复后计时仍然是用户设置的那一轮
 
-- **确定缺陷**：runtime 的 `set_countdown_minutes` 支持 1–720 分钟，但 `from_persisted_runtime` 将时长取 `.max(DEFAULT_COUNTDOWN_MINUTES * 60000)`，因此合法 1–24 分钟会被恢复为 25 分钟；备份导入也经过此路径。
+- **修复前确定缺陷**：runtime 的 `set_countdown_minutes` 支持 1–720 分钟，但 `from_persisted_runtime` 将时长取 `.max(DEFAULT_COUNTDOWN_MINUTES * 60000)`，因此合法 1–24 分钟会被恢复为 25 分钟；备份导入也经过此路径。
 - **CORE-04 最小改动**：区分缺失/非法值与合法短时长，只给前者默认值；不改变公开的 1–720 分钟范围。
 - **验收**：1、5、24、25、60、720 分钟分别做运行/暂停/到点状态序列化→恢复与备份导入，时长、已用时间、剩余、完成状态正确；0、超范围与旧格式有明确兼容处理；恢复后完成只保存一次。
-- **CORE-05 边界**：旧 pomodoro 自动跨轮使用单个 `pending_pomodoro_record_ms`，多轮专注与休息计数可能不一致；先记录旧数据支持策略，测试跨 1/2/10 轮和休眠恢复，不默默增加新的模式入口。若需要改变“自动连续”与“待确认后继续”的用户规则，先提出具体决策。
-- **时钟策略**：当前单调时钟与墙钟增量取较大值，睡眠时间会计入，系统时间前跳也可能计入。固定夹具覆盖前跳/回拨/休眠，并记录目标语义；没有测试证据前不宣称抗时钟异常。
+- **CORE-04 本轮结果（2026-09-08）**：新增 `normalize_countdown_duration_ms`，只接受 1–720 分钟范围内的整分钟值；缺失、非整分钟和越界值回退 25 分钟，并将恢复时的已用时间限制在恢复后的总时长内。重启恢复与 `normalize_imported_runtime` 备份导入共用同一规则，未改变公开设置范围。
+- **CORE-04 验证证据**：新增 4 项 Rust 测试，覆盖 1/5/24/25/60/720 分钟、0/90 秒/721 分钟非法值、暂停/运行/结束状态及 5 分钟备份导入后内存和磁盘值；`cargo fmt --check --manifest-path src-tauri/Cargo.toml`、`cargo check --locked --manifest-path src-tauri/Cargo.toml`、`cargo test --locked --manifest-path src-tauri/Cargo.toml` 均 PASS（library 25/25、binary 0、doc-tests 0）；`pnpm exec playwright test tests/app.spec.mjs --grep "countdown duration keeps"` PASS（1/1）。
+- **CORE-04 剩余边界**：番茄多轮、睡眠和系统时钟前跳/回拨语义仍由 CORE-05 处理；没有为恢复修复引入新的计时模式或产品入口。
+- **CORE-05 原有边界**：旧 pomodoro 自动跨轮使用单个 `pending_pomodoro_record_ms`，此前会让第 2/10 轮焦点计数和待记录时长不一致；本轮保留旧字段和“延后确认”规则，不新增记录队列或模式入口。
+- **CORE-05 本轮结果（2026-09-08）**：多个未确认焦点轮次现在累加到同一个待记录时长，且每轮焦点/休息计数与阶段路径同步递增；立即确认仍只生成一条当前待记录，延后确认不会静默丢掉后续轮次。持久化与恢复保留阶段、计数、待记录时长和运行锚点，恢复后可继续完成这一条兼容记录。
+- **时钟策略与结果**：继续采用单调时钟与墙钟增量取较大值，睡眠时间会计入，系统时间前跳也会计入，墙钟回拨不会产生负增量；抽出带显式 now 参数的纯计算路径，固定夹具覆盖单调领先、睡眠、前跳和回拨，并记录这套目标语义，不宣称已消除真实系统时钟跳变风险。
+- **CORE-05 验证证据**：新增多轮延后确认恢复、睡眠恢复和时钟边界 3 项 Rust 测试；`cargo fmt --check --manifest-path src-tauri/Cargo.toml`、`cargo check --locked --manifest-path src-tauri/Cargo.toml`、`cargo test --locked --manifest-path src-tauri/Cargo.toml` 均 PASS（library 28/28、binary 0、doc-tests 0）；`pnpm check` PASS；未做真实休眠/手动改系统时钟测试，也未改版本或发布资产。
 
 ### CORE-03 / DESK-02 · macOS 支持从能打包推进到能可靠使用
 
@@ -335,6 +345,11 @@ NV-05 的具体键盘缺口：`CommandPalette.tsx` 声明 modal/listbox，但缺
 | 日期 | 任务 | 结果 / 证据 | 下一步 |
 | --- | --- | --- | --- |
 | 2026-09-08 | PLAN-00 | 核对 473cc67/v2.6.9 与远程 main；前端32项、Rust库12项通过；完整cargo test受os error 5阻断；全项目风险与五主题路线入档 | ENG-00 → CORE-01 |
+| 2026-09-08 | ENG-00 | `afb865a`→`afb865a`；仅更新 `PROJECT_PLAN.md`；`cargo test --manifest-path src-tauri/Cargo.toml`、`cargo test --locked --manifest-path src-tauri/Cargo.toml` 与全新临时 `CARGO_TARGET_DIR` 的完整测试均退出 0（library 12/12、binary 0、doc 0）；Windows 11 26200、Rust/Cargo 1.94.1 MSVC；未改版本、源码或发布资产；前次 `os error 5` 不可复现；`git fetch --prune origin` 因 SSH 22 端口超时未完成 | CORE-01 |
+| 2026-09-08 | CORE-01 | `afb865a`→`afb865a`（源码与计划仍未提交）；修改 `src-tauri/src/storage.rs`、`PROJECT_PLAN.md`；新增 state/runtime 耐久临时写入、有效快照保护、缺失/无效/不可读回退、故障注入夹具与 6 组存储测试；`cargo fmt --check --manifest-path src-tauri/Cargo.toml`、`cargo check --locked --manifest-path src-tauri/Cargo.toml`、`cargo test --locked --manifest-path src-tauri/Cargo.toml` 均 PASS（library 18/18、binary 0、doc 0）；未执行前端测试；版本/发布资产未变；跨文件一致性与启动错误交给 CORE-02 | CORE-02 |
+| 2026-09-08 | CORE-02 | `afb865a`→`afb865a`（源码与计划仍未提交）；修改 `src-tauri/src/runtime.rs`、`PROJECT_PLAN.md`；启动失败进入恢复保护且所有数据命令拒绝伪成功，`persist_all`/备份导入/完成专注共享跨文件回退，待办关联修改避免半提交；`cargo fmt --check --manifest-path src-tauri/Cargo.toml`、`cargo check --locked --manifest-path src-tauri/Cargo.toml`、`cargo test --locked --manifest-path src-tauri/Cargo.toml` 均 PASS（library 21/21、binary 0、doc 0）；`pnpm check` PASS、`pnpm test:frontend` PASS（32/32，约56.6秒）、`git diff --check` PASS；版本/发布资产未变；隔离故障注入覆盖写入失败，真实目录权限和跨平台目录迁移留给后续任务 | CORE-04 |
+| 2026-09-08 | CORE-04 | `afb865a`→`afb865a`（源码与计划仍未提交）；修改 `src-tauri/src/runtime.rs`、`PROJECT_PLAN.md`；修正合法 1–24 分钟恢复为 25 分钟的归一化错误，补充合法/非法时长、运行状态和短倒计时备份导入测试；`cargo fmt --check --manifest-path src-tauri/Cargo.toml`、`cargo check --locked --manifest-path src-tauri/Cargo.toml`、`cargo test --locked --manifest-path src-tauri/Cargo.toml` 均 PASS（library 25/25、binary 0、doc 0）；倒计时前端定向回归 PASS（1/1）；未改版本/发布资产；番茄多轮与时钟边界留给 CORE-05 | CORE-05 |
+| 2026-09-08 | CORE-05 | `afb865a`→`afb865a`（源码与计划仍未提交）；修改 `src-tauri/src/runtime.rs`、`PROJECT_PLAN.md`；多轮番茄延后确认聚合未记录焦点时长、恢复保留阶段与计数，时钟计算固定化并覆盖睡眠/前跳/回拨语义；`cargo fmt --check --manifest-path src-tauri/Cargo.toml`、`cargo check --locked --manifest-path src-tauri/Cargo.toml`、`cargo test --locked --manifest-path src-tauri/Cargo.toml` 均 PASS（library 28/28、binary 0、doc 0）；`pnpm check` PASS；未做真实休眠/系统时钟改动测试，未改版本/发布资产 | ENG-01 |
 
 每条后续记录使用：`日期｜任务ID｜开始SHA→结束SHA｜修改文件｜验证命令与结果｜证据路径/链接｜版本/发布状态｜剩余问题｜下一ID`。没有执行的测试必须写“未执行”，不可复制上一版结果。
 

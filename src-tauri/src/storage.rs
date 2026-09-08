@@ -1,7 +1,9 @@
 use std::env;
-use std::fs;
-use std::path::PathBuf;
+use std::fs::{self, OpenOptions};
+use std::io::Write;
+use std::path::{Path, PathBuf};
 
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
 use crate::{FocusRecord, TimerPreferences, TodoItem};
@@ -25,6 +27,21 @@ pub struct PersistenceStore {
     runtime_backup_path: PathBuf,
     backup_dir: PathBuf,
     legacy_backup_dir: PathBuf,
+    #[cfg(test)]
+    failure: std::sync::Arc<std::sync::Mutex<Option<SaveStage>>>,
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum SaveStage {
+    WriteTemp,
+    Backup,
+    MoveCurrent,
+    PromoteNew,
+    RuntimeWriteTemp,
+    RuntimeBackup,
+    RuntimeMoveCurrent,
+    RuntimePromoteNew,
 }
 
 fn resolve_app_directory() -> Result<PathBuf, String> {
@@ -121,6 +138,10 @@ impl PersistenceStore {
             .map(PathBuf::from)
             .unwrap_or(env::current_dir().map_err(|error| error.to_string())?);
 
+        Self::from_base_dir(base_dir)
+    }
+
+    fn from_base_dir(base_dir: PathBuf) -> Result<Self, String> {
         let storage_dir = base_dir.join(STORAGE_DIR_NAME);
         fs::create_dir_all(&storage_dir).map_err(|error| error.to_string())?;
         let legacy_backup_dir = resolve_app_directory()?.join(USER_BACKUP_DIR_NAME);
@@ -132,62 +153,61 @@ impl PersistenceStore {
             runtime_backup_path: storage_dir.join(RUNTIME_BACKUP_FILE_NAME),
             backup_dir: storage_dir.join(USER_BACKUP_DIR_NAME),
             legacy_backup_dir,
+            #[cfg(test)]
+            failure: std::sync::Arc::new(std::sync::Mutex::new(None)),
         })
     }
 
-    pub fn load(&self) -> Result<PersistedState, String> {
-        if !self.state_path.exists() {
-            return Ok(PersistedState::default());
-        }
+    #[cfg(test)]
+    pub(crate) fn for_test(base_dir: &Path) -> Result<Self, String> {
+        Self::from_base_dir(base_dir.to_path_buf())
+    }
 
-        let raw = fs::read_to_string(&self.state_path).map_err(|error| error.to_string())?;
-        serde_json::from_str(&raw).or_else(|_| self.load_backup_state())
+    #[cfg(test)]
+    pub(crate) fn for_test_with_failure(base_dir: &Path, stage: SaveStage) -> Result<Self, String> {
+        let store = Self::for_test(base_dir)?;
+        *store
+            .failure
+            .lock()
+            .map_err(|_| "测试故障注入锁定失败".to_string())? = Some(stage);
+        Ok(store)
+    }
+
+    pub fn load(&self) -> Result<PersistedState, String> {
+        read_json_with_backup(&self.state_path, &self.state_backup_path, "状态")
     }
 
     pub fn save(&self, state: &PersistedState) -> Result<(), String> {
-        let serialized = serde_json::to_string_pretty(state).map_err(|error| error.to_string())?;
-        let temp_path = self.state_path.with_extension("tmp");
-
-        fs::write(&temp_path, serialized).map_err(|error| error.to_string())?;
-
-        if self.state_path.exists() {
-            fs::copy(&self.state_path, &self.state_backup_path)
-                .map_err(|error| error.to_string())?;
-            fs::remove_file(&self.state_path).map_err(|error| error.to_string())?;
-        }
-
-        fs::rename(&temp_path, &self.state_path).map_err(|error| error.to_string())
+        save_json_with_backup(
+            self,
+            &self.state_path,
+            &self.state_backup_path,
+            state,
+            "状态",
+        )
     }
 
     pub fn load_runtime(&self) -> Result<PersistedRuntimeState, String> {
-        if !self.runtime_path.exists() {
-            return Ok(PersistedRuntimeState::default());
-        }
-
-        let raw = fs::read_to_string(&self.runtime_path).map_err(|error| error.to_string())?;
-        serde_json::from_str(&raw).or_else(|_| self.load_backup_runtime())
+        read_json_with_backup(&self.runtime_path, &self.runtime_backup_path, "运行态")
     }
 
     pub fn save_runtime(&self, state: &PersistedRuntimeState) -> Result<(), String> {
-        let serialized = serde_json::to_string_pretty(state).map_err(|error| error.to_string())?;
-        let temp_path = self.runtime_path.with_extension("tmp");
-
-        fs::write(&temp_path, serialized).map_err(|error| error.to_string())?;
-
-        if self.runtime_path.exists() {
-            fs::copy(&self.runtime_path, &self.runtime_backup_path)
-                .map_err(|error| error.to_string())?;
-            fs::remove_file(&self.runtime_path).map_err(|error| error.to_string())?;
-        }
-
-        fs::rename(&temp_path, &self.runtime_path).map_err(|error| error.to_string())
+        save_json_with_backup(
+            self,
+            &self.runtime_path,
+            &self.runtime_backup_path,
+            state,
+            "运行态",
+        )
     }
 
+    #[allow(dead_code)]
     pub fn clear_runtime(&self) -> Result<(), String> {
-        if self.runtime_path.exists() {
-            fs::remove_file(&self.runtime_path).map_err(|error| error.to_string())?;
-        }
-
+        remove_if_exists(&self.runtime_path)?;
+        remove_if_exists(&self.runtime_backup_path)?;
+        remove_if_exists(&sibling_path(&self.runtime_path, "tmp"))?;
+        remove_if_exists(&sibling_path(&self.runtime_path, "backup-tmp"))?;
+        remove_if_exists(&sibling_path(&self.runtime_path, "swap-old"))?;
         Ok(())
     }
 
@@ -280,22 +300,433 @@ impl PersistenceStore {
             && !file_name.contains(['\\', '/', ':'])
     }
 
-    fn load_backup_state(&self) -> Result<PersistedState, String> {
-        if !self.state_backup_path.exists() {
-            return Err("无法读取当前存档，且没有可用的状态快照备份。".to_string());
+    #[cfg(test)]
+    fn maybe_fail_for_path(&self, path: &Path, stage: SaveStage) -> Result<(), String> {
+        let stage = if path == self.runtime_path.as_path() {
+            match stage {
+                SaveStage::WriteTemp => SaveStage::RuntimeWriteTemp,
+                SaveStage::Backup => SaveStage::RuntimeBackup,
+                SaveStage::MoveCurrent => SaveStage::RuntimeMoveCurrent,
+                SaveStage::PromoteNew => SaveStage::RuntimePromoteNew,
+                runtime_stage => runtime_stage,
+            }
+        } else {
+            stage
+        };
+        let mut failure = self
+            .failure
+            .lock()
+            .map_err(|_| "测试故障注入锁定失败".to_string())?;
+        if *failure == Some(stage) {
+            *failure = None;
+            return Err(format!("注入存储故障：{stage:?}"));
         }
 
-        let raw = fs::read_to_string(&self.state_backup_path).map_err(|error| error.to_string())?;
-        serde_json::from_str(&raw).map_err(|error| error.to_string())
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+enum JsonFileError {
+    Missing,
+    Io(String),
+    Invalid(String),
+}
+
+fn sibling_path(path: &Path, suffix: &str) -> PathBuf {
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("focused-moment-storage");
+    path.with_file_name(format!("{file_name}.{suffix}"))
+}
+
+fn remove_if_exists(path: &Path) -> Result<(), String> {
+    match fs::remove_file(path) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(error.to_string()),
+    }
+}
+
+fn path_exists(path: &Path) -> Result<bool, String> {
+    match fs::metadata(path) {
+        Ok(_) => Ok(true),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(error.to_string()),
+    }
+}
+
+fn write_durable(path: &Path, contents: &[u8]) -> Result<(), String> {
+    let mut file = OpenOptions::new()
+        .create(true)
+        .truncate(true)
+        .write(true)
+        .open(path)
+        .map_err(|error| error.to_string())?;
+    file.write_all(contents)
+        .map_err(|error| error.to_string())?;
+    file.sync_all().map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+fn read_json_file<T: DeserializeOwned>(path: &Path) -> Result<T, JsonFileError> {
+    let raw = fs::read_to_string(path).map_err(|error| {
+        if error.kind() == std::io::ErrorKind::NotFound {
+            JsonFileError::Missing
+        } else {
+            JsonFileError::Io(error.to_string())
+        }
+    })?;
+
+    serde_json::from_str(&raw).map_err(|error| JsonFileError::Invalid(error.to_string()))
+}
+
+fn describe_json_error(error: &JsonFileError) -> String {
+    match error {
+        JsonFileError::Missing => "文件不存在".to_string(),
+        JsonFileError::Io(message) => format!("读取失败：{message}"),
+        JsonFileError::Invalid(message) => format!("内容无效：{message}"),
+    }
+}
+
+fn read_json_with_backup<T: DeserializeOwned + Default>(
+    primary_path: &Path,
+    backup_path: &Path,
+    label: &str,
+) -> Result<T, String> {
+    match read_json_file(primary_path) {
+        Ok(value) => Ok(value),
+        Err(primary_error) => match read_json_file(backup_path) {
+            Ok(value) => Ok(value),
+            Err(JsonFileError::Missing) if matches!(&primary_error, JsonFileError::Missing) => {
+                Ok(T::default())
+            }
+            Err(backup_error) => Err(format!(
+                "无法读取{label}主文件，且有效快照备份不可用：主文件{}；备份{}。",
+                describe_json_error(&primary_error),
+                describe_json_error(&backup_error)
+            )),
+        },
+    }
+}
+
+fn promote_backup(temp_path: &Path, backup_path: &Path) -> Result<(), String> {
+    remove_if_exists(backup_path)?;
+    fs::rename(temp_path, backup_path).map_err(|error| error.to_string())
+}
+
+fn save_json_with_backup<T>(
+    store: &PersistenceStore,
+    destination_path: &Path,
+    backup_path: &Path,
+    value: &T,
+    label: &str,
+) -> Result<(), String>
+where
+    T: Serialize + DeserializeOwned,
+{
+    #[cfg(not(test))]
+    let _ = store;
+
+    let serialized = serde_json::to_vec_pretty(value).map_err(|error| error.to_string())?;
+    let temp_path = sibling_path(destination_path, "tmp");
+    let backup_temp_path = sibling_path(destination_path, "backup-tmp");
+    let displaced_path = sibling_path(destination_path, "swap-old");
+
+    #[cfg(test)]
+    store.maybe_fail_for_path(destination_path, SaveStage::WriteTemp)?;
+    write_durable(&temp_path, &serialized)
+        .map_err(|error| format!("写入{label}临时文件失败：{error}"))?;
+
+    let destination_exists = path_exists(destination_path)?;
+    if destination_exists {
+        let current_bytes = fs::read(destination_path).map_err(|error| error.to_string())?;
+
+        if serde_json::from_slice::<T>(&current_bytes).is_ok() {
+            #[cfg(test)]
+            store.maybe_fail_for_path(destination_path, SaveStage::Backup)?;
+            write_durable(&backup_temp_path, &current_bytes)
+                .map_err(|error| format!("写入{label}快照备份失败：{error}"))?;
+            promote_backup(&backup_temp_path, backup_path)
+                .map_err(|error| format!("替换{label}快照备份失败：{error}"))?;
+        }
     }
 
-    fn load_backup_runtime(&self) -> Result<PersistedRuntimeState, String> {
-        if !self.runtime_backup_path.exists() {
-            return Err("无法读取当前运行态存档，且没有可用的运行态快照备份。".to_string());
-        }
+    if destination_exists {
+        #[cfg(test)]
+        store.maybe_fail_for_path(destination_path, SaveStage::MoveCurrent)?;
+        remove_if_exists(&displaced_path)?;
+        fs::rename(destination_path, &displaced_path)
+            .map_err(|error| format!("准备替换{label}主文件失败：{error}"))?;
+    }
 
-        let raw =
-            fs::read_to_string(&self.runtime_backup_path).map_err(|error| error.to_string())?;
-        serde_json::from_str(&raw).map_err(|error| error.to_string())
+    #[cfg(test)]
+    store.maybe_fail_for_path(destination_path, SaveStage::PromoteNew)?;
+
+    if let Err(error) = fs::rename(&temp_path, destination_path) {
+        if destination_exists {
+            let _ = fs::rename(&displaced_path, destination_path);
+        }
+        return Err(format!("提交{label}主文件失败：{error}"));
+    }
+
+    let _ = remove_if_exists(&displaced_path);
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temp_root() -> PathBuf {
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock is before unix epoch")
+            .as_nanos();
+        let root = env::temp_dir().join(format!(
+            "focused-moment-storage-test-{}-{suffix}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&root).expect("create isolated storage fixture");
+        root
+    }
+
+    fn cleanup(root: &Path) {
+        let _ = fs::remove_dir_all(root);
+    }
+
+    fn state(next_record_id: u64) -> PersistedState {
+        PersistedState {
+            schema_version: CURRENT_STORAGE_SCHEMA_VERSION,
+            next_record_id,
+            ..PersistedState::default()
+        }
+    }
+
+    fn runtime(elapsed_ms: u64) -> PersistedRuntimeState {
+        PersistedRuntimeState {
+            schema_version: CURRENT_STORAGE_SCHEMA_VERSION,
+            mode_key: "stopwatch".to_string(),
+            stopwatch_elapsed_ms: elapsed_ms,
+            ..PersistedRuntimeState::default()
+        }
+    }
+
+    #[test]
+    fn empty_storage_initializes_without_a_backup() {
+        let root = temp_root();
+        let store = PersistenceStore::for_test(&root).expect("create store");
+
+        assert_eq!(store.load().expect("load empty state").next_record_id, 0);
+        assert_eq!(
+            store
+                .load_runtime()
+                .expect("load empty runtime")
+                .stopwatch_elapsed_ms,
+            0
+        );
+
+        cleanup(&root);
+    }
+
+    #[test]
+    fn state_and_runtime_keep_the_last_valid_snapshot() {
+        let root = temp_root();
+        let store = PersistenceStore::for_test(&root).expect("create store");
+
+        store.save(&state(1)).expect("save first state");
+        store
+            .save_runtime(&runtime(1_000))
+            .expect("save first runtime");
+        store.save(&state(2)).expect("save second state");
+        store
+            .save_runtime(&runtime(2_000))
+            .expect("save second runtime");
+
+        assert_eq!(store.load().expect("load current state").next_record_id, 2);
+        assert_eq!(
+            store
+                .load_runtime()
+                .expect("load current runtime")
+                .stopwatch_elapsed_ms,
+            2_000
+        );
+
+        fs::remove_file(&store.state_path).expect("remove state primary");
+        fs::remove_file(&store.runtime_path).expect("remove runtime primary");
+        assert_eq!(
+            store.load().expect("recover missing state").next_record_id,
+            1
+        );
+        assert_eq!(
+            store
+                .load_runtime()
+                .expect("recover missing runtime")
+                .stopwatch_elapsed_ms,
+            1_000
+        );
+
+        fs::write(&store.state_path, b"{invalid state").expect("corrupt state primary");
+        fs::write(&store.runtime_path, b"{invalid runtime").expect("corrupt runtime primary");
+        assert_eq!(
+            store.load().expect("recover invalid state").next_record_id,
+            1
+        );
+        assert_eq!(
+            store
+                .load_runtime()
+                .expect("recover invalid runtime")
+                .stopwatch_elapsed_ms,
+            1_000
+        );
+
+        fs::remove_file(&store.state_path).expect("remove invalid state primary");
+        fs::create_dir(&store.state_path).expect("create unreadable state primary");
+        fs::remove_file(&store.runtime_path).expect("remove invalid runtime primary");
+        fs::create_dir(&store.runtime_path).expect("create unreadable runtime primary");
+        assert_eq!(
+            store
+                .load()
+                .expect("recover unreadable state")
+                .next_record_id,
+            1
+        );
+        assert_eq!(
+            store
+                .load_runtime()
+                .expect("recover unreadable runtime")
+                .stopwatch_elapsed_ms,
+            1_000
+        );
+
+        cleanup(&root);
+    }
+
+    #[test]
+    fn invalid_primary_is_not_allowed_to_replace_a_valid_backup() {
+        let root = temp_root();
+        let store = PersistenceStore::for_test(&root).expect("create store");
+
+        store.save(&state(1)).expect("save first state");
+        store.save(&state(2)).expect("save second state");
+        fs::write(&store.state_path, b"{invalid state").expect("corrupt state primary");
+
+        store.save(&state(3)).expect("repair state primary");
+        fs::remove_file(&store.state_path).expect("remove repaired state primary");
+        assert_eq!(
+            store
+                .load()
+                .expect("recover the still-valid backup")
+                .next_record_id,
+            1
+        );
+
+        cleanup(&root);
+    }
+
+    #[test]
+    fn no_valid_recovery_source_returns_an_explicit_error() {
+        let root = temp_root();
+        let store = PersistenceStore::for_test(&root).expect("create store");
+
+        fs::write(&store.state_path, b"{invalid state").expect("corrupt state primary");
+        fs::write(&store.runtime_path, b"{invalid runtime").expect("corrupt runtime primary");
+
+        let state_error = match store.load() {
+            Ok(_) => panic!("invalid state must fail"),
+            Err(error) => error,
+        };
+        let runtime_error = match store.load_runtime() {
+            Ok(_) => panic!("invalid runtime must fail"),
+            Err(error) => error,
+        };
+        assert!(state_error.contains("快照备份"));
+        assert!(runtime_error.contains("快照备份"));
+
+        cleanup(&root);
+    }
+
+    #[test]
+    fn injected_save_failures_preserve_state_and_runtime() {
+        let stages = [
+            SaveStage::WriteTemp,
+            SaveStage::Backup,
+            SaveStage::MoveCurrent,
+            SaveStage::PromoteNew,
+        ];
+
+        for stage in stages {
+            let state_root = temp_root();
+            let state_store = PersistenceStore::for_test(&state_root).expect("create state store");
+            state_store.save(&state(1)).expect("save initial state");
+            let faulty_state_store = PersistenceStore::for_test_with_failure(&state_root, stage)
+                .expect("create faulty state store");
+            assert!(faulty_state_store.save(&state(2)).is_err());
+            let recovered_state_store =
+                PersistenceStore::for_test(&state_root).expect("reopen state store");
+            assert_eq!(
+                recovered_state_store
+                    .load()
+                    .expect("recover state after injected failure")
+                    .next_record_id,
+                1
+            );
+            cleanup(&state_root);
+
+            let runtime_root = temp_root();
+            let runtime_store =
+                PersistenceStore::for_test(&runtime_root).expect("create runtime store");
+            runtime_store
+                .save_runtime(&runtime(1_000))
+                .expect("save initial runtime");
+            let runtime_stage = match stage {
+                SaveStage::WriteTemp => SaveStage::RuntimeWriteTemp,
+                SaveStage::Backup => SaveStage::RuntimeBackup,
+                SaveStage::MoveCurrent => SaveStage::RuntimeMoveCurrent,
+                SaveStage::PromoteNew => SaveStage::RuntimePromoteNew,
+                runtime_stage => runtime_stage,
+            };
+            let faulty_runtime_store =
+                PersistenceStore::for_test_with_failure(&runtime_root, runtime_stage)
+                    .expect("create faulty runtime store");
+            assert!(faulty_runtime_store.save_runtime(&runtime(2_000)).is_err());
+            let recovered_runtime_store =
+                PersistenceStore::for_test(&runtime_root).expect("reopen runtime store");
+            assert_eq!(
+                recovered_runtime_store
+                    .load_runtime()
+                    .expect("recover runtime after injected failure")
+                    .stopwatch_elapsed_ms,
+                1_000
+            );
+            cleanup(&runtime_root);
+        }
+    }
+
+    #[test]
+    fn clearing_runtime_removes_recovery_snapshot_intentionally() {
+        let root = temp_root();
+        let store = PersistenceStore::for_test(&root).expect("create store");
+
+        store
+            .save_runtime(&runtime(1_000))
+            .expect("save first runtime");
+        store
+            .save_runtime(&runtime(2_000))
+            .expect("save second runtime");
+        store.clear_runtime().expect("clear runtime");
+
+        assert_eq!(
+            store
+                .load_runtime()
+                .expect("load intentionally cleared runtime")
+                .stopwatch_elapsed_ms,
+            0
+        );
+        assert!(!store.runtime_backup_path.exists());
+
+        cleanup(&root);
     }
 }
