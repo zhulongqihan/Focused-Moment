@@ -7,20 +7,20 @@
 
 | 字段 | 当前值 |
 | --- | --- |
-| as_of / updated_at | 2026-09-08 13:11 +08:00；领取 ENG-01 时点 |
+| as_of / updated_at | 2026-09-08 13:25 +08:00；ENG-01 完成时点 |
 | 产品目标 | 本地优先的桌面专注工具：待办 → 专注 → 桌面提醒 → 保存记录 → 回看投入 → 可恢复地长期保留 |
 | 当前阶段 | 第一套 Night Valley 已覆盖五页并发布，进入整体验收与可靠性收口；第二至第五套尚未实现 |
-| 代码基线 | 当前 SHA `afb865a`（源码仍基于发布基线 `473cc67`），版本 `2.6.9` |
-| 当前工作分支 | `codex/night-valley-today`；有本轮未提交的 CORE-01/CORE-02/CORE-04/CORE-05 源码与计划更新 |
+| 代码基线 | 当前 main SHA `abcc80a`（集成提交；源码版本仍为 `2.6.9`，发布 tag 为 `473cc67`） |
+| 当前工作分支 | `main`；CORE-01/CORE-02/CORE-04/CORE-05 源码与 ENG-01 证据已提交并推送，工作树应保持干净 |
 | 发布基线 | GitHub `v2.6.9`，tag 实际提交为 `473cc67` |
-| 远程 main | `bcf23fa`，比当前代码少 9 个提交，尚未包含第一套完整实现 |
-| 本轮交付 | CORE-01、CORE-02、CORE-04、CORE-05 完成；领取 ENG-01，起始 SHA `afb865a`，核对当前代码、main、CI 与发布脚本的一致性 |
-| 下一项 | **ENG-01：当前代码完整验证、main 集成与 CI 对齐**；随后收口第一套 |
-| 当前执行人 / 在做任务 | Codex / ENG-01；起始 SHA `afb865a`；本轮不触碰真实用户数据、不重指已发布 tag |
+| 远程 main | `abcc80a`，已包含当前功能分支及整体验证通过的可靠性修复；v2.6.9 tag 仍指向 `473cc67` |
+| 本轮交付 | CORE-01、CORE-02、CORE-04、CORE-05、ENG-01 完成；ENG-01 从 `afb865a` 正常 merge 到 main 并通过新 SHA 的 GitHub Checks |
+| 下一项 | **CORE-03：跨平台数据目录、旧目录发现与迁移**；随后继续收口第一套 |
+| 当前执行人 / 在做任务 | Codex / ENG-01 已完成；下一项 CORE-03；本轮未触碰真实用户数据、不重指已发布 tag |
 | 首套验收结论 | **未完成整体收口**。功能存在、测试通过、已发布与参考图验收通过是四件不同的事 |
 | source | 本轮用户说明；当前源码与测试；Git 提交/远程 refs；GitHub Release/Actions；本轮命令结果 |
 | supersedes | 旧文档中的 v1.4.1/v1.5.x/v1.10.0/v2.0 当前进度，以及 2026-09-06 摘要中的“其他四页未实现、主题注册未建立” |
-| pending | 启动错误与跨文件事务、短倒计时恢复、主线与 CI 对齐、外观设置有效性、统计口径、阶段语义、五页视觉证据、原生窗口/平台验证 |
+| pending | 跨平台目录迁移、版本/包/Release 闭环、外观设置有效性、统计口径、阶段语义、五页视觉证据、原生窗口/平台验证 |
 
 **进度读取规则：**最新明确用户要求 > 当前源码/运行结果/远程事实 > 本看板 > 历史文档。后续开始工作先刷新以上版本和提交，不能把今天的基线当永久事实。任务勾选必须有结果证据，不能按版本号、文件数或截图数量计算“完成百分比”。
 
@@ -90,7 +90,7 @@
 
 ## 4. 本轮验证与限制
 
-以下结果针对发布基线 `473cc67` 与当前工作树 `afb865a` 上的未提交 CORE-01/CORE-02 修改，日期 2026-09-08。后续修改后按影响范围重新验证。
+以下结果针对发布基线 `473cc67` 与已集成的 main `abcc80a`，日期 2026-09-08。后续修改后按影响范围重新验证。
 
 | 验证 | 结果 | 能证明什么 / 不能证明什么 |
 | --- | --- | --- |
@@ -99,8 +99,8 @@
 | `pnpm test:frontend` | PASS，32/32，约 56.6 秒 | CORE-02 后 Chromium + Tauri mock 下现有流程/几何断言通过；不等于原生窗口、真实磁盘、像素还原全通过 |
 | `cargo fmt --check --manifest-path src-tauri/Cargo.toml` | PASS | 当前功能分支格式通过；旧 main 的 CI 失败不代表当前格式仍失败 |
 | `cargo check --manifest-path src-tauri/Cargo.toml` | PASS | 当前 Windows Rust 编译检查通过 |
-| `cargo test --locked --manifest-path src-tauri/Cargo.toml` | PASS | CORE-05 后 28/28 library PASS；binary harness 启动并返回 0（0 tests）；doc-tests 0/0 |
-| 远程 main 最新 Checks | FAIL，run `33981366154`，SHA `bcf23fa` | 失败于 Rust format；后续 check/test 被跳过；该 run 不覆盖最新发布代码 |
+| `cargo test --locked --manifest-path src-tauri/Cargo.toml` | PASS | CORE-05/ENG-01 后 28/28 library PASS；binary harness 启动并返回 0（0 tests）；doc-tests 0/0 |
+| 远程 main 最新 Checks | PASS，run `34190010987`，SHA `abcc80a`，约 7m48s | TypeScript、Vite build、Playwright 32/32、Rust fmt/check/test 全部通过；旧 run `33981366154` 的失败只覆盖旧 SHA `bcf23fa` |
 | v2.6.9 macOS Release | PASS，run `34148483003`，SHA `473cc67` | Universal 构建/上传成功；不证明 macOS 数据目录、单实例和原生交互都已验收 |
 | GitHub v2.6.9 资产 | 安装 EXE、便携 EXE、MSI、Universal DMG 共 4 项存在 | 本地两个带版本 EXE 的 SHA256 与 Release digest 一致；本轮未重新打包/安装 |
 | 视觉复核 | 检视当前 Today/Timer 截图及 Timer 参考 | Today 左端标签存在裁切迹象；Timer 材质/背景/主操作布局仍有明显差异；尚未完成五页逐区量化 |
@@ -139,7 +139,7 @@ CORE-03、DESK-02 为 macOS 下一次发布门槛，可与 Windows 首套验收�
 | CORE-03 | P1 | TODO | CORE-01 | 跨平台数据目录、旧目录发现与迁移 |
 | CORE-04 | P1 | DONE | PLAN-00 | 合法短倒计时重启/导入后保持原时长 |
 | CORE-05 | P2 | DONE | CORE-02/04 | 兼容番茄多轮恢复与系统时钟变化边界 |
-| ENG-01 | P1 | DOING | CORE-01/02/04 | 当前代码完整验证、main 集成与 CI 对齐 |
+| ENG-01 | P1 | DONE | CORE-01/02/04 | 当前代码完整验证、main 集成与 CI 对齐 |
 | NV-01 | P1 | TODO | PLAN-00 | 外观控件实际生效与真实保存反馈 |
 | NV-02 | P1 | TODO | PLAN-00 | 记录日期/统计口径/零值修正 |
 | NV-03 | P1 | TODO | PLAN-00 | 计时状态与阶段路径语义一致 |
@@ -206,6 +206,9 @@ CORE-03、DESK-02 为 macOS 下一次发布门槛，可与 Windows 首套验收�
 - **ENG-01**：CORE 修复与完整验证通过后检查当前分支与 main 的差异，以可审查 PR/正常合并对齐，禁止强推或重指已发布 tag。
 - **验收**：待集成提交有完整 CI，main 确实包含要发布的改动，Release tag/构建提交/资产版本一一对应。旧 main format 失败已在当前分支通过，应验证新 SHA，不能继续针对旧失败反复改格式。
 - **额外**：发布脚本语法是否仍有旧文档所述编码问题先实测解析；`release:ship` 当前要求 main+干净工作区，不在功能分支盲跑。关键设计资料在干净 checkout 可用，解决 `docs/` 忽略造成的交接缺文件，只显式加入所需文件。
+- **ENG-01 本轮结果（2026-09-08）**：`git fetch --prune origin` 成功；当前功能分支 `f12786b` 相对 `origin/main=bcf23fa` 领先 10 个提交且无反向提交，先推送功能分支，再以普通 `--no-ff` merge 生成 main 集成提交 `abcc80a` 并成功推送 `origin/main`。未强推、未移动 v2.6.9 tag。
+- **ENG-01 验证证据**：`release-ship.ps1`、`publish-release.ps1` 静态解析通过；本地 `pnpm build`、`pnpm test:frontend`（32/32，约59.1秒）、`cargo fmt --check`、`cargo check`、`cargo test`（library 28/28、binary 0、doc-tests 0）均通过。GitHub Checks run `34190010987` 在 `abcc80a` 上成功，job 7m48s，TypeScript、Vite build、Playwright、Rust fmt/check/test 全部通过。
+- **ENG-01 发布边界**：当前源码仍是 v2.6.9，Release tag/既有四项资产仍对应 `473cc67`；按仓库协议不在本任务中把新功能伪装成旧版本或移动已发布 tag，版本、安装包、Release 说明和资产闭环留给 REL-01。
 
 ### NV-01 · 外观设置有真实结果
 
@@ -350,6 +353,7 @@ NV-05 的具体键盘缺口：`CommandPalette.tsx` 声明 modal/listbox，但缺
 | 2026-09-08 | CORE-02 | `afb865a`→`afb865a`（源码与计划仍未提交）；修改 `src-tauri/src/runtime.rs`、`PROJECT_PLAN.md`；启动失败进入恢复保护且所有数据命令拒绝伪成功，`persist_all`/备份导入/完成专注共享跨文件回退，待办关联修改避免半提交；`cargo fmt --check --manifest-path src-tauri/Cargo.toml`、`cargo check --locked --manifest-path src-tauri/Cargo.toml`、`cargo test --locked --manifest-path src-tauri/Cargo.toml` 均 PASS（library 21/21、binary 0、doc 0）；`pnpm check` PASS、`pnpm test:frontend` PASS（32/32，约56.6秒）、`git diff --check` PASS；版本/发布资产未变；隔离故障注入覆盖写入失败，真实目录权限和跨平台目录迁移留给后续任务 | CORE-04 |
 | 2026-09-08 | CORE-04 | `afb865a`→`afb865a`（源码与计划仍未提交）；修改 `src-tauri/src/runtime.rs`、`PROJECT_PLAN.md`；修正合法 1–24 分钟恢复为 25 分钟的归一化错误，补充合法/非法时长、运行状态和短倒计时备份导入测试；`cargo fmt --check --manifest-path src-tauri/Cargo.toml`、`cargo check --locked --manifest-path src-tauri/Cargo.toml`、`cargo test --locked --manifest-path src-tauri/Cargo.toml` 均 PASS（library 25/25、binary 0、doc 0）；倒计时前端定向回归 PASS（1/1）；未改版本/发布资产；番茄多轮与时钟边界留给 CORE-05 | CORE-05 |
 | 2026-09-08 | CORE-05 | `afb865a`→`afb865a`（源码与计划仍未提交）；修改 `src-tauri/src/runtime.rs`、`PROJECT_PLAN.md`；多轮番茄延后确认聚合未记录焦点时长、恢复保留阶段与计数，时钟计算固定化并覆盖睡眠/前跳/回拨语义；`cargo fmt --check --manifest-path src-tauri/Cargo.toml`、`cargo check --locked --manifest-path src-tauri/Cargo.toml`、`cargo test --locked --manifest-path src-tauri/Cargo.toml` 均 PASS（library 28/28、binary 0、doc 0）；`pnpm check` PASS；未做真实休眠/系统时钟改动测试，未改版本/发布资产 | ENG-01 |
+| 2026-09-08 | ENG-01 | `afb865a`→`abcc80a`；修改 `PROJECT_PLAN.md`、`src-tauri/src/runtime.rs`、`src-tauri/src/storage.rs` 并提交为 `f12786b`，普通 merge 到 main 为 `abcc80a`；脚本静态解析 PASS，本地 `pnpm build`、`pnpm test:frontend`（32/32）、cargo fmt/check/test（library 28/28）PASS；GitHub Checks `34190010987` 在 `abcc80a` 上 PASS（7m48s），已推送 `origin/main`；v2.6.9 tag/资产未变，REL-01 负责新版本闭环 | CORE-03 |
 
 每条后续记录使用：`日期｜任务ID｜开始SHA→结束SHA｜修改文件｜验证命令与结果｜证据路径/链接｜版本/发布状态｜剩余问题｜下一ID`。没有执行的测试必须写“未执行”，不可复制上一版结果。
 
@@ -358,7 +362,7 @@ NV-05 的具体键盘缺口：`CommandPalette.tsx` 声明 modal/listbox，但缺
 - `AGENTS.md`：当前协作与发布约束；`PRODUCT.md`：稳定产品目标。
 - `PROJECT_PLAN.md`：当前总览、优先级、任务状态与模型交接的唯一持续入口。
 - 当前源码、测试、远程 Git/Release/CI：事实源；根目录计划不能覆盖实际结果。
-- `docs/design-references/concept-images/01...05/`：25 张视觉参考；`analysis/01-night-valley/`：测量与历史差异资料，使用前核对当前 SHA。部分分析文件当前仅本地存在，ENG-01 需补齐干净 checkout 可用性。
+- `docs/design-references/concept-images/01...05/`：25 张视觉参考；`analysis/01-night-valley/`：测量与历史差异资料，使用前核对当前 SHA。ENG-01 已以 main 集成提交和 GitHub Checks 验证干净 checkout 可复现的源码/测试路径；视觉资料完整性仍随 QA-01 复核。
 - `docs/v*/RELEASE_NOTES.md`：各次版本历史，不是全部待办的验收证明。
 - `docs/frontend-priority-roadmap.md`、`development-workflow.md`、`project-complete-summary.md`、`user-feedback.md`、旧 context summaries：**历史资料，不再用于判断当前版本/任务顺序**。其中重复确认每版的旧流程不覆盖本轮与根目录协议已有授权。
 - 外置记忆：本轮检索本机 memories 未取得项目命中；以上仓库历史和当前事实构成本次结论依据。
