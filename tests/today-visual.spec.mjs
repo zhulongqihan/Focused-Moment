@@ -628,7 +628,6 @@ test("Night Valley pressure widths preserve the first trail label and settings s
     }
 
     const trailViewport = page.locator(".trail-map:visible .trail-map__viewport");
-    await trailViewport.evaluate((viewportElement) => { viewportElement.scrollLeft = 0; });
     const trailLabel = await trailViewport.evaluate((viewportElement) => {
       const meta = viewportElement.querySelector(".trail-node .trail-node__meta");
       if (!meta) return null;

@@ -200,6 +200,7 @@ export default function TodayDashboard(props: TodayDashboardProps) {
   let trailScrollFrame: number | undefined;
   let trailMetaObserver: IntersectionObserver | undefined;
   let trailMetaFrame: number | undefined;
+  let previousReadyTrailCount: number | null = null;
 
   onMount(() => {
     if (!trailPageElement || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
@@ -399,8 +400,24 @@ export default function TodayDashboard(props: TodayDashboardProps) {
   }
 
   createEffect(() => {
+    if (!props.ready()) {
+      previousReadyTrailCount = null;
+      return;
+    }
+
     const nodes = trailNodes();
     const viewport = trailViewportElement;
+    if (previousReadyTrailCount === null) {
+      previousReadyTrailCount = nodes.length;
+      return;
+    }
+
+    const grewSinceReady = nodes.length > previousReadyTrailCount;
+    previousReadyTrailCount = nodes.length;
+    if (!grewSinceReady) {
+      return;
+    }
+
     const activeIndex = nodes.findIndex((node) => node.state === "current");
     if (!viewport || nodes.length <= referenceTrailPositions.length || activeIndex <= 0) {
       return;
