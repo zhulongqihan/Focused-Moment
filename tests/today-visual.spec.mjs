@@ -7,6 +7,7 @@ const referenceDate = "2026-09-05";
 const baselineSha = process.env.NV04_BASELINE_SHA ?? execFileSync("git", ["rev-parse", "--short", "HEAD"], { encoding: "utf8" }).trim();
 const baselineDirectory = `output/qa/NV-04/${baselineSha}`;
 const editorialDirectory = `output/qa/TH-02/${process.env.TH02_BASELINE_SHA ?? baselineSha}`;
+const performanceDirectory = `output/qa/PERF-01/${process.env.PERF_BASELINE_SHA ?? baselineSha}`;
 
 const nightValleyPages = [
   ["今日", ".trail-map", ".trail-page"],
@@ -20,7 +21,7 @@ function pageButton(page, label) {
   return page.locator(".minimal-nav > button").filter({ hasText: label });
 }
 
-async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一件事开始" } = {}) {
+async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一件事开始", recordCount = 7 } = {}) {
   await page.addInitScript(() => {
     const NativeDate = Date;
     class ReferenceDate extends NativeDate {
@@ -36,8 +37,8 @@ async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一
     window.Date = ReferenceDate;
   });
 
-  await page.addInitScript(({ today }) => {
-    const focusRecords = [
+  await page.addInitScript(({ today, recordCount }) => {
+    const focusRecordSeeds = [
       ["晨间计划", "08:10"],
       ["阅读行业报告", "09:35"],
       ["整理研究资料", "11:00"],
@@ -45,7 +46,11 @@ async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一
       ["拆解交互细节", "15:05"],
       ["写下发布清单", "17:15"],
       ["收束今天的工作", "19:10"],
-    ].map(([title, completedTime], index) => ({
+    ];
+    const focusRecords = Array.from({ length: recordCount }, (_, index) => {
+      const [seedTitle, completedTime] = focusRecordSeeds[index % focusRecordSeeds.length];
+      const title = recordCount > focusRecordSeeds.length ? `${seedTitle} ${index + 1}` : seedTitle;
+      return {
       id: index + 1,
       title,
       durationMs: 45 * 60 * 1000,
@@ -58,7 +63,8 @@ async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一
       completedAt: `${today}T${completedTime}:00`,
       completedDate: today,
       completedTime,
-    }));
+      };
+    });
 
     let todos = [{
       id: 101,
@@ -185,7 +191,7 @@ async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一
         }
       },
     };
-  }, { today: referenceDate });
+  }, { today: referenceDate, recordCount });
 
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
@@ -620,6 +626,63 @@ test("Editorial Paper keeps shared actions and page bounds usable at pressure wi
     await pageButton(page, "今日").click();
     await page.getByRole("button", { name: "开始下一件事", exact: true }).click();
     await expect(page.locator(".ep-today-timer-strip")).toContainText("正在专注");
+  }
+});
+
+test("PERF-01 measures synthetic Editorial Paper history rendering", async ({ page }) => {
+  test.setTimeout(180_000);
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  await page.setViewportSize({ width: 1487, height: 1058 });
+
+  const results = [];
+  for (const recordCount of [1000, 10000]) {
+    await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", recordCount });
+    const switchStartedAt = await page.evaluate(() => performance.now());
+    await pageButton(page, "记录").click();
+    await expect(page.locator(".ep-records-page")).toBeVisible();
+    const switchFinishedAt = await page.evaluate(() => performance.now());
+    const frameStats = await page.evaluate(() => new Promise((resolve) => {
+      const startedAt = performance.now();
+      let frames = 0;
+      let longFrames = 0;
+      let previousAt = startedAt;
+      const sample = (now) => {
+        frames += 1;
+        if (now - previousAt > 20) longFrames += 1;
+        previousAt = now;
+        if (now - startedAt >= 1000) {
+          resolve({ durationMs: Number((now - startedAt).toFixed(1)), frames, longFrames, fps: Number((frames / ((now - startedAt) / 1000)).toFixed(1)) });
+          return;
+        }
+        requestAnimationFrame(sample);
+      };
+      requestAnimationFrame(sample);
+    }));
+    const pageStats = await page.evaluate(() => ({
+      domNodeCount: document.getElementsByTagName("*").length,
+      scrollHeight: document.documentElement.scrollHeight,
+      heapUsedBytes: performance.memory?.usedJSHeapSize ?? null,
+    }));
+    results.push({
+      recordCount,
+      recordsRouteSwitchMs: Number((switchFinishedAt - switchStartedAt).toFixed(1)),
+      frameStats,
+      pageStats,
+    });
+  }
+
+  mkdirSync(performanceDirectory, { recursive: true });
+  writeFileSync(`${performanceDirectory}/frontend-history.json`, JSON.stringify({
+    capturedAt: new Date().toISOString(),
+    viewport: { width: 1487, height: 1058 },
+    runtime: "Chromium + Tauri mock; synthetic records, not personal data",
+    results,
+  }, null, 2));
+  for (const result of results) {
+    expect(result.recordsRouteSwitchMs).toBeLessThan(10_000);
+    expect(result.frameStats.frames).toBeGreaterThan(0);
   }
 });
 
