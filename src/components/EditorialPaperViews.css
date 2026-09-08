@@ -22,6 +22,26 @@
   font-family: var(--ep-body);
 }
 
+.ep-records-load-more {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px dashed var(--ep-line);
+  background: transparent;
+  color: var(--ep-rust);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.72rem;
+  text-align: left;
+}
+
+.ep-records-load-more:hover,
+.ep-records-load-more:focus-visible {
+  border-color: var(--ep-rust);
+  background: rgba(166, 72, 49, 0.06);
+}
+
 .minimal-app[data-theme="editorial-paper"]::before,
 .minimal-app[data-theme="editorial-paper"]::after {
   position: fixed;

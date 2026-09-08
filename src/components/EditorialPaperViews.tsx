@@ -1,4 +1,4 @@
-import { For, Show, createMemo, createSignal } from "solid-js";
+import { For, Show, createEffect, createMemo, createSignal } from "solid-js";
 import {
   ArrowUpRight,
   BookOpen,
@@ -319,9 +319,21 @@ export function EditorialPaperTodos(props: NightValleyTodoProps) {
 }
 
 export function EditorialPaperRecords(props: NightValleyRecordsProps) {
+  const initialVisibleRecordCount = 200;
   const analytics = createMemo(() => props.analytics());
   const maxDuration = createMemo(() => Math.max(1, ...props.archiveDays().map((day) => day.totalDurationMs)));
   const selectedDate = createMemo(() => props.selectedArchiveDay()?.date ?? props.selectedArchiveDate());
+  const selectedRecords = createMemo(() => props.selectedArchiveRecords());
+  const [visibleRecordCount, setVisibleRecordCount] = createSignal(initialVisibleRecordCount);
+  const [expandedHistoryDate, setExpandedHistoryDate] = createSignal<string | null>(null);
+  const visibleSelectedRecords = createMemo(() => selectedRecords().slice(0, visibleRecordCount()));
+
+  createEffect(() => {
+    const date = selectedDate();
+    const records = selectedRecords();
+    setVisibleRecordCount(initialVisibleRecordCount);
+    setExpandedHistoryDate(records.length <= initialVisibleRecordCount ? date : null);
+  });
 
   return (
     <section class="ep-page ep-records-page" aria-label="专注年鉴">
@@ -338,11 +350,11 @@ export function EditorialPaperRecords(props: NightValleyRecordsProps) {
       </section>
 
       <section class="ep-records-spread">
-        <div class="ep-records-list"><div class="ep-section-heading"><div><span class="ep-section-label">{props.formatAnalyticsDate(selectedDate())} · 节奏回顾</span><h2>每一段都留下痕迹</h2></div><button type="button" class="ep-text-button" onClick={() => props.onSelectDate(props.archiveDays()[props.archiveDays().length - 1]?.date ?? props.selectedArchiveDate())}>回到最近</button></div><Show when={props.selectedArchiveRecords().length > 0} fallback={<p class="ep-empty">这一天还没有专注记录。</p>}><For each={props.selectedArchiveRecords()}>{(record) => <article class="ep-record-entry"><span class="ep-record-entry__time">{record.completedTime}</span><span class="ep-record-entry__line" /><div><Show when={props.editingRecord()?.id === record.id} fallback={<><strong>{record.title}</strong><small>{record.durationLabel} · {record.modeLabel} · {formatRecordTime(record)}</small></>}><input type="text" aria-label="记录名称" value={props.editingRecord()?.title ?? ""} onInput={(event) => props.onPatchEdit(event.currentTarget.value)} onKeyDown={(event) => { if (event.key === "Enter") void props.onSaveEdit(); if (event.key === "Escape") props.onCancelEdit(); }} /><div class="ep-record-entry__edit-actions"><button type="button" class="ep-primary-button" disabled={props.busy()} onClick={() => void props.onSaveEdit()}>保存</button><button type="button" class="ep-text-button" disabled={props.busy()} onClick={props.onCancelEdit}>取消</button></div></Show></div><Show when={props.editingRecord()?.id !== record.id}><span class="ep-record-entry__duration">{record.durationLabel}</span><div class="ep-record-entry__actions"><button type="button" class="ep-text-button" disabled={props.busy()} onClick={() => props.onBeginEdit(record)}>编辑</button><button type="button" class="ep-text-button ep-text-button--danger" disabled={props.busy()} onClick={() => void props.onRemove(record.id)}>删除</button></div></Show></article>}</For></Show></div>
+        <div class="ep-records-list"><div class="ep-section-heading"><div><span class="ep-section-label">{props.formatAnalyticsDate(selectedDate())} · 节奏回顾</span><h2>每一段都留下痕迹</h2></div><button type="button" class="ep-text-button" onClick={() => props.onSelectDate(props.archiveDays()[props.archiveDays().length - 1]?.date ?? props.selectedArchiveDate())}>回到最近</button></div><Show when={selectedRecords().length > 0} fallback={<p class="ep-empty">这一天还没有专注记录。</p>}><For each={visibleSelectedRecords()}>{(record) => <article class="ep-record-entry"><span class="ep-record-entry__time">{record.completedTime}</span><span class="ep-record-entry__line" /><div><Show when={props.editingRecord()?.id === record.id} fallback={<><strong>{record.title}</strong><small>{record.durationLabel} · {record.modeLabel} · {formatRecordTime(record)}</small></>}><input type="text" aria-label="记录名称" value={props.editingRecord()?.title ?? ""} onInput={(event) => props.onPatchEdit(event.currentTarget.value)} onKeyDown={(event) => { if (event.key === "Enter") void props.onSaveEdit(); if (event.key === "Escape") props.onCancelEdit(); }} /><div class="ep-record-entry__edit-actions"><button type="button" class="ep-primary-button" disabled={props.busy()} onClick={() => void props.onSaveEdit()}>保存</button><button type="button" class="ep-text-button" disabled={props.busy()} onClick={props.onCancelEdit}>取消</button></div></Show></div><Show when={props.editingRecord()?.id !== record.id}><span class="ep-record-entry__duration">{record.durationLabel}</span><div class="ep-record-entry__actions"><button type="button" class="ep-text-button" disabled={props.busy()} onClick={() => props.onBeginEdit(record)}>编辑</button><button type="button" class="ep-text-button ep-text-button--danger" disabled={props.busy()} onClick={() => void props.onRemove(record.id)}>删除</button></div></Show></article>}</For><Show when={visibleRecordCount() < selectedRecords().length}><button type="button" class="ep-records-load-more" onClick={() => setVisibleRecordCount((count) => Math.min(count + initialVisibleRecordCount, selectedRecords().length))}>继续展开记录 · 已显示 {visibleRecordCount()} / {selectedRecords().length}</button></Show></Show></div>
         <aside class="ep-insight-paper"><span class="ep-section-label">今日洞察 / FIELD NOTE</span><Show when={analytics()} fallback={<p>完成一段专注后，这里会出现可回看的事实。</p>}><p>你已经为今天留下 <strong>{analyticsValue(analytics(), "todayFocusDurationLabel", "0 分钟")}</strong> 的注意力。早上的输入会让下午的创作更稳定，晚上可以用下一段安静的回看收束今天。</p></Show><div class="ep-insight-signature">FOCUSED MOMENT<br /><small>FM-ARCHIVE / 2026</small></div></aside>
       </section>
 
-      <section class="ep-full-history"><div class="ep-section-heading"><div><span class="ep-section-label">FULL INDEX / ALL RECORDS</span><h2>全部记录</h2></div><span>{props.records().length} 轮</span></div><Show when={props.ready() && props.records().length > 0} fallback={<p class="ep-empty">完成一次计时后，记录会显示在这里。</p>}><For each={props.recordGroups()}>{(group) => <details class="ep-history-day" open={group.date === selectedDate()}><summary><span>{props.formatRecordDay(group.date)}</span><strong>{group.records.length} 轮 · {props.formatDurationMs(group.totalDurationMs)}</strong></summary><div>{group.records.map((record) => <span>{record.title} · {record.durationLabel}</span>)}</div></details>}</For></Show></section>
+      <section class="ep-full-history"><div class="ep-section-heading"><div><span class="ep-section-label">FULL INDEX / ALL RECORDS</span><h2>全部记录</h2></div><span>{props.records().length} 轮</span></div><Show when={props.ready() && props.records().length > 0} fallback={<p class="ep-empty">完成一次计时后，记录会显示在这里。</p>}><For each={props.recordGroups()}>{(group) => <details class="ep-history-day" open={expandedHistoryDate() === group.date}><summary onClick={(event) => { event.preventDefault(); setExpandedHistoryDate((date) => date === group.date ? null : group.date); }}><span>{props.formatRecordDay(group.date)}</span><strong>{group.records.length} 轮 · {props.formatDurationMs(group.totalDurationMs)}</strong></summary><Show when={expandedHistoryDate() === group.date}><div>{group.records.map((record) => <span>{record.title} · {record.durationLabel}</span>)}</div></Show></details>}</For></Show></section>
     </section>
   );
 }
