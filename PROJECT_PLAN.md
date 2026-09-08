@@ -7,20 +7,20 @@
 
 | 字段 | 当前值 |
 | --- | --- |
-| as_of / updated_at | 2026-09-08 22:46 +08:00；PERF-01 已完成基线与长历史优化，REL-01 接管版本化发布 |
+| as_of / updated_at | 2026-09-08 23:10 +08:00；v2.6.10 已发布，TH-02/REL-01 收口，TH-03 开始 |
 | 产品目标 | 本地优先的桌面专注工具：待办 → 专注 → 桌面提醒 → 保存记录 → 回看投入 → 可恢复地长期保留 |
-| 当前阶段 | Night Valley 与 Editorial Paper 均已接入五页；Editorial Paper 完成实现、回归、Windows debug 包与长历史首屏优化，进入版本化发布门槛；Graphite/Aurora/Botanical 仍保持禁用 |
-| 代码基线 | 当前源代码基线 `218e754`（`b053cd6` 完成 Editorial Paper 五页，`f1060bb` 收口旧 Night Valley 壳层级联，`218e754` 限制长历史初始 DOM 并按需展开；源码版本仍为 `2.6.9`，发布 tag 为 `473cc67`） |
-| 当前工作分支 | `main`；CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06/DESK-01/DESK-03/ARCH-01/QA-01/PERF-01 源码、测试与证据已提交；REL-01 准备接管发布，工作树保持干净 |
-| 发布基线 | GitHub `v2.6.9`，tag 实际提交为 `473cc67` |
-| 远程 main | 已推送至 `218e754`；GitHub Checks run `34240414664` 当前 queued，尚不能写成通过；v2.6.9 tag 仍指向 `473cc67` |
-| 本轮交付 | PERF-01 完成 3 次冷启动、10 分钟空闲、30 分钟运行计时、1000/10000 条合成历史基线，并把真实瓶颈收敛为按需展开；完整前端回归 50/50、构建与 Windows debug EXE/MSI/NSIS 验证通过，证据见 `docs/qa/PERF-01-218e754.md`；CORE-03 的 macOS 原生验收继续 BLOCKED |
-| 下一项 | **REL-01：bump patch、同步版本源/notes、确认 CI，并发布匹配的 GitHub Release 资产**；完成后再进入 TH-03，DATA-01 因 CORE-03 继续阻塞 |
-| 当前执行人 / 在做任务 | Codex / REL-01 DOING（PERF-01 结束 SHA `218e754` 已推送；当前版本仍为 `2.6.9`，本轮不移动旧 tag，发布前不触碰真实用户数据） |
-| 首套验收结论 | **Windows 原生核心闭环、编辑态计时刷新、主题渲染边界、QA-01 回退回归、Night Valley 50 项全量回归、Editorial Paper 五页与长历史性能专项已通过**；TH-02 的实现和本地包证据已记录；macOS 原生、真实休眠/托盘菜单点击、正式版本 Release、数据搬移和后三套主题仍未闭环 |
+| 当前阶段 | Night Valley 与 Editorial Paper 均已接入五页；Editorial Paper 完成实现、回归、Windows/macOS Release 资产和长历史首屏优化；Graphite/Aurora/Botanical 仍保持禁用 |
+| 代码基线 | 当前源代码基线 `ff46106`（`b053cd6` 完成 Editorial Paper 五页，`f1060bb` 收口旧 Night Valley 壳层级联，`218e754` 限制长历史初始 DOM 并按需展开，`ff46106` 发布版本同步到 `2.6.10`；发布 tag 为 `v2.6.10`） |
+| 当前工作分支 | `main`；CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06/DESK-01/DESK-03/ARCH-01/QA-01/PERF-01/TH-02/REL-01 源码、测试、证据与发布均已提交；TH-03 开始，工作树保持干净 |
+| 发布基线 | GitHub `v2.6.10`，tag peeled commit 为 `ff46106`；旧 `v2.6.9` tag 未移动 |
+| 远程 main | 已推送至 `ff46106`；GitHub Checks run `34241297806` 成功，macOS Release run `34242511754` 成功；v2.6.10 Release 四项资产已核对 |
+| 本轮交付 | REL-01 将版本源同步到 `2.6.10`，生成 Windows release EXE/MSI/NSIS，发布便携 EXE、NSIS、MSI 和 Universal DMG；验证报告见 `docs/qa/REL-01-ff46106.md`；CORE-03 的 macOS 原生数据/窗口验收继续 BLOCKED |
+| 下一项 | **TH-03：Graphite Console 五页实现**；按 Editorial Paper 同样的五页、真实动作、主题切换/回退、响应式、构建、原生冒烟和发布门槛执行；DATA-01 因 CORE-03 继续阻塞 |
+| 当前执行人 / 在做任务 | Codex / TH-03 DOING（REL-01 已在 `ff46106` 发布闭环；新版本 `v2.6.10` 已发布，本轮不移动旧 tag、不触碰真实用户数据） |
+| 首套验收结论 | **Windows 原生核心闭环、编辑态计时刷新、主题渲染边界、QA-01 回退回归、Night Valley 50 项全量回归、Editorial Paper 五页与长历史性能专项、v2.6.10 Windows/MSI/macOS 资产发布已通过**；macOS 原生数据目录/单实例/窗口交互、真实休眠/托盘菜单点击、数据搬移和后三套主题仍未闭环 |
 | source | 本轮用户说明；当前源码与测试；Git 提交/远程 refs；GitHub Release/Actions；本轮命令结果 |
 | supersedes | 旧文档中的 v1.4.1/v1.5.x/v1.10.0/v2.0 当前进度，以及 2026-09-06 摘要中的“其他四页未实现、主题注册未建立” |
-| pending | REL-01 版本化 Release 闭环、CORE-03/DESK-02 macOS 平台验证、DATA-01 数据搬移、后续三套主题 |
+| pending | CORE-03/DESK-02 macOS 平台验证、DATA-01 数据搬移、TH-03/TH-04/TH-05 三套主题 |
 
 **进度读取规则：**最新明确用户要求 > 当前源码/运行结果/远程事实 > 本看板 > 历史文档。后续开始工作先刷新以上版本和提交，不能把今天的基线当永久事实。任务勾选必须有结果证据，不能按版本号、文件数或截图数量计算“完成百分比”。
 
@@ -43,8 +43,8 @@
 | 桌面集成 | `src/lib/window-controls.ts`、runtime、main；托盘、隐藏恢复、窗口拖动、悬浮待办/计时、穿透锁与解锁 | mock 流程有覆盖；不能替代 WebView2 / macOS 原生窗口实测；非 Windows 单实例分支直接返回 true |
 | 存储与恢复 | `storage.rs`；state/runtime 分文件、耐久临时写入、有效快照备份、缺失/损坏/不可读回退、用户备份、旧格式迁移 | CORE-01 已覆盖单文件保存/恢复与故障注入；CORE-02 已补齐启动保护与跨 state/runtime 事务回退；跨平台目录仍由 CORE-03 负责 |
 | 设置与本地素材 | 提醒、音效、自定义音效、每日一句、主题预览、本地偏好 | 1000 条语料本地打包且记录来源字段；NV-01 已让外观强调/动效/密度实时驱动当前页面并显式保存；浏览器存储偏好与 Rust 备份并非同一范围 |
-| 测试与构建 | Playwright 49 项、Rust 库 32 项、TS 检查、Vite 构建、GitHub Windows CI / macOS 打包 | QA-01 与 TH-02 的最终本地检查、49/49 前端回归、Vite/debug 包和 Rust 32/32 通过；TH-02 新提交的远程 Actions 尚待推送后核对 |
-| 发布与交接 | Windows EXE/MSI、macOS DMG、版本说明、发布脚本 | v2.6.9 四项资产存在；main 与 tag 脱节；README 版本陈旧；部分关键资料被 `docs/` 忽略规则挡住 |
+| 测试与构建 | Playwright 50 项、Rust 库 32 项、TS 检查、Vite 构建、GitHub Windows CI / macOS 打包 | v2.6.10 本地 50/50 与 Rust 32/32、GitHub Checks、macOS Universal workflow 均通过；debug/release 与 Release 资产证据已分别记录 |
+| 发布与交接 | Windows EXE/MSI、macOS DMG、版本说明、发布脚本 | v2.6.10 四项资产存在且 digest 已核对；main、tag、Release 和 README 已同步；`docs/qa/REL-01-ff46106.md` 留存证据 |
 
 ### 历史主线（归纳，不是当前任务顺序）
 
@@ -61,8 +61,8 @@
 | 套系 | 概念图 | 可运行页面 | 注册/预览 | 整体验收 | 后续阶段 |
 | --- | --- | --- | --- | --- | --- |
 | 01 Night Valley / 夜谷 | 5/5 | 5/5 已接线 | 可用，唯一 `implemented: true` | 待收口 | 当前 |
-| 02 Editorial Paper / 编辑纸页 | 5/5 | 5/5 已接线 | 已注册，可用，`implemented: true` | REVIEW（实现/验证通过，版本化 Release 待 REL-01） | TH-02 发布门槛后 |
-| 03 Graphite Console / 石墨控制台 | 5/5 | 0/5 | 已注册，禁用预览 | 未开始 | 第二套验收后 |
+| 02 Editorial Paper / 编辑纸页 | 5/5 | 5/5 已接线 | 已注册，可用，`implemented: true` | DONE（v2.6.10 已发布） | 已完成 |
+| 03 Graphite Console / 石墨控制台 | 5/5 | 0/5 | 已注册，禁用预览 | DOING（TH-03） | 第二套发布后 |
 | 04 Aurora Ocean / 极光海面 | 5/5 | 0/5 | 已注册，禁用预览 | 未开始 | 第三套验收后 |
 | 05 Botanical Library / 植物书房 | 5/5 | 0/5 | 已注册，禁用预览 | 未开始 | 第四套验收后 |
 
@@ -79,7 +79,7 @@
 | 问题 / 证据 | 为什么现有设计允许它发生 | 本计划处理 |
 | --- | --- | --- |
 | 旧路线图/摘要仍写 v1.x 或 v2.0；README 原写 v2.5.0 | 没有唯一实时入口，归档与现状混在一起 | 根目录看板为当前执行源，历史资料只提供出处；每次任务结束更新证据 |
-| v2.6.9 tag 指向功能分支提交；main 落后 9 个提交 | 发布脚本和分支集成没有统一验收；macOS 打包成功容易被当作全项目 CI 成功 | 发布必须校验提交、main 集成、CI 和资产之间的对应关系 |
+| v2.6.9 tag 曾指向功能分支提交；main 曾落后多个提交 | 发布脚本和分支集成没有统一验收；macOS 打包成功容易被当作全项目 CI 成功 | REL-01 已用 v2.6.10 验证 main、tag、Windows Checks、macOS workflow 和四项 Release 资产的对应关系；后续版本重复执行 |
 | `storage.rs` 保存采用 tmp → copy backup → remove 原文件 → rename；缺主文件直接返回默认状态 | 文件替换中断和恢复读取策略没有作为完整故障流程设计 | CORE-01/02 先封住数据可靠性缺口，优先于继续美化 |
 | 外观值只保存在 signal/localStorage，根节点未消费；保存文案固定成功 | 控件是否存在被误当作功能完成，缺乏“修改 → 实际效果 → 重启 → 失败反馈”的验收 | NV-01 以实际渲染和持久化结果验收 |
 | 记录页固定范围、近七天平均使用历史活跃日平均；计时七点与四阶段映射不一致 | 概念图占位内容与业务状态映射未被分开管理 | NV-02/03 先修事实口径和状态语义 |
@@ -100,12 +100,12 @@
 | `cargo fmt --check --manifest-path src-tauri/Cargo.toml` | PASS | 当前功能分支格式通过；旧 main 的 CI 失败不代表当前格式仍失败 |
 | `cargo check --manifest-path src-tauri/Cargo.toml` | PASS | 当前 Windows Rust 编译检查通过 |
 | `cargo test --locked --manifest-path src-tauri/Cargo.toml` | PASS | CORE-03 后 32/32 library PASS；binary harness 启动并返回 0（0 tests）；doc-tests 0/0 |
-| 已确认的 main Checks | PASS，run `34190010987`，SHA `abcc80a`，约 7m48s | TypeScript、Vite build、Playwright、Rust fmt/check/test 全部通过；该 run 不覆盖当前 `ff6daf5`，当前 SHA 的新 Checks 尚未单独核对 |
+| v2.6.10 main Checks | PASS，run `34241297806`，SHA `ff46106`，约 10m24s | TypeScript、Vite build、Playwright 50/50、Rust fmt/check/test 全部通过；Step Summary 已写入提交、ref、runner 和工具版本 |
 | v2.6.9 macOS Release | PASS，run `34148483003`，SHA `473cc67` | Universal 构建/上传成功；不证明 macOS 数据目录、单实例和原生交互都已验收 |
-| GitHub v2.6.9 资产 | 安装 EXE、便携 EXE、MSI、Universal DMG 共 4 项存在 | 本地两个带版本 EXE 的 SHA256 与 Release digest 一致；本轮未重新打包/安装 |
+| GitHub v2.6.10 资产 | 安装 EXE、便携 EXE、MSI、Universal DMG 共 4 项存在 | 本地 Windows 三项产物与 Release digest 一致；Universal DMG 由 macOS run `34242511754` 构建并上传 |
 | 视觉复核 | NV-04 五页基准、NV-06 最终 SHA 的 15/15 视觉专项、几何 JSON、窗口/DPR 矩阵、五张截图与报告 | Today 起点首节点边界已修正；四页非 Today 已统一离线 v4 材质并完成第一套截图验收；原生字体/材质一比一与平台缩放仍不宣称 |
 
-参考：[v2.6.9 Release](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.6.9)、[旧 main Checks](https://github.com/zhulongqihan/Focused-Moment/actions/runs/33981366154)、[macOS 构建](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34148483003)。
+参考：[v2.6.10 Release](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.6.10)、[v2.6.10 Checks](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34241297806)、[v2.6.10 macOS 构建](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34242511754)、[历史 v2.6.9 Release](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.6.9)。
 
 本轮只读审查源码与临时测试夹具，不读取或迁移个人待办/记录/备份。没有宣称发生过用户数据丢失；下述存储问题是代码可见的失败路径风险，需要隔离复现。没有进行真实 macOS 冒烟、长时间资源测量或完整安全审计。
 
@@ -151,13 +151,13 @@ CORE-03、DESK-02 为 macOS 下一次发布门槛，可与 Windows 首套验收�
 | DESK-03 | P1 | DONE | CORE-02、NV-03 | 计时刷新与列表编辑解耦，多窗口状态一致 |
 | ARCH-01 | P2 | DONE | G1 | 有限拆分视图/CSS，建立最小主题渲染边界 |
 | QA-01 | P1 | DONE | NV-04、ENG-01 | 公共业务回归、主题专用视觉回归、CI 证据留存 |
-| TH-02 | P2 | REVIEW | G0/G1/G2 | 第二套 Editorial Paper 五页；实现与本地验证通过，版本化 Release 门槛待 REL-01 |
-| TH-03 | P2 | TODO | TH-02 | 第三套 Graphite Console 五页 |
+| TH-02 | P2 | DONE | G0/G1/G2/REL-01 | 第二套 Editorial Paper 五页；实现、验证、版本化 Release 已完成 |
+| TH-03 | P2 | DOING | TH-02 | 第三套 Graphite Console 五页 |
 | TH-04 | P2 | TODO | TH-03 | 第四套 Aurora Ocean 五页 |
 | TH-05 | P2 | TODO | TH-04 | 第五套 Botanical Library 五页 |
 | PERF-01 | P2 | DONE | G1；第二套启用前先建立基线 | 启动/常驻/大历史性能预算与优化 |
 | DATA-01 | P2 | TODO | CORE-02/03 | 备份包含范围、跨设备搬移流程、素材清单 |
-| REL-01 | P1 | TODO | ENG-01；每个版本重复 | 版本、包、说明、主线、CI、平台资产闭环 |
+| REL-01 | P1 | DONE | ENG-01；每个版本重复 | v2.6.10 版本、包、说明、主线、CI、平台资产闭环 |
 
 ### CORE-01 · 磁盘保存与恢复链（第一个执行任务）
 
@@ -326,8 +326,16 @@ NV-05 的具体键盘缺口：`CommandPalette.tsx` 声明 modal/listbox，但缺
 - **本轮结果**：功能提交 `b053cd6`，壳层级联修正提交 `f1060bb`。`EditorialPaperViews.tsx` 接入今日/计时/待办/记录/设置五页，`ThemeSurface` 做显式分派，`themes.ts` 开启 `editorial-paper`；主题切换、保存/重载、未知/未实现回退、共享动作和压力宽度均保留真实行为。
 - **实现检查**：五页构图、token、纸页响应式、焦点/减少动画边界已完成；公共业务回归无退化；旧 Night Valley 的固定命令条、隐藏品牌、绝对定位导航和固定高度泄漏已收口到主题边界；`src-tauri/src/storage.rs` 的并行临时夹具碰撞也已修正。
 - **验证证据**：`pnpm check` PASS；`pnpm test:frontend` 49/49 PASS；Editorial 定向视觉/压力 2/2 PASS；`pnpm build` 与 `pnpm tauri build --debug` PASS；cargo fmt/check/test locked PASS（32/32）；Windows debug exe、MSI、NSIS 启动和 SHA-256 见 `docs/qa/TH-02-f1060bb.md`；截图与几何见 `output/qa/TH-02/f1060bb/`。
-- **任务判断**：实现与本地验证满足，但按本计划的主题发布门槛，当前为 `REVIEW` 而非 `DONE`。版本仍为 `2.6.9`，没有移动已发布 tag 或刷新 GitHub Release；正式发布前由 REL-01 bump patch 版本、同步版本源/notes、确认远程 CI 和匹配平台资产。CORE-03/DESK-02 的 macOS 原生证据不由本轮伪造替代。
-- **下一项**：独立依赖已满足的 `PERF-01`，先建立冷启动、空闲、运行计时和 1000/10000 条合成记录基线；TH-03 仍需等 TH-02 发布门槛关闭。
+- **任务判断**：实现、验证和版本化发布门槛均已满足，任务记为 `DONE`。v2.6.10 已同步版本源并发布 Windows EXE/MSI/NSIS 与 macOS Universal DMG；CORE-03/DESK-02 的 macOS 原生数据目录、单实例和窗口交互证据不由本轮 workflow 伪造替代。
+- **下一项**：依赖已满足的 `TH-03`，开始 Graphite Console 五页实现；继续保留真实业务、主题回退和发布门槛约束。
+
+### REL-01 · v2.6.10 版本与发布闭环
+
+- **本轮开始**：2026-09-08，基于 `23ca8f0`；先核对现有 v2.6.9 tag/Release、版本源、发布脚本和 Actions 工作流，确认旧 tag 不可移动。
+- **版本同步**：`ff46106` 将 `package.json`、`Cargo.toml`/`Cargo.lock`、`tauri.conf.json`、运行时 `APP_VERSION`/里程碑、README 稳定版本和 `docs/v2.6.10/RELEASE_NOTES.md` 统一到 `2.6.10`；旧 `v2.6.9` 保持不变。
+- **本地验证**：`pnpm check`、完整前端 `50/50`、`cargo fmt --check`、`cargo check --locked`、Rust `32/32`、`pnpm package:release` 与隔离 release EXE 启动冒烟均 PASS；Windows release 三项本地产物 SHA 与 Release digest 一致。
+- **远程验证**：main Checks `34241297806` PASS；tag `v2.6.10` 指向 `ff46106`；macOS Universal workflow `34242511754` PASS；GitHub Release 四项资产和说明见 `docs/qa/REL-01-ff46106.md`。
+- **任务判断**：记为 `DONE`。没有移动旧 tag；版本、主线、CI、Windows EXE/MSI/NSIS、macOS DMG、Release notes 和 README 已闭环。平台原生能力的剩余边界归 CORE-03/DESK-02。
 
 ### TH-02～TH-05 · 每套都按同样的完整性流程执行
 
@@ -346,7 +354,7 @@ NV-05 的具体键盘缺口：`CommandPalette.tsx` 声明 modal/listbox，但缺
 
 - **PERF-01 本轮开始（2026-09-08 21:34 +08:00）**：起始 SHA `c2670b3`。先建立同一 Windows 环境下的可复测基线，不先改代码、不读取真实用户数据；覆盖 3 次冷启动、10 分钟空闲、30 分钟运行中计时，以及 1000/10000 条合成记录的 CPU、内存、帧/交互延迟。若测量工具或 WebView 指标无法可靠取得，记录可测范围和替代指标，不把估算写成性能达标。
 - **PERF-01 本轮完成（2026-09-08 22:46 +08:00）**：基线确认后定位到 Editorial Paper 记录页一次性挂载长历史；`218e754` 改为选中日期初始最多 200 条、按批次展开，并让完整历史按日期展开。优化前 10,000 条切换约 2,318.1 ms / 110,158 DOM 节点，优化后约 126.7 ms / 2,158 DOM 节点；1,000 条为 179.1 ms / 2,158 节点。完整前端 `50/50`、`pnpm check`、`pnpm build`、`pnpm tauri build --debug`、`git diff --check` PASS；详见 `docs/qa/PERF-01-218e754.md`。
-- **PERF-01 任务判断**：记为 `DONE`，因为基线、可复测夹具、相对回归线和实际优化均已完成；绝对 SLA 不由 debug 包或 Chromium mock 推断，后续若 Release 构建、WebView2 或资源发生变化须按同一脚本复测。源码已推送，CI run `34240414664` 当前 `queued`；REL-01 负责版本化发布。
+- **PERF-01 任务判断**：记为 `DONE`，因为基线、可复测夹具、相对回归线和实际优化均已完成；绝对 SLA 不由 debug 包或 Chromium mock 推断，后续若 Release 构建、WebView2 或资源发生变化须按同一脚本复测。源码已推送，CI run `34240414664` 最终 PASS；REL-01 已完成版本化发布。
 - **性能先测后改**：记录测试设备/OS、3 次冷启动、10 分钟空闲、30 分钟运行中计时、1000/10000 条合成记录的 CPU/内存/帧与操作延迟。首轮建立可复测基线，再设绝对预算；临时回归线为同设备同场景相对中位基线恶化 >20% 必须解释，不能写成已达性能指标。
 - **候选优化**：主包延迟加载非当前主题/大型内容；按实际访问加载历史数据；检查轮询是否每次重取/重算全部记录；隐藏页面降低无用视觉工作；统计/柱图避免重复扫描。已有 >500 kB 提示是调查入口，不是盲目切 chunk 的命令。
 - **数据搬移**：明确 Rust 备份覆盖哪些字段、主题/外观偏好/自定义音效哪些存在 WebView 存储；目前不承诺一份备份恢复所有内容。用干净测试账户演练“导出 → 搬移 → 导入 → 重启”并完善用户文档。
@@ -427,6 +435,7 @@ NV-05 的具体键盘缺口：`CommandPalette.tsx` 声明 modal/listbox，但缺
 | 2026-09-08 | QA-01 | `abf2bc4`→`86e0105`；修改 `.github/workflows/ci.yml`、`tests/today-visual.spec.mjs`，新增 `docs/qa/QA-01-86e0105.md`；新增无效/未实现主题回退回归，CI 使用 Cargo locked 验证、Step Summary 和失败时 Playwright/QA 证据保留；`pnpm check`、完整前端 47/47、`pnpm build`、cargo fmt/check/test locked（32/32）、`git diff --check` PASS；版本/Release 资产未变；真实远程 Actions run 待推送后产生、macOS 原生证据仍缺 | TH-02（CORE-03 仍待 macOS 原生证据） |
 | 2026-09-08 | TH-02 | `86e0105`→`b053cd6`→`f1060bb`；新增 `src/components/EditorialPaperViews.tsx`、`src/components/EditorialPaperViews.css`，修改 `src/components/ThemeSurface.tsx`、`src/lib/themes.ts`、`src/MainShell.tsx`、`tests/today-visual.spec.mjs`、`src-tauri/src/storage.rs`；Editorial Paper 五页、真实动作、主题持久化/回退、响应式压力和旧壳层级联隔离完成；`pnpm check`、完整前端 49/49、Editorial 定向 2/2、`pnpm build`、cargo fmt/check/test locked（32/32）、`pnpm tauri build --debug`、`git diff --check` PASS；报告 `docs/qa/TH-02-f1060bb.md`，截图/几何 `output/qa/TH-02/f1060bb/`；版本 `2.6.9` 与 Release 未变，任务 REVIEW，待 REL-01 版本化发布与远程 CI/平台边界核对 | PERF-01（CORE-03/DESK-02 继续阻塞） |
 | 2026-09-08 | PERF-01 | `c2670b3`→`218e754`；新增 `scripts/measure-perf-baseline.ps1`、优化 `src/components/EditorialPaperViews.tsx`/`.css` 与 `tests/today-visual.spec.mjs`；完成 3 次冷启动、10 分钟空闲、30 分钟运行计时、1000/10000 条合成历史，首屏长历史改为 200 条窗口和按日期展开；`pnpm check`、Editorial/PERF 定向 3/3、完整前端 50/50、`pnpm build`、`pnpm tauri build --debug`、`git diff --check` PASS；报告 `docs/qa/PERF-01-218e754.md`，前后端原始数据在 `output/qa/PERF-01/f1060bb/` 与 `output/qa/PERF-01/218e754/`；版本 `2.6.9` 与 Release 未变，远程 Checks run `34240414664` 当前 queued；macOS 与数据搬移边界不由本轮伪造 | REL-01（CORE-03/DESK-02 继续阻塞） |
+| 2026-09-08 | REL-01 | `23ca8f0`→`ff46106`；同步 `package.json`、`src-tauri/Cargo.toml`/`Cargo.lock`、`tauri.conf.json`、运行时版本/里程碑、README 与 `docs/v2.6.10/RELEASE_NOTES.md`；本地 `pnpm check`、前端 50/50、Rust 32/32、`pnpm package:release`、release EXE 隔离启动冒烟 PASS；推送 main、创建 `v2.6.10` tag 与 Release，补传 MSI，macOS workflow `34242511754` 上传 Universal DMG；四项资产 digest/边界见 `docs/qa/REL-01-ff46106.md`；旧 `v2.6.9` tag 未移动 | TH-03（CORE-03/DESK-02 继续阻塞） |
 
 每条后续记录使用：`日期｜任务ID｜开始SHA→结束SHA｜修改文件｜验证命令与结果｜证据路径/链接｜版本/发布状态｜剩余问题｜下一ID`。没有执行的测试必须写“未执行”，不可复制上一版结果。
 
