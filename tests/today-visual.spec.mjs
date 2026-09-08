@@ -1,6 +1,23 @@
+import { execFileSync } from "node:child_process";
+import { mkdirSync, writeFileSync } from "node:fs";
+
 import { expect, test } from "@playwright/test";
 
 const referenceDate = "2026-09-05";
+const baselineSha = process.env.NV04_BASELINE_SHA ?? execFileSync("git", ["rev-parse", "--short", "HEAD"], { encoding: "utf8" }).trim();
+const baselineDirectory = `output/qa/NV-04/${baselineSha}`;
+
+const nightValleyPages = [
+  ["今日", ".trail-map", ".trail-page"],
+  ["计时", ".nv-focus-panel", ".nv-page"],
+  ["待办", ".nv-todo-board", ".nv-page"],
+  ["记录", ".nv-records-archive", ".nv-page"],
+  ["设置", ".nv-settings-layout", ".nv-page"],
+];
+
+function pageButton(page, label) {
+  return page.locator(".minimal-nav > button").filter({ hasText: label });
+}
 
 async function bootTodayReferenceMock(page) {
   await page.addInitScript(() => {
@@ -212,6 +229,137 @@ test("Night Valley pages expose the measured reference surfaces", async ({ page 
     await expect(page.locator(".nv-page").first()).toBeVisible();
     await page.screenshot({ path: `output/playwright/${screenshotName}` });
   }
+});
+
+test("Night Valley baseline records five-page geometry and environment metadata", async ({ page }) => {
+  const viewport = { width: 1487, height: 1058 };
+  const capturedAt = new Date().toISOString();
+  await page.setViewportSize(viewport);
+  await bootTodayReferenceMock(page);
+
+  const pages = {};
+  for (const [label, surfaceSelector, rootSelector] of nightValleyPages) {
+    await pageButton(page, label).click();
+    await expect(page.locator(rootSelector).first()).toBeVisible();
+    pages[label] = await page.evaluate(({ selector, root }) => {
+      const toRect = (element) => {
+        if (!element) return null;
+        const rect = element.getBoundingClientRect();
+        return {
+          x: Number(rect.x.toFixed(2)),
+          y: Number(rect.y.toFixed(2)),
+          width: Number(rect.width.toFixed(2)),
+          height: Number(rect.height.toFixed(2)),
+          right: Number(rect.right.toFixed(2)),
+          bottom: Number(rect.bottom.toFixed(2)),
+        };
+      };
+      const pageElement = document.querySelector(root);
+      const heading = pageElement?.querySelector("h1");
+      const bodyStyle = getComputedStyle(document.body);
+      const pageStyle = pageElement ? getComputedStyle(pageElement) : null;
+      return {
+        pageRect: toRect(pageElement),
+        surfaceRect: toRect(document.querySelector(selector)),
+        navigationRect: toRect(document.querySelector(".minimal-nav")),
+        headingRect: toRect(heading),
+        scrollWidth: document.documentElement.scrollWidth,
+        scrollHeight: document.documentElement.scrollHeight,
+        fontFamily: pageStyle?.fontFamily ?? bodyStyle.fontFamily,
+        headingFontFamily: heading ? getComputedStyle(heading).fontFamily : null,
+        documentFontStatus: document.fonts.status,
+      };
+    }, { selector: surfaceSelector, root: rootSelector });
+  }
+
+  const environment = await page.evaluate(() => ({
+    userAgent: navigator.userAgent,
+    platform: navigator.platform,
+    devicePixelRatio: window.devicePixelRatio,
+    innerWidth: window.innerWidth,
+    innerHeight: window.innerHeight,
+    documentFonts: Array.from(document.fonts).map((font) => ({ family: font.family, status: font.status })),
+  }));
+
+  mkdirSync(baselineDirectory, { recursive: true });
+  writeFileSync(`${baselineDirectory}/geometry.json`, JSON.stringify({
+    taskId: "NV-04",
+    sha: baselineSha,
+    capturedAt,
+    fixture: {
+      referenceDate,
+      focusRecords: 7,
+      focusDuration: "00:45:00",
+      pendingTodos: 1,
+      transport: "Chromium + Tauri mock",
+    },
+    viewport,
+    environment,
+    pages,
+  }, null, 2));
+
+  expect(Object.keys(pages)).toHaveLength(5);
+  expect(Object.values(pages).every((snapshot) => snapshot.pageRect && snapshot.surfaceRect)).toBe(true);
+  expect(Object.values(pages).every((snapshot) => snapshot.scrollWidth <= viewport.width)).toBe(true);
+});
+
+test("Night Valley baseline checks native-size and desktop-scale proxies", async ({ browser }) => {
+  test.setTimeout(120_000);
+  const cases = [
+    { id: "default-window", width: 1440, height: 1024, deviceScaleFactor: 1, source: "Tauri default window" },
+    { id: "configured-minimum", width: 1120, height: 760, deviceScaleFactor: 1, source: "Tauri configured minimum" },
+    { id: "maximized-proxy", width: 1920, height: 1080, deviceScaleFactor: 1, source: "desktop maximized proxy" },
+    { id: "scale-125-proxy", width: 1440, height: 1024, deviceScaleFactor: 1.25, source: "125% DPR proxy" },
+    { id: "scale-150-proxy", width: 1440, height: 1024, deviceScaleFactor: 1.5, source: "150% DPR proxy" },
+    { id: "scale-200-proxy", width: 1440, height: 1024, deviceScaleFactor: 2, source: "200% DPR proxy" },
+  ];
+  const results = [];
+
+  for (const testCase of cases) {
+    const context = await browser.newContext({
+      viewport: { width: testCase.width, height: testCase.height },
+      deviceScaleFactor: testCase.deviceScaleFactor,
+    });
+    const page = await context.newPage();
+
+    try {
+      await bootTodayReferenceMock(page);
+      const pages = {};
+      for (const [label, surfaceSelector] of nightValleyPages) {
+        await pageButton(page, label).click();
+        const measurement = await page.evaluate((selector) => {
+          const element = document.querySelector(selector);
+          const rect = element?.getBoundingClientRect();
+          return {
+            scrollWidth: document.documentElement.scrollWidth,
+            right: rect ? Number(rect.right.toFixed(2)) : null,
+            left: rect ? Number(rect.left.toFixed(2)) : null,
+            devicePixelRatio: window.devicePixelRatio,
+          };
+        }, surfaceSelector);
+        expect(measurement.right).not.toBeNull();
+        expect(measurement.left).toBeGreaterThanOrEqual(0);
+        expect(measurement.right).toBeLessThanOrEqual(testCase.width);
+        expect(measurement.scrollWidth).toBeLessThanOrEqual(testCase.width);
+        pages[label] = measurement;
+      }
+      results.push({ ...testCase, pages });
+    } finally {
+      await context.close();
+    }
+  }
+
+  mkdirSync(baselineDirectory, { recursive: true });
+  writeFileSync(`${baselineDirectory}/scale-matrix.json`, JSON.stringify({
+    taskId: "NV-04",
+    sha: baselineSha,
+    capturedAt: new Date().toISOString(),
+    fixture: { referenceDate, transport: "Chromium + Tauri mock" },
+    note: "DPR proxies are not a substitute for changing native Windows display scaling; current host registry records 150% (LogPixels=144).",
+    cases: results,
+  }, null, 2));
+
+  expect(results).toHaveLength(cases.length);
 });
 
 test("Night Valley records explain the natural seven-day range and averages", async ({ page }) => {
