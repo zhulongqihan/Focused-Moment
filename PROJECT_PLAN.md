@@ -7,16 +7,16 @@
 
 | 字段 | 当前值 |
 | --- | --- |
-| as_of / updated_at | 2026-09-08 15:40 +08:00；NV-04 完成时点 |
+| as_of / updated_at | 2026-09-08 15:46 +08:00；NV-05 开始时点 |
 | 产品目标 | 本地优先的桌面专注工具：待办 → 专注 → 桌面提醒 → 保存记录 → 回看投入 → 可恢复地长期保留 |
 | 当前阶段 | 第一套 Night Valley 已覆盖五页并发布，进入整体验收与可靠性收口；第二至第五套尚未实现 |
-| 代码基线 | 当前 main SHA `94e0b2e`（NV-04 视觉基线测试与静态 fixture；应用源码仍为 NV-03 状态语义提交 `ff6daf5`；NV-02 源码提交为 `ab5ba9b`；NV-01 外观设置源码提交为 `66b5da5`；CORE-03 证据提交为 `25ebdfc`、源码为 `348b2e9`；源码版本仍为 `2.6.9`，发布 tag 为 `473cc67`） |
-| 当前工作分支 | `main`；CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03 源码、ENG-01 证据与 NV-04 基线测试已提交并推送，工作树应保持干净 |
+| 代码基线 | 当前 main HEAD `ccf2885`（NV-04 应用/测试基线为 `94e0b2e`；应用源码仍为 NV-03 状态语义提交 `ff6daf5`；NV-02 源码提交为 `ab5ba9b`；NV-01 外观设置源码提交为 `66b5da5`；CORE-03 证据提交为 `25ebdfc`、源码为 `348b2e9`；源码版本仍为 `2.6.9`，发布 tag 为 `473cc67`） |
+| 当前工作分支 | `main`；CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03 源码、ENG-01 证据与 NV-04 基线测试/报告已提交并推送，NV-05 已领取，工作树应保持干净 |
 | 发布基线 | GitHub `v2.6.9`，tag 实际提交为 `473cc67` |
-| 远程 main | `94e0b2e`，已包含 NV-04 基线测试、NV-03、NV-02、NV-01、CORE-03 与此前功能集成/ENG-01 证据；v2.6.9 tag 仍指向 `473cc67` |
+| 远程 main | `ccf2885`，已包含 NV-04 基线测试/报告、NV-03、NV-02、NV-01、CORE-03 与此前功能集成/ENG-01 证据；v2.6.9 tag 仍指向 `473cc67` |
 | 本轮交付 | CORE-01、CORE-02、CORE-04、CORE-05、ENG-01、NV-01、NV-02、NV-03 完成；CORE-03 的目录实现已提交为 `348b2e9`，但 macOS 原生验收暂缺，任务保留 BLOCKED |
 | 下一项 | **NV-05：五页响应式、键盘、焦点、错误态收口**；随后继续收口第一套 |
-| 当前执行人 / 在做任务 | Codex / NV-04 已完成，下一项 NV-05；本轮不触碰真实用户数据、不重指已发布 tag |
+| 当前执行人 / 在做任务 | Codex / NV-05 DOING（起始 SHA `ccf2885`）；本轮不触碰真实用户数据、不重指已发布 tag |
 | 首套验收结论 | **未完成整体收口**。功能存在、测试通过、已发布与参考图验收通过是四件不同的事 |
 | source | 本轮用户说明；当前源码与测试；Git 提交/远程 refs；GitHub Release/Actions；本轮命令结果 |
 | supersedes | 旧文档中的 v1.4.1/v1.5.x/v1.10.0/v2.0 当前进度，以及 2026-09-06 摘要中的“其他四页未实现、主题注册未建立” |
@@ -144,7 +144,7 @@ CORE-03、DESK-02 为 macOS 下一次发布门槛，可与 Windows 首套验收�
 | NV-02 | P1 | DONE | PLAN-00 | 记录日期/统计口径/零值修正 |
 | NV-03 | P1 | DONE | PLAN-00 | 计时状态与阶段路径语义一致 |
 | NV-04 | P1 | DONE | NV-01/02/03 | 五页固定视觉/状态基线与差异清单 |
-| NV-05 | P1 | TODO | NV-04 | 五页响应式、键盘、焦点、错误态收口 |
+| NV-05 | P1 | DOING | NV-04 | 五页响应式、键盘、焦点、错误态收口 |
 | NV-06 | P2 | TODO | NV-04/05 | 分页视觉精修并完成第一套视觉验收 |
 | DESK-01 | P1 | TODO | CORE-02、NV-03 | Windows 真机计时/悬浮/托盘/恢复冒烟 |
 | DESK-02 | P1 | TODO | CORE-03 | macOS 数据、窗口、单实例与安装冒烟 |
@@ -257,6 +257,8 @@ CORE-03、DESK-02 为 macOS 下一次发布门槛，可与 Windows 首套验收�
 - **NV-04 本轮结果（2026-09-08）**：在 `tests/today-visual.spec.mjs` 增加五页几何/环境元数据输出和默认窗口 `1440×1024`、配置最小窗口 `1120×760`、最大化代理 `1920×1080`、125/150/200% DPR 代理矩阵；固定日期 `2026-09-05`、7 条 45 分钟记录、1 条待办和空备份 fixture，并用 reduced-motion + 禁动画截图固定静态基线。五张基准图、`geometry.json`、`scale-matrix.json` 绑定 `94e0b2e`，摘要与 8 项命名差异见 `docs/qa/NV-04-94e0b2e.md`。
 - **NV-04 验证证据**：`pnpm check` PASS；`pnpm test:frontend` PASS（41/41，约 1.6 分钟）；视觉专项在 Chromium + Tauri mock 下通过，截图均为 `1487×1058`；`git diff --check` PASS；最近一次应用构建仍 PASS（主 JS 637.64 kB、CSS 255.77 kB，保留既有 >500 kB 警告）。未改版本、应用源码或 Release 资产；`output/qa` 产物保留在工作区，`docs/qa` 报告已显式跟踪。
 - **NV-04 剩余边界**：DPR 代理不替代原生 Windows 系统缩放切换；没有 macOS/WebView 原生视觉证据；源字体/原始材质不完整，未宣称像素一比一；Today 首节点边界、Settings 底部可达性、多页长/错误/键盘状态和材质差异转入 NV-05/NV-06。
+
+- **NV-05 本轮开始（2026-09-08 15:46 +08:00）**：起始 SHA 为 `ccf2885`。先审查 `CommandPalette.tsx` 的 modal/listbox 焦点模型、Night Valley 五页在实际最小窗口下的滚动/边界、错误与忙碌反馈，再补 Tab/Enter/Space/Esc 及焦点可见回归；优先解决 NV-04 的 Today 首节点边界和 Settings 底部可达性，不提前处理 NV-06 的材质/光影。
 
 NV-05 的具体键盘缺口：`CommandPalette.tsx` 声明 modal/listbox，但缺少完整 Tab 焦点约束与方向键选项导航。选择语义正确的简单按钮列表或完整 listbox 之一；打开后焦点进入，Tab 不落入背景，Esc 返回触发器，验证键盘选择与鼠标结果一致。
 
