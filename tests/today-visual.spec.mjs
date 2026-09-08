@@ -603,6 +603,77 @@ test("Night Valley secondary widths keep each page inside the viewport", async (
   }
 });
 
+test("Night Valley pressure widths preserve the first trail label and settings safety reachability", async ({ page }) => {
+  const pages = [
+    ["今日", ".trail-map"],
+    ["计时", ".nv-focus-panel"],
+    ["待办", ".nv-todo-focus-panel"],
+    ["记录", ".nv-records-archive"],
+    ["设置", ".nv-settings-preview"],
+  ];
+  const viewports = [
+    { width: 1120, height: 760 },
+    { width: 820, height: 720 },
+    { width: 560, height: 720 },
+  ];
+
+  await page.setViewportSize(viewports[0]);
+  await bootTodayReferenceMock(page);
+
+  for (const [index, viewport] of viewports.entries()) {
+    if (index > 0) {
+      await page.setViewportSize(viewport);
+      await page.reload();
+      await expect(page.getByRole("heading", { name: "今天，从一件事开始" })).toBeVisible();
+    }
+
+    const trailViewport = page.locator(".trail-map:visible .trail-map__viewport");
+    await trailViewport.evaluate((viewportElement) => { viewportElement.scrollLeft = 0; });
+    const trailLabel = await trailViewport.evaluate((viewportElement) => {
+      const meta = viewportElement.querySelector(".trail-node .trail-node__meta");
+      if (!meta) return null;
+      const metaRect = meta.getBoundingClientRect();
+      const viewportRect = viewportElement.getBoundingClientRect();
+      return { left: metaRect.left, right: metaRect.right, viewportLeft: viewportRect.left, viewportRight: viewportRect.right };
+    });
+    expect(trailLabel).not.toBeNull();
+    expect(trailLabel.left).toBeGreaterThanOrEqual(trailLabel.viewportLeft);
+    expect(trailLabel.right).toBeLessThanOrEqual(trailLabel.viewportRight);
+
+    for (const [label, surfaceSelector] of pages) {
+      await pageButton(page, label).click();
+      const surface = page.locator(surfaceSelector);
+      await expect(surface).toBeVisible();
+      const layout = await surface.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        return { left: rect.left, right: rect.right };
+      });
+      expect(layout.left).toBeGreaterThanOrEqual(0);
+      expect(layout.right).toBeLessThanOrEqual(viewport.width);
+      await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
+    }
+  }
+
+  await page.setViewportSize(viewports[0]);
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "今天，从一件事开始" })).toBeVisible();
+  await pageButton(page, "设置").click();
+  const backupLink = page.locator('.nv-settings-subnav a[href="#nv-backup"]');
+  const exportBackup = page.locator(".nv-settings-panel--backup").getByRole("button", { name: "导出备份" });
+  const clearData = page.locator(".nv-settings-panel--danger").getByRole("button", { name: "清空当前数据" });
+
+  await backupLink.click();
+  await expect.poll(() => page.evaluate(() => window.location.hash)).toBe("#nv-backup");
+  await expect(exportBackup).toBeInViewport();
+  await exportBackup.focus();
+  await expect(exportBackup).toBeFocused();
+
+  await clearData.scrollIntoViewIfNeeded();
+  await expect(clearData).toBeInViewport();
+  await clearData.focus();
+  await expect(clearData).toBeFocused();
+});
+
 test("Night Valley remains operable on a high-DPI desktop context", async ({ browser }) => {
   const context = await browser.newContext({
     viewport: { width: 1487, height: 1058 },

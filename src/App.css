@@ -631,7 +631,9 @@ input:focus-visible, select:focus-visible { border-color: #4b8468; box-shadow: 0
   color: #263b2d;
   text-align: left;
 }
-.command-palette__item:hover, .command-palette__item:focus-visible { background: #eaf3eb; color: #173f2e; }
+.command-palette__item:hover,
+.command-palette__item:focus-visible,
+.command-palette__item.is-active { background: #eaf3eb; color: #173f2e; }
 .command-palette__item > span { display: grid; gap: 3px; min-width: 0; }
 .command-palette__item strong { font-size: 0.9rem; }
 .command-palette__item small { overflow: hidden; color: #6a796f; text-overflow: ellipsis; white-space: nowrap; }

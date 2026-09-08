@@ -8,8 +8,8 @@ function localDate() {
   return `${year}-${month}-${day}`;
 }
 
-async function bootWithTauriMock(page, { includeOverdue = false, includeRecords = false, windowLabel = "main", pausedFocus = false, completedCountdown = false, todayRecordCount = includeRecords ? 1 : 0, todayTodoCount = 1 } = {}) {
-  await page.addInitScript(({ today, includeOverdue, includeRecords, windowLabel, pausedFocus, completedCountdown, todayRecordCount, todayTodoCount }) => {
+async function bootWithTauriMock(page, { includeOverdue = false, includeRecords = false, windowLabel = "main", pausedFocus = false, completedCountdown = false, initialLoadError = false, todayRecordCount = includeRecords ? 1 : 0, todayTodoCount = 1 } = {}) {
+  await page.addInitScript(({ today, includeOverdue, includeRecords, windowLabel, pausedFocus, completedCountdown, initialLoadError, todayRecordCount, todayTodoCount }) => {
     const yesterday = new Date(`${today}T00:00:00`);
     yesterday.setDate(yesterday.getDate() - 1);
     const dateKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -118,6 +118,7 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
     window.__mainWindowDragged = false;
     window.__flashMainWindowAttention = false;
     window.__completedFocusCalls = 0;
+    let initialLoadFailures = initialLoadError ? 1 : 0;
     window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
     let timerPreferences = {
       pomodoroFocusMinutes: 25,
@@ -203,6 +204,11 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
         return 1;
       },
       invoke: async (command, args = {}) => {
+        if (initialLoadFailures > 0 && ["get_timer_snapshot", "get_timer_preferences", "get_todo_items", "get_focus_records", "get_analytics_snapshot"].includes(command)) {
+          initialLoadFailures -= 1;
+          throw new Error("模拟本地数据读取失败");
+        }
+
         switch (command) {
           case "plugin:event|listen":
             return 1;
@@ -332,7 +338,7 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
         }
       },
     };
-  }, { today: localDate(), includeOverdue, includeRecords, windowLabel, pausedFocus, completedCountdown, todayRecordCount, todayTodoCount });
+  }, { today: localDate(), includeOverdue, includeRecords, windowLabel, pausedFocus, completedCountdown, initialLoadError, todayRecordCount, todayTodoCount });
 
   await page.goto("/");
   if (windowLabel === "main") {
@@ -357,6 +363,64 @@ test("Today cockpit exposes the next action and command palette", async ({ page 
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog", { name: "你想做什么？" })).toBeHidden();
   await expect(page.getByRole("button", { name: /命令 Ctrl K/ })).toBeFocused();
+});
+
+test("command palette keeps keyboard focus inside the dialog and executes the active option", async ({ page }) => {
+  await bootWithTauriMock(page);
+
+  const trigger = page.getByRole("button", { name: /命令 Ctrl K/ });
+  await trigger.click();
+  const dialog = page.getByRole("dialog", { name: "你想做什么？" });
+  const search = page.getByRole("searchbox", { name: "搜索命令" });
+  const close = page.getByRole("button", { name: "关闭命令面板" });
+
+  await expect(search).toBeFocused();
+  await expect(search).toHaveAttribute("aria-activedescendant", "command-palette-option-today");
+  await page.keyboard.press("ArrowDown");
+  await expect(search).toHaveAttribute("aria-activedescendant", "command-palette-option-focus");
+  await expect(page.getByRole("option", { name: "打开完整计时" })).toHaveAttribute("aria-selected", "true");
+  await page.keyboard.press("Enter");
+
+  await expect(dialog).toBeHidden();
+  await expect(page.getByRole("button", { name: "计时", exact: true })).toHaveClass(/active/);
+
+  await trigger.click();
+  await expect(search).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(close).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(search).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(close).toBeFocused();
+
+  await search.fill("没有这个命令");
+  await expect(dialog.getByRole("option")).toHaveCount(0);
+  await expect(search).not.toHaveAttribute("aria-activedescendant");
+  await page.keyboard.press("Enter");
+  await expect(dialog).toBeVisible();
+  await close.focus();
+  await page.keyboard.press("Space");
+  await expect(dialog).toBeHidden();
+  await expect(trigger).toBeFocused();
+
+  await trigger.click();
+  await page.keyboard.press("Escape");
+  await expect(trigger).toBeFocused();
+});
+
+test("initial data errors stay visible and recover through the retry action", async ({ page }) => {
+  await bootWithTauriMock(page, { initialLoadError: true });
+
+  const loadError = page.getByRole("alert");
+  await expect(loadError).toContainText("暂时无法读取本地数据");
+  await expect(loadError).toContainText("模拟本地数据读取失败");
+  const retry = loadError.getByRole("button", { name: "重试读取" });
+  await expect(retry).toBeVisible();
+  await retry.click();
+
+  await expect(page.getByRole("heading", { name: "今天，从一件事开始" })).toBeVisible();
+  await expect(loadError).toBeHidden();
+  await expect(page.getByRole("button", { name: "开始下一件事" })).toBeVisible();
 });
 
 test("Today trail starts the next task without leaving the path page", async ({ page }) => {
