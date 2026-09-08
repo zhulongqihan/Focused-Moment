@@ -171,6 +171,7 @@ async function bootTodayReferenceMock(page) {
     };
   }, { today: referenceDate });
 
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "今天，从一件事开始" })).toBeVisible();
 }
