@@ -13,6 +13,7 @@
   --ep-gold: #b18135;
   --ep-display: "Noto Serif SC", "Songti SC", STSong, Georgia, serif;
   --ep-body: "Noto Serif SC", "Songti SC", STSong, Georgia, serif;
+  height: auto;
   min-height: 100vh;
   padding: 18px 24px 42px;
   overflow: visible;
@@ -698,4 +699,178 @@
   .minimal-app[data-theme="editorial-paper"] *,
   .minimal-app[data-theme="editorial-paper"] *::before,
   .minimal-app[data-theme="editorial-paper"] *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
+}
+
+/* The legacy cinematic shell has a fixed command dock, hidden brand, and
+   absolute navigation. Editorial Paper is a document-like surface, so reset
+   those shell primitives at the theme boundary instead of leaking them into
+   the paper layout. */
+.minimal-app[data-theme="editorial-paper"] .app-bar {
+  margin-bottom: 0 !important;
+}
+
+.minimal-app[data-theme="editorial-paper"] .app-brand {
+  position: static !important;
+  inset: auto !important;
+  display: flex !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+.minimal-app[data-theme="editorial-paper"] .app-bar__actions {
+  position: static !important;
+  inset: auto !important;
+  display: flex !important;
+  align-items: center;
+  gap: 10px;
+  pointer-events: auto !important;
+}
+
+.minimal-app[data-theme="editorial-paper"] .app-bar__actions .quiet-button,
+.minimal-app[data-theme="editorial-paper"] .app-bar__actions .icon-button {
+  display: inline-flex !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+.minimal-app[data-theme="editorial-paper"] .command-trigger {
+  position: static !important;
+  inset: auto !important;
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 7px;
+  min-width: 0 !important;
+  height: auto !important;
+  min-height: 34px;
+  padding: 0 10px !important;
+  border: 1px solid var(--ep-line) !important;
+  border-radius: 0 !important;
+  background: rgba(255, 249, 234, 0.5) !important;
+  color: var(--ep-green) !important;
+  font: inherit !important;
+  font-size: 0.82rem !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+.minimal-app[data-theme="editorial-paper"] .command-trigger::after { content: none !important; }
+
+.minimal-app[data-theme="editorial-paper"] .command-trigger kbd {
+  order: initial !important;
+  padding: 2px 5px !important;
+  border: 1px solid var(--ep-line) !important;
+  border-bottom-width: 2px !important;
+  border-radius: 0 !important;
+  background: rgba(255, 250, 239, 0.72) !important;
+  color: var(--ep-muted) !important;
+  font: inherit !important;
+  font-size: 0.7rem !important;
+}
+
+.minimal-app[data-theme="editorial-paper"] .window-controls {
+  position: static !important;
+  inset: auto !important;
+  display: flex !important;
+  align-items: center;
+  gap: 5px;
+  pointer-events: auto !important;
+}
+
+.minimal-app[data-theme="editorial-paper"] .window-control {
+  display: grid !important;
+  width: 30px !important;
+  height: 30px !important;
+  min-height: 30px !important;
+  place-items: center;
+  padding: 0 !important;
+  border: 1px solid var(--ep-line) !important;
+  border-radius: 50% !important;
+  background: rgba(255, 249, 234, 0.5) !important;
+  color: var(--ep-muted) !important;
+}
+
+.minimal-app[data-theme="editorial-paper"] .window-control:hover,
+.minimal-app[data-theme="editorial-paper"] .window-control:focus-visible {
+  border-color: var(--ep-rust) !important;
+  background: rgba(170, 76, 45, 0.1) !important;
+  color: var(--ep-rust-dark) !important;
+}
+
+.minimal-app[data-theme="editorial-paper"] .trail-nav__brand {
+  position: static !important;
+  inset: auto !important;
+  display: grid !important;
+  width: auto !important;
+  height: auto !important;
+  align-content: normal !important;
+  justify-items: start !important;
+  gap: 2px !important;
+  margin: 0 22px 34px 0 !important;
+  padding-bottom: 18px !important;
+}
+
+@media (min-width: 821px) {
+  .minimal-app[data-theme="editorial-paper"] .minimal-workspace {
+    height: auto !important;
+  }
+
+  .minimal-app[data-theme="editorial-paper"] .minimal-nav > button,
+  .minimal-app[data-theme="editorial-paper"] .minimal-nav > button:nth-of-type(1),
+  .minimal-app[data-theme="editorial-paper"] .minimal-nav > button:nth-of-type(2),
+  .minimal-app[data-theme="editorial-paper"] .minimal-nav > button:nth-of-type(3),
+  .minimal-app[data-theme="editorial-paper"] .minimal-nav > button:nth-of-type(4),
+  .minimal-app[data-theme="editorial-paper"] .minimal-nav > button:nth-of-type(5) {
+    justify-content: flex-start !important;
+    min-height: 54px !important;
+    margin: 0 22px 0 0 !important;
+    padding: 0 13px 0 21px !important;
+    border: 0 !important;
+    border-bottom: 1px dashed var(--ep-line-soft) !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    color: var(--ep-muted) !important;
+    font-size: 0.94rem !important;
+    font-weight: 400 !important;
+    line-height: normal !important;
+    text-align: left !important;
+  }
+
+  .minimal-app[data-theme="editorial-paper"] .minimal-nav > button.active {
+    left: auto !important;
+    width: auto !important;
+    height: auto !important;
+    min-height: 54px !important;
+    margin: 0 22px 0 0 !important;
+    border: 0 !important;
+    border-bottom: 1px dashed var(--ep-line-soft) !important;
+    border-radius: 0 !important;
+    background: rgba(170, 76, 45, 0.08) !important;
+    color: var(--ep-rust-dark) !important;
+    font-weight: 700 !important;
+    box-shadow: none !important;
+  }
+
+  .minimal-app[data-theme="editorial-paper"] .minimal-nav > button:not(.active):hover {
+    background: rgba(83, 107, 82, 0.08) !important;
+    color: var(--ep-green) !important;
+    transform: none !important;
+  }
+
+  .minimal-app[data-theme="editorial-paper"] .minimal-nav > button .trail-nav__icon {
+    display: none !important;
+  }
+
+  .minimal-app[data-theme="editorial-paper"] .minimal-nav > button::before,
+  .minimal-app[data-theme="editorial-paper"] .minimal-nav > button.active::before {
+    display: block !important;
+    content: "" !important;
+  }
+
+  .minimal-app[data-theme="editorial-paper"] .minimal-nav__count {
+    position: static !important;
+    right: auto !important;
+    margin-left: auto !important;
+    color: var(--ep-rust) !important;
+  }
 }
