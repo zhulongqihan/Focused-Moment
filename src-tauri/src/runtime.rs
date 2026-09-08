@@ -41,8 +41,9 @@ const DEFAULT_COUNTDOWN_MINUTES: u64 = 25;
 const MIN_COUNTDOWN_MINUTES: u64 = 1;
 const MAX_COUNTDOWN_MINUTES: u64 = 12 * 60;
 const MAX_TODO_TITLE_CHARS: usize = 200;
-const APP_VERSION: &str = "2.6.0";
-const APP_MILESTONE: &str = "v2.6.0 \u{5168}\u{9762}\u{6c1b}\u{56f4}\u{5316}\u{5de5}\u{4f5c}\u{53f0}";
+const APP_VERSION: &str = "2.6.9";
+const APP_MILESTONE: &str =
+    "v2.6.9 \u{591c}\u{8c37}\u{8ba1}\u{65f6}\u{8def}\u{7ebf}\u{871f}\u{8712}\u{66f2}\u{7ebf}\u{4fee}\u{590d}";
 const APP_BACKUP_KIND: &str = "focused-moment-backup";
 const APP_BACKUP_FORMAT_VERSION: u64 = 2;
 const FLOATING_WORKSPACE_SYNC_EVENT: &str = "floating-workspace-sync";
@@ -478,6 +479,12 @@ struct TimerEngineState {
     todo_items: Mutex<Vec<TodoItem>>,
     next_todo_id: Mutex<u64>,
     persistence: Option<PersistenceStore>,
+    startup_error: Option<String>,
+}
+
+struct PersistedBundle {
+    state: PersistedState,
+    runtime: PersistedRuntimeState,
 }
 
 #[derive(Default)]
@@ -517,41 +524,44 @@ struct CompletedSession {
 
 impl TimerEngineState {
     fn new() -> Self {
-        let persistence = PersistenceStore::new()
-            .map_err(|error| {
-                eprintln!("failed to prepare persistence store: {error}");
-                error
-            })
-            .ok();
+        let mut startup_error = None;
+        let persistence = match PersistenceStore::new() {
+            Ok(store) => Some(store),
+            Err(error) => {
+                let message = format!(
+                    "本地数据未加载：无法准备存储目录（{error}）。应用已进入恢复保护状态；请检查目录权限后重启。"
+                );
+                eprintln!("{message}");
+                startup_error = Some(message);
+                None
+            }
+        };
 
-        let persisted = persistence
-            .as_ref()
-            .and_then(|store| {
-                store
-                    .load()
-                    .map_err(|error| {
-                        eprintln!("failed to load persisted state: {error}");
-                        error
-                    })
-                    .ok()
-            })
-            .unwrap_or_default();
-
-        let persisted_runtime = persistence
-            .as_ref()
-            .and_then(|store| {
-                store
-                    .load_runtime()
-                    .map_err(|error| {
-                        eprintln!("failed to load persisted runtime state: {error}");
-                        error
-                    })
-                    .ok()
-            })
-            .unwrap_or_default();
-        let should_migrate_persisted_storage = persisted.schema_version
-            < CURRENT_STORAGE_SCHEMA_VERSION
-            || persisted_runtime.schema_version < CURRENT_STORAGE_SCHEMA_VERSION;
+        let (persisted, persisted_runtime) = match persistence.as_ref() {
+            Some(store) => match (store.load(), store.load_runtime()) {
+                (Ok(state), Ok(runtime)) => (state, runtime),
+                (Err(error), _) => {
+                    let message = format!(
+                        "本地数据未加载：状态文件读取失败（{error}）。为避免覆盖有效数据，应用已进入恢复保护状态；请修复数据或备份后重启。"
+                    );
+                    eprintln!("{message}");
+                    startup_error = Some(message);
+                    (PersistedState::default(), PersistedRuntimeState::default())
+                }
+                (_, Err(error)) => {
+                    let message = format!(
+                        "本地数据未加载：运行态文件读取失败（{error}）。为避免覆盖有效数据，应用已进入恢复保护状态；请修复数据或备份后重启。"
+                    );
+                    eprintln!("{message}");
+                    startup_error = Some(message);
+                    (PersistedState::default(), PersistedRuntimeState::default())
+                }
+            },
+            None => (PersistedState::default(), PersistedRuntimeState::default()),
+        };
+        let should_migrate_persisted_storage = startup_error.is_none()
+            && (persisted.schema_version < CURRENT_STORAGE_SCHEMA_VERSION
+                || persisted_runtime.schema_version < CURRENT_STORAGE_SCHEMA_VERSION);
 
         let PersistedState {
             schema_version: _,
@@ -576,7 +586,7 @@ impl TimerEngineState {
             }
         }
 
-        let state = Self {
+        let mut state = Self {
             timer: Mutex::new(timer),
             timer_preferences: Mutex::new(normalized_preferences),
             next_record_id: Mutex::new(next_record_id.max(next_focus_record_id(&focus_records))),
@@ -584,15 +594,34 @@ impl TimerEngineState {
             next_todo_id: Mutex::new(next_todo_id.max(next_todo_id_value(&todo_items))),
             todo_items: Mutex::new(todo_items),
             persistence,
+            startup_error,
         };
 
         if should_migrate_persisted_storage {
             if let Err(error) = state.persist_all() {
-                eprintln!("failed to migrate persisted state to schema v{CURRENT_STORAGE_SCHEMA_VERSION}: {error}");
+                let message = format!(
+                    "本地数据升级未完成：{error}。为避免覆盖有效数据，应用已进入恢复保护状态；请重启后重试。"
+                );
+                eprintln!("{message}");
+                state.startup_error = Some(message);
             }
         }
 
         state
+    }
+
+    fn ensure_ready(&self) -> Result<(), String> {
+        match &self.startup_error {
+            Some(error) => Err(error.clone()),
+            None => Ok(()),
+        }
+    }
+
+    fn persistence_store(&self) -> Result<&PersistenceStore, String> {
+        self.ensure_ready()?;
+        self.persistence
+            .as_ref()
+            .ok_or_else(|| "本地数据存储不可用，应用已进入恢复保护状态；请重启后重试。".to_string())
     }
 
     fn snapshot_state(&self) -> Result<PersistedState, String> {
@@ -642,6 +671,102 @@ impl TimerEngineState {
             state: self.snapshot_state()?,
             runtime: self.snapshot_runtime_state()?,
         })
+    }
+
+    fn snapshot_bundle(&self) -> Result<PersistedBundle, String> {
+        Ok(PersistedBundle {
+            state: self.snapshot_state()?,
+            runtime: self.snapshot_runtime_state()?,
+        })
+    }
+
+    fn restore_state_snapshot(&self, snapshot: &PersistedState) -> Result<(), String> {
+        let normalized_preferences = snapshot
+            .timer_preferences
+            .normalized()
+            .map_err(|_| "无法回退：计时设置快照不合法。".to_string())?;
+
+        {
+            let mut timer = self
+                .timer
+                .lock()
+                .map_err(|_| "计时引擎状态锁定失败".to_string())?;
+            timer.apply_preferences(normalized_preferences);
+        }
+        {
+            let mut preferences = self
+                .timer_preferences
+                .lock()
+                .map_err(|_| "计时设置状态锁定失败".to_string())?;
+            *preferences = normalized_preferences;
+        }
+        {
+            let mut records = self
+                .focus_records
+                .lock()
+                .map_err(|_| "记录列表状态锁定失败".to_string())?;
+            *records = snapshot.focus_records.clone();
+        }
+        {
+            let mut next_record_id = self
+                .next_record_id
+                .lock()
+                .map_err(|_| "记录编号状态锁定失败".to_string())?;
+            *next_record_id = snapshot
+                .next_record_id
+                .max(next_focus_record_id(&snapshot.focus_records));
+        }
+        {
+            let mut items = self
+                .todo_items
+                .lock()
+                .map_err(|_| "任务列表状态锁定失败".to_string())?;
+            *items = snapshot.todo_items.clone();
+        }
+        {
+            let mut next_todo_id = self
+                .next_todo_id
+                .lock()
+                .map_err(|_| "任务编号状态锁定失败".to_string())?;
+            *next_todo_id = snapshot
+                .next_todo_id
+                .max(next_todo_id_value(&snapshot.todo_items));
+        }
+
+        Ok(())
+    }
+
+    fn restore_runtime_snapshot(&self, snapshot: &PersistedRuntimeState) -> Result<(), String> {
+        let preferences = *self
+            .timer_preferences
+            .lock()
+            .map_err(|_| "计时设置状态锁定失败".to_string())?;
+        let mut timer = self
+            .timer
+            .lock()
+            .map_err(|_| "计时引擎状态锁定失败".to_string())?;
+        *timer = TimerEngine::from_persisted_runtime(snapshot.clone(), preferences);
+        Ok(())
+    }
+
+    fn restore_bundle(&self, snapshot: &PersistedBundle) -> Result<(), String> {
+        self.restore_state_snapshot(&snapshot.state)?;
+        self.restore_runtime_snapshot(&snapshot.runtime)
+    }
+
+    fn format_persistence_failure(
+        action: &str,
+        error: String,
+        rollback_errors: Vec<String>,
+    ) -> String {
+        if rollback_errors.is_empty() {
+            format!("{action}失败：{error}。内存状态已回退，未报告虚假成功，请重试。")
+        } else {
+            format!(
+                "{action}失败：{error}。自动回退也未完全成功：{}；请立即重启应用并使用有效备份恢复。",
+                rollback_errors.join("；")
+            )
+        }
     }
 
     fn apply_backup_file(&self, backup: AppBackupFile) -> Result<BackupImportResult, String> {
@@ -742,38 +867,87 @@ impl TimerEngineState {
     }
 
     fn persist(&self) -> Result<(), String> {
-        let Some(store) = &self.persistence else {
-            return Ok(());
-        };
-
+        let store = self.persistence_store()?;
+        let previous = store.load()?;
         let persisted = self.snapshot_state()?;
 
-        store.save(&persisted)
+        if let Err(error) = store.save(&persisted) {
+            let rollback_errors = self
+                .restore_state_snapshot(&previous)
+                .err()
+                .into_iter()
+                .collect();
+            return Err(Self::format_persistence_failure(
+                "保存本地状态",
+                error,
+                rollback_errors,
+            ));
+        }
+
+        Ok(())
     }
 
     fn persist_runtime(&self) -> Result<(), String> {
-        let Some(store) = &self.persistence else {
-            return Ok(());
-        };
+        let store = self.persistence_store()?;
+        let previous = store.load_runtime()?;
+        let persisted = self.snapshot_runtime_state()?;
 
-        let persisted = self
-            .timer
-            .lock()
-            .map_err(|_| {
-                "\u{8ba1}\u{65f6}\u{5f15}\u{64ce}\u{72b6}\u{6001}\u{9501}\u{5b9a}\u{5931}\u{8d25}"
-                    .to_string()
-            })?
-            .persisted_runtime_state();
+        if let Err(error) = store.save_runtime(&persisted) {
+            let rollback_errors = self
+                .restore_runtime_snapshot(&previous)
+                .err()
+                .into_iter()
+                .collect();
+            return Err(Self::format_persistence_failure(
+                "保存本地运行态",
+                error,
+                rollback_errors,
+            ));
+        }
 
-        store.save_runtime(&persisted)
+        Ok(())
     }
 
     fn persist_all(&self) -> Result<(), String> {
-        self.persist()?;
-        self.persist_runtime()
+        let store = self.persistence_store()?;
+        let previous = PersistedBundle {
+            state: store.load()?,
+            runtime: store.load_runtime()?,
+        };
+        let current = self.snapshot_bundle()?;
+
+        if let Err(error) = store.save(&current.state) {
+            let rollback_errors = self.restore_bundle(&previous).err().into_iter().collect();
+            return Err(Self::format_persistence_failure(
+                "保存本地状态与运行态",
+                error,
+                rollback_errors,
+            ));
+        }
+
+        if let Err(error) = store.save_runtime(&current.runtime) {
+            let mut rollback_errors = Vec::new();
+            if let Err(rollback_error) = store.save(&previous.state) {
+                rollback_errors.push(format!("磁盘状态回退失败：{rollback_error}"));
+            }
+            if let Err(rollback_error) = store.save_runtime(&previous.runtime) {
+                rollback_errors.push(format!("磁盘运行态回退失败：{rollback_error}"));
+            }
+            if let Err(rollback_error) = self.restore_bundle(&previous) {
+                rollback_errors.push(format!("内存状态回退失败：{rollback_error}"));
+            }
+            return Err(Self::format_persistence_failure(
+                "保存本地状态与运行态",
+                error,
+                rollback_errors,
+            ));
+        }
+
+        Ok(())
     }
 
     fn clear_all(&self) -> Result<(), String> {
+        self.ensure_ready()?;
         {
             let mut timer = self.timer.lock().map_err(|_| {
                 "\u{8ba1}\u{65f6}\u{5f15}\u{64ce}\u{72b6}\u{6001}\u{9501}\u{5b9a}\u{5931}\u{8d25}"
@@ -823,13 +997,7 @@ impl TimerEngineState {
             *preferences = TimerPreferences::default();
         }
 
-        self.persist()?;
-
-        if let Some(store) = &self.persistence {
-            store.clear_runtime()?;
-        }
-
-        Ok(())
+        self.persist_all()
     }
 }
 
@@ -862,15 +1030,14 @@ impl TimerEngine {
                 None
             }
         });
+        let countdown_duration_ms = normalize_countdown_duration_ms(runtime.countdown_duration_ms);
 
         Self {
             mode,
             running_anchor: anchor,
             stopwatch_elapsed_ms: runtime.stopwatch_elapsed_ms,
-            countdown_elapsed_ms: runtime.countdown_elapsed_ms,
-            countdown_duration_ms: runtime
-                .countdown_duration_ms
-                .max(DEFAULT_COUNTDOWN_MINUTES.saturating_mul(60_000)),
+            countdown_elapsed_ms: runtime.countdown_elapsed_ms.min(countdown_duration_ms),
+            countdown_duration_ms,
             countdown_completed_alerted: matches!(
                 runtime.active_alert_key.as_deref(),
                 Some("countdown_complete")
@@ -1451,10 +1618,12 @@ impl TimerEngine {
                     }
 
                     total_elapsed -= phase_duration;
-                    if self.pomodoro_phase == PomodoroPhase::Focus
-                        && self.pending_pomodoro_record_ms.is_none()
-                    {
-                        self.pending_pomodoro_record_ms = Some(phase_duration);
+                    if self.pomodoro_phase == PomodoroPhase::Focus {
+                        self.pending_pomodoro_record_ms = Some(
+                            self.pending_pomodoro_record_ms
+                                .unwrap_or_default()
+                                .saturating_add(phase_duration),
+                        );
                         self.completed_focus_count = self.completed_focus_count.saturating_add(1);
                         self.mark_alert(AlertKind::PomodoroFocusComplete);
                     }
@@ -1493,8 +1662,18 @@ impl TimerEngine {
 }
 
 fn elapsed_since_anchor_ms(anchor: RunAnchor) -> u64 {
-    let monotonic_ms = anchor.monotonic.elapsed().as_millis() as u64;
-    let wall_ms = SystemTime::now()
+    elapsed_since_anchor_ms_at(anchor, Instant::now(), SystemTime::now())
+}
+
+fn elapsed_since_anchor_ms_at(
+    anchor: RunAnchor,
+    monotonic_now: Instant,
+    wall_clock_now: SystemTime,
+) -> u64 {
+    let monotonic_ms = monotonic_now
+        .saturating_duration_since(anchor.monotonic)
+        .as_millis() as u64;
+    let wall_ms = wall_clock_now
         .duration_since(anchor.wall_clock)
         .unwrap_or(Duration::ZERO)
         .as_millis() as u64;
@@ -1506,6 +1685,7 @@ fn with_timer_engine<T>(
     state: &tauri::State<'_, TimerEngineState>,
     f: impl FnOnce(&mut TimerEngine) -> Result<T, String>,
 ) -> Result<T, String> {
+    state.ensure_ready()?;
     let mut engine = state.timer.lock().map_err(|_| {
         "\u{8ba1}\u{65f6}\u{5f15}\u{64ce}\u{72b6}\u{6001}\u{9501}\u{5b9a}\u{5931}\u{8d25}"
             .to_string()
@@ -1549,6 +1729,18 @@ fn parse_phase_key_value(value: &str) -> Result<PomodoroPhase, String> {
             "\u{4e0d}\u{652f}\u{6301}\u{7684}\u{756a}\u{8304}\u{95f4}\u{9694}\u{9636}\u{6bb5}"
                 .to_string(),
         ),
+    }
+}
+
+fn normalize_countdown_duration_ms(duration_ms: u64) -> u64 {
+    let minimum = MIN_COUNTDOWN_MINUTES.saturating_mul(60_000);
+    let maximum = MAX_COUNTDOWN_MINUTES.saturating_mul(60_000);
+    let is_valid = (minimum..=maximum).contains(&duration_ms) && duration_ms % 60_000 == 0;
+
+    if is_valid {
+        duration_ms
+    } else {
+        DEFAULT_COUNTDOWN_MINUTES.saturating_mul(60_000)
     }
 }
 
@@ -1899,6 +2091,7 @@ fn with_todo_items<T>(
     state: &tauri::State<'_, TimerEngineState>,
     f: impl FnOnce(&mut Vec<TodoItem>) -> Result<T, String>,
 ) -> Result<T, String> {
+    state.ensure_ready()?;
     let mut items = state.todo_items.lock().map_err(|_| {
         "\u{4efb}\u{52a1}\u{5217}\u{8868}\u{72b6}\u{6001}\u{9501}\u{5b9a}\u{5931}\u{8d25}"
             .to_string()
@@ -1911,6 +2104,7 @@ fn with_focus_records<T>(
     state: &tauri::State<'_, TimerEngineState>,
     f: impl FnOnce(&mut Vec<FocusRecord>) -> Result<T, String>,
 ) -> Result<T, String> {
+    state.ensure_ready()?;
     let mut records = state
         .focus_records
         .lock()
@@ -2047,6 +2241,7 @@ fn acknowledge_timer_alert(
 fn get_timer_preferences(
     state: tauri::State<'_, TimerEngineState>,
 ) -> Result<TimerPreferencesSnapshot, String> {
+    state.ensure_ready()?;
     let preferences = *state
         .timer_preferences
         .lock()
@@ -2060,6 +2255,7 @@ fn update_timer_preferences(
     state: tauri::State<'_, TimerEngineState>,
     preferences: TimerPreferences,
 ) -> Result<TimerPreferencesSnapshot, String> {
+    state.ensure_ready()?;
     let normalized_preferences = preferences.normalized()?;
 
     {
@@ -2089,6 +2285,7 @@ fn update_timer_context(
     linked_todo_id: Option<u64>,
     complete_linked_todo_on_finish: bool,
 ) -> Result<TimerSnapshot, String> {
+    state.ensure_ready()?;
     if let Some(id) = linked_todo_id {
         let items = state.todo_items.lock().map_err(|_| {
             "\u{4efb}\u{52a1}\u{5217}\u{8868}\u{72b6}\u{6001}\u{9501}\u{5b9a}\u{5931}\u{8d25}"
@@ -2153,6 +2350,7 @@ fn set_countdown_minutes(
 fn get_focus_records(
     state: tauri::State<'_, TimerEngineState>,
 ) -> Result<Vec<FocusRecord>, String> {
+    state.ensure_ready()?;
     let records = state.focus_records.lock().map_err(|_| {
         "\u{8bb0}\u{5f55}\u{5217}\u{8868}\u{72b6}\u{6001}\u{9501}\u{5b9a}\u{5931}\u{8d25}"
             .to_string()
@@ -2259,6 +2457,7 @@ fn delete_focus_records(
 fn get_analytics_snapshot(
     state: tauri::State<'_, TimerEngineState>,
 ) -> Result<AnalyticsSnapshot, String> {
+    state.ensure_ready()?;
     let records = state.focus_records.lock().map_err(|_| {
         "\u{8bb0}\u{5f55}\u{5217}\u{8868}\u{72b6}\u{6001}\u{9501}\u{5b9a}\u{5931}\u{8d25}"
             .to_string()
@@ -2280,10 +2479,7 @@ fn clear_app_data(state: tauri::State<'_, TimerEngineState>) -> Result<(), Strin
 fn list_app_backups(
     state: tauri::State<'_, TimerEngineState>,
 ) -> Result<Vec<BackupListItem>, String> {
-    let store = state
-        .persistence
-        .as_ref()
-        .ok_or_else(|| "当前环境暂时无法访问本地备份目录。".to_string())?;
+    let store = state.persistence_store()?;
 
     let backups = store.list_user_backups()?;
     Ok(backups
@@ -2316,10 +2512,7 @@ fn list_app_backups(
 fn export_app_backup(
     state: tauri::State<'_, TimerEngineState>,
 ) -> Result<BackupExportResult, String> {
-    let store = state
-        .persistence
-        .as_ref()
-        .ok_or_else(|| "当前环境暂时无法创建本地备份。".to_string())?;
+    let store = state.persistence_store()?;
 
     let backup = state.export_backup_file()?;
     let file_name = create_backup_file_name("focused-moment-backup-v2-");
@@ -2338,10 +2531,7 @@ fn import_app_backup(
     state: tauri::State<'_, TimerEngineState>,
     file_name: String,
 ) -> Result<BackupImportResult, String> {
-    let store = state
-        .persistence
-        .as_ref()
-        .ok_or_else(|| "当前环境暂时无法访问本地备份目录。".to_string())?;
+    let store = state.persistence_store()?;
 
     let backup = store.load_user_backup(&file_name)?;
     let rollback = state.export_backup_file()?;
@@ -2357,10 +2547,7 @@ fn import_app_backup(
 
 #[tauri::command]
 fn open_app_backup_folder(state: tauri::State<'_, TimerEngineState>) -> Result<(), String> {
-    let store = state
-        .persistence
-        .as_ref()
-        .ok_or_else(|| "当前环境暂时无法访问本地备份目录。".to_string())?;
+    let store = state.persistence_store()?;
     let backup_dir = store.user_backup_dir()?;
 
     #[cfg(target_os = "windows")]
@@ -2405,6 +2592,7 @@ fn create_todo_item(
     scheduled_time: String,
     importance_key: String,
 ) -> Result<Vec<TodoItem>, String> {
+    state.ensure_ready()?;
     let normalized_title = normalize_todo_title(&title)?;
     let normalized_date = normalize_scheduled_date(&scheduled_date)?;
     let normalized_time = normalize_scheduled_time(&scheduled_time)?;
@@ -2488,7 +2676,6 @@ fn toggle_todo_item(
         Ok(items.clone())
     })?;
 
-    state.persist()?;
     if should_clear_timer_link {
         with_timer_engine(&state, |engine| {
             if engine.linked_todo_id == Some(id) {
@@ -2497,7 +2684,9 @@ fn toggle_todo_item(
             }
             Ok(())
         })?;
-        state.persist_runtime()?;
+        state.persist_all()?;
+    } else {
+        state.persist()?;
     }
     Ok(items)
 }
@@ -2521,14 +2710,13 @@ fn delete_todo_item(
         Ok(items.clone())
     })?;
 
-    state.persist()?;
     with_timer_engine(&state, |engine| {
         if engine.linked_todo_id == Some(id) {
             engine.linked_todo_id = None;
         }
         Ok(())
     })?;
-    state.persist_runtime()?;
+    state.persist_all()?;
     Ok(items)
 }
 
@@ -2862,7 +3050,9 @@ fn unlock_floating_todos(app: tauri::AppHandle) -> Result<(), String> {
     floating_window
         .set_ignore_cursor_events(false)
         .map_err(|error| error.to_string())?;
-    floating_window.set_focus().map_err(|error| error.to_string())?;
+    floating_window
+        .set_focus()
+        .map_err(|error| error.to_string())?;
     if let Some(unlock_window) = app.get_webview_window("todo-unlock") {
         unlock_window.hide().map_err(|error| error.to_string())?;
     }
@@ -2940,7 +3130,9 @@ fn unlock_focus_floating(app: tauri::AppHandle) -> Result<(), String> {
     focus_window
         .set_ignore_cursor_events(false)
         .map_err(|error| error.to_string())?;
-    focus_window.set_focus().map_err(|error| error.to_string())?;
+    focus_window
+        .set_focus()
+        .map_err(|error| error.to_string())?;
     if let Some(unlock_window) = app.get_webview_window("focus-unlock") {
         unlock_window.hide().map_err(|error| error.to_string())?;
     }
@@ -3034,6 +3226,424 @@ fn start_dragging_main_window(window: tauri::Window) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn isolated_root() -> std::path::PathBuf {
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock is before unix epoch")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!(
+            "focused-moment-runtime-test-{}-{suffix}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&root).expect("create isolated runtime fixture");
+        root
+    }
+
+    fn cleanup_isolated_root(root: &std::path::Path) {
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    fn rewind_timer_anchor(timer: &mut TimerEngine, elapsed_ms: u64) {
+        let elapsed = Duration::from_millis(elapsed_ms);
+        timer.running_anchor = Some(RunAnchor {
+            monotonic: Instant::now() - elapsed,
+            wall_clock: SystemTime::now() - elapsed,
+        });
+    }
+
+    fn state_with_store(
+        store: PersistenceStore,
+        next_record_id: u64,
+        stopwatch_elapsed_ms: u64,
+    ) -> TimerEngineState {
+        TimerEngineState {
+            timer: Mutex::new(TimerEngine {
+                stopwatch_elapsed_ms,
+                ..TimerEngine::default()
+            }),
+            timer_preferences: Mutex::new(TimerPreferences::default()),
+            focus_records: Mutex::new(Vec::new()),
+            next_record_id: Mutex::new(next_record_id),
+            todo_items: Mutex::new(Vec::new()),
+            next_todo_id: Mutex::new(0),
+            persistence: Some(store),
+            startup_error: None,
+        }
+    }
+
+    fn seed_persisted_bundle(root: &std::path::Path) {
+        let store = PersistenceStore::for_test(root).expect("create seed store");
+        store
+            .save(&PersistedState {
+                schema_version: CURRENT_STORAGE_SCHEMA_VERSION,
+                next_record_id: 1,
+                ..PersistedState::default()
+            })
+            .expect("save seed state");
+        store
+            .save_runtime(&PersistedRuntimeState {
+                schema_version: CURRENT_STORAGE_SCHEMA_VERSION,
+                mode_key: "stopwatch".to_string(),
+                stopwatch_elapsed_ms: 1_000,
+                ..PersistedRuntimeState::default()
+            })
+            .expect("save seed runtime");
+    }
+
+    #[test]
+    fn persistence_failure_is_not_reported_as_success() {
+        let state = TimerEngineState {
+            timer: Mutex::new(TimerEngine::default()),
+            timer_preferences: Mutex::new(TimerPreferences::default()),
+            focus_records: Mutex::new(Vec::new()),
+            next_record_id: Mutex::new(0),
+            todo_items: Mutex::new(Vec::new()),
+            next_todo_id: Mutex::new(0),
+            persistence: None,
+            startup_error: Some("测试中的持久化不可用".to_string()),
+        };
+
+        assert!(state.persist().is_err());
+        assert!(state.persist_runtime().is_err());
+        assert!(state.persist_all().is_err());
+    }
+
+    #[test]
+    fn persist_all_rolls_back_memory_and_disk_when_runtime_commit_fails() {
+        let root = isolated_root();
+        seed_persisted_bundle(&root);
+        let faulty_store =
+            PersistenceStore::for_test_with_failure(&root, storage::SaveStage::RuntimePromoteNew)
+                .expect("create faulty store");
+        let state = state_with_store(faulty_store, 2, 2_000);
+
+        let error = state
+            .persist_all()
+            .expect_err("runtime commit failure must be reported");
+        assert!(error.contains("保存本地状态与运行态失败"));
+        assert_eq!(
+            state
+                .snapshot_state()
+                .expect("snapshot state")
+                .next_record_id,
+            1
+        );
+        assert_eq!(
+            state
+                .snapshot_runtime_state()
+                .expect("snapshot runtime")
+                .stopwatch_elapsed_ms,
+            1_000
+        );
+
+        let recovered_store = PersistenceStore::for_test(&root).expect("reopen recovered store");
+        assert_eq!(
+            recovered_store
+                .load()
+                .expect("load recovered state")
+                .next_record_id,
+            1
+        );
+        assert_eq!(
+            recovered_store
+                .load_runtime()
+                .expect("load recovered runtime")
+                .stopwatch_elapsed_ms,
+            1_000
+        );
+        cleanup_isolated_root(&root);
+    }
+
+    #[test]
+    fn backup_import_failure_restores_the_previous_bundle() {
+        let root = isolated_root();
+        seed_persisted_bundle(&root);
+        let faulty_store =
+            PersistenceStore::for_test_with_failure(&root, storage::SaveStage::RuntimePromoteNew)
+                .expect("create faulty store");
+        let state = state_with_store(faulty_store, 1, 1_000);
+        let backup = AppBackupFile {
+            kind: APP_BACKUP_KIND.to_string(),
+            format_version: APP_BACKUP_FORMAT_VERSION,
+            schema_version: CURRENT_STORAGE_SCHEMA_VERSION,
+            app_version: APP_VERSION.to_string(),
+            exported_at: "2026-09-08T12:00:00+08:00".to_string(),
+            state: PersistedState {
+                schema_version: CURRENT_STORAGE_SCHEMA_VERSION,
+                next_record_id: 2,
+                ..PersistedState::default()
+            },
+            runtime: PersistedRuntimeState {
+                schema_version: CURRENT_STORAGE_SCHEMA_VERSION,
+                mode_key: "stopwatch".to_string(),
+                stopwatch_elapsed_ms: 2_000,
+                ..PersistedRuntimeState::default()
+            },
+        };
+
+        assert!(state.apply_backup_file(backup).is_err());
+        assert_eq!(
+            state
+                .snapshot_state()
+                .expect("snapshot state")
+                .next_record_id,
+            1
+        );
+        assert_eq!(
+            state
+                .snapshot_runtime_state()
+                .expect("snapshot runtime")
+                .stopwatch_elapsed_ms,
+            1_000
+        );
+        cleanup_isolated_root(&root);
+    }
+
+    #[test]
+    fn persisted_countdown_keeps_all_legal_durations() {
+        let preferences = TimerPreferences::default();
+
+        for minutes in [1, 5, 24, 25, 60, 720] {
+            let duration_ms = minutes * 60_000;
+            let runtime = PersistedRuntimeState {
+                schema_version: CURRENT_STORAGE_SCHEMA_VERSION,
+                mode_key: "countdown".to_string(),
+                countdown_duration_ms: duration_ms,
+                countdown_elapsed_ms: duration_ms - 1_000,
+                ..PersistedRuntimeState::default()
+            };
+            let mut timer = TimerEngine::from_persisted_runtime(runtime, preferences);
+            let snapshot = timer.countdown_snapshot();
+            let persisted = timer.persisted_runtime_state();
+
+            assert_eq!(snapshot.target_duration_ms, Some(duration_ms));
+            assert_eq!(snapshot.remaining_ms, Some(1_000));
+            assert_eq!(persisted.countdown_duration_ms, duration_ms);
+        }
+    }
+
+    #[test]
+    fn invalid_persisted_countdown_duration_uses_the_default() {
+        let preferences = TimerPreferences::default();
+        let default_duration_ms = DEFAULT_COUNTDOWN_MINUTES * 60_000;
+
+        for duration_ms in [0, 90_000, (MAX_COUNTDOWN_MINUTES + 1) * 60_000] {
+            let runtime = PersistedRuntimeState {
+                schema_version: CURRENT_STORAGE_SCHEMA_VERSION,
+                mode_key: "countdown".to_string(),
+                countdown_duration_ms: duration_ms,
+                countdown_elapsed_ms: u64::MAX,
+                ..PersistedRuntimeState::default()
+            };
+            let mut timer = TimerEngine::from_persisted_runtime(runtime, preferences);
+            let snapshot = timer.countdown_snapshot();
+            let persisted = timer.persisted_runtime_state();
+
+            assert_eq!(snapshot.target_duration_ms, Some(default_duration_ms));
+            assert_eq!(snapshot.remaining_ms, Some(0));
+            assert_eq!(persisted.countdown_duration_ms, default_duration_ms);
+            assert_eq!(persisted.countdown_elapsed_ms, default_duration_ms);
+        }
+    }
+
+    #[test]
+    fn restored_countdown_preserves_paused_running_and_completed_states() {
+        let preferences = TimerPreferences::default();
+        let duration_ms = 5 * 60_000;
+        let cases = [
+            (false, 2 * 60_000, None, "已暂停"),
+            (true, 2 * 60_000, None, "倒计时中"),
+            (false, duration_ms, Some("countdown_complete"), "已结束"),
+        ];
+
+        for (is_running, elapsed_ms, active_alert_key, expected_status) in cases {
+            let runtime = PersistedRuntimeState {
+                schema_version: CURRENT_STORAGE_SCHEMA_VERSION,
+                mode_key: "countdown".to_string(),
+                countdown_duration_ms: duration_ms,
+                countdown_elapsed_ms: elapsed_ms,
+                is_running,
+                anchor_wall_clock_ms: is_running
+                    .then(|| system_time_to_epoch_ms(SystemTime::now())),
+                active_alert_key: active_alert_key.map(str::to_string),
+                ..PersistedRuntimeState::default()
+            };
+            let timer = TimerEngine::from_persisted_runtime(runtime, preferences);
+
+            assert_eq!(timer.countdown_snapshot().status, expected_status);
+        }
+    }
+
+    #[test]
+    fn backup_import_preserves_a_short_countdown_duration() {
+        let root = isolated_root();
+        seed_persisted_bundle(&root);
+        let store = PersistenceStore::for_test(&root).expect("create import store");
+        let state = state_with_store(store, 1, 1_000);
+        let duration_ms = 5 * 60_000;
+        let elapsed_ms = 2 * 60_000;
+        let backup = AppBackupFile {
+            kind: APP_BACKUP_KIND.to_string(),
+            format_version: APP_BACKUP_FORMAT_VERSION,
+            schema_version: CURRENT_STORAGE_SCHEMA_VERSION,
+            app_version: APP_VERSION.to_string(),
+            exported_at: "2026-09-08T12:00:00+08:00".to_string(),
+            state: PersistedState {
+                schema_version: CURRENT_STORAGE_SCHEMA_VERSION,
+                ..PersistedState::default()
+            },
+            runtime: PersistedRuntimeState {
+                schema_version: CURRENT_STORAGE_SCHEMA_VERSION,
+                mode_key: "countdown".to_string(),
+                countdown_duration_ms: duration_ms,
+                countdown_elapsed_ms: elapsed_ms,
+                ..PersistedRuntimeState::default()
+            },
+        };
+
+        state
+            .apply_backup_file(backup)
+            .expect("import short countdown backup");
+
+        let runtime = state
+            .snapshot_runtime_state()
+            .expect("snapshot imported runtime");
+        assert_eq!(runtime.countdown_duration_ms, duration_ms);
+        assert_eq!(runtime.countdown_elapsed_ms, elapsed_ms);
+
+        let recovered_store = PersistenceStore::for_test(&root).expect("reopen import store");
+        let recovered_runtime = recovered_store
+            .load_runtime()
+            .expect("load imported runtime");
+        assert_eq!(recovered_runtime.countdown_duration_ms, duration_ms);
+        assert_eq!(recovered_runtime.countdown_elapsed_ms, elapsed_ms);
+        cleanup_isolated_root(&root);
+    }
+
+    #[test]
+    fn pomodoro_delayed_confirmation_accumulates_rounds_and_survives_restore() {
+        let preferences = TimerPreferences::default();
+        let focus_duration_ms = preferences.pomodoro_focus_ms();
+        let break_duration_ms = preferences.pomodoro_break_ms();
+
+        for round_count in [1_u64, 2, 10] {
+            let mut timer = TimerEngine {
+                mode: TimerMode::Pomodoro,
+                running_anchor: Some(RunAnchor {
+                    monotonic: Instant::now(),
+                    wall_clock: SystemTime::now(),
+                }),
+                pomodoro_focus_ms: focus_duration_ms,
+                pomodoro_break_ms: break_duration_ms,
+                ..TimerEngine::default()
+            };
+
+            for _ in 0..round_count {
+                rewind_timer_anchor(&mut timer, focus_duration_ms);
+                timer.sync_running_time();
+                assert!(timer.pomodoro_phase == PomodoroPhase::Break);
+
+                rewind_timer_anchor(&mut timer, break_duration_ms);
+                timer.sync_running_time();
+                assert!(timer.pomodoro_phase == PomodoroPhase::Focus);
+            }
+
+            assert_eq!(
+                timer.pending_pomodoro_record_ms,
+                Some(round_count * focus_duration_ms)
+            );
+            assert_eq!(timer.completed_focus_count, round_count);
+            assert_eq!(timer.completed_break_count, round_count);
+            assert_eq!(timer.current_round(), round_count + 1);
+
+            let persisted = timer.persisted_runtime_state();
+            let mut restored = TimerEngine::from_persisted_runtime(persisted, preferences);
+            assert_eq!(
+                restored.pending_pomodoro_record_ms,
+                timer.pending_pomodoro_record_ms
+            );
+            assert_eq!(restored.completed_focus_count, round_count);
+            assert_eq!(restored.completed_break_count, round_count);
+            assert!(restored.pomodoro_phase == PomodoroPhase::Focus);
+            assert!(restored.recovered_from_last_session);
+
+            let completed = restored
+                .complete_focus_session()
+                .expect("save accumulated pomodoro focus");
+            assert_eq!(completed.duration_ms, round_count * focus_duration_ms);
+            assert_eq!(restored.pending_pomodoro_record_ms, None);
+        }
+    }
+
+    #[test]
+    fn pomodoro_restore_counts_elapsed_wall_time_after_sleep() {
+        let preferences = TimerPreferences::default();
+        let focus_duration_ms = preferences.pomodoro_focus_ms();
+        let break_duration_ms = preferences.pomodoro_break_ms();
+        let slept_for_ms = focus_duration_ms + break_duration_ms + focus_duration_ms / 2;
+        let anchor_wall_clock = SystemTime::now() - Duration::from_millis(slept_for_ms);
+        let runtime = PersistedRuntimeState {
+            schema_version: CURRENT_STORAGE_SCHEMA_VERSION,
+            mode_key: "pomodoro".to_string(),
+            pomodoro_phase_key: "focus".to_string(),
+            is_running: true,
+            anchor_wall_clock_ms: Some(system_time_to_epoch_ms(anchor_wall_clock)),
+            ..PersistedRuntimeState::default()
+        };
+
+        let mut restored = TimerEngine::from_persisted_runtime(runtime, preferences);
+        restored.sync_running_time();
+
+        assert_eq!(restored.completed_focus_count, 1);
+        assert_eq!(restored.completed_break_count, 1);
+        assert_eq!(restored.pending_pomodoro_record_ms, Some(focus_duration_ms));
+        assert!(restored.pomodoro_elapsed_ms >= focus_duration_ms / 2);
+        assert!(restored.pomodoro_elapsed_ms < focus_duration_ms);
+        assert!(restored.running_anchor.is_some());
+    }
+
+    #[test]
+    fn elapsed_anchor_handles_sleep_forward_and_backward_wall_clock_changes() {
+        let monotonic_now = Instant::now();
+        let wall_clock_now = SystemTime::now();
+
+        let monotonic_leads = RunAnchor {
+            monotonic: monotonic_now - Duration::from_secs(10),
+            wall_clock: wall_clock_now - Duration::from_secs(4),
+        };
+        assert_eq!(
+            elapsed_since_anchor_ms_at(monotonic_leads, monotonic_now, wall_clock_now),
+            10_000
+        );
+
+        let wall_clock_jumps_forward = RunAnchor {
+            monotonic: monotonic_now - Duration::from_secs(10),
+            wall_clock: wall_clock_now - Duration::from_secs(20),
+        };
+        assert_eq!(
+            elapsed_since_anchor_ms_at(wall_clock_jumps_forward, monotonic_now, wall_clock_now),
+            20_000
+        );
+
+        let wall_clock_moves_backward = RunAnchor {
+            monotonic: monotonic_now - Duration::from_secs(10),
+            wall_clock: wall_clock_now + Duration::from_secs(5),
+        };
+        assert_eq!(
+            elapsed_since_anchor_ms_at(wall_clock_moves_backward, monotonic_now, wall_clock_now),
+            10_000
+        );
+
+        let simulated_sleep = RunAnchor {
+            monotonic: monotonic_now - Duration::from_secs(5),
+            wall_clock: wall_clock_now - Duration::from_secs(60),
+        };
+        assert_eq!(
+            elapsed_since_anchor_ms_at(simulated_sleep, monotonic_now, wall_clock_now),
+            60_000
+        );
+    }
 
     #[test]
     fn countdown_stops_at_zero_and_emits_one_completion_alert() {
