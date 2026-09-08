@@ -33,8 +33,8 @@ export const themes: ThemeDefinition[] = [
     name: "编辑纸页",
     englishName: "Editorial Paper",
     preview: "/theme-previews/02-editorial-paper.png",
-    implemented: false,
-    description: "纸张、铅字与可读性的概念方向。",
+    implemented: true,
+    description: "纸张、铅字与可读性的工作界面。",
   },
   {
     id: "graphite-console",

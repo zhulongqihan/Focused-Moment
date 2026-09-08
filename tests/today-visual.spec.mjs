@@ -6,6 +6,7 @@ import { expect, test } from "@playwright/test";
 const referenceDate = "2026-09-05";
 const baselineSha = process.env.NV04_BASELINE_SHA ?? execFileSync("git", ["rev-parse", "--short", "HEAD"], { encoding: "utf8" }).trim();
 const baselineDirectory = `output/qa/NV-04/${baselineSha}`;
+const editorialDirectory = `output/qa/TH-02/${process.env.TH02_BASELINE_SHA ?? baselineSha}`;
 
 const nightValleyPages = [
   ["今日", ".trail-map", ".trail-page"],
@@ -19,7 +20,7 @@ function pageButton(page, label) {
   return page.locator(".minimal-nav > button").filter({ hasText: label });
 }
 
-async function bootTodayReferenceMock(page) {
+async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一件事开始" } = {}) {
   await page.addInitScript(() => {
     const NativeDate = Date;
     class ReferenceDate extends NativeDate {
@@ -152,6 +153,14 @@ async function bootTodayReferenceMock(page) {
             return analytics;
           case "list_app_backups":
             return [];
+          case "set_countdown_minutes":
+            timer = {
+              ...timer,
+              targetDurationMs: Number(args.minutes) * 60 * 1000,
+              remainingMs: Number(args.minutes) * 60 * 1000,
+              elapsedLabel: `00:${String(Number(args.minutes)).padStart(2, "0")}:00`,
+            };
+            return timer;
           case "start_timer":
             timer = { ...timer, isRunning: true, status: "倒计时中", canCompleteSession: true };
             return timer;
@@ -159,6 +168,13 @@ async function bootTodayReferenceMock(page) {
             timer = { ...timer, isRunning: false, status: "已暂停" };
             return timer;
           case "update_timer_context":
+            timer = {
+              ...timer,
+              activeTaskTitle: args.title ?? "",
+              linkedTodoId: args.linkedTodoId ?? null,
+              completeLinkedTodoOnFinish: Boolean(args.completeLinkedTodoOnFinish),
+            };
+            return timer;
           case "reset_timer":
             return timer;
           case "toggle_todo_item":
@@ -173,7 +189,7 @@ async function bootTodayReferenceMock(page) {
 
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "今天，从一件事开始" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: expectedHeading })).toBeVisible();
 }
 
 test("Today reference composition stays aligned at the concept viewport", async ({ page }) => {
@@ -487,7 +503,7 @@ test("Timer route follows a tighter winding concept path", async ({ page }) => {
   expect(geometry.labels[3]).toBeLessThan(340);
 });
 
-test("Theme registry exposes one implemented surface and four disabled previews", async ({ page }) => {
+test("Theme registry exposes two implemented surfaces and three disabled previews", async ({ page }) => {
   await page.setViewportSize({ width: 1487, height: 1058 });
   await bootTodayReferenceMock(page);
 
@@ -497,13 +513,20 @@ test("Theme registry exposes one implemented surface and four disabled previews"
   await expect(themeCards).toHaveCount(5);
   await expect(themeCards.filter({ hasText: "夜谷" })).toBeEnabled();
   await expect(themeCards.filter({ hasText: "夜谷" })).toHaveAttribute("aria-pressed", "true");
-  await expect(themeCards.filter({ hasText: "尚未实现" })).toHaveCount(4);
+  await expect(themeCards.filter({ hasText: "编辑纸页" })).toBeEnabled();
+  await expect(themeCards.filter({ hasText: "尚未实现" })).toHaveCount(3);
   await expect(themeCards.filter({ hasText: "尚未实现" }).first()).toBeDisabled();
   await expect(themeCards.locator("img")).toHaveCount(5);
 
   await themeCards.filter({ hasText: "编辑纸页" }).click({ force: true });
-  await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "night-valley");
-  await expect(themeCards.filter({ hasText: "夜谷" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "editorial-paper");
+  await expect(page.locator(".ep-theme-swatch").filter({ hasText: "编辑纸页" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".ep-settings-page")).toBeVisible();
+  await page.getByRole("button", { name: "保存外观设置", exact: true }).click();
+  await expect(page.locator(".app-message--success")).toContainText("下次启动会继续使用");
+  await page.reload();
+  await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "editorial-paper");
+  await expect(page.getByRole("heading", { name: "今日节奏" })).toBeVisible();
 });
 
 test("an invalid persisted theme keeps the Night Valley surface available", async ({ page }) => {
@@ -521,7 +544,7 @@ test("an invalid persisted theme keeps the Night Valley surface available", asyn
 
 test("an unimplemented persisted theme falls back before rendering a page", async ({ page }) => {
   await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
+    localStorage.setItem("focused-moment.theme", "graphite-console");
   });
   await page.setViewportSize({ width: 1487, height: 1058 });
   await bootTodayReferenceMock(page);
@@ -529,6 +552,75 @@ test("an unimplemented persisted theme falls back before rendering a page", asyn
   await expect(page.getByRole("heading", { name: "今天，从一件事开始" })).toBeVisible();
   await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "night-valley");
   await expect(page.locator(".theme-surface-unavailable")).toHaveCount(0);
+});
+
+test("Editorial Paper renders all five pages inside the desktop surface", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  mkdirSync(editorialDirectory, { recursive: true });
+
+  const pages = [
+    ["今日", ".ep-today-page", "today.png"],
+    ["计时", ".ep-focus-page", "focus.png"],
+    ["待办", ".ep-todos-page", "todos.png"],
+    ["记录", ".ep-records-page", "records.png"],
+    ["设置", ".ep-settings-page", "settings.png"],
+  ];
+  const geometry = {};
+  for (const [label, selector, screenshot] of pages) {
+    if (label !== "今日") {
+      await pageButton(page, label).click();
+    }
+    const surface = page.locator(selector);
+    await expect(surface).toBeVisible();
+    geometry[label] = await surface.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return { width: Number(rect.width.toFixed(2)), height: Number(rect.height.toFixed(2)), right: Number(rect.right.toFixed(2)) };
+    });
+    expect(geometry[label].width).toBeGreaterThan(600);
+    expect(geometry[label].right).toBeLessThanOrEqual(1487);
+    await page.screenshot({ path: `${editorialDirectory}/${screenshot}`, animations: "disabled", fullPage: true });
+  }
+  writeFileSync(`${editorialDirectory}/geometry.json`, JSON.stringify({ viewport: { width: 1487, height: 1058 }, pages: geometry }, null, 2));
+});
+
+test("Editorial Paper keeps shared actions and page bounds usable at pressure widths", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+
+  for (const [width, height] of [[1120, 760], [820, 720], [560, 720], [420, 720]]) {
+    await page.setViewportSize({ width, height });
+    await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+    const pages = [
+      ["今日", ".ep-today-page"],
+      ["计时", ".ep-focus-page"],
+      ["待办", ".ep-todos-page"],
+      ["记录", ".ep-records-page"],
+      ["设置", ".ep-settings-page"],
+    ];
+
+    for (const [label, selector] of pages) {
+      if (label !== "今日") {
+        await pageButton(page, label).click();
+      }
+      const surface = page.locator(selector);
+      await expect(surface).toBeVisible();
+      const bounds = await surface.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        return { right: rect.right, width: rect.width, scrollWidth: document.documentElement.scrollWidth };
+      });
+      expect(bounds.right).toBeLessThanOrEqual(width + 1);
+      expect(bounds.scrollWidth).toBeLessThanOrEqual(width + 1);
+    }
+
+    await pageButton(page, "今日").click();
+    await page.getByRole("button", { name: "开始下一件事", exact: true }).click();
+    await expect(page.locator(".ep-today-timer-strip")).toContainText("正在专注");
+  }
 });
 
 test("Night Valley appearance settings apply live and persist after explicit save", async ({ page }) => {

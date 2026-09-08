@@ -76,6 +76,7 @@ import CommandPalette, { type PaletteCommand } from "./components/CommandPalette
 import ThemeSurface from "./components/ThemeSurface";
 import { getTheme, implementedThemeId, type ThemeId } from "./lib/themes";
 import "./App.css";
+import "./components/EditorialPaperViews.css";
 
 type AppView = "today" | "focus" | "todos" | "records" | "settings";
 type TimerMode = "stopwatch" | "countdown";

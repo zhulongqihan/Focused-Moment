@@ -694,16 +694,20 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    static TEMP_ROOT_COUNTER: AtomicU64 = AtomicU64::new(0);
 
     fn temp_root() -> PathBuf {
         let suffix = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("system clock is before unix epoch")
             .as_nanos();
+        let sequence = TEMP_ROOT_COUNTER.fetch_add(1, Ordering::Relaxed);
         let root = env::temp_dir().join(format!(
-            "focused-moment-storage-test-{}-{suffix}",
-            std::process::id()
+            "focused-moment-storage-test-{}-{suffix}-{sequence}",
+            std::process::id(),
         ));
         fs::create_dir_all(&root).expect("create isolated storage fixture");
         root

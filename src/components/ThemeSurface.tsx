@@ -1,5 +1,12 @@
-import { Show, createMemo } from "solid-js";
+import { Match, Show, Switch, createMemo } from "solid-js";
 import TodayDashboard, { type TodayDashboardProps } from "./TodayDashboard";
+import {
+  EditorialPaperFocus,
+  EditorialPaperRecords,
+  EditorialPaperSettings,
+  EditorialPaperToday,
+  EditorialPaperTodos,
+} from "./EditorialPaperViews";
 import {
   NightValleyFocus,
   NightValleyRecords,
@@ -25,12 +32,14 @@ export interface ThemeSurfaceProps {
   settings: NightValleySettingsProps;
 }
 
-type ThemeImplementation = "night-valley";
+type ThemeImplementation = "night-valley" | "editorial-paper";
 
 function resolveThemeImplementation(themeId: ThemeId): ThemeImplementation {
   switch (getTheme(themeId).id) {
     case "night-valley":
       return "night-valley";
+    case "editorial-paper":
+      return "editorial-paper";
     default:
       return "night-valley";
   }
@@ -45,29 +54,21 @@ export default function ThemeSurface(props: ThemeSurfaceProps) {
   const themeImplementation = createMemo(() => resolveThemeImplementation(props.themeId()));
 
   return (
-    <Show
-      when={themeImplementation() === "night-valley"}
-      fallback={
-        <section class="theme-surface-unavailable" role="status">
-          当前主题尚未实现，已回退到可用主题。
-        </section>
-      }
-    >
-      <Show when={props.activeView() === "today"}>
-        <TodayDashboard {...props.today} />
-      </Show>
-      <Show when={props.activeView() === "focus"}>
-        <NightValleyFocus {...props.focus} />
-      </Show>
-      <Show when={props.activeView() === "todos"}>
-        <NightValleyTodo {...props.todos} />
-      </Show>
-      <Show when={props.activeView() === "records"}>
-        <NightValleyRecords {...props.records} />
-      </Show>
-      <Show when={props.activeView() === "settings"}>
-        <NightValleySettings {...props.settings} />
-      </Show>
-    </Show>
+    <Switch fallback={<section class="theme-surface-unavailable" role="status">当前主题暂不可用，已回退到可用主题。</section>}>
+      <Match when={themeImplementation() === "night-valley"}>
+        <Show when={props.activeView() === "today"}><TodayDashboard {...props.today} /></Show>
+        <Show when={props.activeView() === "focus"}><NightValleyFocus {...props.focus} /></Show>
+        <Show when={props.activeView() === "todos"}><NightValleyTodo {...props.todos} /></Show>
+        <Show when={props.activeView() === "records"}><NightValleyRecords {...props.records} /></Show>
+        <Show when={props.activeView() === "settings"}><NightValleySettings {...props.settings} /></Show>
+      </Match>
+      <Match when={themeImplementation() === "editorial-paper"}>
+        <Show when={props.activeView() === "today"}><EditorialPaperToday {...props.today} /></Show>
+        <Show when={props.activeView() === "focus"}><EditorialPaperFocus {...props.focus} /></Show>
+        <Show when={props.activeView() === "todos"}><EditorialPaperTodos {...props.todos} /></Show>
+        <Show when={props.activeView() === "records"}><EditorialPaperRecords {...props.records} /></Show>
+        <Show when={props.activeView() === "settings"}><EditorialPaperSettings {...props.settings} /></Show>
+      </Match>
+    </Switch>
   );
 }
