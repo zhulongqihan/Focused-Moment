@@ -344,6 +344,75 @@ test("Theme registry exposes one implemented surface and four disabled previews"
   await expect(themeCards.filter({ hasText: "夜谷" })).toHaveAttribute("aria-pressed", "true");
 });
 
+test("Night Valley appearance settings apply live and persist after explicit save", async ({ page }) => {
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page);
+  await page.getByRole("button", { name: "设置", exact: true }).click();
+
+  const app = page.locator(".minimal-app");
+  await expect(page.getByLabel("视觉强调")).toHaveValue("72");
+  await expect(page.getByLabel("动效强度")).toHaveValue("44");
+  await expect(app).toHaveAttribute("data-density", "roomy");
+  await expect(app).toHaveAttribute("data-motion", "subtle");
+
+  for (const [label, value] of [["视觉强调", "20"], ["动效强度", "0"]]) {
+    await page.getByLabel(label).evaluate((input, nextValue) => {
+      input.value = nextValue;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    }, value);
+  }
+  await page.getByRole("button", { name: "紧凑", exact: true }).click();
+
+  await expect(app).toHaveAttribute("data-density", "compact");
+  await expect(app).toHaveAttribute("data-motion", "off");
+  const liveStyle = await app.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      intensity: style.getPropertyValue("--nv-visual-intensity").trim(),
+      opacity: Number(style.getPropertyValue("--nv-visual-opacity").trim()),
+    };
+  });
+  expect(Number(liveStyle.intensity)).toBeCloseTo(0.2, 3);
+  expect(liveStyle.opacity).toBeCloseTo(0.64, 3);
+
+  await page.getByRole("button", { name: "保存外观设置", exact: true }).click();
+  await expect(page.locator(".app-message--success")).toContainText("下次启动会继续使用");
+  await expect.poll(() => page.evaluate(() => ({
+    theme: window.localStorage.getItem("focused-moment.theme"),
+    visual: window.localStorage.getItem("focused-moment.visual-intensity"),
+    motion: window.localStorage.getItem("focused-moment.motion-intensity"),
+    density: window.localStorage.getItem("focused-moment.density"),
+  }))).toEqual({
+    theme: "night-valley",
+    visual: "20",
+    motion: "0",
+    density: "compact",
+  });
+
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "今天，从一件事开始" })).toBeVisible();
+  await page.getByRole("button", { name: "设置", exact: true }).click();
+  await expect(page.getByLabel("视觉强调")).toHaveValue("20");
+  await expect(page.getByLabel("动效强度")).toHaveValue("0");
+  await expect(page.locator(".minimal-app")).toHaveAttribute("data-density", "compact");
+  await expect(page.locator(".minimal-app")).toHaveAttribute("data-motion", "off");
+});
+
+test("Night Valley appearance settings explain when local saving fails", async ({ page }) => {
+  await page.addInitScript(() => {
+    Storage.prototype.setItem = () => {
+      throw new Error("quota exceeded");
+    };
+  });
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page);
+  await page.getByRole("button", { name: "设置", exact: true }).click();
+  await page.getByRole("button", { name: "保存外观设置", exact: true }).click();
+
+  await expect(page.locator(".app-message--error")).toContainText("本地保存失败");
+  await expect(page.locator(".app-message--error")).toContainText("重启后不会保留");
+});
+
 test("Night Valley secondary widths keep each page inside the viewport", async ({ page }) => {
   const pages = [
     ["计时", ".nv-focus-panel"],

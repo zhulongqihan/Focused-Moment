@@ -89,6 +89,7 @@ type AppView = "today" | "focus" | "todos" | "records" | "settings";
 type TimerMode = "stopwatch" | "countdown";
 type LoadState = "loading" | "ready" | "error";
 type FloatingTab = "todos" | "timer";
+type MotionIntensityMode = "off" | "subtle" | "full";
 type UndoAction =
   | { kind: "todo"; item: TodoItem }
   | { kind: "record"; item: FocusRecord };
@@ -288,10 +289,14 @@ const motionIntensityKey = "focused-moment.motion-intensity";
 const densityKey = "focused-moment.density";
 
 function readLocalStorageValue(key: string) {
+  return readStoredLocalStorageValue(key) ?? "";
+}
+
+function readStoredLocalStorageValue(key: string): string | null {
   try {
-    return window.localStorage.getItem(key) ?? "";
+    return window.localStorage.getItem(key);
   } catch {
-    return "";
+    return null;
   }
 }
 
@@ -306,7 +311,7 @@ function removeLocalStorageValue(key: string) {
 function writeLocalStorageValue(key: string, value: string) {
   try {
     window.localStorage.setItem(key, value);
-    return true;
+    return window.localStorage.getItem(key) === value;
   } catch {
     return false;
   }
@@ -321,7 +326,11 @@ function readFloatingOpacity() {
 }
 
 function readPercentage(key: string, fallback: number) {
-  const storedValue = Number(readLocalStorageValue(key));
+  const rawValue = readLocalStorageValue(key).trim();
+  if (!rawValue) {
+    return fallback;
+  }
+  const storedValue = Number(rawValue);
   return Number.isFinite(storedValue) ? Math.min(100, Math.max(0, Math.round(storedValue))) : fallback;
 }
 
@@ -332,6 +341,13 @@ function readThemeId(): ThemeId {
 
 function readDensity(): "roomy" | "compact" {
   return readLocalStorageValue(densityKey) === "compact" ? "compact" : "roomy";
+}
+
+function getMotionIntensityMode(value: number): MotionIntensityMode {
+  if (value <= 0) {
+    return "off";
+  }
+  return value < 50 ? "subtle" : "full";
 }
 
 function claimAlertSequence(sequence: number) {
@@ -821,14 +837,37 @@ function MainShell() {
       return;
     }
     setThemeId(theme.id);
-    writeLocalStorageValue(themeStorageKey, theme.id);
   }
 
   function saveVisualSettings() {
-    writeLocalStorageValue(visualIntensityKey, String(visualIntensity()));
-    writeLocalStorageValue(motionIntensityKey, String(motionIntensity()));
-    writeLocalStorageValue(densityKey, density());
-    showMessage("外观设置已保存。", "success");
+    const settings = [
+      [themeStorageKey, themeId()],
+      [visualIntensityKey, String(visualIntensity())],
+      [motionIntensityKey, String(motionIntensity())],
+      [densityKey, density()],
+    ] as const;
+    const previousValues = settings.map(([key]) => [key, readStoredLocalStorageValue(key)] as const);
+    let saved = true;
+
+    for (const [key, value] of settings) {
+      if (!writeLocalStorageValue(key, value)) {
+        saved = false;
+      }
+    }
+
+    if (!saved) {
+      for (const [key, previousValue] of previousValues) {
+        if (previousValue === null) {
+          removeLocalStorageValue(key);
+        } else {
+          writeLocalStorageValue(key, previousValue);
+        }
+      }
+      showMessage("外观预览已应用，但本地保存失败；重启后不会保留本次修改，请检查存储权限后重试。", "error");
+      return;
+    }
+
+    showMessage("外观设置已保存，下次启动会继续使用。", "success");
   }
 
   function updateFloatingOpacity(value: number) {
@@ -2076,6 +2115,9 @@ function MainShell() {
         "minimal-app--trail": activeView() === "today",
       }}
       data-theme={themeId()}
+      data-density={density()}
+      data-motion={getMotionIntensityMode(motionIntensity())}
+      style={`--nv-visual-intensity: ${visualIntensity() / 100}; --nv-visual-opacity: ${0.55 + (visualIntensity() / 100) * 0.45}; --nv-motion-intensity: ${motionIntensity() / 100};`}
     >
       <a class="skip-link" href="#main-content">跳到主要内容</a>
       <header class="app-bar" onMouseDown={handleMainWindowMouseDown}>

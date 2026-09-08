@@ -6844,3 +6844,66 @@ body,
   .minimal-app--focus .nv-focus-route__labels span:nth-child(3) { top: 342px; left: 178px; }
   .minimal-app--focus .nv-focus-route__labels span:nth-child(4) { top: 278px; right: 3px; bottom: auto; }
 }
+
+/* Appearance settings are previews during editing and become durable only
+   after the explicit save action. */
+.minimal-app--cinematic::before,
+.minimal-app--cinematic::after {
+  opacity: var(--nv-visual-opacity, 0.874);
+}
+
+.minimal-app--cinematic[data-motion="off"] *,
+.minimal-app--cinematic[data-motion="off"] *::before,
+.minimal-app--cinematic[data-motion="off"] *::after {
+  animation: none !important;
+  scroll-behavior: auto !important;
+  transition: none !important;
+}
+
+.minimal-app--cinematic[data-motion="subtle"] .trail-map__route-dash,
+.minimal-app--cinematic[data-motion="subtle"] .trail-node--current .trail-node__orb,
+.minimal-app--cinematic[data-motion="subtle"] .trail-live-indicator,
+.minimal-app--cinematic[data-motion="subtle"] .records-hero__dial-ring--outer,
+.minimal-app--cinematic[data-motion="subtle"] .records-hero__pulse,
+.minimal-app--cinematic[data-motion="subtle"] .records-archive__route-dash,
+.minimal-app--cinematic[data-motion="subtle"] .nv-focus-route__dash {
+  animation-duration: 4.8s;
+}
+
+.minimal-app--cinematic[data-density="compact"] .nv-settings-subnav a {
+  height: 60px;
+}
+
+.minimal-app--cinematic[data-density="compact"] .nv-settings-panel {
+  margin-bottom: 14px;
+  padding-top: 16px;
+  padding-bottom: 16px;
+}
+
+.minimal-app--cinematic[data-density="compact"] .nv-theme-grid {
+  gap: 5px;
+  margin-top: 12px;
+}
+
+.minimal-app--cinematic[data-density="compact"] .nv-setting-sliders {
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.minimal-app--cinematic[data-density="compact"] .nv-toggle-row {
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.minimal-app--cinematic[data-density="compact"] .trail-focus-panel,
+.minimal-app--cinematic[data-density="compact"] .nv-focus-panel,
+.minimal-app--cinematic[data-density="compact"] .nv-todo-focus-panel {
+  gap: 10px;
+  padding-top: 20px;
+  padding-bottom: 20px;
+}
+
+.minimal-app--cinematic[data-density="compact"] .nv-records-trend,
+.minimal-app--cinematic[data-density="compact"] .nv-record-history {
+  margin-top: 20px;
+}
