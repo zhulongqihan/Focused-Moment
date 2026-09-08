@@ -7,16 +7,16 @@
 
 | 字段 | 当前值 |
 | --- | --- |
-| as_of / updated_at | 2026-09-08 14:21 +08:00；NV-03 开始执行 |
+| as_of / updated_at | 2026-09-08 14:35 +08:00；NV-03 完成时点 |
 | 产品目标 | 本地优先的桌面专注工具：待办 → 专注 → 桌面提醒 → 保存记录 → 回看投入 → 可恢复地长期保留 |
 | 当前阶段 | 第一套 Night Valley 已覆盖五页并发布，进入整体验收与可靠性收口；第二至第五套尚未实现 |
-| 代码基线 | 当前 main SHA `5a8099c`（NV-02 源码提交为 `ab5ba9b`，计划证据已随本线提交；NV-01 外观设置源码提交为 `66b5da5`；CORE-03 证据提交为 `25ebdfc`、源码为 `348b2e9`；源码版本仍为 `2.6.9`，发布 tag 为 `473cc67`） |
-| 当前工作分支 | `main`；CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02 源码与 ENG-01 证据已提交并推送，NV-03 从 `5a8099c` 开始，工作树应保持干净 |
+| 代码基线 | 当前 main SHA `ff6daf5`（NV-03 状态语义提交；NV-02 源码提交为 `ab5ba9b`；NV-01 外观设置源码提交为 `66b5da5`；CORE-03 证据提交为 `25ebdfc`、源码为 `348b2e9`；源码版本仍为 `2.6.9`，发布 tag 为 `473cc67`） |
+| 当前工作分支 | `main`；CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03 源码与 ENG-01 证据已提交并推送，工作树应保持干净 |
 | 发布基线 | GitHub `v2.6.9`，tag 实际提交为 `473cc67` |
-| 远程 main | `5a8099c`，已包含 NV-02、NV-01、CORE-03 与此前功能集成/ENG-01 证据；v2.6.9 tag 仍指向 `473cc67` |
-| 本轮交付 | CORE-01、CORE-02、CORE-04、CORE-05、ENG-01、NV-01、NV-02 完成；CORE-03 的目录实现已提交为 `348b2e9`，但 macOS 原生验收暂缺，任务保留 BLOCKED |
-| 下一项 | **NV-03：状态决定路径含义（DOING）**；完成后继续收口第一套 |
-| 当前执行人 / 在做任务 | Codex / NV-03，起始 SHA `5a8099c`；本轮不触碰真实用户数据、不重指已发布 tag |
+| 远程 main | `ff6daf5`，已包含 NV-03、NV-02、NV-01、CORE-03 与此前功能集成/ENG-01 证据；v2.6.9 tag 仍指向 `473cc67` |
+| 本轮交付 | CORE-01、CORE-02、CORE-04、CORE-05、ENG-01、NV-01、NV-02、NV-03 完成；CORE-03 的目录实现已提交为 `348b2e9`，但 macOS 原生验收暂缺，任务保留 BLOCKED |
+| 下一项 | **NV-04：五页固定视觉/状态基线与差异清单**；随后继续收口第一套 |
+| 当前执行人 / 在做任务 | Codex / NV-03 已完成，下一项 NV-04；本轮不触碰真实用户数据、不重指已发布 tag |
 | 首套验收结论 | **未完成整体收口**。功能存在、测试通过、已发布与参考图验收通过是四件不同的事 |
 | source | 本轮用户说明；当前源码与测试；Git 提交/远程 refs；GitHub Release/Actions；本轮命令结果 |
 | supersedes | 旧文档中的 v1.4.1/v1.5.x/v1.10.0/v2.0 当前进度，以及 2026-09-06 摘要中的“其他四页未实现、主题注册未建立” |
@@ -37,13 +37,13 @@
 | 领域 | 已有能力与实现位置 | 当前判断 / 尚缺证据 |
 | --- | --- | --- |
 | 前端 | SolidJS + TypeScript + Vite；`src/App.tsx` → `src/MainShell.tsx` → Today/NightValley 页面 | 第一套五页真实接线；全量浏览器测试通过；仍有状态与视觉缺口 |
-| 计时引擎 | `src-tauri/src/runtime.rs`；正向计时、倒计时、阶段提醒、暂停/继续、完成、上下文与恢复 | 核心逻辑存在且有单测；重启/休眠/时钟变化、失败重试需专项验收；后端保留 pomodoro 兼容模式，当前主界面只暴露正向/倒计时 |
+| 计时引擎 | `src-tauri/src/runtime.rs`；正向计时、倒计时、阶段提醒、暂停/继续、完成、上下文与恢复 | 核心逻辑存在且有单测；Night Valley 已按未开始/运行/暂停/到点待保存/保存成功/恢复表达状态；重启/休眠/时钟变化、失败重试需专项验收；后端保留 pomodoro 兼容模式，当前主界面只暴露正向/倒计时 |
 | 待办闭环 | `src/lib/tasks.ts`、MainShell、Rust commands；截止日期、可选时间、重要度、编辑/完成/删除/撤销、带入专注 | 有流程回归；大量任务、跨窗口操作及写盘失败需补充 |
 | 专注记录与统计 | Rust analytics + `NightValleyRecords`；记录编辑/删除、日汇总、跨午夜分摊、连续活跃日、档案轨迹 | 页面近七日现按自然日总量 ÷ 7，活跃日平均已标明分母，范围随当前七日档案变化；范围选择与记录导出仍禁用 |
 | 桌面集成 | `src/lib/window-controls.ts`、runtime、main；托盘、隐藏恢复、窗口拖动、悬浮待办/计时、穿透锁与解锁 | mock 流程有覆盖；不能替代 WebView2 / macOS 原生窗口实测；非 Windows 单实例分支直接返回 true |
 | 存储与恢复 | `storage.rs`；state/runtime 分文件、耐久临时写入、有效快照备份、缺失/损坏/不可读回退、用户备份、旧格式迁移 | CORE-01 已覆盖单文件保存/恢复与故障注入；CORE-02 已补齐启动保护与跨 state/runtime 事务回退；跨平台目录仍由 CORE-03 负责 |
 | 设置与本地素材 | 提醒、音效、自定义音效、每日一句、主题预览、本地偏好 | 1000 条语料本地打包且记录来源字段；NV-01 已让外观强调/动效/密度实时驱动当前页面并显式保存；浏览器存储偏好与 Rust 备份并非同一范围 |
-| 测试与构建 | Playwright 36 项、Rust 库 32 项、TS 检查、Vite 构建、GitHub Windows CI / macOS 打包 | NV-02 后前端 36 项、TS 检查与构建通过；当前 `ab5ba9b` 的新远程 Checks 尚未单独核对，已确认的完整 CI 仍是 `abcc80a` |
+| 测试与构建 | Playwright 39 项、Rust 库 32 项、TS 检查、Vite 构建、GitHub Windows CI / macOS 打包 | NV-03 后前端 39 项、TS 检查与构建通过；当前 `ff6daf5` 的新远程 Checks 尚未单独核对，已确认的完整 CI 仍是 `abcc80a` |
 | 发布与交接 | Windows EXE/MSI、macOS DMG、版本说明、发布脚本 | v2.6.9 四项资产存在；main 与 tag 脱节；README 版本陈旧；部分关键资料被 `docs/` 忽略规则挡住 |
 
 ### 历史主线（归纳，不是当前任务顺序）
@@ -90,17 +90,17 @@
 
 ## 4. 本轮验证与限制
 
-以下结果针对当前 main `ab5ba9b`、发布基线 `473cc67`，日期 2026-09-08。后续修改后按影响范围重新验证。
+以下结果针对当前 main `ff6daf5`、发布基线 `473cc67`，日期 2026-09-08。后续修改后按影响范围重新验证。
 
 | 验证 | 结果 | 能证明什么 / 不能证明什么 |
 | --- | --- | --- |
-| `pnpm check` | PASS | NV-02 后 TypeScript 检查通过 |
-| `pnpm build` | PASS，有 >500 kB chunk 提示 | NV-02 后主 JS 636.56 kB、CSS 255.99 kB（构建输出，压缩前）；不等于长期运行性能达标 |
-| `pnpm test:frontend` | PASS，36/36，约 1.1 分钟 | NV-02 后 Chromium + Tauri mock 下流程、几何断言、七日口径与空数据回归通过；不等于原生窗口、真实磁盘、像素还原全通过 |
+| `pnpm check` | PASS | NV-03 后 TypeScript 检查通过 |
+| `pnpm build` | PASS，有 >500 kB chunk 提示 | NV-03 后主 JS 637.64 kB、CSS 255.77 kB（构建输出，压缩前）；不等于长期运行性能达标 |
+| `pnpm test:frontend` | PASS，39/39，约 1.2 分钟 | NV-03 后 Chromium + Tauri mock 下流程、几何断言、状态映射、七日口径与空数据回归通过；不等于原生窗口、真实磁盘、像素还原全通过 |
 | `cargo fmt --check --manifest-path src-tauri/Cargo.toml` | PASS | 当前功能分支格式通过；旧 main 的 CI 失败不代表当前格式仍失败 |
 | `cargo check --manifest-path src-tauri/Cargo.toml` | PASS | 当前 Windows Rust 编译检查通过 |
 | `cargo test --locked --manifest-path src-tauri/Cargo.toml` | PASS | CORE-03 后 32/32 library PASS；binary harness 启动并返回 0（0 tests）；doc-tests 0/0 |
-| 已确认的 main Checks | PASS，run `34190010987`，SHA `abcc80a`，约 7m48s | TypeScript、Vite build、Playwright、Rust fmt/check/test 全部通过；该 run 不覆盖当前 `ab5ba9b`，当前 SHA 的新 Checks 尚未单独核对 |
+| 已确认的 main Checks | PASS，run `34190010987`，SHA `abcc80a`，约 7m48s | TypeScript、Vite build、Playwright、Rust fmt/check/test 全部通过；该 run 不覆盖当前 `ff6daf5`，当前 SHA 的新 Checks 尚未单独核对 |
 | v2.6.9 macOS Release | PASS，run `34148483003`，SHA `473cc67` | Universal 构建/上传成功；不证明 macOS 数据目录、单实例和原生交互都已验收 |
 | GitHub v2.6.9 资产 | 安装 EXE、便携 EXE、MSI、Universal DMG 共 4 项存在 | 本地两个带版本 EXE 的 SHA256 与 Release digest 一致；本轮未重新打包/安装 |
 | 视觉复核 | 检视当前 Today/Timer 截图及 Timer 参考 | Today 左端标签存在裁切迹象；Timer 材质/背景/主操作布局仍有明显差异；尚未完成五页逐区量化 |
@@ -142,7 +142,7 @@ CORE-03、DESK-02 为 macOS 下一次发布门槛，可与 Windows 首套验收�
 | ENG-01 | P1 | DONE | CORE-01/02/04 | 当前代码完整验证、main 集成与 CI 对齐 |
 | NV-01 | P1 | DONE | PLAN-00 | 外观控件实际生效与真实保存反馈 |
 | NV-02 | P1 | DONE | PLAN-00 | 记录日期/统计口径/零值修正 |
-| NV-03 | P1 | DOING | PLAN-00 | 计时状态与阶段路径语义一致 |
+| NV-03 | P1 | DONE | PLAN-00 | 计时状态与阶段路径语义一致 |
 | NV-04 | P1 | TODO | NV-01/02/03 | 五页固定视觉/状态基线与差异清单 |
 | NV-05 | P1 | TODO | NV-04 | 五页响应式、键盘、焦点、错误态收口 |
 | NV-06 | P2 | TODO | NV-04/05 | 分页视觉精修并完成第一套视觉验收 |
@@ -238,6 +238,9 @@ CORE-03、DESK-02 为 macOS 下一次发布门槛，可与 Windows 首套验收�
 - **事实**：`NightValleyFocus.phaseIndex` 只返回 0/1/2；四个标签包含“完成”，路径却有七个编号点，完成标签不可激活且并非七个业务阶段。
 - **目标**：记录状态映射表，区分未开始、运行、暂停、到点待保存、保存成功、恢复。优先用现有快照字段推导；图中七点如只是装饰，去除暗示七个真实阶段的编号/可访问语义；如代表记录，则必须由真实记录生成。
 - **验收**：正向/倒计时各走一轮；运行/暂停文字与按钮一致；到点待保存不误报已记录；保存只增加一条记录并正确更新关联待办；保留兼容 pomodoro 恢复，但不新增产品模式入口；不为贴图虚构“休息中”。
+- **NV-03 本轮结果（2026-09-08）**：新增基于 `TimerSnapshot` 的六态映射：未开始、运行中、已暂停、到点待保存、保存成功、已恢复；倒计时剩余为 0 且有时长时进入待保存，不再落回“专注”；保存成功由一次性前端确认信号表达，下一轮启动/重置/切换模式会清除。路径保留七个视觉节点，但只有四个真实状态锚点参与 active/done，移除节点数字、SVG 可访问阶段语义和“休息”标签；兼容 pomodoro 的恢复/待保存状态仍可被映射，不新增产品入口。
+- **验证证据**：Tauri mock 新增完整保存返回，回归运行/暂停/完成只调用一次保存；覆盖暂停→运行→暂停→保存成功、倒计时到点待保存、恢复态，确认按钮/文案和状态一致；原有路径几何断言与计时截图目视通过。`pnpm check` PASS；NV-03 定向状态用例 3/3、路径几何 1/1 PASS；`pnpm test:frontend` PASS（39/39，约 1.2 分钟）；`pnpm build` PASS（主 JS 637.64 kB、CSS 255.77 kB，保留既有 >500 kB chunk 警告）；`git diff --check` PASS；源码与测试提交并推送 `ff6daf5`。
+- **剩余边界**：本轮验证使用 Chromium + Tauri mock，未替代 Windows/macOS 原生计时与多窗口实测；真实 pomodoro 兼容恢复由 Rust 单测覆盖，主界面仍不暴露该模式；版本/Release 资产留给 REL-01。
 
 ### NV-04 / NV-05 / NV-06 · 第一套从能展示到可验收
 
@@ -367,6 +370,7 @@ NV-05 的具体键盘缺口：`CommandPalette.tsx` 声明 modal/listbox，但缺
 | 2026-09-08 | CORE-03 | `a482fe8`→`348b2e9`；修改 `src-tauri/src/storage.rs` 并推送 main；规范 Windows/macOS 数据目录、旧工作目录备份/验证/切换、源目录保留与目标非空保护已实现；平台路径与迁移隔离测试通过，Rust library 32/32、`pnpm check`、前端32/32（约59.5秒）通过；未读取真实用户数据，未取得 macOS 主机，Finder/第二实例/托盘/浮窗原生验收因此 BLOCKED；版本和 Release 资产未变 | NV-01（CORE-03 解除需 macOS 原生证据） |
 | 2026-09-08 | NV-01 | `6afe0e2`→`66b5da5`；修改 `src/MainShell.tsx`、`src/components/NightValleyViews.tsx`、`src/App.css`、`tests/today-visual.spec.mjs`；外观设置实时生效、显式保存/重载保持、存储失败反馈与动效/密度边界已接线；`pnpm check`、`pnpm test:frontend`（34/34）、`pnpm build`均 PASS，设置截图 `output/playwright/night-valley-settings.png` 已目视核对；源码和测试已推送，版本/Release 资产未变 | NV-02（CORE-03 仍待 macOS 原生证据） |
 | 2026-09-08 | NV-02 | `58eb829`→`ab5ba9b`；修改 `src/MainShell.tsx`、`src/components/NightValleyViews.tsx`、`tests/app.spec.mjs`、`tests/today-visual.spec.mjs`；记录范围动态取当前七日档案，趋势改为自然日平均，活跃日平均明确标注，零投入柱高为 0；`pnpm check`、定向用例（各1/1）、`pnpm test:frontend`（36/36）、`pnpm build`均 PASS；源码和测试已推送，版本/Release 资产未变 | NV-03（CORE-03 仍待 macOS 原生证据） |
+| 2026-09-08 | NV-03 | `5a8099c`→`ff6daf5`；修改 `src/MainShell.tsx`、`src/components/NightValleyViews.tsx`、`src/App.css`、`tests/app.spec.mjs`；计时路径改为六态真实状态映射，七节点去编号并降为四个状态锚点，补充运行/暂停/到点/恢复/保存回归；`pnpm check`、定向状态3/3、路径几何1/1、`pnpm test:frontend`（39/39）、`pnpm build`均 PASS，计时截图已目视核对；源码和测试已推送，版本/Release 资产未变 | NV-04（CORE-03 仍待 macOS 原生证据） |
 
 每条后续记录使用：`日期｜任务ID｜开始SHA→结束SHA｜修改文件｜验证命令与结果｜证据路径/链接｜版本/发布状态｜剩余问题｜下一ID`。没有执行的测试必须写“未执行”，不可复制上一版结果。
 
