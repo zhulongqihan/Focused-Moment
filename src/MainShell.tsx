@@ -745,6 +745,7 @@ function MainShell() {
   let commandInput: HTMLInputElement | undefined;
   let commandTrigger: HTMLButtonElement | undefined;
   let refreshVersion = 0;
+  let timerRefreshVersion = 0;
   let observedAlertSequence: number | null = null;
   let customAlertSoundInput: HTMLInputElement | undefined;
   let floatingTimerWasAvailable = false;
@@ -979,10 +980,12 @@ function MainShell() {
 
   function invalidateRefreshes() {
     refreshVersion += 1;
+    timerRefreshVersion += 1;
   }
 
   async function refresh(force = false) {
     const requestVersion = ++refreshVersion;
+    const timerRequestVersion = ++timerRefreshVersion;
     const [nextTimer, nextTodos, nextRecords, nextAnalytics, nextPreferences] = await Promise.all([
       getTimerSnapshot(),
       getTodoItems(),
@@ -993,18 +996,34 @@ function MainShell() {
 
     if (
       requestVersion !== refreshVersion ||
-      (!force && (busy() || editingTodo() !== null || editingRecord() !== null))
+      timerRequestVersion !== timerRefreshVersion ||
+      (!force && busy())
     ) {
       return false;
     }
 
     applyTimerSnapshot(nextTimer);
+    if (!force && (editingTodo() !== null || editingRecord() !== null)) {
+      return false;
+    }
     setTodos(nextTodos);
     setRecords(nextRecords);
     setAnalytics(nextAnalytics);
     if (nextPreferences) {
       setTimerPreferences(nextPreferences);
     }
+    return true;
+  }
+
+  async function refreshTimerSnapshot(force = false) {
+    const requestVersion = ++timerRefreshVersion;
+    const nextTimer = await getTimerSnapshot();
+
+    if (requestVersion !== timerRefreshVersion || (!force && busy())) {
+      return false;
+    }
+
+    applyTimerSnapshot(nextTimer);
     return true;
   }
 
@@ -1659,12 +1678,14 @@ function MainShell() {
 
       interval = window.setInterval(
         () => {
-          if (busy() || editingTodo() !== null || editingRecord() !== null) {
+          if (loadState() === "error") {
             return;
           }
 
+          const shouldRefreshBusiness = !busy() && editingTodo() === null && editingRecord() === null;
           const hadSyncError = Boolean(syncError());
-          void refresh()
+          const refreshTask = shouldRefreshBusiness ? refresh() : refreshTimerSnapshot();
+          void refreshTask
             .then((refreshed) => {
               if (!refreshed) {
                 return;
@@ -1672,7 +1693,7 @@ function MainShell() {
               setLoadState("ready");
               setLoadError("");
               setSyncError("");
-              if (messageKind() === "error") {
+              if (hadSyncError && messageKind() === "error") {
                 clearMessage();
               }
             })

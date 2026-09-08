@@ -660,6 +660,41 @@ test("record title can be edited and saved without changing its duration", async
   await expect(page.locator(".app-message")).toContainText("专注记录名称已更新");
 });
 
+test("timer snapshots keep refreshing while a record draft is open", async ({ page }) => {
+  test.setTimeout(60_000);
+  await bootWithTauriMock(page, { includeRecords: true, pausedFocus: true });
+
+  await page.getByRole("button", { name: "记录", exact: true }).click();
+  const record = page.locator(".record-row").first();
+  await record.getByRole("button", { name: "编辑记录“完成产品复盘”" }).click();
+
+  const input = record.locator('input[name="editRecordTitle-3"]');
+  await input.fill("仍在编辑中的草稿");
+  const timerCallsBefore = await page.evaluate(() => window.__timerSnapshotCalls);
+  const todoCallsBefore = await page.evaluate(() => window.__todoItemsCalls);
+  await page.evaluate(() => window.__replaceTimer({
+    status: "运行中",
+    isRunning: true,
+    elapsedMs: 31_000,
+    elapsedLabel: "00:00:31",
+  }));
+
+  await expect.poll(() => page.evaluate(() => window.__timerSnapshotCalls), { timeout: 2500 })
+    .toBeGreaterThan(timerCallsBefore);
+  await expect.poll(() => page.evaluate(() => window.__todoItemsCalls), { timeout: 2500 })
+    .toBe(todoCallsBefore);
+  await expect(input).toHaveValue("仍在编辑中的草稿");
+
+  await page.waitForTimeout(30_000);
+  await expect.poll(() => page.evaluate(() => window.__timerSnapshotCalls), { timeout: 5000 })
+    .toBeGreaterThan(timerCallsBefore + 20);
+  expect(await page.evaluate(() => window.__todoItemsCalls)).toBe(todoCallsBefore);
+  await expect(input).toHaveValue("仍在编辑中的草稿");
+
+  await page.getByRole("button", { name: "计时", exact: true }).click();
+  await expect(page.locator(".timer-readout")).toContainText("00:00:31");
+});
+
 test("stopwatch shows the next staged target instead of a one-minute target", async ({ page }) => {
   await bootWithTauriMock(page);
 
