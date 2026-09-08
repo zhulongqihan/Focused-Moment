@@ -1,5 +1,11 @@
 # Focused Moment Agent Workflow
 
+## Current project plan
+
+- Read `PROJECT_PLAN.md` at the repository root before continuing project work. It is the maintained project-wide status, priorities, acceptance criteria, and handoff entry for every model, including Luna.
+- Reconcile its baseline with the current source, Git state, and latest user instructions before acting. Historical roadmaps and context summaries do not define current progress.
+- Update the relevant task status, verification evidence, and next task in `PROJECT_PLAN.md` after each work unit. Planning-only documentation changes do not require an application version bump or rebuilt Release assets.
+
 ## Release discipline
 
 - Every user-facing change that is considered complete should be treated as a release candidate, not left only in the local workspace.

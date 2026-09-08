@@ -91,6 +91,8 @@ Focused Moment 适合需要长期保留待办和专注记录、但不想使用�
 
 ## 从源码构建
 
+项目当前进度、整体验收与后续执行队列见根目录 [项目总览与持续执行计划](./PROJECT_PLAN.md)。继续开发前请先核对其中的基线和任务依赖。
+
 ### 环境要求
 
 - Windows x64 或 macOS
@@ -151,7 +153,7 @@ scripts/                构建、导出与发布脚本
 
 ## 版本发布
 
-当前稳定版本：[v2.5.0](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.5.0)
+当前稳定版本：[v2.6.9](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.6.9)
 
 完整变更记录见 [`docs/`](./docs/) 下的版本发布说明。
 
