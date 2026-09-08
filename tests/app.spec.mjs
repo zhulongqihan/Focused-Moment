@@ -117,6 +117,7 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
     window.__focusFloatingUnlocked = false;
     window.__mainWindowDragged = false;
     window.__flashMainWindowAttention = false;
+    window.__completedFocusCalls = 0;
     window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
     let timerPreferences = {
       pomodoroFocusMinutes: 25,
@@ -242,6 +243,48 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
             return todos;
           case "list_app_backups":
             return [];
+          case "complete_focus_session": {
+            window.__completedFocusCalls += 1;
+            const durationMs = timer.elapsedMs || 0;
+            const totalSeconds = Math.round(durationMs / 1000);
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+            const durationLabel = [hours, minutes, seconds].map((part) => String(part).padStart(2, "0")).join(":");
+            if (timer.completeLinkedTodoOnFinish && timer.linkedTodoId !== null) {
+              todos = todos.map((item) => item.id === timer.linkedTodoId ? { ...item, isCompleted: true } : item);
+            }
+            focusRecords = [...focusRecords, {
+              id: 1000 + focusRecords.length,
+              title: args.title,
+              durationMs,
+              durationLabel,
+              modeKey: timer.modeKey,
+              modeLabel: timer.mode,
+              phaseLabel: timer.phaseLabel,
+              linkedTodoId: timer.linkedTodoId,
+              linkedTodoTitle: timer.linkedTodoId === null ? null : todos.find((item) => item.id === timer.linkedTodoId)?.title ?? null,
+              completedAt: `${today}T12:00:00`,
+              completedDate: today,
+              completedTime: "12:00",
+            }];
+            timer = {
+              ...timer,
+              status: "未开始",
+              isRunning: false,
+              elapsedMs: 0,
+              elapsedLabel: "00:00:00",
+              remainingMs: timer.modeKey === "countdown" ? timer.targetDurationMs : null,
+              activeTaskTitle: "",
+              linkedTodoId: null,
+              completeLinkedTodoOnFinish: false,
+              alertKey: null,
+              alertTitle: null,
+              alertMessage: null,
+              recoveredFromLastSession: false,
+            };
+            return { timerSnapshot: timer, records: focusRecords, todoItems: todos };
+          }
           case "start_timer":
             timer = { ...timer, isRunning: true, status: "正向计时中" };
             return timer;
@@ -560,6 +603,42 @@ test("stopwatch shows the next staged target instead of a one-minute target", as
 
   await expect(page.locator(".timer-readout")).toContainText("下一阶段目标：25 分钟");
   await expect(page.locator(".timer-readout")).not.toContainText("1 分钟");
+});
+
+test("timer route maps running, paused and saved states without fake rest stages", async ({ page }) => {
+  await bootWithTauriMock(page, { pausedFocus: true });
+
+  await page.getByRole("button", { name: "计时", exact: true }).click();
+  await expect(page.locator(".nv-focus-footer strong").first()).toHaveText("已暂停");
+  await expect(page.locator(".nv-focus-route__labels")).not.toContainText("休息");
+  await expect(page.locator(".nv-focus-route__point-label")).toHaveCount(0);
+  await expect(page.locator(".nv-focus-route svg")).toHaveAttribute("aria-hidden", "true");
+
+  await page.getByRole("button", { name: "继续", exact: true }).click();
+  await expect(page.locator(".nv-focus-footer strong").first()).toHaveText("运行中");
+
+  await page.getByRole("button", { name: "暂停", exact: true }).click();
+  await expect(page.locator(".nv-focus-footer strong").first()).toHaveText("已暂停");
+
+  await page.getByRole("button", { name: "完成并记录", exact: true }).click();
+  await expect(page.locator(".nv-focus-footer strong").first()).toHaveText("保存成功");
+  await expect.poll(() => page.evaluate(() => window.__completedFocusCalls)).toBe(1);
+});
+
+test("timer route distinguishes a completed countdown", async ({ page }) => {
+  await bootWithTauriMock(page, { completedCountdown: true });
+
+  await page.getByRole("button", { name: "计时", exact: true }).click();
+  await expect(page.locator(".nv-focus-footer strong").first()).toHaveText("到点待保存");
+  await expect(page.locator(".nv-focus-panel__copy")).toContainText("还没有写入专注记录");
+});
+
+test("timer route distinguishes a recovered session", async ({ page }) => {
+  await bootWithTauriMock(page, { pausedFocus: true });
+  await page.getByRole("button", { name: "计时", exact: true }).click();
+  await page.evaluate(() => window.__replaceTimer({ recoveredFromLastSession: true }));
+  await expect.poll(() => page.locator(".nv-focus-footer strong").first().textContent()).toBe("已恢复");
+  await expect(page.locator(".nv-focus-panel__copy")).toContainText("上一轮进度仍然保留");
 });
 
 test("paused focus floating window can continue without returning to the main window", async ({ page }) => {

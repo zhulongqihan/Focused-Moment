@@ -700,6 +700,7 @@ function importanceLabel(value: TodoImportance) {
 function MainShell() {
   const [activeView, setActiveView] = createSignal<AppView>("today");
   const [timer, setTimer] = createSignal<TimerSnapshot>(emptyTimerSnapshot);
+  const [savedConfirmation, setSavedConfirmation] = createSignal(false);
   const [todos, setTodos] = createSignal<TodoItem[]>([]);
   const [records, setRecords] = createSignal<FocusRecord[]>([]);
   const [analytics, setAnalytics] = createSignal<AnalyticsSnapshot | null>(null);
@@ -924,6 +925,9 @@ function MainShell() {
 
   function applyTimerSnapshot(next: TimerSnapshot) {
     setTimer(next);
+    if (next.isRunning || next.elapsedMs > 0 || next.recoveredFromLastSession) {
+      setSavedConfirmation(false);
+    }
     const hasCommittedContext =
       next.isRunning ||
       next.elapsedMs > 0 ||
@@ -1054,6 +1058,7 @@ function MainShell() {
     await run(async () => {
       const next = await switchTimerMode(mode);
       applyTimerSnapshot(next);
+      setSavedConfirmation(false);
       setCountdownDraftDirty(false);
       setCompleteLinkedTodo(false);
     }, "正在切换…");
@@ -1080,6 +1085,7 @@ function MainShell() {
         await updateTimerContext(title, linkedTodoId(), completeLinkedTodo())
       );
       applyTimerSnapshot(await startTimer());
+      setSavedConfirmation(false);
       setSessionTitleDirty(false);
       if (timer().modeKey === "stopwatch" || timer().modeKey === "countdown") {
         await showFocusFloating();
@@ -1098,6 +1104,7 @@ function MainShell() {
   async function resetFocus() {
     await run(async () => {
       applyTimerSnapshot(await resetTimer());
+      setSavedConfirmation(false);
       setSessionTitle("");
       setSessionTitleDirty(false);
       setLinkedTodoId(null);
@@ -1116,6 +1123,7 @@ function MainShell() {
       setTodos(payload.todoItems);
       setAnalytics(await getAnalyticsSnapshot());
       applyTimerSnapshot(payload.timerSnapshot);
+      setSavedConfirmation(true);
       setSessionTitle("");
       setSessionTitleDirty(false);
       setLinkedTodoId(null);
@@ -1337,6 +1345,7 @@ function MainShell() {
   async function dismissTimerAlert() {
     await run(async () => {
       applyTimerSnapshot(await acknowledgeTimerAlert());
+      setSavedConfirmation(false);
     }, "正在收起…");
   }
 
@@ -2350,6 +2359,7 @@ function MainShell() {
               timerHasProgress={timerHasProgress}
               timerCanContinue={timerCanContinue}
               canFinish={canFinish}
+              savedConfirmation={savedConfirmation}
               sessionTitle={() => sessionTitle()}
               linkedTodoId={() => linkedTodoId()}
               completeLinkedTodo={() => completeLinkedTodo()}

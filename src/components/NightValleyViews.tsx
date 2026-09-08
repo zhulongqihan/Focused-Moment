@@ -33,6 +33,7 @@ export interface NightValleyFocusProps {
   timerHasProgress: Accessor<boolean>;
   timerCanContinue: Accessor<boolean>;
   canFinish: Accessor<boolean>;
+  savedConfirmation: Accessor<boolean>;
   sessionTitle: Accessor<string>;
   linkedTodoId: Accessor<number | null>;
   completeLinkedTodo: Accessor<boolean>;
@@ -70,14 +71,86 @@ function formatPreviewMinutes(value: number) {
   return [hours, minutes, seconds].map((part) => String(part).padStart(2, "0")).join(":");
 }
 
+type FocusVisualStateKey = "ready" | "running" | "paused" | "awaiting-save" | "saved" | "recovered";
+
+interface FocusVisualState {
+  key: FocusVisualStateKey;
+  label: string;
+  compactLabel: string;
+  description: string;
+  routeIndex: number;
+}
+
+function resolveFocusVisualState(
+  snapshot: TimerSnapshot,
+  hasProgress: boolean,
+  savedConfirmation: boolean,
+): FocusVisualState {
+  if (snapshot.recoveredFromLastSession) {
+    return {
+      key: "recovered",
+      label: "已恢复",
+      compactLabel: "RECOVERED",
+      description: "上一轮进度仍然保留，可以继续、完成记录或重置。",
+      routeIndex: 2,
+    };
+  }
+
+  if (
+    (snapshot.modeKey === "countdown" && snapshot.remainingMs === 0 && snapshot.elapsedMs > 0) ||
+    (snapshot.phaseKey === "break" && snapshot.alertKey === "pomodoro_focus_complete")
+  ) {
+    return {
+      key: "awaiting-save",
+      label: "到点待保存",
+      compactLabel: "SAVE REQUIRED",
+      description: "这一轮已经到点，但还没有写入专注记录。",
+      routeIndex: 3,
+    };
+  }
+
+  if (savedConfirmation && !hasProgress && !snapshot.isRunning) {
+    return {
+      key: "saved",
+      label: "保存成功",
+      compactLabel: "SAVED",
+      description: "专注记录已写入，可以开始下一轮。",
+      routeIndex: 3,
+    };
+  }
+
+  if (snapshot.isRunning) {
+    return {
+      key: "running",
+      label: "运行中",
+      compactLabel: "RUNNING",
+      description: "保持当前节奏，其他事情稍后再处理。",
+      routeIndex: 1,
+    };
+  }
+
+  if (hasProgress) {
+    return {
+      key: "paused",
+      label: "已暂停",
+      compactLabel: "PAUSED",
+      description: "这一轮已经暂停，准备好后继续回来。",
+      routeIndex: 2,
+    };
+  }
+
+  return {
+    key: "ready",
+    label: "未开始",
+    compactLabel: "READY",
+    description: "写下这一轮的目标，让时间有一个清晰的去处。",
+    routeIndex: 0,
+  };
+}
+
 export function NightValleyFocus(props: NightValleyFocusProps) {
-  const phaseIndex = createMemo(() => {
-    const snapshot = props.timer();
-    if (snapshot.phaseKey === "break") {
-      return 2;
-    }
-    return props.timerHasProgress() ? 1 : 0;
-  });
+  const visualState = createMemo(() => resolveFocusVisualState(props.timer(), props.timerHasProgress(), props.savedConfirmation()));
+  const phaseIndex = createMemo(() => visualState().routeIndex);
 
   const displayTime = createMemo(() => {
     if (props.timer().modeKey === "countdown" && props.countdownDraftDirty()) {
@@ -101,7 +174,8 @@ export function NightValleyFocus(props: NightValleyFocusProps) {
   const activeTodo = createMemo(() => props.todos().find((item) => item.id === props.linkedTodoId()) ?? null);
   const currentLabel = createMemo(() => props.timer().activeTaskTitle.trim() || activeTodo()?.title || "还没有指定事项");
 
-  const phases = ["准备", "专注", "休息", "完成"];
+  const phases = ["准备", "专注", "暂停", "完成"];
+  const routeStateIndexes: Array<number | null> = [0, null, 1, null, 2, null, 3];
   const routePoints = [
     { x: 20, y: 24 },
     { x: 102, y: 226 },
@@ -122,8 +196,8 @@ export function NightValleyFocus(props: NightValleyFocusProps) {
       </header>
 
       <div class="nv-focus-layout">
-        <section class="nv-focus-route" aria-label="专注阶段路径">
-          <svg viewBox="0 0 860 486" preserveAspectRatio="none" role="img" aria-label="准备、专注、休息和完成阶段">
+        <section class="nv-focus-route" aria-label="专注状态路径">
+          <svg viewBox="0 0 860 486" preserveAspectRatio="none" aria-hidden="true">
             <defs>
               <linearGradient id="nv-focus-route-gradient" x1="0" x2="1" y1="0" y2="0">
                 <stop offset="0" stop-color="#d59b56" />
@@ -139,29 +213,33 @@ export function NightValleyFocus(props: NightValleyFocusProps) {
             <path class="nv-focus-route__line" d={routePath} />
             <path class="nv-focus-route__dash" d={routePath} />
             <For each={routePoints}>
-              {(point, index) => (
-                <g>
-                  <circle
-                    classList={{
-                      "nv-focus-route__point": true,
-                      "nv-focus-route__point--active": index() === phaseIndex(),
-                      "nv-focus-route__point--done": index() < phaseIndex(),
-                    }}
-                    cx={point.x}
-                    cy={point.y}
-                    r={index() === phaseIndex() ? 13 : 9}
-                  />
-                  <text class="nv-focus-route__point-label" x={point.x} y={point.y + 4} text-anchor="middle">
-                    {index() + 1}
-                  </text>
-                </g>
-              )}
+              {(point, index) => {
+                const routeStateIndex = routeStateIndexes[index()];
+                return (
+                  <g aria-hidden="true">
+                    <circle
+                      classList={{
+                        "nv-focus-route__point": true,
+                        "nv-focus-route__point--active": routeStateIndex !== null && routeStateIndex === phaseIndex(),
+                        "nv-focus-route__point--done": routeStateIndex !== null && routeStateIndex < phaseIndex(),
+                        "nv-focus-route__point--decorative": routeStateIndex === null,
+                      }}
+                      cx={point.x}
+                      cy={point.y}
+                      r={routeStateIndex === phaseIndex() ? 13 : 9}
+                    />
+                  </g>
+                );
+              }}
             </For>
           </svg>
           <div class="nv-focus-route__labels">
             <For each={phases}>
               {(phase, index) => (
-                <span classList={{ "is-active": index() === phaseIndex(), "is-done": index() < phaseIndex() }}>
+                <span
+                  classList={{ "is-active": index() === phaseIndex(), "is-done": index() < phaseIndex() }}
+                  aria-current={index() === phaseIndex() ? "step" : undefined}
+                >
                   <b>{String(index() + 1).padStart(2, "0")}</b>
                   {phase}
                 </span>
@@ -211,12 +289,10 @@ export function NightValleyFocus(props: NightValleyFocusProps) {
           <div class="nv-panel-kicker"><span class="nv-live-dot" /> CURRENT SESSION / 当前一段</div>
           <div class="nv-focus-panel__title-line">
             <h2>{currentLabel()}</h2>
-            <span>{props.timer().isRunning ? "RUNNING" : props.timerHasProgress() ? "PAUSED" : "READY"}</span>
+            <span data-focus-state={visualState().key}>{visualState().compactLabel}</span>
           </div>
-          <p class="nv-focus-panel__copy">
-            {props.timerHasProgress()
-              ? props.timer().isRunning ? "保持当前节奏，其他事情稍后再处理。" : "这一轮已经暂停，准备好后继续回来。"
-              : "写下这一轮的目标，让时间有一个清晰的去处。"}
+          <p class="nv-focus-panel__copy" aria-live="polite">
+            <strong>{visualState().label}</strong> · {visualState().description}
           </p>
 
           <div class="mode-switcher nv-mode-switcher" role="group" aria-label="计时模式">
@@ -339,7 +415,7 @@ export function NightValleyFocus(props: NightValleyFocusProps) {
       </div>
 
       <footer class="nv-focus-footer" aria-label="计时状态">
-        <div><span>当前阶段</span><strong>{phases[phaseIndex()]}</strong></div>
+        <div><span>当前状态</span><strong>{visualState().label}</strong></div>
         <div><span>本轮模式</span><strong>{props.timer().mode}</strong></div>
         <div><span>今日已完成</span><strong>{props.timer().completedFocusCount} 段</strong></div>
         <div class="nv-focus-footer__line" aria-hidden="true"><span style={{ width: `${Math.max(5, timerProgress(props.timer(), props.timerHasProgress()) * 100)}%` }} /></div>

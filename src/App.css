@@ -3606,7 +3606,6 @@ html.floating-window body { overflow: hidden; }
   .nv-focus-route__labels span:nth-child(2) { top: 202px; left: 83px; }
   .nv-focus-route__labels span:nth-child(3) { top: 386px; left: 178px; }
   .nv-focus-route__labels span:nth-child(4) { right: 3px; bottom: 19px; }
-  .nv-focus-route__point-label { fill: rgba(232, 225, 198, 0.86); font: 12px/1 "Cascadia Mono", Consolas, monospace; pointer-events: none; }
   .minimal-app--focus .nv-chronograph { height: 730px; }
 
   .minimal-app--todos .nv-todo-create-trigger {
@@ -5860,7 +5859,6 @@ body,
   .nv-focus-route__labels span:nth-child(2) { top: 202px; left: 83px; }
   .nv-focus-route__labels span:nth-child(3) { top: 386px; left: 178px; }
   .nv-focus-route__labels span:nth-child(4) { right: 3px; bottom: 19px; }
-  .nv-focus-route__point-label { fill: rgba(232, 225, 198, 0.86); font: 12px/1 "Cascadia Mono", Consolas, monospace; pointer-events: none; }
   .minimal-app--focus .nv-chronograph { height: 730px; }
 
   .minimal-app--todos .nv-todo-create-trigger { position: absolute; top: 103px; right: 261px; display: inline-flex; width: 162px; height: 55px; align-items: center; justify-content: center; gap: 8px; padding: 0 14px; border: 1px solid rgba(218, 172, 93, 0.72); border-radius: 8px; background: rgba(5, 16, 22, 0.48); color: rgba(239, 229, 202, 0.9); font-size: 14px; box-shadow: 0 10px 28px rgba(0, 0, 0, 0.2); }
@@ -6836,8 +6834,8 @@ body,
   }
 }
 
-/* v2.6.9 timer route: keep the seven stages close to the chronograph and
-   give the path a deliberate sequence of valleys and rises like the concept. */
+/* v2.6.9 timer route: keep four real state anchors on seven visual nodes,
+   giving the path a deliberate sequence of valleys and rises like the concept. */
 @media (min-width: 821px) {
   .minimal-app--focus .nv-focus-route__labels span:nth-child(1) { top: 38px; left: 5px; }
   .minimal-app--focus .nv-focus-route__labels span:nth-child(2) { top: 238px; left: 83px; }
