@@ -8,6 +8,7 @@ const baselineSha = process.env.NV04_BASELINE_SHA ?? execFileSync("git", ["rev-p
 const baselineDirectory = `output/qa/NV-04/${baselineSha}`;
 const editorialDirectory = `output/qa/TH-02/${process.env.TH02_BASELINE_SHA ?? baselineSha}`;
 const graphiteDirectory = `output/qa/TH-03/${process.env.TH03_BASELINE_SHA ?? baselineSha}`;
+const auroraDirectory = `output/qa/TH-04/${process.env.TH04_BASELINE_SHA ?? baselineSha}`;
 const performanceDirectory = `output/qa/PERF-01/${process.env.PERF_BASELINE_SHA ?? baselineSha}`;
 
 const nightValleyPages = [
@@ -510,7 +511,7 @@ test("Timer route follows a tighter winding concept path", async ({ page }) => {
   expect(geometry.labels[3]).toBeLessThan(340);
 });
 
-test("Theme registry exposes three implemented surfaces and two disabled previews", async ({ page }) => {
+test("Theme registry exposes four implemented surfaces and one disabled preview", async ({ page }) => {
   await page.setViewportSize({ width: 1487, height: 1058 });
   await bootTodayReferenceMock(page);
 
@@ -522,7 +523,8 @@ test("Theme registry exposes three implemented surfaces and two disabled preview
   await expect(themeCards.filter({ hasText: "夜谷" })).toHaveAttribute("aria-pressed", "true");
   await expect(themeCards.filter({ hasText: "编辑纸页" })).toBeEnabled();
   await expect(themeCards.filter({ hasText: "石墨控制台" })).toBeEnabled();
-  await expect(themeCards.filter({ hasText: "尚未实现" })).toHaveCount(2);
+  await expect(themeCards.filter({ hasText: "极光海面" })).toBeEnabled();
+  await expect(themeCards.filter({ hasText: "尚未实现" })).toHaveCount(1);
   await expect(themeCards.filter({ hasText: "尚未实现" }).first()).toBeDisabled();
   await expect(themeCards.locator("img")).toHaveCount(5);
 
@@ -568,7 +570,7 @@ test("an invalid persisted theme keeps the Night Valley surface available", asyn
 
 test("an unimplemented persisted theme falls back before rendering a page", async ({ page }) => {
   await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "aurora-ocean");
+    localStorage.setItem("focused-moment.theme", "botanical-library");
   });
   await page.setViewportSize({ width: 1487, height: 1058 });
   await bootTodayReferenceMock(page);
@@ -612,6 +614,7 @@ test("Graphite Console renders all five pages inside the control surface", async
 });
 
 test("Graphite Console keeps shared actions and page bounds usable at pressure widths", async ({ page }) => {
+  test.setTimeout(90_000);
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "graphite-console");
   });
@@ -646,6 +649,78 @@ test("Graphite Console keeps shared actions and page bounds usable at pressure w
     await expect(page.locator(".gc-focus-page")).toBeVisible();
     await page.locator(".gc-focus-page").getByRole("button", { name: /开始专注/ }).click();
     await expect(page.locator(".gc-focus-page")).toContainText("运行中");
+  }
+});
+
+test("Aurora Ocean renders all five pages inside the light field", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "aurora-ocean");
+  });
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page, { expectedHeading: "TIDE / 潮汐轨迹" });
+  mkdirSync(auroraDirectory, { recursive: true });
+
+  const pages = [
+    ["今日", ".ao-today-page", "today.png"],
+    ["计时", ".ao-focus-page", "focus.png"],
+    ["待办", ".ao-todos-page", "todos.png"],
+    ["记录", ".ao-records-page", "records.png"],
+    ["设置", ".ao-settings-page", "settings.png"],
+  ];
+  const geometry = {};
+  for (const [label, selector, screenshot] of pages) {
+    if (label !== "今日") {
+      await pageButton(page, label).click();
+    }
+    const surface = page.locator(selector);
+    await expect(surface).toBeVisible();
+    geometry[label] = await surface.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return { x: Number(rect.x.toFixed(2)), y: Number(rect.y.toFixed(2)), width: Number(rect.width.toFixed(2)), height: Number(rect.height.toFixed(2)), right: Number(rect.right.toFixed(2)) };
+    });
+    expect(geometry[label].width).toBeGreaterThan(600);
+    expect(geometry[label].right).toBeLessThanOrEqual(1487);
+    await page.screenshot({ path: `${auroraDirectory}/${screenshot}`, animations: "disabled", fullPage: true });
+  }
+  writeFileSync(`${auroraDirectory}/geometry.json`, JSON.stringify({ viewport: { width: 1487, height: 1058 }, pages: geometry }, null, 2));
+});
+
+test("Aurora Ocean keeps shared actions and page bounds usable at pressure widths", async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "aurora-ocean");
+  });
+
+  for (const [width, height] of [[1120, 760], [820, 720], [560, 720], [420, 720]]) {
+    await page.setViewportSize({ width, height });
+    await bootTodayReferenceMock(page, { expectedHeading: "TIDE / 潮汐轨迹" });
+    const pages = [
+      ["今日", ".ao-today-page"],
+      ["计时", ".ao-focus-page"],
+      ["待办", ".ao-todos-page"],
+      ["记录", ".ao-records-page"],
+      ["设置", ".ao-settings-page"],
+    ];
+
+    for (const [label, selector] of pages) {
+      if (label !== "今日") {
+        await pageButton(page, label).click();
+      }
+      const surface = page.locator(selector);
+      await expect(surface).toBeVisible();
+      const bounds = await surface.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        return { right: rect.right, width: rect.width, scrollWidth: document.documentElement.scrollWidth };
+      });
+      expect(bounds.right).toBeLessThanOrEqual(width + 1);
+      expect(bounds.scrollWidth).toBeLessThanOrEqual(width + 1);
+    }
+
+    await pageButton(page, "今日").click();
+    await page.getByRole("button", { name: /START \/ 开始专注/ }).click();
+    await expect(page.locator(".ao-focus-page")).toBeVisible();
+    await page.locator(".ao-focus-page").getByRole("button", { name: /开始专注/ }).click();
+    await expect(page.locator(".ao-focus-page")).toContainText("运行中");
   }
 });
 

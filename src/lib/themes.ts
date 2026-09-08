@@ -49,8 +49,8 @@ export const themes: ThemeDefinition[] = [
     name: "极光海面",
     englishName: "Aurora Ocean",
     preview: "/theme-previews/04-aurora-ocean.png",
-    implemented: false,
-    description: "潮汐、极光与流动节奏的概念方向。",
+    implemented: true,
+    description: "潮汐、极光与流动节奏的专注光场。",
   },
   {
     id: "botanical-library",

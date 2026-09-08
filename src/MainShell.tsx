@@ -78,6 +78,7 @@ import { getTheme, implementedThemeId, type ThemeId } from "./lib/themes";
 import "./App.css";
 import "./components/EditorialPaperViews.css";
 import "./components/GraphiteConsoleViews.css";
+import "./components/AuroraOceanViews.css";
 
 type AppView = "today" | "focus" | "todos" | "records" | "settings";
 type TimerMode = "stopwatch" | "countdown";
