@@ -2,6 +2,7 @@ use std::env;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -18,6 +19,14 @@ const USER_BACKUP_DIR_NAME: &str = "Focused Moment Backups";
 const USER_BACKUP_PREFIX: &str = "focused-moment-backup-v2-";
 const LEGACY_USER_BACKUP_PREFIX: &str = "focused-moment-backup-v1-";
 const USER_BACKUP_SUFFIX: &str = ".json";
+
+#[allow(dead_code)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum StoragePlatform {
+    Windows,
+    MacOs,
+    Other,
+}
 
 #[derive(Clone)]
 pub struct PersistenceStore {
@@ -52,6 +61,59 @@ fn resolve_app_directory() -> Result<PathBuf, String> {
     }
 
     env::current_dir().map_err(|error| error.to_string())
+}
+
+fn app_data_base_dir_for(
+    platform: StoragePlatform,
+    local_app_data: Option<PathBuf>,
+    roaming_app_data: Option<PathBuf>,
+    home: Option<PathBuf>,
+    fallback: PathBuf,
+) -> PathBuf {
+    match platform {
+        StoragePlatform::Windows => local_app_data.or(roaming_app_data).unwrap_or(fallback),
+        StoragePlatform::MacOs => home
+            .map(|path| path.join("Library").join("Application Support"))
+            .unwrap_or(fallback),
+        StoragePlatform::Other => fallback,
+    }
+}
+
+fn resolve_storage_base_dir() -> Result<PathBuf, String> {
+    let fallback = env::current_dir().map_err(|error| error.to_string())?;
+
+    #[cfg(windows)]
+    {
+        return Ok(app_data_base_dir_for(
+            StoragePlatform::Windows,
+            env::var_os("LOCALAPPDATA").map(PathBuf::from),
+            env::var_os("APPDATA").map(PathBuf::from),
+            None,
+            fallback,
+        ));
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        return Ok(app_data_base_dir_for(
+            StoragePlatform::MacOs,
+            None,
+            None,
+            env::var_os("HOME").map(PathBuf::from),
+            fallback,
+        ));
+    }
+
+    #[cfg(not(any(windows, target_os = "macos")))]
+    {
+        Ok(app_data_base_dir_for(
+            StoragePlatform::Other,
+            None,
+            None,
+            None,
+            fallback,
+        ))
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -133,16 +195,19 @@ fn legacy_schema_version() -> u64 {
 
 impl PersistenceStore {
     pub fn new() -> Result<Self, String> {
-        let base_dir = env::var_os("LOCALAPPDATA")
-            .or_else(|| env::var_os("APPDATA"))
-            .map(PathBuf::from)
-            .unwrap_or(env::current_dir().map_err(|error| error.to_string())?);
-
-        Self::from_base_dir(base_dir)
+        let store = Self::from_base_dir(resolve_storage_base_dir()?)?;
+        let legacy_storage_dir = env::current_dir()
+            .map_err(|error| error.to_string())?
+            .join(STORAGE_DIR_NAME);
+        migrate_legacy_storage(&legacy_storage_dir, store.storage_dir())?;
+        Ok(store)
     }
 
     fn from_base_dir(base_dir: PathBuf) -> Result<Self, String> {
-        let storage_dir = base_dir.join(STORAGE_DIR_NAME);
+        Self::from_storage_dir(base_dir.join(STORAGE_DIR_NAME))
+    }
+
+    fn from_storage_dir(storage_dir: PathBuf) -> Result<Self, String> {
         fs::create_dir_all(&storage_dir).map_err(|error| error.to_string())?;
         let legacy_backup_dir = resolve_app_directory()?.join(USER_BACKUP_DIR_NAME);
 
@@ -156,6 +221,12 @@ impl PersistenceStore {
             #[cfg(test)]
             failure: std::sync::Arc::new(std::sync::Mutex::new(None)),
         })
+    }
+
+    fn storage_dir(&self) -> &Path {
+        self.state_path
+            .parent()
+            .expect("state path must have a storage directory")
     }
 
     #[cfg(test)]
@@ -357,6 +428,151 @@ fn path_exists(path: &Path) -> Result<bool, String> {
     }
 }
 
+fn directory_is_empty(path: &Path) -> Result<bool, String> {
+    let mut entries = fs::read_dir(path).map_err(|error| error.to_string())?;
+    Ok(entries
+        .next()
+        .transpose()
+        .map_err(|error| error.to_string())?
+        .is_none())
+}
+
+fn migration_suffix() -> String {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_nanos().to_string())
+        .unwrap_or_else(|_| "clock-error".to_string())
+}
+
+fn unique_migration_sibling(path: &Path, label: &str) -> Result<PathBuf, String> {
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("focused-moment-storage");
+    let suffix = migration_suffix();
+
+    for attempt in 0..100u32 {
+        let candidate = path.with_file_name(format!(
+            "{file_name}.{label}-{suffix}{attempt_suffix}",
+            attempt_suffix = if attempt == 0 {
+                String::new()
+            } else {
+                format!("-{attempt}")
+            }
+        ));
+        if !path_exists(&candidate)? {
+            return Ok(candidate);
+        }
+    }
+
+    Err(format!("无法为旧数据迁移创建唯一的 {label} 路径。"))
+}
+
+fn copy_directory_recursive(source: &Path, destination: &Path) -> Result<(), String> {
+    fs::create_dir_all(destination).map_err(|error| error.to_string())?;
+
+    for entry in fs::read_dir(source).map_err(|error| error.to_string())? {
+        let entry = entry.map_err(|error| error.to_string())?;
+        let source_path = entry.path();
+        let destination_path = destination.join(entry.file_name());
+        let metadata = fs::symlink_metadata(&source_path).map_err(|error| error.to_string())?;
+
+        if metadata.file_type().is_symlink() {
+            return Err(format!(
+                "旧数据目录包含不支持迁移的符号链接：{}",
+                source_path.display()
+            ));
+        }
+
+        if metadata.is_dir() {
+            copy_directory_recursive(&source_path, &destination_path)?;
+        } else if metadata.is_file() {
+            fs::copy(&source_path, &destination_path).map_err(|error| error.to_string())?;
+        } else {
+            return Err(format!(
+                "旧数据目录包含不支持迁移的文件类型：{}",
+                source_path.display()
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+fn migrate_legacy_storage(
+    legacy_storage_dir: &Path,
+    canonical_storage_dir: &Path,
+) -> Result<bool, String> {
+    if legacy_storage_dir == canonical_storage_dir {
+        return Ok(false);
+    }
+
+    if !path_exists(legacy_storage_dir)? {
+        return Ok(false);
+    }
+
+    if path_exists(canonical_storage_dir)? && !directory_is_empty(canonical_storage_dir)? {
+        return Ok(false);
+    }
+
+    let backup_dir = unique_migration_sibling(legacy_storage_dir, "migration-backup")?;
+    copy_directory_recursive(legacy_storage_dir, &backup_dir)
+        .map_err(|error| format!("迁移前备份旧数据失败：{error}"))?;
+
+    let staging_dir = match unique_migration_sibling(canonical_storage_dir, "migration-tmp") {
+        Ok(path) => path,
+        Err(error) => {
+            return Err(format!("准备旧数据迁移目录失败：{error}"));
+        }
+    };
+
+    if let Err(error) = copy_directory_recursive(legacy_storage_dir, &staging_dir) {
+        let _ = fs::remove_dir_all(&staging_dir);
+        return Err(format!("复制旧数据到迁移暂存目录失败：{error}"));
+    }
+
+    let staging_store = match PersistenceStore::from_storage_dir(staging_dir.clone()) {
+        Ok(store) => store,
+        Err(error) => {
+            let _ = fs::remove_dir_all(&staging_dir);
+            return Err(format!("准备旧数据迁移验证失败：{error}"));
+        }
+    };
+    if let Err(error) = staging_store
+        .load()
+        .and_then(|_| staging_store.load_runtime())
+        .map(|_| ())
+    {
+        let _ = fs::remove_dir_all(&staging_dir);
+        return Err(format!("旧数据迁移验证失败：{error}"));
+    }
+
+    let displaced_dir = if path_exists(canonical_storage_dir)? {
+        let path = unique_migration_sibling(canonical_storage_dir, "migration-old")?;
+        if let Err(error) = fs::rename(canonical_storage_dir, &path) {
+            let _ = fs::remove_dir_all(&staging_dir);
+            return Err(format!("切换旧数据迁移目录失败：{error}"));
+        }
+        Some(path)
+    } else {
+        None
+    };
+
+    if let Err(error) = fs::rename(&staging_dir, canonical_storage_dir) {
+        if let Some(displaced_dir) = displaced_dir.as_ref() {
+            let _ = fs::rename(displaced_dir, canonical_storage_dir);
+        }
+        let _ = fs::remove_dir_all(&staging_dir);
+        return Err(format!("提交旧数据迁移结果失败：{error}"));
+    }
+
+    if let Some(displaced_dir) = displaced_dir {
+        let _ = fs::remove_dir_all(displaced_dir);
+    }
+
+    Ok(true)
+}
+
 fn write_durable(path: &Path, contents: &[u8]) -> Result<(), String> {
     let mut file = OpenOptions::new()
         .create(true)
@@ -495,6 +711,191 @@ mod tests {
 
     fn cleanup(root: &Path) {
         let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn platform_data_directory_prefers_expected_locations() {
+        let fallback = PathBuf::from(r"C:\fallback");
+
+        assert_eq!(
+            app_data_base_dir_for(
+                StoragePlatform::Windows,
+                Some(PathBuf::from(r"C:\local")),
+                Some(PathBuf::from(r"C:\roaming")),
+                None,
+                fallback.clone(),
+            ),
+            PathBuf::from(r"C:\local")
+        );
+        assert_eq!(
+            app_data_base_dir_for(
+                StoragePlatform::Windows,
+                None,
+                Some(PathBuf::from(r"C:\roaming")),
+                None,
+                fallback.clone(),
+            ),
+            PathBuf::from(r"C:\roaming")
+        );
+        assert_eq!(
+            app_data_base_dir_for(
+                StoragePlatform::MacOs,
+                None,
+                None,
+                Some(PathBuf::from(r"C:\Users\Test")),
+                fallback.clone(),
+            ),
+            PathBuf::from(r"C:\Users\Test")
+                .join("Library")
+                .join("Application Support")
+        );
+        assert_eq!(
+            app_data_base_dir_for(StoragePlatform::Other, None, None, None, fallback.clone(),),
+            fallback
+        );
+    }
+
+    #[test]
+    fn legacy_storage_migration_keeps_source_backup_and_validates_destination() {
+        let root = temp_root();
+        let legacy_parent = root.join("legacy");
+        let canonical_parent = root.join("canonical");
+        let legacy_store = PersistenceStore::for_test(&legacy_parent).expect("create legacy store");
+
+        legacy_store.save(&state(7)).expect("save legacy state");
+        legacy_store
+            .save_runtime(&runtime(42))
+            .expect("save legacy runtime");
+
+        let migrated = migrate_legacy_storage(
+            &legacy_parent.join(STORAGE_DIR_NAME),
+            &canonical_parent.join(STORAGE_DIR_NAME),
+        )
+        .expect("migrate valid legacy storage");
+        assert!(migrated);
+
+        let canonical_store =
+            PersistenceStore::for_test(&canonical_parent).expect("open canonical store");
+        assert_eq!(
+            canonical_store
+                .load()
+                .expect("load migrated state")
+                .next_record_id,
+            7
+        );
+        assert_eq!(
+            canonical_store
+                .load_runtime()
+                .expect("load migrated runtime")
+                .stopwatch_elapsed_ms,
+            42
+        );
+        assert!(legacy_store.state_path.exists());
+        assert!(legacy_store.runtime_path.exists());
+
+        let has_migration_backup = fs::read_dir(&legacy_parent)
+            .expect("read legacy parent")
+            .filter_map(Result::ok)
+            .any(|entry| {
+                entry
+                    .file_name()
+                    .to_string_lossy()
+                    .contains("migration-backup")
+            });
+        assert!(has_migration_backup);
+
+        cleanup(&root);
+    }
+
+    #[test]
+    fn legacy_storage_migration_rejects_invalid_snapshot_without_switching() {
+        let root = temp_root();
+        let legacy_parent = root.join("legacy");
+        let canonical_parent = root.join("canonical");
+        let legacy_store = PersistenceStore::for_test(&legacy_parent).expect("create legacy store");
+
+        fs::write(&legacy_store.state_path, b"{invalid state").expect("corrupt legacy state");
+        legacy_store
+            .save_runtime(&runtime(42))
+            .expect("save legacy runtime");
+
+        let error = migrate_legacy_storage(
+            &legacy_parent.join(STORAGE_DIR_NAME),
+            &canonical_parent.join(STORAGE_DIR_NAME),
+        )
+        .expect_err("invalid legacy storage must not migrate");
+        assert!(error.contains("迁移验证"));
+        assert!(legacy_store.state_path.exists());
+        assert!(!canonical_parent.join(STORAGE_DIR_NAME).exists());
+
+        let has_migration_backup = fs::read_dir(&legacy_parent)
+            .expect("read legacy parent")
+            .filter_map(Result::ok)
+            .any(|entry| {
+                entry
+                    .file_name()
+                    .to_string_lossy()
+                    .contains("migration-backup")
+            });
+        assert!(has_migration_backup);
+
+        cleanup(&root);
+    }
+
+    #[test]
+    fn legacy_storage_migration_never_overwrites_non_empty_canonical_storage() {
+        let root = temp_root();
+        let legacy_parent = root.join("legacy");
+        let canonical_parent = root.join("canonical");
+        let legacy_store = PersistenceStore::for_test(&legacy_parent).expect("create legacy store");
+        let canonical_store =
+            PersistenceStore::for_test(&canonical_parent).expect("create canonical store");
+
+        legacy_store.save(&state(7)).expect("save legacy state");
+        legacy_store
+            .save_runtime(&runtime(42))
+            .expect("save legacy runtime");
+        canonical_store
+            .save(&state(9))
+            .expect("save canonical state");
+        canonical_store
+            .save_runtime(&runtime(84))
+            .expect("save canonical runtime");
+
+        let migrated = migrate_legacy_storage(
+            &legacy_parent.join(STORAGE_DIR_NAME),
+            &canonical_parent.join(STORAGE_DIR_NAME),
+        )
+        .expect("inspect non-empty canonical storage");
+        assert!(!migrated);
+        assert_eq!(
+            canonical_store
+                .load()
+                .expect("load preserved canonical state")
+                .next_record_id,
+            9
+        );
+        assert_eq!(
+            canonical_store
+                .load_runtime()
+                .expect("load preserved canonical runtime")
+                .stopwatch_elapsed_ms,
+            84
+        );
+        assert!(legacy_store.state_path.exists());
+
+        let has_migration_backup = fs::read_dir(&legacy_parent)
+            .expect("read legacy parent")
+            .filter_map(Result::ok)
+            .any(|entry| {
+                entry
+                    .file_name()
+                    .to_string_lossy()
+                    .contains("migration-backup")
+            });
+        assert!(!has_migration_backup);
+
+        cleanup(&root);
     }
 
     fn state(next_record_id: u64) -> PersistedState {
