@@ -7,20 +7,20 @@
 
 | 字段 | 当前值 |
 | --- | --- |
-| as_of / updated_at | 2026-09-08 13:27 +08:00；领取 CORE-03 时点 |
+| as_of / updated_at | 2026-09-08 13:40 +08:00；CORE-03 完成时点 |
 | 产品目标 | 本地优先的桌面专注工具：待办 → 专注 → 桌面提醒 → 保存记录 → 回看投入 → 可恢复地长期保留 |
 | 当前阶段 | 第一套 Night Valley 已覆盖五页并发布，进入整体验收与可靠性收口；第二至第五套尚未实现 |
-| 代码基线 | 当前 main SHA `a482fe8`（ENG-01 证据提交；功能集成提交为 `abcc80a`；源码版本仍为 `2.6.9`，发布 tag 为 `473cc67`） |
-| 当前工作分支 | `main`；CORE-01/CORE-02/CORE-04/CORE-05 源码与 ENG-01 证据已提交并推送，工作树应保持干净 |
+| 代码基线 | 当前 main SHA `348b2e9`（CORE-03 数据目录迁移提交；ENG-01 功能集成提交为 `abcc80a`；源码版本仍为 `2.6.9`，发布 tag 为 `473cc67`） |
+| 当前工作分支 | `main`；CORE-01/CORE-02/CORE-03/CORE-04/CORE-05 源码与 ENG-01 证据已提交并推送，工作树应保持干净 |
 | 发布基线 | GitHub `v2.6.9`，tag 实际提交为 `473cc67` |
-| 远程 main | `a482fe8`，已包含功能集成提交 `abcc80a` 及 ENG-01 证据；v2.6.9 tag 仍指向 `473cc67` |
-| 本轮交付 | CORE-01、CORE-02、CORE-04、CORE-05、ENG-01 完成；领取 CORE-03，起始 SHA `a482fe8`，核对跨平台数据目录与旧目录迁移 |
-| 下一项 | **CORE-03：跨平台数据目录、旧目录发现与迁移**；随后继续收口第一套 |
-| 当前执行人 / 在做任务 | Codex / CORE-03；起始 SHA `a482fe8`；本轮不触碰真实用户数据、不重指已发布 tag |
+| 远程 main | `348b2e9`，已包含 CORE-03 与此前功能集成/ENG-01 证据；v2.6.9 tag 仍指向 `473cc67` |
+| 本轮交付 | CORE-01、CORE-02、CORE-04、CORE-05、ENG-01 完成；CORE-03 的目录实现已提交为 `348b2e9`，但 macOS 原生验收暂缺，任务保留 BLOCKED |
+| 下一项 | **NV-01：外观控件实际生效与真实保存反馈**；随后继续收口第一套 |
+| 当前执行人 / 在做任务 | Codex / CORE-03 代码完成但受 macOS 环境阻断，下一项 NV-01；本轮不触碰真实用户数据、不重指已发布 tag |
 | 首套验收结论 | **未完成整体收口**。功能存在、测试通过、已发布与参考图验收通过是四件不同的事 |
 | source | 本轮用户说明；当前源码与测试；Git 提交/远程 refs；GitHub Release/Actions；本轮命令结果 |
 | supersedes | 旧文档中的 v1.4.1/v1.5.x/v1.10.0/v2.0 当前进度，以及 2026-09-06 摘要中的“其他四页未实现、主题注册未建立” |
-| pending | 跨平台目录迁移、版本/包/Release 闭环、外观设置有效性、统计口径、阶段语义、五页视觉证据、原生窗口/平台验证 |
+| pending | 版本/包/Release 闭环、外观设置有效性、统计口径、阶段语义、五页视觉证据、原生窗口/平台验证 |
 
 **进度读取规则：**最新明确用户要求 > 当前源码/运行结果/远程事实 > 本看板 > 历史文档。后续开始工作先刷新以上版本和提交，不能把今天的基线当永久事实。任务勾选必须有结果证据，不能按版本号、文件数或截图数量计算“完成百分比”。
 
@@ -96,10 +96,10 @@
 | --- | --- | --- |
 | `pnpm check` | PASS | CORE-02 后 TypeScript 检查通过 |
 | `pnpm build` | PASS，有 >500 kB chunk 提示 | 可构建；主 JS 635.33 kB、CSS 254.30 kB（构建输出，压缩前）；不等于长期运行性能达标 |
-| `pnpm test:frontend` | PASS，32/32，约 56.6 秒 | CORE-02 后 Chromium + Tauri mock 下现有流程/几何断言通过；不等于原生窗口、真实磁盘、像素还原全通过 |
+| `pnpm test:frontend` | PASS，32/32，约 59.5 秒 | CORE-03 后 Chromium + Tauri mock 下现有流程/几何断言通过；不等于原生窗口、真实磁盘、像素还原全通过 |
 | `cargo fmt --check --manifest-path src-tauri/Cargo.toml` | PASS | 当前功能分支格式通过；旧 main 的 CI 失败不代表当前格式仍失败 |
 | `cargo check --manifest-path src-tauri/Cargo.toml` | PASS | 当前 Windows Rust 编译检查通过 |
-| `cargo test --locked --manifest-path src-tauri/Cargo.toml` | PASS | CORE-05/ENG-01 后 28/28 library PASS；binary harness 启动并返回 0（0 tests）；doc-tests 0/0 |
+| `cargo test --locked --manifest-path src-tauri/Cargo.toml` | PASS | CORE-03 后 32/32 library PASS；binary harness 启动并返回 0（0 tests）；doc-tests 0/0 |
 | 远程 main 最新 Checks | PASS，run `34190010987`，SHA `abcc80a`，约 7m48s | TypeScript、Vite build、Playwright 32/32、Rust fmt/check/test 全部通过；旧 run `33981366154` 的失败只覆盖旧 SHA `bcf23fa` |
 | v2.6.9 macOS Release | PASS，run `34148483003`，SHA `473cc67` | Universal 构建/上传成功；不证明 macOS 数据目录、单实例和原生交互都已验收 |
 | GitHub v2.6.9 资产 | 安装 EXE、便携 EXE、MSI、Universal DMG 共 4 项存在 | 本地两个带版本 EXE 的 SHA256 与 Release digest 一致；本轮未重新打包/安装 |
@@ -136,7 +136,7 @@ CORE-03、DESK-02 为 macOS 下一次发布门槛，可与 Windows 首套验收�
 | ENG-00 | P1 | DONE | PLAN-00 | 定位 Rust binary test 的 os error 5，恢复完整验证能力 |
 | CORE-01 | P0 | DONE | PLAN-00 | 磁盘保存中断恢复、有效副本保护 |
 | CORE-02 | P0 | DONE | CORE-01 | 启动错误可见、恢复/完成事务失败一致性 |
-| CORE-03 | P1 | DOING | CORE-01 | 跨平台数据目录、旧目录发现与迁移 |
+| CORE-03 | P1 | BLOCKED | CORE-01 | 跨平台数据目录、旧目录发现与迁移（代码与 Windows 隔离验证完成，macOS 原生验收待环境） |
 | CORE-04 | P1 | DONE | PLAN-00 | 合法短倒计时重启/导入后保持原时长 |
 | CORE-05 | P2 | DONE | CORE-02/04 | 兼容番茄多轮恢复与系统时钟变化边界 |
 | ENG-01 | P1 | DONE | CORE-01/02/04 | 当前代码完整验证、main 集成与 CI 对齐 |
@@ -198,6 +198,9 @@ CORE-03、DESK-02 为 macOS 下一次发布门槛，可与 Windows 首套验收�
 - **事实**：`PersistenceStore::new` 优先 `LOCALAPPDATA/APPDATA`，否则 `current_dir`，没有明确 macOS Application Support 分支；`main.rs` 非 Windows 单实例直接返回 true。
 - **实现目标**：应用数据目录与启动工作目录无关；明确 Windows/macOS 的规范位置；安全发现已有目录，迁移前备份、验证成功后切换，不盲目搬动或删除旧数据。
 - **验收**：不同启动目录仍读取同一账户数据；升级后记录/偏好/运行态仍在；只读旧目录能报告恢复办法；macOS Finder 启动/重启、第二次打开、托盘与浮窗行为有真机记录。无法取得 macOS 环境则标 BLOCKED 并说明影响，Windows 已完成项可继续。
+- **本轮实现（2026-09-08）**：`PersistenceStore::new` 现在按平台选择规范数据根目录：Windows 使用 `LOCALAPPDATA`（缺失时回退 `APPDATA`），macOS 使用 `~/Library/Application Support`，其他平台保留当前工作目录作为兼容回退；实际存储仍位于 `FocusedMoment/`，不再随启动工作目录漂移。启动时发现旧的工作目录 `FocusedMoment/` 且规范目录为空，会先创建带时间戳的迁移备份，再复制到暂存目录，同时验证 state/runtime，验证成功后切换目录；源目录不删除，目标非空不覆盖，失败时保留源和备份并返回明确迁移错误。符号链接和不支持的文件类型拒绝迁移，避免把数据目录边界扩大到目录外。
+- **验证证据**：新增平台路径优先级、有效旧目录迁移、无效快照拒绝切换、目标非空不覆盖测试；`cargo fmt --check --manifest-path src-tauri/Cargo.toml`、`cargo check --locked --manifest-path src-tauri/Cargo.toml`、`cargo test --locked --manifest-path src-tauri/Cargo.toml` 均 PASS（library 32/32、binary 0、doc-tests 0）；`pnpm check` PASS；`pnpm test:frontend` PASS（32/32，约59.5秒）；代码已提交并推送 `348b2e9`。测试只在 Windows 隔离临时目录执行，未读取或迁移真实用户数据。
+- **当前状态 / 阻断**：跨平台路径分支与迁移逻辑已完成，但本机没有 macOS，无法完成 Finder 启动/重启、第二实例、托盘和浮窗真机记录，按任务验收标记 `BLOCKED`；补齐 macOS 主机/原生 CI 冒烟后再解除，不把 DMG 构建成功当作原生验收。
 
 ### ENG-00 / ENG-01 · 代码、测试、main 与发布版本对齐
 
@@ -354,6 +357,7 @@ NV-05 的具体键盘缺口：`CommandPalette.tsx` 声明 modal/listbox，但缺
 | 2026-09-08 | CORE-04 | `afb865a`→`afb865a`（源码与计划仍未提交）；修改 `src-tauri/src/runtime.rs`、`PROJECT_PLAN.md`；修正合法 1–24 分钟恢复为 25 分钟的归一化错误，补充合法/非法时长、运行状态和短倒计时备份导入测试；`cargo fmt --check --manifest-path src-tauri/Cargo.toml`、`cargo check --locked --manifest-path src-tauri/Cargo.toml`、`cargo test --locked --manifest-path src-tauri/Cargo.toml` 均 PASS（library 25/25、binary 0、doc 0）；倒计时前端定向回归 PASS（1/1）；未改版本/发布资产；番茄多轮与时钟边界留给 CORE-05 | CORE-05 |
 | 2026-09-08 | CORE-05 | `afb865a`→`afb865a`（源码与计划仍未提交）；修改 `src-tauri/src/runtime.rs`、`PROJECT_PLAN.md`；多轮番茄延后确认聚合未记录焦点时长、恢复保留阶段与计数，时钟计算固定化并覆盖睡眠/前跳/回拨语义；`cargo fmt --check --manifest-path src-tauri/Cargo.toml`、`cargo check --locked --manifest-path src-tauri/Cargo.toml`、`cargo test --locked --manifest-path src-tauri/Cargo.toml` 均 PASS（library 28/28、binary 0、doc 0）；`pnpm check` PASS；未做真实休眠/系统时钟改动测试，未改版本/发布资产 | ENG-01 |
 | 2026-09-08 | ENG-01 | `afb865a`→`abcc80a`；修改 `PROJECT_PLAN.md`、`src-tauri/src/runtime.rs`、`src-tauri/src/storage.rs` 并提交为 `f12786b`，普通 merge 到 main 为 `abcc80a`；脚本静态解析 PASS，本地 `pnpm build`、`pnpm test:frontend`（32/32）、cargo fmt/check/test（library 28/28）PASS；GitHub Checks `34190010987` 在 `abcc80a` 上 PASS（7m48s），已推送 `origin/main`；v2.6.9 tag/资产未变，REL-01 负责新版本闭环 | CORE-03 |
+| 2026-09-08 | CORE-03 | `a482fe8`→`348b2e9`；修改 `src-tauri/src/storage.rs` 并推送 main；规范 Windows/macOS 数据目录、旧工作目录备份/验证/切换、源目录保留与目标非空保护已实现；平台路径与迁移隔离测试通过，Rust library 32/32、`pnpm check`、前端32/32（约59.5秒）通过；未读取真实用户数据，未取得 macOS 主机，Finder/第二实例/托盘/浮窗原生验收因此 BLOCKED；版本和 Release 资产未变 | NV-01（CORE-03 解除需 macOS 原生证据） |
 
 每条后续记录使用：`日期｜任务ID｜开始SHA→结束SHA｜修改文件｜验证命令与结果｜证据路径/链接｜版本/发布状态｜剩余问题｜下一ID`。没有执行的测试必须写“未执行”，不可复制上一版结果。
 
