@@ -7,17 +7,17 @@
 
 | 字段 | 当前值 |
 | --- | --- |
-| as_of / updated_at | 2026-09-08 19:44 +08:00；ARCH-01 完成、QA-01 开始时点 |
+| as_of / updated_at | 2026-09-08 19:55 +08:00；QA-01 完成、TH-02 开始时点 |
 | 产品目标 | 本地优先的桌面专注工具：待办 → 专注 → 桌面提醒 → 保存记录 → 回看投入 → 可恢复地长期保留 |
 | 当前阶段 | 第一套 Night Valley 已覆盖五页并发布，进入整体验收与可靠性收口；第二至第五套尚未实现 |
 | 代码基线 | 当前源代码基线 `abf2bc4`（ARCH-01 建立 `ThemeSurface` 主题渲染边界并删除四组不可达旧视图；DESK-03 计时刷新与编辑态解耦提交为 `0159a8c`；DESK-01 修正专注小窗路由为 `7fd5766`；NV-06 视觉精修、Today 起点行为与视觉专项提交为 `a52796f`；源码版本仍为 `2.6.9`，发布 tag 为 `473cc67`） |
-| 当前工作分支 | `main`；CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06/DESK-01/DESK-03/ARCH-01 源码、测试与证据已提交，QA-01 已领取，工作树应保持干净 |
+| 当前工作分支 | `main`；CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06/DESK-01/DESK-03/ARCH-01/QA-01 源码、测试与证据已提交，TH-02 已领取，工作树应保持干净 |
 | 发布基线 | GitHub `v2.6.9`，tag 实际提交为 `473cc67` |
 | 远程 main | 已与本地 `main` 同步，ARCH-01 源码、报告与计划均已推送；源代码基线为 `abf2bc4`，此前已包含 DESK-03 源码、45 项前端回归、报告与计划同步，以及 DESK-01 修复/原生证据、NV-06 视觉精修/Today 起点修复、NV-05 交互/响应式/错误态收口、NV-04 基线测试/报告、NV-03、NV-02、NV-01、CORE-03 与此前功能集成/ENG-01 证据；v2.6.9 tag 仍指向 `473cc67` |
-| 本轮交付 | CORE-01、CORE-02、CORE-04、CORE-05、ENG-01、NV-01、NV-02、NV-03、NV-04、NV-05、NV-06、DESK-01、DESK-03、ARCH-01 完成；CORE-03 的目录实现已提交为 `348b2e9`，但 macOS 原生验收暂缺，任务保留 BLOCKED |
-| 下一项 | **QA-01：公共业务回归、主题专用视觉回归、CI 证据留存**；并保留 CORE-03 依赖的 DESK-02 阻塞 |
-| 当前执行人 / 在做任务 | Codex / QA-01 DOING（ARCH-01 完成 SHA `abf2bc4`；QA-01 起始 SHA `abf2bc4`）；本轮不触碰真实用户数据、不重指已发布 tag |
-| 首套验收结论 | **Windows 原生核心闭环、编辑态计时刷新、主题渲染边界与第一套 45 项前端回归已通过**；ARCH-01 报告已记录；真实休眠/托盘菜单点击/正式安装器执行留有明确边界，整体仍未完成 macOS、QA 证据闭环、性能、数据搬移和发布闭环 |
+| 本轮交付 | CORE-01、CORE-02、CORE-04、CORE-05、ENG-01、NV-01、NV-02、NV-03、NV-04、NV-05、NV-06、DESK-01、DESK-03、ARCH-01、QA-01 完成；CORE-03 的目录实现已提交为 `348b2e9`，但 macOS 原生验收暂缺，任务保留 BLOCKED |
+| 下一项 | **TH-02：Editorial Paper 第二套五页主题**；并保留 CORE-03 依赖的 DESK-02 阻塞 |
+| 当前执行人 / 在做任务 | Codex / TH-02 DOING（QA-01 完成 SHA `86e0105`；TH-02 起始 SHA `86e0105`）；本轮不触碰真实用户数据、不重指已发布 tag |
+| 首套验收结论 | **Windows 原生核心闭环、编辑态计时刷新、主题渲染边界、QA-01 的主题回退回归与第一套 47 项前端回归已通过**；ARCH-01/QA-01 报告已记录；CI 已保留失败证据配置；真实休眠/托盘菜单点击/正式安装器执行留有明确边界，整体仍未完成 macOS、四套新主题、性能、数据搬移和发布闭环 |
 | source | 本轮用户说明；当前源码与测试；Git 提交/远程 refs；GitHub Release/Actions；本轮命令结果 |
 | supersedes | 旧文档中的 v1.4.1/v1.5.x/v1.10.0/v2.0 当前进度，以及 2026-09-06 摘要中的“其他四页未实现、主题注册未建立” |
 | pending | 版本/包/Release 闭环、原生 Windows/macOS 窗口与平台验证、QA/性能/数据搬移 |
@@ -150,8 +150,8 @@ CORE-03、DESK-02 为 macOS 下一次发布门槛，可与 Windows 首套验收�
 | DESK-02 | P1 | TODO | CORE-03 | macOS 数据、窗口、单实例与安装冒烟 |
 | DESK-03 | P1 | DONE | CORE-02、NV-03 | 计时刷新与列表编辑解耦，多窗口状态一致 |
 | ARCH-01 | P2 | DONE | G1 | 有限拆分视图/CSS，建立最小主题渲染边界 |
-| QA-01 | P1 | DOING | NV-04、ENG-01 | 公共业务回归、主题专用视觉回归、CI 证据留存 |
-| TH-02 | P2 | TODO | G0/G1/G2 | 第二套 Editorial Paper 五页 |
+| QA-01 | P1 | DONE | NV-04、ENG-01 | 公共业务回归、主题专用视觉回归、CI 证据留存 |
+| TH-02 | P2 | DOING | G0/G1/G2 | 第二套 Editorial Paper 五页 |
 | TH-03 | P2 | TODO | TH-02 | 第三套 Graphite Console 五页 |
 | TH-04 | P2 | TODO | TH-03 | 第四套 Aurora Ocean 五页 |
 | TH-05 | P2 | TODO | TH-04 | 第五套 Botanical Library 五页 |
@@ -314,7 +314,11 @@ NV-05 的具体键盘缺口：`CommandPalette.tsx` 声明 modal/listbox，但缺
 
 - **ARCH-01 本轮结果（2026-09-08）**：源码提交为 `abf2bc4`。新增 `ThemeSurface.tsx` 作为最小主题渲染边界，MainShell 继续统一持有 timer/todos/records/settings signals、Tauri 调用、刷新和 handler，只组装五页 props；删除四组 `Show when={false}` 不可达旧页面及其专属 helper，音效文件 input 的引用收回 Settings 组件；新增边界回退样式。主题实现采用显式 `ThemeImplementation` 映射，未知/未实现 ID 回退到 Night Valley，不把 `implemented` 元数据当作隐式页面渲染器。
 - **ARCH-01 验证证据**：最终源码 `pnpm check` PASS；完整 `pnpm test:frontend` PASS（45/45，约 1.3 分钟）；主题注册定向回归 PASS（1/1）；`pnpm tauri build --debug` PASS（Vite、Rust debug、MSI、NSIS）；`cargo fmt --check --manifest-path src-tauri/Cargo.toml`、`git diff --check` PASS；debug 产物 SHA 与边界/剩余项见 `docs/qa/ARCH-01-abf2bc4.md`。版本仍为 `2.6.9`，Release 资产交给 REL-01。
-- **ARCH-01 剩余边界**：第二套主题仍未实现；App.css 的完整 token/共享控件/主题页面分层留给 QA-01 结合回归继续收口；本轮没有新增 macOS 原生证据，CORE-03/DESK-02 的平台阻塞保持不变。下一步进入 QA-01。
+- **ARCH-01 剩余边界**：第二套主题仍未实现；App.css 的完整 token/共享控件/主题页面分层已由 QA-01 结合回归确认当前边界，后续主题接入时再按真实复用需求继续迁移；本轮没有新增 macOS 原生证据，CORE-03/DESK-02 的平台阻塞保持不变。QA-01 已完成，下一步进入 TH-02。
+
+- **QA-01 本轮结果（2026-09-08）**：源码/测试提交为 `86e0105`。新增无效主题值和未实现 `editorial-paper` 的启动回退回归；CI Rust check/test 改为 `--locked`，并写入提交、ref、运行链接、runner 与工具版本摘要；失败时保留 Playwright `test-results`、截图和 QA 输出 14 天。
+- **QA-01 验证证据**：`pnpm check`、`pnpm build`、`cargo fmt --check`、`cargo check --locked`、`cargo test --locked`（library 32/32）、`git diff --check` PASS；最终 `pnpm test:frontend` PASS（47/47，约 1.4 分钟，包含新增 2 项回退用例）；报告见 `docs/qa/QA-01-86e0105.md`。版本/Release 资产未变，推送后的真实 GitHub Actions run 尚待远程产生，不能用本地结果替代。
+- **QA-01 剩余边界**：CI 证据配置已落地但尚未以新提交的远程失败 run 演练；当前 runner 仍是 Windows，macOS 原生验收由 CORE-03/DESK-02 负责；下一步进入 TH-02，四套主题仍保持禁用。
 
 ### TH-02～TH-05 · 每套都按同样的完整性流程执行
 
@@ -408,6 +412,7 @@ NV-05 的具体键盘缺口：`CommandPalette.tsx` 声明 modal/listbox，但缺
 | 2026-09-08 | DESK-01 | `a52796f`→`7fd5766`；修改 `src-tauri/src/runtime.rs`，新增 `docs/qa/DESK-01-7fd5766.md`；修复开始计时误开待办浮窗而不显示专注浮窗，Windows 11/WebView2 152/DPI 144 原生验证隔离启动、单实例、主窗恢复、计时跨窗、两类浮窗锁定/独立解锁、主窗尺寸控制；`cargo fmt --check`、`cargo check --locked`、Rust 32/32、`pnpm check`、前端 29/29、`pnpm tauri build --debug`、`git diff --check` PASS；MSI/NSIS/exe SHA 见报告；版本/Release 资产未变；真实休眠/托盘菜单点击/正式安装器未执行，明确记录边界；源码与报告待推送 | DESK-03（CORE-03 仍待 macOS 原生证据） |
 | 2026-09-08 | DESK-03 | `07c814d`→`0159a8c`；修改 `src/MainShell.tsx`、`tests/app.spec.mjs`，新增 `docs/qa/DESK-03-0159a8c.md`；计时快照与业务刷新解耦，编辑记录 30 秒草稿不被覆盖，业务请求不重复，初始错误态保持到显式重试，保存失败提示不被成功轮询清除；`pnpm check`、`cargo fmt --check`、完整前端 45/45（含 30 秒用例）、`pnpm tauri build --debug`、`git diff --check` PASS；debug exe/MSI/NSIS SHA 见报告；版本/Release 资产未变；原生长时间编辑与性能预算留 PERF-01 | ARCH-01（CORE-03 仍待 macOS 原生证据） |
 | 2026-09-08 | ARCH-01 | `0159a8c`→`abf2bc4`；修改 `src/MainShell.tsx`、`src/components/NightValleyViews.tsx`，新增 `src/components/ThemeSurface.tsx`、`src/components/ThemeSurface.css`、`docs/qa/ARCH-01-abf2bc4.md`；建立显式主题渲染边界，保留 MainShell 业务状态/动作统一，删除四组不可达旧视图和无用 helper，未实现/未知主题安全回退到 Night Valley；最终 `pnpm check`、完整前端 45/45、主题定向 1/1、`pnpm tauri build --debug`、`cargo fmt --check`、`git diff --check` PASS；debug exe/MSI/NSIS SHA 见报告；版本/Release 资产未变；第二套主题、App.css 全量分层和 macOS 原生证据留后续 | QA-01（CORE-03 仍待 macOS 原生证据） |
+| 2026-09-08 | QA-01 | `abf2bc4`→`86e0105`；修改 `.github/workflows/ci.yml`、`tests/today-visual.spec.mjs`，新增 `docs/qa/QA-01-86e0105.md`；新增无效/未实现主题回退回归，CI 使用 Cargo locked 验证、Step Summary 和失败时 Playwright/QA 证据保留；`pnpm check`、完整前端 47/47、`pnpm build`、cargo fmt/check/test locked（32/32）、`git diff --check` PASS；版本/Release 资产未变；真实远程 Actions run 待推送后产生、macOS 原生证据仍缺 | TH-02（CORE-03 仍待 macOS 原生证据） |
 
 每条后续记录使用：`日期｜任务ID｜开始SHA→结束SHA｜修改文件｜验证命令与结果｜证据路径/链接｜版本/发布状态｜剩余问题｜下一ID`。没有执行的测试必须写“未执行”，不可复制上一版结果。
 
