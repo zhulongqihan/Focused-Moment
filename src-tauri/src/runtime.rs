@@ -3061,27 +3061,31 @@ fn unlock_floating_todos(app: tauri::AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 fn show_focus_floating(app: tauri::AppHandle) -> Result<(), String> {
-    let floating_window = app
-        .get_webview_window("todo-float")
-        .ok_or_else(|| "找不到悬浮工作台窗口".to_string())?;
+    let focus_window = app
+        .get_webview_window("focus-float")
+        .ok_or_else(|| "找不到专注小窗".to_string())?;
     let main_window = app
         .get_webview_window("main")
         .ok_or_else(|| "找不到主窗口".to_string())?;
 
-    floating_window
+    focus_window
         .set_ignore_cursor_events(false)
         .map_err(|error| error.to_string())?;
-    if let Some(unlock_window) = app.get_webview_window("todo-unlock") {
+    if let Some(unlock_window) = app.get_webview_window("focus-unlock") {
         unlock_window.hide().map_err(|error| error.to_string())?;
     }
-    floating_window.show().map_err(|error| error.to_string())?;
-    floating_window
+    if let Some(todo_window) = app.get_webview_window("todo-float") {
+        todo_window.hide().map_err(|error| error.to_string())?;
+    }
+    if let Some(todo_unlock_window) = app.get_webview_window("todo-unlock") {
+        todo_unlock_window
+            .hide()
+            .map_err(|error| error.to_string())?;
+    }
+    focus_window.show().map_err(|error| error.to_string())?;
+    focus_window
         .set_focus()
         .map_err(|error| error.to_string())?;
-    let _ = floating_window.emit(FLOATING_WORKSPACE_SYNC_EVENT, ());
-    if let Some(focus_window) = app.get_webview_window("focus-float") {
-        focus_window.hide().map_err(|error| error.to_string())?;
-    }
     main_window.hide().map_err(|error| error.to_string())
 }
 
