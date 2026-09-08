@@ -506,6 +506,31 @@ test("Theme registry exposes one implemented surface and four disabled previews"
   await expect(themeCards.filter({ hasText: "夜谷" })).toHaveAttribute("aria-pressed", "true");
 });
 
+test("an invalid persisted theme keeps the Night Valley surface available", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "not-a-real-theme");
+  });
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page);
+
+  await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "night-valley");
+  await expect(page.locator(".theme-surface-unavailable")).toHaveCount(0);
+  await page.getByRole("button", { name: "设置", exact: true }).click();
+  await expect(page.locator(".nv-theme-card").filter({ hasText: "夜谷" })).toHaveAttribute("aria-pressed", "true");
+});
+
+test("an unimplemented persisted theme falls back before rendering a page", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page);
+
+  await expect(page.getByRole("heading", { name: "今天，从一件事开始" })).toBeVisible();
+  await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "night-valley");
+  await expect(page.locator(".theme-surface-unavailable")).toHaveCount(0);
+});
+
 test("Night Valley appearance settings apply live and persist after explicit save", async ({ page }) => {
   await page.setViewportSize({ width: 1487, height: 1058 });
   await bootTodayReferenceMock(page);

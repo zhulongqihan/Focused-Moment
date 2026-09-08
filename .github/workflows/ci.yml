@@ -48,7 +48,35 @@ jobs:
         run: cargo fmt --check --manifest-path src-tauri/Cargo.toml
 
       - name: Rust check
-        run: cargo check --manifest-path src-tauri/Cargo.toml
+        run: cargo check --locked --manifest-path src-tauri/Cargo.toml
 
       - name: Rust tests
-        run: cargo test --manifest-path src-tauri/Cargo.toml
+        run: cargo test --locked --manifest-path src-tauri/Cargo.toml
+
+      - name: Write verification summary
+        if: always()
+        shell: pwsh
+        run: |
+          @(
+            "### Focused Moment verification",
+            "- commit: $env:GITHUB_SHA",
+            "- ref: $env:GITHUB_REF",
+            "- run: $env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID",
+            "- runner: $env:RUNNER_OS / $env:RUNNER_ARCH",
+            "- node: $(node --version)",
+            "- pnpm: $(pnpm --version)",
+            "- rust: $(rustc --version)",
+            "- cargo: $(cargo --version)"
+          ) | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+
+      - name: Upload Playwright evidence on failure
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-evidence-${{ github.run_id }}
+          path: |
+            test-results/
+            output/playwright/
+            output/qa/
+          if-no-files-found: ignore
+          retention-days: 14
