@@ -502,6 +502,11 @@ function formatAnalyticsDate(value: string) {
   return date ? calendarDateFormatter.format(date) : value;
 }
 
+function formatArchiveRangeDate(value: string) {
+  const date = parseLocalDate(value);
+  return date ? `${date.getMonth() + 1}月${date.getDate()}日` : value;
+}
+
 function sortTodos(items: TodoItem[]) {
   const importanceRank: Record<TodoImportance, number> = {
     high: 0,
@@ -2972,6 +2977,7 @@ function MainShell() {
               recentWeekActiveDays={recentWeekActiveDays}
               recentWeekDurationMs={recentWeekDurationMs}
               formatAnalyticsDate={formatAnalyticsDate}
+              formatArchiveRangeDate={formatArchiveRangeDate}
               formatRecordDate={formatRecordDate}
               formatRecordDay={formatRecordDay}
               formatDurationMs={formatDurationMs}

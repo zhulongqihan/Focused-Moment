@@ -516,6 +516,24 @@ test("records page turns a long history into a selectable archive trail", async 
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.viewport);
 });
 
+test("records page keeps empty seven-day data at zero", async ({ page }) => {
+  await bootWithTauriMock(page);
+
+  await page.getByRole("button", { name: "记录", exact: true }).click();
+
+  await expect(page.locator(".nv-records-trend h2")).toHaveText("最近 7 天，平均每天 00:00:00。");
+  await expect(page.locator(".records-archive__stats")).toContainText("活跃日平均 0 分钟");
+  await expect.poll(() => page.locator(".nv-records-distribution__bars span").evaluateAll((bars) => bars.map((bar) => bar.style.height))).toEqual([
+    "0%",
+    "0%",
+    "0%",
+    "0%",
+    "0%",
+    "0%",
+    "0%",
+  ]);
+});
+
 test("record title can be edited and saved without changing its duration", async ({ page }) => {
   await bootWithTauriMock(page, { includeRecords: true });
 

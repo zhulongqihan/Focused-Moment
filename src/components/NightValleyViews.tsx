@@ -564,6 +564,7 @@ export interface NightValleyRecordsProps {
   recentWeekActiveDays: Accessor<number>;
   recentWeekDurationMs: Accessor<number>;
   formatAnalyticsDate: (value: string) => string;
+  formatArchiveRangeDate: (value: string) => string;
   formatRecordDate: (record: FocusRecord) => string;
   formatRecordDay: (value: string) => string;
   formatDurationMs: (value: number) => string;
@@ -576,6 +577,24 @@ export interface NightValleyRecordsProps {
 }
 
 export function NightValleyRecords(props: NightValleyRecordsProps) {
+  const archiveRangeLabel = () => {
+    const days = props.archiveDays();
+    if (days.length === 0) {
+      return "暂无日期";
+    }
+
+    return `${props.formatArchiveRangeDate(days[0].date)} — ${props.formatArchiveRangeDate(days[days.length - 1].date)}`;
+  };
+  const recentWeekAverageDurationLabel = () => props.formatDurationMs(props.recentWeekDurationMs() / 7);
+  const distributionBarHeight = (day: ArchiveDayShape) => {
+    if (day.totalDurationMs === 0) {
+      return 0;
+    }
+
+    const maxDurationMs = Math.max(1, ...props.archiveDays().map((item) => item.totalDurationMs));
+    return Math.max(10, Math.round((day.totalDurationMs / maxDurationMs) * 100));
+  };
+
   return (
     <section class="nv-page nv-records-page records-page" aria-label="专注记录">
       <header class="nv-page-heading nv-records-heading">
@@ -593,7 +612,7 @@ export function NightValleyRecords(props: NightValleyRecordsProps) {
         </div>
 
         <div class="nv-records-top-actions" aria-label="记录范围和导出">
-          <button type="button" class="nv-records-range" disabled><span aria-hidden="true">▦</span> 8月30日 — 9月5日 <span aria-hidden="true">⌄</span></button>
+          <button type="button" class="nv-records-range" disabled title="日期范围筛选尚未接入" aria-label={`记录范围 ${archiveRangeLabel()}`}><span aria-hidden="true">▦</span> {archiveRangeLabel()} <span aria-hidden="true">⌄</span></button>
           <button type="button" class="secondary-button nv-export-button" disabled title="导出记录尚未接入">导出记录 <ArrowUpRight size={15} strokeWidth={1.8} aria-hidden="true" /></button>
         </div>
 
@@ -632,7 +651,7 @@ export function NightValleyRecords(props: NightValleyRecordsProps) {
         </section>
 
         <section class="records-stats records-archive__stats" aria-label="专注概览">
-          <div><span>活跃日</span><strong>{props.analytics()?.activeDays ?? 0}</strong><small>平均 {props.analytics()?.averageDailyDurationLabel ?? "00:00:00"}</small></div>
+          <div><span>活跃日</span><strong>{props.analytics()?.activeDays ?? 0}</strong><small>活跃日平均 {props.analytics()?.averageDailyDurationLabel ?? "00:00:00"}</small></div>
           <div><span>连续回来</span><strong>{props.analytics()?.currentStreakDays ?? 0} 天</strong><small>保持你的节奏</small></div>
           <div><span>独立专注</span><strong>{props.analytics()?.independentSessionCount ?? 0}</strong><small>没有关联待办</small></div>
           <div class="records-stats__progress"><div class="records-stats__progress-heading"><span>待办完成轨迹</span><strong>{props.todoCompletionPercent()}%</strong></div><div class="records-progress" aria-hidden="true"><span style={{ width: `${props.todoCompletionPercent()}%` }} /></div><small>完成的事项会回到今日路径。</small></div>
@@ -646,12 +665,12 @@ export function NightValleyRecords(props: NightValleyRecordsProps) {
             <div class="records-hero__dial" aria-label={`已完成 ${props.selectedArchiveDay()?.sessionCount ?? 0} 段专注`}><div class="records-hero__dial-ring records-hero__dial-ring--outer" /><div class="records-hero__dial-ring records-hero__dial-ring--inner" /><div class="records-hero__dial-core"><span>FOCUS LOG</span><strong>{props.selectedArchiveDay()?.sessionCount ?? 0}</strong><small>段专注</small></div><i class="records-hero__dial-marker" aria-hidden="true" /></div>
             <button type="button" class="records-archive__detail-action" disabled={props.selectedArchiveRecords().length === 0} onClick={() => document.querySelector(".record-history")?.scrollIntoView({ behavior: "smooth", block: "start" })}>查看这一天的记录 <ArrowUpRight size={15} strokeWidth={1.8} aria-hidden="true" /></button>
           </aside>
-          <section class="nv-records-distribution" aria-label="专注分布"><span class="nv-section-kicker">DISTRIBUTION / 分布</span><h2>把时间留给真正重要的事。</h2><div class="nv-records-distribution__bars"><For each={props.archiveDays()}>{(day) => <span title={`${props.formatAnalyticsDate(day.date)} ${day.totalDurationLabel}`} style={{ height: `${Math.max(10, Math.round((day.totalDurationMs / Math.max(1, ...props.archiveDays().map((item) => item.totalDurationMs))) * 100))}%` }} />}</For></div><small>节点高度按当天真实投入时长变化。</small></section>
+          <section class="nv-records-distribution" aria-label="专注分布"><span class="nv-section-kicker">DISTRIBUTION / 分布</span><h2>把时间留给真正重要的事。</h2><div class="nv-records-distribution__bars"><For each={props.archiveDays()}>{(day) => <span title={`${props.formatAnalyticsDate(day.date)} ${day.totalDurationLabel}`} style={{ height: `${distributionBarHeight(day)}%` }} />}</For></div><small>节点高度按当天真实投入时长变化。</small></section>
         </div>
 
       </section>
 
-      <section class="records-trend nv-records-trend" aria-label="最近趋势"><div><span class="nv-section-kicker">TREND / RECENT RHYTHM</span><h2>最近 7 天，平均每天 {props.analytics()?.averageDailyDurationLabel ?? "00:00:00"}。</h2></div><div class="records-trend__rail"><span style={{ width: `${Math.round((props.recentWeekActiveDays() / 7) * 100)}%` }} /><i style={{ left: `${Math.round((props.recentWeekActiveDays() / 7) * 100)}%` }} /></div><small>不需要一次走很远，只要继续回来。</small></section>
+      <section class="records-trend nv-records-trend" aria-label="最近趋势"><div><span class="nv-section-kicker">TREND / RECENT RHYTHM</span><h2>最近 7 天，平均每天 {recentWeekAverageDurationLabel()}。</h2></div><div class="records-trend__rail"><span style={{ width: `${Math.round((props.recentWeekActiveDays() / 7) * 100)}%` }} /><i style={{ left: `${Math.round((props.recentWeekActiveDays() / 7) * 100)}%` }} /></div><small>不需要一次走很远，只要继续回来。</small></section>
 
       <section class="record-history nv-record-history" aria-label="全部专注记录">
         <div class="record-history__heading"><div><h2>全部记录</h2><span>按日期收纳，想回看时再展开</span></div><strong>{props.records().length} 轮</strong></div>

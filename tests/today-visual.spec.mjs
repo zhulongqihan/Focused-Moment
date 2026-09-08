@@ -214,6 +214,16 @@ test("Night Valley pages expose the measured reference surfaces", async ({ page 
   }
 });
 
+test("Night Valley records explain the natural seven-day range and averages", async ({ page }) => {
+  await bootTodayReferenceMock(page);
+  await page.getByRole("button", { name: "记录", exact: true }).click();
+
+  await expect(page.locator(".nv-records-range")).toContainText("8月30日 — 9月5日");
+  await expect(page.locator(".nv-records-range")).toBeDisabled();
+  await expect(page.locator(".nv-records-trend h2")).toHaveText("最近 7 天，平均每天 00:45:00。");
+  await expect(page.locator(".records-archive__stats")).toContainText("活跃日平均 00:35:00");
+});
+
 test("Night Valley keeps one shared brand mark across every page", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await bootTodayReferenceMock(page);
