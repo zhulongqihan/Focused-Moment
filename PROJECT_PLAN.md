@@ -7,20 +7,20 @@
 
 | 字段 | 当前值 |
 | --- | --- |
-| as_of / updated_at | 2026-09-09 20:21 +08:00；v2.9.2 Graphite Console 精修已提交为 `44fa75b`，本地验证与 Windows 打包通过，待推送和 Release 收口；Aurora → Botanical 仍按依赖排队 |
+| as_of / updated_at | 2026-09-09 20:34 +08:00；v2.9.2 Graphite Console 精修已发布，远程 Checks、macOS smoke、Universal DMG 与四项资产核对通过；下一项为 Aurora |
 | 产品目标 | 本地优先的桌面专注工具：待办 → 专注 → 桌面提醒 → 保存记录 → 回看投入 → 可恢复地长期保留 |
 | 当前阶段 | 五套主题均已接入并发布五页；但用户明确否定后三套“仅换色”的视觉验收，当前进入按概念图逐套重做布局、材质、动效与交互语言的主题精修阶段 |
 | 代码基线 | 当前工作树从 v2.9.1 发布提交 `9938c08`（旧功能/发布历史保持不变）进入 REFINE-03；v2.9.2 Graphite 精修提交为 `44fa75b` |
-| 当前工作分支 | `main`；旧 CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06/DESK-01/DESK-02/DESK-03/ARCH-01/QA-01/PERF-01/TH-02/TH-03/TH-04/TH-05/DATA-01/REL-01 已完成；REFINE-03 REVIEW；REL-02 DOING |
-| 发布基线 | GitHub `v2.9.1`，tag peeled commit 为 `9938c08`；Universal macOS Release run `34330712307` PASS；v2.9.2 仅完成本地 Windows 包，远程 CI、macOS 与 Release 尚未执行；旧 `v2.9.0`/`v2.8.0`/`v2.7.0`/`v2.6.10`/`v2.6.9` tag 未移动 |
-| 远程 main | 已推送；当前 HEAD 以 `git rev-parse HEAD` 核对，功能发布 tag `v2.9.1` 固定指向 `9938c08`；Checks run `34330682891` PASS（前端与 Rust 共 58 项），macOS Native Smoke run `34330682984` PASS；Release 已核对 Windows EXE/NSIS/MSI 与 macOS Universal DMG 四项资产及 digest |
-| 本轮交付 | 旧阶段已由 DESK-02 / DATA-01 / v2.9.1 收口；REFINE-03 已把 Graphite 从同构换色控制台重做为工业仪表/序列控制台，并完成本地前端、Rust、构建与 Windows v2.9.2 包验证；待 REL-02 发布闭环 |
-| 下一项 | REL-02：发布 v2.9.2 Graphite Console 精修；完成后按依赖进入 REFINE-04 Aurora Ocean |
-| 当前执行人 / 在做任务 | Codex / REL-02 DOING；REFINE-03 REVIEW，Graphite 本地验收已通过 |
+| 当前工作分支 | `main`；旧 CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06/DESK-01/DESK-02/DESK-03/ARCH-01/QA-01/PERF-01/TH-02/TH-03/TH-04/TH-05/DATA-01/REL-01 已完成；REFINE-03 DONE；REL-02 DONE；REFINE-04 TODO |
+| 发布基线 | GitHub `v2.9.2`，tag peeled commit 为 `9978e45`；Checks `34350535611`、macOS Native Smoke `34350535428`、macOS Universal Release `34350728878` 均 PASS；`v2.9.2` Release 四项资产均为 uploaded；旧 `v2.9.0`/`v2.8.0`/`v2.7.0`/`v2.6.10`/`v2.6.9` tag 未移动 |
+| 远程 main | 已推送；当前 HEAD `9978e45` 与 origin/main 一致；`v2.9.2` tag 固定到该提交；远程 Checks、macOS Native Smoke、Universal Release 与四项资产 digest 已核对，证据见 `docs/v2.9.2/RELEASE_NOTES.md` |
+| 本轮交付 | 旧阶段已由 DESK-02 / DATA-01 / v2.9.1 收口；REFINE-03 将 Graphite 从同构换色控制台重做为工业仪表/序列控制台，并完成本地前端、Rust、构建、Windows 包、远程 CI、macOS smoke、Universal DMG 与 GitHub Release |
+| 下一项 | REFINE-04：按依赖开始 Aurora Ocean 主题精修；完成后再进入 REFINE-05 Botanical Library |
+| 当前执行人 / 在做任务 | Codex / 无进行中发布任务；REFINE-04 TODO，等待用户确认继续进入 Aurora 精修 |
 | 首套验收结论 | **Windows 原生核心闭环、编辑态计时刷新、主题渲染边界、QA-01 回退回归、五套主题 25 页前端回归、Editorial 长历史性能专项、v2.6.10/v2.7.0/v2.8.0/v2.9.0/v2.9.1 Windows 与 macOS 资产发布、CORE-03 macOS 原生数据目录与迁移、DESK-02 macOS 第二实例/托盘/浮窗/隔离安装启动、DATA-01 备份范围/隔离跨目录搬移/素材清单已通过**；资源出处补录缺口已在清单中保留为后续治理事项 |
 | source | 本轮用户说明；当前源码与测试；Git 提交/远程 refs；GitHub Release/Actions；本轮命令结果 |
 | supersedes | 旧文档中的 v1.4.1/v1.5.x/v1.10.0/v2.0 当前进度，以及 2026-09-06 摘要中的“其他四页未实现、主题注册未建立” |
-| pending | REL-02 的远程提交、Checks、macOS smoke、Universal DMG 与 GitHub Release 尚未收口；REFINE-04/05 的概念 fidelity、独立布局、材质与交互语言尚未验收；旧 26 个任务的 DONE 仅表示功能/发布闭环，不表示本次新增的主题审美验收已通过 |
+| pending | REFINE-04/05 的概念 fidelity、独立布局、材质与交互语言尚未验收；旧 26 个任务的 DONE 仅表示功能/发布闭环，不表示本次新增的主题审美验收已通过 |
 
 ### 最新用户纠正与主题精修阶段（2026-09-09）
 
@@ -170,8 +170,8 @@ CORE-03、DESK-02 为 macOS 下一次发布门槛，可与 Windows 首套验收�
 | PERF-01 | P2 | DONE | G1；第二套启用前先建立基线 | 启动/常驻/大历史性能预算与优化 |
 | DATA-01 | P2 | DONE | CORE-02/03 | 备份包含范围、跨设备搬移流程、素材清单；隔离 round-trip、用户文档、资源清单与 QA 证据已完成 |
 | REL-01 | P1 | DONE | ENG-01；每个版本重复 | v2.9.0 Botanical Library 版本、包、说明、主线、CI、平台资产与 GitHub Release 已完成；v2.8.0/v2.7.0/v2.6.10 同样完成 |
-| REFINE-03 | P1 | REVIEW | TH-03、ARCH-01 | Graphite Console 主题精修：从换色控制台改为概念图对应的工业仪表 / 队列舱位 / 信号监控体系；五页布局、材质、状态反馈与独立视觉回归已通过本地验收，待 REL-02 发布闭环 |
-| REL-02 | P1 | DOING | REFINE-03 | v2.9.2 Graphite Console 精修发布：版本同步、Windows 包、远程 main、Checks、macOS Native Smoke、Universal DMG、GitHub Release 与资产证据 |
+| REFINE-03 | P1 | DONE | TH-03、ARCH-01 | Graphite Console 主题精修：从换色控制台改为概念图对应的工业仪表 / 队列舱位 / 信号监控体系；五页布局、材质、状态反馈、独立视觉回归与 v2.9.2 发布闭环完成 |
+| REL-02 | P1 | DONE | REFINE-03 | v2.9.2 Graphite Console 精修发布：版本同步、Windows 包、远程 main、Checks、macOS Native Smoke、Universal DMG、GitHub Release 与四项资产证据已完成 |
 | REFINE-04 | P1 | TODO | REL-02 | Aurora Ocean 主题精修：从同构控制台改为深海极光、流体光场与轨道气泡体系；五页完成后再验收 |
 | REFINE-05 | P1 | TODO | REFINE-04 | Botanical Library 主题精修：从同构控制台改为木质书架、纸卡、植物生长档案与暖灯体系；五页完成后再验收 |
 
@@ -533,6 +533,7 @@ NV-05 的具体键盘缺口：`CommandPalette.tsx` 声明 modal/listbox，但缺
 | 2026-09-09 | DESK-02 | `b375f85`→`9938c08`；修改 `src-tauri/Cargo.toml`/`Cargo.lock`、`src-tauri/src/runtime.rs`、`scripts/macos-native-smoke.sh`、`.github/workflows/macos-native.yml`、`src/MainShell.tsx`、`tests/app.spec.mjs`，同步 v2.9.1 版本源并新增 `docs/qa/DESK-02-342009c.md`；macOS 单实例、主窗隐藏/恢复、原生托盘菜单、命令面板浮窗、隔离 DMG 安装启动已由 Native Smoke `34330682984` PASS，Checks `34330682891` PASS，Universal Release `34330712307` PASS；本地前端串行 58/58、Rust 32/32、debug/release 包 PASS，Windows EXE/NSIS/MSI 与 macOS Universal DMG 四项资产 digest 见报告；v2.9.1 tag/Release 已收口 | DONE；下一项 DATA-01 |
 | 2026-09-09 | DATA-01 | `c60eeb1`→`89d9404`；新增 `src-tauri/src/runtime.rs` 隔离 portable backup round-trip 单测、`docs/data-portability.md`、`docs/content/asset-inventory.md`；明确 state/runtime 备份字段与 WebView `localStorage` 排除项，登记跨平台目录、语料/音效/位图来源、SHA-256 和未核验缺口；定向迁移 1/1、Rust 33/33、`pnpm check`、`pnpm build`（2061 modules）、前端单 worker 58/58、cargo fmt/check、`git diff --check` PASS；证据 `docs/qa/DATA-01-89d9404.md`；仅文档/测试，不升版本、不重打 v2.9.1 Release | DONE；无下一项 |
 | 2026-09-09 | REFINE-03 | `1c8fc9c`→`44fa75b`；重做 `GraphiteConsoleViews.tsx` / `.css`，将五页从同构换色控制台改为工业仪表、序列槽位、任务舱、信号记录与系统模块；移除状态栏伪造 CPU/MEM/SYNC 数据，补充真实记录时段计算与空槽位；新增 Graphite 结构断言与证据 `docs/qa/REFINE-03-graphite.md`；`pnpm check`、Graphite 3/3、完整前端串行等效 58/58、Vite build、cargo fmt/check/test 33/33、Windows v2.9.2 EXE/NSIS/MSI 打包 PASS | REVIEW；REL-02 发布闭环 |
+| 2026-09-09 | REL-02 | `44fa75b`→`9978e45`；补齐发布计划与 v2.9.2 说明，推送 main、创建 `v2.9.2` tag/Release、上传 Windows MSI；Checks `34350535611` PASS，macOS Native Smoke `34350535428` PASS，Universal Release `34350728878` PASS；Release 四项资产均为 uploaded，digest 见 `docs/v2.9.2/RELEASE_NOTES.md`；旧 tag 未移动 | DONE；下一项 REFINE-04 |
 
 每条后续记录使用：`日期｜任务ID｜开始SHA→结束SHA｜修改文件｜验证命令与结果｜证据路径/链接｜版本/发布状态｜剩余问题｜下一ID`。没有执行的测试必须写“未执行”，不可复制上一版结果。
 

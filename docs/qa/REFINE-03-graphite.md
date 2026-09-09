@@ -44,4 +44,4 @@
 ## 未覆盖
 
 - Aurora Ocean、Botanical Library 尚未精修。
-- GitHub Checks、macOS 原生 smoke、Universal DMG 与 GitHub Release 资产将在 v2.9.2 发布闭环完成后补录。
+- GitHub Checks `34350535611`、macOS Native Smoke `34350535428`、macOS Universal Release `34350728878` 均 PASS；GitHub Release `v2.9.2` 已发布并核对 Windows EXE/Setup/MSI 与 macOS Universal DMG 四项资产，digest 与资产链接见 `docs/v2.9.2/RELEASE_NOTES.md`。
