@@ -7,20 +7,20 @@
 
 | 字段 | 当前值 |
 | --- | --- |
-| as_of / updated_at | 2026-09-09 22:46 +08:00；Aurora Ocean 与 Botanical Library 已完成独立视觉重做，v2.10.0 已完成正式包、远程 CI、平台资产与 GitHub Release 收口 |
+| as_of / updated_at | 2026-09-09 23:18 +08:00；Aurora Ocean 与 Botanical Library 已完成独立视觉重做，v2.10.0 已完成正式包、远程 CI、平台资产与 GitHub Release 收口；已建立用户截图驱动的逐界面精修协议 |
 | 产品目标 | 本地优先的桌面专注工具：待办 → 专注 → 桌面提醒 → 保存记录 → 回看投入 → 可恢复地长期保留 |
-| 当前阶段 | 五套主题均已接入；用户否定后三套“仅换色”的视觉验收，Graphite / Aurora / Botanical 已按概念图完成独立布局、材质、动效与交互语言重做，v2.10.0 已发布 |
+| 当前阶段 | 五套主题均已接入；v2.10.0 已发布；下一阶段改为用户实际体验驱动的逐界面精修，每次只处理一个主题的一张页面，并根据截图和自然语言反馈进行局部修复 |
 | 代码基线 | v2.10.0 发布代码提交为 `ce15ff0`，tag `v2.10.0` 固定在同一提交；Aurora/Botanical 精修代码候选为 `7bade92`；旧 v2.9.2 发布 tag 固定在 `9978e45` |
 | 当前工作分支 | `main`；旧 CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06/DESK-01/DESK-02/DESK-03/ARCH-01/QA-01/PERF-01/TH-02/TH-03/TH-04/TH-05/DATA-01/REL-01 已完成；REFINE-03/REFINE-04/REFINE-05 DONE；REL-02 DONE；REL-03 DONE |
 | 发布基线 | GitHub `v2.10.0`，tag peeled commit 为 `ce15ff0`；Checks `34364439803`、macOS Native Smoke `34364439775`、macOS Universal Release `34364312849` 均 PASS；`v2.10.0` Release 四项资产均为 uploaded，digest 见 `docs/v2.10.0/RELEASE_NOTES.md`；旧 tag 未移动 |
 | 远程 main | 已推送；当前工作树与 origin/main 一致，main 已包含 v2.10.0 发布代码 `ce15ff0` 及最终发布证据；`v2.10.0` tag 固定且未移动；远程 Checks、macOS Native Smoke、Universal Release 与四项资产 digest 已核对，证据见 `docs/v2.10.0/RELEASE_NOTES.md` |
 | 本轮交付 | 旧阶段已由 DESK-02 / DATA-01 / v2.9.1 收口；REFINE-03/REL-02 已完成 Graphite 工业仪表主题及 v2.9.2 发布；REFINE-04 Aurora 与 REFINE-05 Botanical 已完成独立五页重做、结构断言和视觉证据；REL-03 已完成 v2.10.0 版本同步、Windows/macOS 包、远程 CI、GitHub Release 与四项资产核对 |
-| 下一项 | 暂无新的未完成主题任务；后续按用户反馈进入新的精修或维护任务 |
-| 当前执行人 / 在做任务 | Codex / REL-03 DONE；v2.10.0 已完成发布收口 |
+| 下一项 | 按 `THEME_REFINEMENT_PROMPT.md` 从第一套主题的第一个界面开始，接收用户截图和自然语言体验反馈，逐页精修 |
+| 当前执行人 / 在做任务 | Codex / v2.10.0 发布已完成；等待第一轮用户截图驱动的界面精修 |
 | 首套验收结论 | **Windows 原生核心闭环、编辑态计时刷新、主题渲染边界、QA-01 回退回归、五套主题 25 页前端回归、Editorial 长历史性能专项、v2.6.10/v2.7.0/v2.8.0/v2.9.0/v2.9.1 Windows 与 macOS 资产发布、CORE-03 macOS 原生数据目录与迁移、DESK-02 macOS 第二实例/托盘/浮窗/隔离安装启动、DATA-01 备份范围/隔离跨目录搬移/素材清单已通过**；资源出处补录缺口已在清单中保留为后续治理事项 |
 | source | 本轮用户说明；当前源码与测试；Git 提交/远程 refs；GitHub Release/Actions；本轮命令结果 |
 | supersedes | 旧文档中的 v1.4.1/v1.5.x/v1.10.0/v2.0 当前进度，以及 2026-09-06 摘要中的“其他四页未实现、主题注册未建立” |
-| pending | REFINE-04/05 与 REL-03 均已完成验收和发布；资源出处补录缺口仍按既有清单保留为后续治理事项，不影响本次主题精修发布；旧任务 DONE 仍只表示历史功能/发布闭环 |
+| pending | REFINE-04/05 与 REL-03 均已完成验收和发布；下一阶段尚未领取具体页面修复任务，等待用户提供第一张界面截图和体验反馈；资源出处补录缺口仍按既有清单保留为后续治理事项 |
 
 ### 最新用户纠正与主题精修阶段（2026-09-09）
 
@@ -37,6 +37,8 @@
 2026-09-09 20:45：用户确认“先把所有的主题都精修了”，因此在 Graphite 已完成的基础上继续执行 REFINE-04 Aurora Ocean，完成后按依赖执行 REFINE-05 Botanical Library；不得把两套剩余主题压缩成换色批处理。
 
 2026-09-09 22:25：Aurora Ocean 五页已改为深海极光 / 流体光场 / 轨道气泡体系，Botanical Library 五页已改为木质书房 / 纸卡 / 植物生长档案体系；两套主题均保留 MainShell 真实业务动作，但不再共享 Graphite 控制台骨架。进入 REL-03 统一发布收口。
+
+2026-09-09：用户进一步明确，下一阶段不是继续批量做主题设计，而是从用户实际体验出发，逐个主题、逐个界面提供当前截图和自然语言反馈，再进行局部、可验证的修复。启动协议已写入根目录 `THEME_REFINEMENT_PROMPT.md`。
 
 **进度读取规则：**最新明确用户要求 > 当前源码/运行结果/远程事实 > 本看板 > 历史文档。后续开始工作先刷新以上版本和提交，不能把今天的基线当永久事实。任务勾选必须有结果证据，不能按版本号、文件数或截图数量计算“完成百分比”。
 
