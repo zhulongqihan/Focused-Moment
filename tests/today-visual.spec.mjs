@@ -686,6 +686,11 @@ test("Aurora Ocean renders all five pages inside the light field", async ({ page
     }
     const surface = page.locator(selector);
     await expect(surface).toBeVisible();
+    if (label === "今日") await expect(page.locator(".ao-orbit-stage")).toBeVisible();
+    if (label === "计时") await expect(page.locator(".ao-fluid-timer")).toBeVisible();
+    if (label === "待办") await expect(page.locator(".ao-reef-board")).toBeVisible();
+    if (label === "记录") await expect(page.locator(".ao-archive-chart")).toBeVisible();
+    if (label === "设置") await expect(page.locator(".ao-settings-preview")).toBeVisible();
     geometry[label] = await surface.evaluate((element) => {
       const rect = element.getBoundingClientRect();
       return { x: Number(rect.x.toFixed(2)), y: Number(rect.y.toFixed(2)), width: Number(rect.width.toFixed(2)), height: Number(rect.height.toFixed(2)), right: Number(rect.right.toFixed(2)) };
@@ -758,6 +763,11 @@ test("Botanical Library renders all five pages inside the reading room", async (
     }
     const surface = page.locator(selector);
     await expect(surface).toBeVisible();
+    if (label === "今日") await expect(page.locator(".bl-library-stilllife")).toBeVisible();
+    if (label === "计时") await expect(page.locator(".bl-tree-dial")).toBeVisible();
+    if (label === "待办") await expect(page.locator(".bl-desk-board")).toBeVisible();
+    if (label === "记录") await expect(page.locator(".bl-growth-chart")).toBeVisible();
+    if (label === "设置") await expect(page.locator(".bl-preview-room")).toBeVisible();
     geometry[label] = await surface.evaluate((element) => {
       const rect = element.getBoundingClientRect();
       return { x: Number(rect.x.toFixed(2)), y: Number(rect.y.toFixed(2)), width: Number(rect.width.toFixed(2)), height: Number(rect.height.toFixed(2)), right: Number(rect.right.toFixed(2)) };

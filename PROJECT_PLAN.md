@@ -7,20 +7,20 @@
 
 | 字段 | 当前值 |
 | --- | --- |
-| as_of / updated_at | 2026-09-09 20:37 +08:00；v2.9.2 Graphite Console 精修已发布，远程 Checks、macOS smoke、Universal DMG 与四项资产核对通过；下一项为 Aurora |
+| as_of / updated_at | 2026-09-09 22:25 +08:00；Aurora Ocean 与 Botanical Library 已完成独立视觉重做并通过本地回归；当前进入 v2.10.0 发布收口 |
 | 产品目标 | 本地优先的桌面专注工具：待办 → 专注 → 桌面提醒 → 保存记录 → 回看投入 → 可恢复地长期保留 |
-| 当前阶段 | 五套主题均已接入并发布五页；但用户明确否定后三套“仅换色”的视觉验收，当前进入按概念图逐套重做布局、材质、动效与交互语言的主题精修阶段 |
+| 当前阶段 | 五套主题均已接入；用户否定后三套“仅换色”的视觉验收，Graphite / Aurora / Botanical 已按概念图完成独立布局、材质、动效与交互语言重做，等待统一版本发布 |
 | 代码基线 | 当前工作树从 v2.9.1 发布提交 `9938c08`（旧功能/发布历史保持不变）进入 REFINE-03；v2.9.2 Graphite 代码提交为 `44fa75b`，发布 tag 固定在 `9978e45`，发布后计划/证据收口提交为 `25090f1` |
-| 当前工作分支 | `main`；旧 CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06/DESK-01/DESK-02/DESK-03/ARCH-01/QA-01/PERF-01/TH-02/TH-03/TH-04/TH-05/DATA-01/REL-01 已完成；REFINE-03 DONE；REL-02 DONE；REFINE-04 TODO |
+| 当前工作分支 | `main`；旧 CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06/DESK-01/DESK-02/DESK-03/ARCH-01/QA-01/PERF-01/TH-02/TH-03/TH-04/TH-05/DATA-01/REL-01 已完成；REFINE-03/REFINE-04/REFINE-05 DONE；REL-02 DONE；REL-03 DOING |
 | 发布基线 | GitHub `v2.9.2`，tag peeled commit 为 `9978e45`；Checks `34350535611`、macOS Native Smoke `34350535428`、macOS Universal Release `34350728878` 均 PASS；`v2.9.2` Release 四项资产均为 uploaded；旧 `v2.9.0`/`v2.8.0`/`v2.7.0`/`v2.6.10`/`v2.6.9` tag 未移动 |
 | 远程 main | 已推送；当前工作树与 origin/main 一致；`v2.9.2` tag 固定在发布代码提交 `9978e45`；远程 Checks、macOS Native Smoke、Universal Release 与四项资产 digest 已核对，证据见 `docs/v2.9.2/RELEASE_NOTES.md` |
-| 本轮交付 | 旧阶段已由 DESK-02 / DATA-01 / v2.9.1 收口；REFINE-03 将 Graphite 从同构换色控制台重做为工业仪表/序列控制台，并完成本地前端、Rust、构建、Windows 包、远程 CI、macOS smoke、Universal DMG 与 GitHub Release |
-| 下一项 | REFINE-04：按依赖开始 Aurora Ocean 主题精修；完成后再进入 REFINE-05 Botanical Library |
-| 当前执行人 / 在做任务 | Codex / 无进行中发布任务；REFINE-04 TODO，等待用户确认继续进入 Aurora 精修 |
+| 本轮交付 | 旧阶段已由 DESK-02 / DATA-01 / v2.9.1 收口；REFINE-03/REL-02 已完成 Graphite 工业仪表主题及 v2.9.2 发布；REFINE-04 Aurora 与 REFINE-05 Botanical 已完成独立五页重做、结构断言和视觉证据 |
+| 下一项 | REL-03：v2.10.0 Aurora Ocean + Botanical Library 精修版本、Windows/macOS 包、远程 CI、GitHub Release 与资产核对 |
+| 当前执行人 / 在做任务 | Codex / REL-03 DOING；准备版本同步、完整构建、发布与计划收口 |
 | 首套验收结论 | **Windows 原生核心闭环、编辑态计时刷新、主题渲染边界、QA-01 回退回归、五套主题 25 页前端回归、Editorial 长历史性能专项、v2.6.10/v2.7.0/v2.8.0/v2.9.0/v2.9.1 Windows 与 macOS 资产发布、CORE-03 macOS 原生数据目录与迁移、DESK-02 macOS 第二实例/托盘/浮窗/隔离安装启动、DATA-01 备份范围/隔离跨目录搬移/素材清单已通过**；资源出处补录缺口已在清单中保留为后续治理事项 |
 | source | 本轮用户说明；当前源码与测试；Git 提交/远程 refs；GitHub Release/Actions；本轮命令结果 |
 | supersedes | 旧文档中的 v1.4.1/v1.5.x/v1.10.0/v2.0 当前进度，以及 2026-09-06 摘要中的“其他四页未实现、主题注册未建立” |
-| pending | REFINE-04/05 的概念 fidelity、独立布局、材质与交互语言尚未验收；旧 26 个任务的 DONE 仅表示功能/发布闭环，不表示本次新增的主题审美验收已通过 |
+| pending | REFINE-04/05 已通过本地概念 fidelity、独立布局、材质、五页结构和压力宽度验收；REL-03 尚未完成版本同步、正式包、远程 main/tag/CI、macOS 资产和 GitHub Release 收口；旧任务 DONE 仍只表示历史功能/发布闭环 |
 
 ### 最新用户纠正与主题精修阶段（2026-09-09）
 
@@ -33,6 +33,10 @@
 - **REFINE-05 Botanical Library**：木质书房 / 植物生长档案 / 纸张与陶土；书架、纸卡、木桌、植物和暖灯，不得沿用控制台或玻璃气泡骨架。
 
 三套主题继续共享 `MainShell` 的业务状态与动作，但可以且应当拥有独立的页面布局、组件语义、材质系统、导航形态和交互反馈。每套精修必须有概念图差异审计、五页验证、真实数据边界说明和独立视觉证据。
+
+2026-09-09 20:45：用户确认“先把所有的主题都精修了”，因此在 Graphite 已完成的基础上继续执行 REFINE-04 Aurora Ocean，完成后按依赖执行 REFINE-05 Botanical Library；不得把两套剩余主题压缩成换色批处理。
+
+2026-09-09 22:25：Aurora Ocean 五页已改为深海极光 / 流体光场 / 轨道气泡体系，Botanical Library 五页已改为木质书房 / 纸卡 / 植物生长档案体系；两套主题均保留 MainShell 真实业务动作，但不再共享 Graphite 控制台骨架。进入 REL-03 统一发布收口。
 
 **进度读取规则：**最新明确用户要求 > 当前源码/运行结果/远程事实 > 本看板 > 历史文档。后续开始工作先刷新以上版本和提交，不能把今天的基线当永久事实。任务勾选必须有结果证据，不能按版本号、文件数或截图数量计算“完成百分比”。
 
@@ -172,8 +176,9 @@ CORE-03、DESK-02 为 macOS 下一次发布门槛，可与 Windows 首套验收�
 | REL-01 | P1 | DONE | ENG-01；每个版本重复 | v2.9.0 Botanical Library 版本、包、说明、主线、CI、平台资产与 GitHub Release 已完成；v2.8.0/v2.7.0/v2.6.10 同样完成 |
 | REFINE-03 | P1 | DONE | TH-03、ARCH-01 | Graphite Console 主题精修：从换色控制台改为概念图对应的工业仪表 / 队列舱位 / 信号监控体系；五页布局、材质、状态反馈、独立视觉回归与 v2.9.2 发布闭环完成 |
 | REL-02 | P1 | DONE | REFINE-03 | v2.9.2 Graphite Console 精修发布：版本同步、Windows 包、远程 main、Checks、macOS Native Smoke、Universal DMG、GitHub Release 与四项资产证据已完成 |
-| REFINE-04 | P1 | TODO | REL-02 | Aurora Ocean 主题精修：从同构控制台改为深海极光、流体光场与轨道气泡体系；五页完成后再验收 |
-| REFINE-05 | P1 | TODO | REFINE-04 | Botanical Library 主题精修：从同构控制台改为木质书架、纸卡、植物生长档案与暖灯体系；五页完成后再验收 |
+| REFINE-04 | P1 | DONE | REL-02 | Aurora Ocean 主题精修：五页改为深海极光、流体光场、轨道气泡、玻璃容器与潮汐路径；真实业务数据边界、独立结构断言、1487px 截图与 1120/820/560/420px 压力宽度验证已完成 |
+| REFINE-05 | P1 | DONE | REFINE-04 | Botanical Library 主题精修：五页改为木质书房、书架、纸卡、植物节点、暖灯与年轮档案；真实业务数据边界、独立结构断言、1487px 截图与 1120/820/560/420px 压力宽度验证已完成 |
+| REL-03 | P1 | DOING | REFINE-04/05 | v2.10.0 Aurora Ocean + Botanical Library 精修发布：版本同步、完整构建、Windows/macOS 资产、远程 CI、GitHub Release 与最终计划证据 |
 
 ### CORE-01 · 磁盘保存与恢复链（第一个执行任务）
 
