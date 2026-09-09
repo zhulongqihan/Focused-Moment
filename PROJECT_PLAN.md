@@ -7,10 +7,10 @@
 
 | 字段 | 当前值 |
 | --- | --- |
-| as_of / updated_at | 2026-09-09 20:17 +08:00；v2.9.2 Graphite Console 精修候选已完成本地验证与 Windows 打包，待提交、推送和 Release 收口；Aurora → Botanical 仍按依赖排队 |
+| as_of / updated_at | 2026-09-09 20:21 +08:00；v2.9.2 Graphite Console 精修已提交为 `44fa75b`，本地验证与 Windows 打包通过，待推送和 Release 收口；Aurora → Botanical 仍按依赖排队 |
 | 产品目标 | 本地优先的桌面专注工具：待办 → 专注 → 桌面提醒 → 保存记录 → 回看投入 → 可恢复地长期保留 |
 | 当前阶段 | 五套主题均已接入并发布五页；但用户明确否定后三套“仅换色”的视觉验收，当前进入按概念图逐套重做布局、材质、动效与交互语言的主题精修阶段 |
-| 代码基线 | 当前工作树从 v2.9.1 发布提交 `9938c08`（旧功能/发布历史保持不变）进入 REFINE-03；候选基线为 `1c8fc9c`，本轮改动待形成 v2.9.2 提交 |
+| 代码基线 | 当前工作树从 v2.9.1 发布提交 `9938c08`（旧功能/发布历史保持不变）进入 REFINE-03；v2.9.2 Graphite 精修提交为 `44fa75b` |
 | 当前工作分支 | `main`；旧 CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06/DESK-01/DESK-02/DESK-03/ARCH-01/QA-01/PERF-01/TH-02/TH-03/TH-04/TH-05/DATA-01/REL-01 已完成；REFINE-03 REVIEW；REL-02 DOING |
 | 发布基线 | GitHub `v2.9.1`，tag peeled commit 为 `9938c08`；Universal macOS Release run `34330712307` PASS；v2.9.2 仅完成本地 Windows 包，远程 CI、macOS 与 Release 尚未执行；旧 `v2.9.0`/`v2.8.0`/`v2.7.0`/`v2.6.10`/`v2.6.9` tag 未移动 |
 | 远程 main | 已推送；当前 HEAD 以 `git rev-parse HEAD` 核对，功能发布 tag `v2.9.1` 固定指向 `9938c08`；Checks run `34330682891` PASS（前端与 Rust 共 58 项），macOS Native Smoke run `34330682984` PASS；Release 已核对 Windows EXE/NSIS/MSI 与 macOS Universal DMG 四项资产及 digest |
@@ -532,7 +532,7 @@ NV-05 的具体键盘缺口：`CommandPalette.tsx` 声明 modal/listbox，但缺
 | 2026-09-09 | REL-01 | `4018e53`→`b375f85`；推送 main、创建 `v2.9.0` tag 与 Release，补传 MSI；Checks `34306331275` PASS（前端 57 passed，Rust check/test 通过），macOS workflow `34306369988` PASS 并上传 Universal DMG；Release 四项资产 digest 已核对，证据见 `docs/qa/REL-01-b375f85.md`；旧 `v2.8.0` tag 未移动 | CORE-03（macOS 原生环境仍缺，DESK-02/DATA-01 依赖其解除） |
 | 2026-09-09 | DESK-02 | `b375f85`→`9938c08`；修改 `src-tauri/Cargo.toml`/`Cargo.lock`、`src-tauri/src/runtime.rs`、`scripts/macos-native-smoke.sh`、`.github/workflows/macos-native.yml`、`src/MainShell.tsx`、`tests/app.spec.mjs`，同步 v2.9.1 版本源并新增 `docs/qa/DESK-02-342009c.md`；macOS 单实例、主窗隐藏/恢复、原生托盘菜单、命令面板浮窗、隔离 DMG 安装启动已由 Native Smoke `34330682984` PASS，Checks `34330682891` PASS，Universal Release `34330712307` PASS；本地前端串行 58/58、Rust 32/32、debug/release 包 PASS，Windows EXE/NSIS/MSI 与 macOS Universal DMG 四项资产 digest 见报告；v2.9.1 tag/Release 已收口 | DONE；下一项 DATA-01 |
 | 2026-09-09 | DATA-01 | `c60eeb1`→`89d9404`；新增 `src-tauri/src/runtime.rs` 隔离 portable backup round-trip 单测、`docs/data-portability.md`、`docs/content/asset-inventory.md`；明确 state/runtime 备份字段与 WebView `localStorage` 排除项，登记跨平台目录、语料/音效/位图来源、SHA-256 和未核验缺口；定向迁移 1/1、Rust 33/33、`pnpm check`、`pnpm build`（2061 modules）、前端单 worker 58/58、cargo fmt/check、`git diff --check` PASS；证据 `docs/qa/DATA-01-89d9404.md`；仅文档/测试，不升版本、不重打 v2.9.1 Release | DONE；无下一项 |
-| 2026-09-09 | REFINE-03 | `1c8fc9c`→待提交；重做 `GraphiteConsoleViews.tsx` / `.css`，将五页从同构换色控制台改为工业仪表、序列槽位、任务舱、信号记录与系统模块；移除状态栏伪造 CPU/MEM/SYNC 数据，补充真实记录时段计算与空槽位；新增 Graphite 结构断言与证据 `docs/qa/REFINE-03-graphite.md`；`pnpm check`、Graphite 3/3、完整前端串行等效 58/58、Vite build、cargo fmt/check/test 33/33、Windows v2.9.2 EXE/NSIS/MSI 打包 PASS | REVIEW；REL-02 发布闭环 |
+| 2026-09-09 | REFINE-03 | `1c8fc9c`→`44fa75b`；重做 `GraphiteConsoleViews.tsx` / `.css`，将五页从同构换色控制台改为工业仪表、序列槽位、任务舱、信号记录与系统模块；移除状态栏伪造 CPU/MEM/SYNC 数据，补充真实记录时段计算与空槽位；新增 Graphite 结构断言与证据 `docs/qa/REFINE-03-graphite.md`；`pnpm check`、Graphite 3/3、完整前端串行等效 58/58、Vite build、cargo fmt/check/test 33/33、Windows v2.9.2 EXE/NSIS/MSI 打包 PASS | REVIEW；REL-02 发布闭环 |
 
 每条后续记录使用：`日期｜任务ID｜开始SHA→结束SHA｜修改文件｜验证命令与结果｜证据路径/链接｜版本/发布状态｜剩余问题｜下一ID`。没有执行的测试必须写“未执行”，不可复制上一版结果。
 
