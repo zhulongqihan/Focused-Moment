@@ -11,11 +11,19 @@
 
 ## 验证
 
-- GitHub macOS Native Smoke run `34328199858`：通过，macOS 26.6.2 arm64。
-- GitHub Checks run `34328199910`：通过，前端与 Rust 共 58 项通过。
+- GitHub macOS Native Smoke run `34330682984`：通过，macOS 26.6.2 arm64。
+- GitHub Checks run `34330682891`：通过，前端与 Rust 共 58 项通过。
+- GitHub Universal macOS Release run `34330712307`：通过并上传 `Focused.Moment_2.9.1_universal.dmg`。
 - Rust：32/32；`cargo fmt --check`、`cargo check --locked`、`cargo test --locked` 通过。
 - 本地 `pnpm check`、Vite build（2061 modules）、串行完整前端回归 58/58、`pnpm package:debug`、`pnpm package:release` 通过。
 - 原生证据报告：`docs/qa/DESK-02-342009c.md`。
+
+## Release 资产
+
+- Windows EXE：`sha256:dc00343ae78d0cb7f5669c377ff0a0ca22baec345b32eaf8990079f1bf3af29e`
+- Windows NSIS/Setup：`sha256:75ce141fc5d9fde6bdbc8098fcfcb48742c0335c017b253981d131e5f5fa1cc9`
+- Windows MSI：`sha256:912dbf84e0f9c1cac6e036c97450e5a1e3c40a9f1b66b26cee7895916781b55a`
+- macOS Universal DMG：`sha256:9b4b64b106baa32e7c3ef743118523a8a7f3dbae855f1ed9e4d11df89a6b4067`
 
 ## 已知边界
 
