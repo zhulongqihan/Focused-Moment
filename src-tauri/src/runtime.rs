@@ -3922,7 +3922,14 @@ mod tests {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+
+    #[cfg(target_os = "macos")]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+        let _ = show_main_window(app);
+    }));
+
+    builder
         .manage(TimerEngineState::new())
         .manage(AppLifecycleState::new())
         .setup(|app| {

@@ -7,7 +7,7 @@
 
 | 字段 | 当前值 |
 | --- | --- |
-| as_of / updated_at | 2026-09-09 11:53 +08:00；v2.9.0 已发布，CORE-03 macOS 原生数据目录与迁移证据已完成，下一依赖门为 DESK-02 |
+| as_of / updated_at | 2026-09-09 12:03 +08:00；v2.9.0 已发布，CORE-03 已完成，正在执行 DESK-02 macOS 原生桌面集成验收 |
 | 产品目标 | 本地优先的桌面专注工具：待办 → 专注 → 桌面提醒 → 保存记录 → 回看投入 → 可恢复地长期保留 |
 | 当前阶段 | Night Valley、Editorial Paper、Graphite Console、Aurora Ocean、Botanical Library 均已接入并发布五页；主题线完成，平台与数据搬移仍按依赖推进 |
 | 代码基线 | 当前 v2.9.0 发布提交 `b375f85`（Botanical 源码 `acf3b2b`；版本同步 `4018e53`；v2.9.0 tag 已指向该提交，v2.8.0 tag 仍为 `95490d1`） |
@@ -16,7 +16,7 @@
 | 远程 main | 已推送至 `b375f85`；Checks run `34306331275` PASS，macOS Release run `34306369988` PASS；v2.9.0 Release 已核对 Windows EXE/NSIS/MSI 与 macOS Universal DMG 四项资产及 digest |
 | 本轮交付 | TH-05 完成 Botanical Library 五页并由 REL-01 收口为 v2.9.0；CORE-03 在真实 macOS runner 完成规范数据目录、旧目录迁移/备份、重启读取和 LaunchServices 风格启动；证据见 `docs/qa/TH-05-acf3b2b.md`、`docs/qa/REL-01-b375f85.md`、`docs/qa/CORE-03-8c38226.md` 与 Actions run `34308536654` |
 | 下一项 | **DESK-02：macOS 数据、窗口、单实例与安装冒烟**；CORE-03 已解除，DATA-01 仍需等待 DESK-02 的平台边界事实 |
-| 当前执行人 / 在做任务 | Codex / DESK-02 TODO（CORE-03 原生数据目录与迁移已完成；下一步核对第二实例、托盘、浮窗和安装交互） |
+| 当前执行人 / 在做任务 | Codex / DESK-02 DOING（接入 macOS 单实例并补第二实例、托盘、浮窗和安装交互证据） |
 | 首套验收结论 | **Windows 原生核心闭环、编辑态计时刷新、主题渲染边界、QA-01 回退回归、五套主题 25 页前端回归、Editorial 长历史性能专项、v2.6.10/v2.7.0/v2.8.0/v2.9.0 Windows 与 macOS 资产发布、CORE-03 macOS 原生数据目录与迁移已通过**；macOS 第二实例、托盘菜单点击、浮窗交互、正式安装和跨设备数据搬移仍未闭环 |
 | source | 本轮用户说明；当前源码与测试；Git 提交/远程 refs；GitHub Release/Actions；本轮命令结果 |
 | supersedes | 旧文档中的 v1.4.1/v1.5.x/v1.10.0/v2.0 当前进度，以及 2026-09-06 摘要中的“其他四页未实现、主题注册未建立” |
@@ -147,7 +147,7 @@ CORE-03、DESK-02 为 macOS 下一次发布门槛，可与 Windows 首套验收�
 | NV-05 | P1 | DONE | NV-04 | 五页响应式、键盘、焦点、错误态收口 |
 | NV-06 | P2 | DONE | NV-04/05 | 分页视觉精修并完成第一套视觉验收 |
 | DESK-01 | P1 | DONE | CORE-02、NV-03 | Windows 真机计时/悬浮/托盘/恢复冒烟 |
-| DESK-02 | P1 | TODO | CORE-03 | macOS 数据、窗口、单实例与安装冒烟 |
+| DESK-02 | P1 | DOING | CORE-03 | macOS 数据、窗口、单实例与安装冒烟 |
 | DESK-03 | P1 | DONE | CORE-02、NV-03 | 计时刷新与列表编辑解耦，多窗口状态一致 |
 | ARCH-01 | P2 | DONE | G1 | 有限拆分视图/CSS，建立最小主题渲染边界 |
 | QA-01 | P1 | DONE | NV-04、ENG-01 | 公共业务回归、主题专用视觉回归、CI 证据留存 |

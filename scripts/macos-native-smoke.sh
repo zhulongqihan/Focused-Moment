@@ -25,6 +25,7 @@ legacy_dir="$work_dir/FocusedMoment"
 report_path="$smoke_root/report.md"
 direct_log="$smoke_root/direct.log"
 finder_log="$smoke_root/finder.log"
+secondary_log="$smoke_root/secondary.log"
 
 mkdir -p "$smoke_home" "$smoke_tmp" "$work_dir" "$second_work_dir"
 printf '%s\n' \
@@ -205,6 +206,29 @@ if grep -Fq '本地数据未加载' "$direct_log"; then
   exit 1
 fi
 append_report "- restart from migrated Application Support data using a different working directory: PASS"
+
+# The first process is the singleton. A second native launch from another
+# working directory must hand off to it and exit cleanly instead of creating a
+# second app process.
+pushd "$work_dir" >/dev/null
+HOME="$smoke_home" TMPDIR="$smoke_tmp" "$app_executable" > "$secondary_log" 2>&1 &
+secondary_pid=$!
+popd >/dev/null
+if wait "$secondary_pid"; then
+  secondary_exit_code=0
+else
+  secondary_exit_code=$?
+fi
+if [[ "$secondary_exit_code" -ne 0 ]]; then
+  echo "The secondary macOS launch did not exit cleanly (exit $secondary_exit_code)." >&2
+  sed -n '1,160p' "$secondary_log" >&2 || true
+  exit 1
+fi
+if ! kill -0 "$direct_pid" 2>/dev/null; then
+  echo "The primary macOS instance was not alive after the secondary launch." >&2
+  exit 1
+fi
+append_report "- secondary native launch exits without creating a second instance: PASS"
 stop_pid "$direct_pid"
 running_pids=()
 
