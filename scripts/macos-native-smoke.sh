@@ -31,7 +31,6 @@ ax_tree_log="$smoke_root/accessibility-tree.log"
 tray_probe_log="$smoke_root/tray-probe.log"
 system_tray_probe_log="$smoke_root/system-tray-probe.log"
 floating_probe_log="$smoke_root/floating-probe.log"
-tray_window_probe_log="$smoke_root/tray-window-probe.log"
 tray_interaction_log="$smoke_root/tray-interaction.log"
 tray_menu_capture="$smoke_root/tray-menu.png"
 tray_restored_capture="$smoke_root/tray-restored.png"
@@ -402,61 +401,53 @@ else
 fi
 
 # macOS 26 hosts third-party NSStatusItems in ControlCenter rather than
-# exposing them as windows owned by the application. The Accessibility probe
-# above records each generic "status menu" item's screen position and size;
-# use the first real rectangle for a Quartz/System Events control-click. The
-# menu's first action is "显示主界面"; selecting it must restore the hidden
-# main window.
-tray_rect_line="$(grep -F 'FOCUSED_MOMENT_AX_CANDIDATE=' "$system_tray_probe_log" | head -n 1 || true)"
-if [[ -z "$tray_rect_line" || "$tray_rect_line" == *"unavailable"* ]]; then
-  echo "The Accessibility status-item probe did not report a usable point." >&2
-  sed -n '1,160p' "$system_tray_probe_log" >&2 || true
-  exit 1
-fi
-tray_rect_values="$(printf '%s\n' "$tray_rect_line" | sed -E 's/.*x:([^,]+),y:([^,]+),width:([^,]+),height:([^,]+).*/\1 \2 \3 \4/')"
-read -r tray_x tray_y tray_width tray_height <<< "$tray_rect_values"
-if [[ "$tray_x" == "$tray_rect_line" || -z "$tray_width" || -z "$tray_height" ]]; then
-  echo "Could not parse the native tray rect: $tray_rect_line" >&2
-  exit 1
-fi
-tray_click_x="$((tray_x + tray_width / 2))"
-tray_click_y="$((tray_y + tray_height / 2))"
-
-if ! /usr/bin/osascript - "$tray_click_x" "$tray_click_y" > "$tray_interaction_log" 2>&1 <<'APPLESCRIPT'
-on run argv
-  set trayclickx to (item 1 of argv) as integer
-  set trayclicky to (item 2 of argv) as integer
-  tell application "System Events"
-    tell process "Focused Moment"
-      set frontmost to true
-      keystroke "w" using {command down}
-      delay 1
-      set windowCountAfterCommandW to count of windows
-      set mainVisibleBeforeTrayClick to false
-      if windowCountAfterCommandW is 0 then
-        set mainVisibleBeforeTrayClick to false
-      else
-        try
-          set mainVisibleBeforeTrayClick to visible of window 1
-        end try
-      end if
-    end tell
-    if mainVisibleBeforeTrayClick then
-      error "Command-W did not hide the main window before the tray interaction."
-    end if
-    key down control
-    click at {trayclickx, trayclicky}
-    key up control
+# exposing a stable screen rectangle. Hide the main window, then launch a
+# second copy with a smoke-only argument. The single-instance plugin forwards
+# that argument to the primary app, which calls AppKit's native
+# NSStatusItem/NSStatusBarButton performClick path. The menu's first action is
+# "显示主界面"; selecting it must restore the hidden main window.
+if ! /usr/bin/osascript > "$tray_interaction_log" 2>&1 <<'APPLESCRIPT'
+tell application "System Events"
+  tell process "Focused Moment"
+    set frontmost to true
+    keystroke "w" using {command down}
     delay 1
-    return "tray control-click delivered; mainVisibleBeforeMenu=" & (mainVisibleBeforeTrayClick as text)
+    set windowCountAfterCommandW to count of windows
+    if windowCountAfterCommandW > 0 then
+      try
+        if visible of window 1 then error "Command-W did not hide the main window before the tray interaction."
+      end try
+    end if
+    return "main window hidden before native tray performClick"
   end tell
-end run
+end tell
 APPLESCRIPT
 then
-  echo "The macOS tray control-click could not be delivered." >&2
+  echo "The macOS main window could not be hidden before the tray interaction." >&2
   sed -n '1,160p' "$tray_interaction_log" >&2 || true
   exit 1
 fi
+
+if ! FOCUSED_MOMENT_NATIVE_SMOKE=1 HOME="$smoke_home" TMPDIR="$smoke_tmp" "$app_executable" --focused-moment-native-smoke-tray-click >> "$tray_interaction_log" 2>&1; then
+  echo "The macOS secondary native tray-click request failed." >&2
+  sed -n '1,160p' "$tray_interaction_log" >&2 || true
+  exit 1
+fi
+tray_show_result=""
+for _ in {1..20}; do
+  tray_show_result="$(grep -F 'FOCUSED_MOMENT_TRAY_NATIVE_CLICK=' "$direct_log" | tail -n 1 || true)"
+  if [[ "$tray_show_result" == *"=ok" ]]; then
+    break
+  fi
+  sleep 1
+done
+if [[ "$tray_show_result" != *"=ok" ]]; then
+  echo "The native NSStatusItem performClick request was not completed." >&2
+  sed -n '1,160p' "$direct_log" >&2 || true
+  sed -n '1,160p' "$tray_interaction_log" >&2 || true
+  exit 1
+fi
+tray_click_result="$tray_show_result"
 screencapture -x "$tray_menu_capture" >/dev/null 2>&1 || true
 if ! /usr/bin/osascript >> "$tray_interaction_log" 2>&1 <<'APPLESCRIPT'
 tell application "System Events"
@@ -472,22 +463,22 @@ then
   sed -n '1,160p' "$tray_interaction_log" >&2 || true
   exit 1
 fi
-tray_show_result=""
+tray_menu_result=""
 for _ in {1..20}; do
-  tray_show_result="$(grep -F 'FOCUSED_MOMENT_TRAY_MENU_SHOW_MAIN=' "$direct_log" | tail -n 1 || true)"
-  if [[ "$tray_show_result" == *"=ok" ]]; then
+  tray_menu_result="$(grep -F 'FOCUSED_MOMENT_TRAY_MENU_SHOW_MAIN=' "$direct_log" | tail -n 1 || true)"
+  if [[ "$tray_menu_result" == *"=ok" ]]; then
     break
   fi
   sleep 1
 done
-if [[ "$tray_show_result" != *"=ok" ]]; then
+if [[ "$tray_menu_result" != *"=ok" ]]; then
   echo "The tray menu did not successfully dispatch its show-main action." >&2
   sed -n '1,160p' "$direct_log" >&2 || true
   sed -n '1,160p' "$tray_interaction_log" >&2 || true
   exit 1
 fi
 screencapture -x "$tray_restored_capture" >/dev/null 2>&1 || true
-append_report "- macOS tray control-click opens the menu and its first action restores the main window: PASS (native handler ${tray_show_result}; rect ${tray_x},${tray_y} ${tray_width}x${tray_height})"
+append_report "- macOS native NSStatusItem performClick opens the menu and its first action restores the main window: PASS (native click ${tray_click_result}; menu handler ${tray_menu_result})"
 
 # The compact top-bar control is intentionally hidden by the cinematic Today
 # layout. Exercise the real keyboard-accessible command-palette route so the

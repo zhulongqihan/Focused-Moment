@@ -19,6 +19,9 @@ use tauri::menu::{MenuBuilder, MenuItemBuilder};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, Window, WindowEvent};
 
+#[cfg(target_os = "macos")]
+use objc2::MainThreadMarker;
+
 #[cfg(windows)]
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     FlashWindowEx, FLASHWINFO, FLASHW_TIMERNOFG, FLASHW_TRAY,
@@ -2970,6 +2973,39 @@ fn build_system_tray(app: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+#[cfg(target_os = "macos")]
+fn trigger_native_smoke_tray_click(app: &AppHandle) {
+    let Some(tray) = app.tray_by_id("focused-moment-tray") else {
+        eprintln!("FOCUSED_MOMENT_TRAY_NATIVE_CLICK=error:tray-unavailable");
+        return;
+    };
+
+    let result = tray.with_inner_tray_icon(|inner| {
+        let Some(status_item) = inner.ns_status_item() else {
+            return Err("status-item-unavailable".to_string());
+        };
+        let Some(marker) = MainThreadMarker::new() else {
+            return Err("main-thread-marker-unavailable".to_string());
+        };
+        let Some(button) = status_item.button(marker) else {
+            return Err("status-button-unavailable".to_string());
+        };
+
+        // NSStatusItem is hosted by ControlCenter on current macOS runners,
+        // so a screen coordinate is not a stable user-event target. AppKit's
+        // native performClick path is the same status-item button action and
+        // keeps this smoke assertion on the shipped tray/menu wiring.
+        unsafe { button.performClick(None) };
+        Ok(())
+    });
+
+    match result {
+        Ok(Ok(())) => eprintln!("FOCUSED_MOMENT_TRAY_NATIVE_CLICK=ok"),
+        Ok(Err(error)) => eprintln!("FOCUSED_MOMENT_TRAY_NATIVE_CLICK=error:{error}"),
+        Err(error) => eprintln!("FOCUSED_MOMENT_TRAY_NATIVE_CLICK=error:{error}"),
+    }
+}
+
 #[tauri::command]
 fn minimize_main_window(window: tauri::Window) -> Result<(), String> {
     window.minimize().map_err(|error| error.to_string())
@@ -3941,8 +3977,15 @@ pub fn run() {
     let builder = tauri::Builder::default();
 
     #[cfg(target_os = "macos")]
-    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
-        let _ = show_main_window(app);
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+        if argv
+            .iter()
+            .any(|argument| argument == "--focused-moment-native-smoke-tray-click")
+        {
+            trigger_native_smoke_tray_click(app);
+        } else {
+            let _ = show_main_window(app);
+        }
     }));
 
     builder
