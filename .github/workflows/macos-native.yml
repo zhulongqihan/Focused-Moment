@@ -1,0 +1,71 @@
+name: macOS Native Smoke
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-smoke:
+    name: Native storage and bundle smoke
+    runs-on: macos-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Rust tests on macOS
+        run: cargo test --locked --manifest-path src-tauri/Cargo.toml
+
+      - name: Build unsigned debug macOS app
+        run: pnpm tauri build --debug --no-sign --ci
+
+      - name: Run isolated macOS native smoke
+        run: bash scripts/macos-native-smoke.sh
+
+      - name: Write verification summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "### Focused Moment macOS native smoke"
+            echo "- commit: $GITHUB_SHA"
+            echo "- ref: $GITHUB_REF"
+            echo "- run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            echo "- runner: $RUNNER_OS / $RUNNER_ARCH"
+            echo "- macOS: $(sw_vers -productVersion)"
+            echo "- node: $(node --version)"
+            echo "- pnpm: $(pnpm --version)"
+            echo "- rust: $(rustc --version)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload native smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-native-smoke-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/focused-moment-macos-native-*/report.md
+            ${{ runner.temp }}/focused-moment-macos-native-*/*.log
+          if-no-files-found: ignore
+          retention-days: 14

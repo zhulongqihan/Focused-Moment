@@ -7,16 +7,16 @@
 
 | 字段 | 当前值 |
 | --- | --- |
-| as_of / updated_at | 2026-09-09 11:24 +08:00；v2.9.0 已发布，TH-05 与 REL-01 已完成，下一依赖门为 CORE-03 macOS 原生证据 |
+| as_of / updated_at | 2026-09-09 11:36 +08:00；v2.9.0 已发布，TH-05 与 REL-01 已完成，正在补齐 CORE-03 macOS 原生证据 |
 | 产品目标 | 本地优先的桌面专注工具：待办 → 专注 → 桌面提醒 → 保存记录 → 回看投入 → 可恢复地长期保留 |
 | 当前阶段 | Night Valley、Editorial Paper、Graphite Console、Aurora Ocean、Botanical Library 均已接入并发布五页；主题线完成，平台与数据搬移仍按依赖推进 |
 | 代码基线 | 当前 v2.9.0 发布提交 `b375f85`（Botanical 源码 `acf3b2b`；版本同步 `4018e53`；v2.9.0 tag 已指向该提交，v2.8.0 tag 仍为 `95490d1`） |
-| 当前工作分支 | `main`；CORE-01/CORE-02/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06/DESK-01/DESK-03/ARCH-01/QA-01/PERF-01/TH-02/TH-03/TH-04/TH-05/REL-01 已完成；CORE-03 仍 BLOCKED |
+| 当前工作分支 | `main`；CORE-01/CORE-02/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06/DESK-01/DESK-03/ARCH-01/QA-01/PERF-01/TH-02/TH-03/TH-04/TH-05/REL-01 已完成；CORE-03 DOING |
 | 发布基线 | GitHub `v2.9.0`，tag peeled commit 为 `b375f85`；旧 `v2.8.0`/`v2.7.0`/`v2.6.10`/`v2.6.9` tag 未移动 |
 | 远程 main | 已推送至 `b375f85`；Checks run `34306331275` PASS，macOS Release run `34306369988` PASS；v2.9.0 Release 已核对 Windows EXE/NSIS/MSI 与 macOS Universal DMG 四项资产及 digest |
 | 本轮交付 | TH-05 完成 Botanical Library 五页并由 REL-01 收口为 v2.9.0；本地前端 57/57、Vite 2061 modules、Rust 32/32、Windows debug/release 包、隔离 EXE 启动、远程 Checks、Universal DMG 和 GitHub Release 四项资产均已通过；证据见 `docs/qa/TH-05-acf3b2b.md`、`docs/qa/REL-01-b375f85.md` 与 `output/qa/TH-05/acf3b2b/` |
-| 下一项 | **CORE-03：等待真实 macOS 环境完成跨平台数据目录、旧目录发现/迁移和原生边界验收**；其完成后才可推进 DESK-02 与 DATA-01；不以 CI 的 DMG 构建替代原生证据 |
-| 当前执行人 / 在做任务 | Codex / CORE-03 BLOCKED（Windows 代码与隔离验证完成，macOS 原生环境缺失；不触碰真实用户数据） |
+| 下一项 | **CORE-03：完成隔离 macOS 原生 smoke，核对跨平台数据目录、旧目录发现/迁移和 bundle 启动证据**；其完成后才可推进 DESK-02 与 DATA-01 |
+| 当前执行人 / 在做任务 | Codex / CORE-03 DOING（新增 macOS 原生 CI smoke；仅使用 CI 临时目录，不触碰真实用户数据） |
 | 首套验收结论 | **Windows 原生核心闭环、编辑态计时刷新、主题渲染边界、QA-01 回退回归、五套主题 25 页前端回归、Editorial 长历史性能专项、v2.6.10/v2.7.0/v2.8.0/v2.9.0 Windows 与 macOS 资产发布已通过**；macOS 原生数据目录/单实例/窗口交互、真实休眠/托盘菜单点击、数据搬移仍未闭环 |
 | source | 本轮用户说明；当前源码与测试；Git 提交/远程 refs；GitHub Release/Actions；本轮命令结果 |
 | supersedes | 旧文档中的 v1.4.1/v1.5.x/v1.10.0/v2.0 当前进度，以及 2026-09-06 摘要中的“其他四页未实现、主题注册未建立” |
