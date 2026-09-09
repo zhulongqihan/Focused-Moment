@@ -3996,7 +3996,13 @@ pub fn run() {
             .iter()
             .any(|argument| argument.contains("focused-moment-native-smoke-tray-click"))
         {
-            trigger_native_smoke_tray_click(app);
+            let app_handle = app.clone();
+            match app.run_on_main_thread(move || trigger_native_smoke_tray_click(&app_handle)) {
+                Ok(()) => eprintln!("FOCUSED_MOMENT_TRAY_NATIVE_CLICK=scheduled"),
+                Err(error) => {
+                    eprintln!("FOCUSED_MOMENT_TRAY_NATIVE_CLICK=error:schedule:{error}")
+                }
+            }
         } else {
             let _ = show_main_window(app);
         }
