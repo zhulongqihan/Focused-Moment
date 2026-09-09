@@ -17,7 +17,7 @@
 - `cargo fmt --check --manifest-path src-tauri/Cargo.toml`：通过。
 - `cargo check --locked --manifest-path src-tauri/Cargo.toml`：通过。
 - `cargo test --locked --manifest-path src-tauri/Cargo.toml`：33/33 library tests 通过。
-- Windows 正式包已生成：便携 EXE `110c5047476f159403e10fbb5d0d5a17f11f417938f9c86f0b2b1f5cf6436768`；Setup/NSIS `933f26ead6df14bcea11f8c355a041d285d4be00ac3d120ac6c2bd10462ac1a4`；MSI `eb44afb18a868ab2404a9b5773457b26f604280d12dc85058e8bfdd0ca82c11e`。
+- Windows 正式包已生成并上传：便携 EXE `a1239d72fab7ad48ed94465f4d0a5d502b5fe4e337a9e88d2bfdeb6a0a60a183`；Setup/NSIS `2ed00567a7ab9be0a34da3490336bf0b1e7d1a2e4cfbefd0d4d7c446335cbed3`；MSI `38db19662a37bd8348e36e300cf79a46276617804f379b77faa06fd5b012549f`。
 - GitHub Checks `34364439803`：通过，前端 `58 passed (5.0m)`，Rust check/test 通过。
 - macOS Native Smoke `34364439775`：通过。
 - macOS Universal Release `34364312849`：通过并上传 Universal DMG。
