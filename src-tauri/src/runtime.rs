@@ -2946,6 +2946,14 @@ fn build_system_tray(app: &AppHandle) -> Result<(), String> {
             }
         });
 
+    #[cfg(target_os = "macos")]
+    {
+        // A text label keeps the status item visible and discoverable in
+        // macOS Accessibility/SystemUIServer surfaces when a runner or user
+        // account does not expose image-only status items.
+        tray_builder = tray_builder.title("Focused Moment");
+    }
+
     if let Some(icon) = app.default_window_icon() {
         tray_builder = tray_builder.icon(icon.clone());
     }
