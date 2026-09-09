@@ -22,5 +22,3 @@ windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_UI_Wind
 
 [target.'cfg(target_os = "macos")'.dependencies]
 tauri-plugin-single-instance = "2.4.4"
-objc2 = "0.6.4"
-objc2-app-kit = "0.3.2"

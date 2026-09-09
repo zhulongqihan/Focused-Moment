@@ -31,6 +31,7 @@ ax_tree_log="$smoke_root/accessibility-tree.log"
 tray_probe_log="$smoke_root/tray-probe.log"
 system_tray_probe_log="$smoke_root/system-tray-probe.log"
 floating_probe_log="$smoke_root/floating-probe.log"
+tray_window_probe_log="$smoke_root/tray-window-probe.log"
 tray_interaction_log="$smoke_root/tray-interaction.log"
 tray_menu_capture="$smoke_root/tray-menu.png"
 tray_restored_capture="$smoke_root/tray-restored.png"
@@ -382,22 +383,20 @@ else
 fi
 
 # macOS 26's Accessibility tree does not expose every third-party
-# NSStatusItem. The tray-icon API does expose its native screen rect, so use
-# that exact rect for a real Quartz/System Events control-click. The menu's
-# first action is "显示主界面"; selecting it must restore the hidden main
-# window. This keeps the assertion on the user path while recording the
-# runner's Accessibility limitation above rather than treating it as a pass.
-tray_rect_line=""
-for _ in {1..20}; do
-  tray_rect_line="$(grep -F 'FOCUSED_MOMENT_TRAY_POINT=' "$direct_log" | tail -n 1 || true)"
-  if [[ "$tray_rect_line" == *"x:"* && "$tray_rect_line" != *"unavailable"* ]]; then
-    break
-  fi
-  sleep 1
-done
+# NSStatusItem, and AppKit reports the status item's button in a private
+# coordinate space. CoreGraphics exposes the actual on-screen window bounds;
+# the helper filters those bounds by the running app's PID, then System Events
+# uses the resulting screen point for a real control-click. The menu's first
+# action is "显示主界面"; selecting it must restore the hidden main window.
+if ! /usr/bin/swift "$repo_root/scripts/macos-native-tray-point.swift" "$direct_pid" > "$tray_window_probe_log" 2>&1; then
+  echo "The CoreGraphics tray window probe failed." >&2
+  sed -n '1,160p' "$tray_window_probe_log" >&2 || true
+  exit 1
+fi
+tray_rect_line="$(grep -F 'FOCUSED_MOMENT_TRAY_POINT=' "$tray_window_probe_log" | tail -n 1 || true)"
 if [[ -z "$tray_rect_line" || "$tray_rect_line" == *"unavailable"* ]]; then
-  echo "The native tray point was not reported by the running macOS app." >&2
-  sed -n '1,160p' "$direct_log" >&2 || true
+  echo "The CoreGraphics tray window probe did not report a usable point." >&2
+  sed -n '1,160p' "$tray_window_probe_log" >&2 || true
   exit 1
 fi
 tray_rect_values="$(printf '%s\n' "$tray_rect_line" | sed -E 's/.*x:([^,]+),y:([^,]+),width:([^,]+),height:([^,]+).*/\1 \2 \3 \4/')"

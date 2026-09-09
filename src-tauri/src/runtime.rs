@@ -19,11 +19,6 @@ use tauri::menu::{MenuBuilder, MenuItemBuilder};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, Window, WindowEvent};
 
-#[cfg(target_os = "macos")]
-use objc2::MainThreadMarker;
-#[cfg(target_os = "macos")]
-use objc2_app_kit::NSAccessibilityElementProtocol;
-
 #[cfg(windows)]
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     FlashWindowEx, FLASHWINFO, FLASHW_TIMERNOFG, FLASHW_TRAY,
@@ -2975,48 +2970,6 @@ fn build_system_tray(app: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-#[cfg(target_os = "macos")]
-fn log_native_smoke_tray_rect(app: &AppHandle) {
-    if std::env::var_os("FOCUSED_MOMENT_NATIVE_SMOKE").is_none() {
-        return;
-    }
-
-    let Some(tray) = app.tray_by_id("focused-moment-tray") else {
-        eprintln!("FOCUSED_MOMENT_TRAY_POINT=unavailable:tray");
-        return;
-    };
-    let result = tray.with_inner_tray_icon(|inner| {
-        let Some(status_item) = inner.ns_status_item() else {
-            return None;
-        };
-        let Some(marker) = MainThreadMarker::new() else {
-            return None;
-        };
-        let Some(button) = status_item.button(marker) else {
-            return None;
-        };
-        let Some(window) = button.window() else {
-            return None;
-        };
-        let button_rect = button.accessibilityFrame();
-        Some((
-            button_rect.origin.x,
-            button_rect.origin.y,
-            button_rect.size.width,
-            button_rect.size.height,
-            window.backingScaleFactor(),
-        ))
-    });
-
-    match result {
-        Ok(Some((x, y, width, height, scale))) => eprintln!(
-            "FOCUSED_MOMENT_TRAY_POINT=x:{x:.0},y:{y:.0},width:{width:.0},height:{height:.0},scale:{scale:.2}"
-        ),
-        Ok(None) => eprintln!("FOCUSED_MOMENT_TRAY_POINT=unavailable:native-view"),
-        Err(error) => eprintln!("FOCUSED_MOMENT_TRAY_POINT=unavailable:{error}"),
-    }
-}
-
 #[tauri::command]
 fn minimize_main_window(window: tauri::Window) -> Result<(), String> {
     window.minimize().map_err(|error| error.to_string())
@@ -3997,8 +3950,6 @@ pub fn run() {
         .manage(AppLifecycleState::new())
         .setup(|app| {
             build_system_tray(&app.handle())?;
-            #[cfg(target_os = "macos")]
-            log_native_smoke_tray_rect(&app.handle());
             Ok(())
         })
         .on_window_event(|window, event| {
