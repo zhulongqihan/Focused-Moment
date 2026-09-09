@@ -418,10 +418,13 @@ on run argv
       keystroke "w" using {command down}
       delay 1
       set windowCountAfterCommandW to count of windows
+      set mainVisibleBeforeTrayClick to false
       if windowCountAfterCommandW is 0 then
         set mainVisibleBeforeTrayClick to false
       else
-        set mainVisibleBeforeTrayClick to visible of window 1
+        try
+          set mainVisibleBeforeTrayClick to visible of window 1
+        end try
       end if
     end tell
     if mainVisibleBeforeTrayClick then
