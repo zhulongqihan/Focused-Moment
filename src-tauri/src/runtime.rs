@@ -2977,40 +2977,44 @@ fn log_native_smoke_tray_rect(app: &AppHandle) {
         eprintln!("FOCUSED_MOMENT_TRAY_POINT=unavailable:tray");
         return;
     };
-    let Some(status_item) = tray.ns_status_item() else {
-        eprintln!("FOCUSED_MOMENT_TRAY_POINT=unavailable:status-item");
-        return;
-    };
-    let Some(marker) = MainThreadMarker::new() else {
-        eprintln!("FOCUSED_MOMENT_TRAY_POINT=unavailable:main-thread");
-        return;
-    };
-    let Some(button) = status_item.button(marker) else {
-        eprintln!("FOCUSED_MOMENT_TRAY_POINT=unavailable:button");
-        return;
-    };
-    let Some(window) = button.window() else {
-        eprintln!("FOCUSED_MOMENT_TRAY_POINT=unavailable:window");
-        return;
-    };
-    let Some(screen) = NSScreen::mainScreen(marker) else {
-        eprintln!("FOCUSED_MOMENT_TRAY_POINT=unavailable:screen");
-        return;
-    };
+    let result = tray.with_inner_tray_icon(|inner| {
+        let Some(status_item) = inner.ns_status_item() else {
+            return None;
+        };
+        let Some(marker) = MainThreadMarker::new() else {
+            return None;
+        };
+        let Some(button) = status_item.button(marker) else {
+            return None;
+        };
+        let Some(window) = button.window() else {
+            return None;
+        };
+        let Some(screen) = NSScreen::mainScreen(marker) else {
+            return None;
+        };
 
-    let button_rect = window.convertRectToScreen(button.frame());
-    let screen_frame = screen.frame();
-    let top_y = screen_frame.origin.y + screen_frame.size.height
-        - button_rect.origin.y
-        - button_rect.size.height;
-    eprintln!(
-        "FOCUSED_MOMENT_TRAY_POINT=x:{:.0},y:{:.0},width:{:.0},height:{:.0},scale:{:.2}",
-        button_rect.origin.x,
-        top_y,
-        button_rect.size.width,
-        button_rect.size.height,
-        window.backingScaleFactor()
-    );
+        let button_rect = window.convertRectToScreen(button.frame());
+        let screen_frame = screen.frame();
+        let top_y = screen_frame.origin.y + screen_frame.size.height
+            - button_rect.origin.y
+            - button_rect.size.height;
+        Some((
+            button_rect.origin.x,
+            top_y,
+            button_rect.size.width,
+            button_rect.size.height,
+            window.backingScaleFactor(),
+        ))
+    });
+
+    match result {
+        Ok(Some((x, y, width, height, scale))) => eprintln!(
+            "FOCUSED_MOMENT_TRAY_POINT=x:{x:.0},y:{y:.0},width:{width:.0},height:{height:.0},scale:{scale:.2}"
+        ),
+        Ok(None) => eprintln!("FOCUSED_MOMENT_TRAY_POINT=unavailable:native-view"),
+        Err(error) => eprintln!("FOCUSED_MOMENT_TRAY_POINT=unavailable:{error}"),
+    }
 }
 
 #[tauri::command]
