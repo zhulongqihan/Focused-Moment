@@ -428,7 +428,25 @@ then
   exit 1
 fi
 
-if ! FOCUSED_MOMENT_NATIVE_SMOKE=1 HOME="$smoke_home" TMPDIR="$smoke_tmp" "$app_executable" --focused-moment-native-smoke-tray-click >> "$tray_interaction_log" 2>&1; then
+FOCUSED_MOMENT_NATIVE_SMOKE=1 HOME="$smoke_home" TMPDIR="$smoke_tmp" "$app_executable" --focused-moment-native-smoke-tray-click >> "$tray_interaction_log" 2>&1 &
+tray_request_pid=$!
+sleep 1
+screencapture -x "$tray_menu_capture" >/dev/null 2>&1 || true
+if ! /usr/bin/osascript >> "$tray_interaction_log" 2>&1 <<'APPLESCRIPT'
+tell application "System Events"
+  key code 115
+  delay 0.2
+  key code 36
+  delay 2
+  return "tray menu first action submitted"
+end tell
+APPLESCRIPT
+then
+  echo "The macOS tray menu selection could not be completed." >&2
+  sed -n '1,160p' "$tray_interaction_log" >&2 || true
+  exit 1
+fi
+if ! wait "$tray_request_pid"; then
   echo "The macOS secondary native tray-click request failed." >&2
   sed -n '1,160p' "$tray_interaction_log" >&2 || true
   exit 1
@@ -448,21 +466,6 @@ if [[ "$tray_show_result" != *"=ok" ]]; then
   exit 1
 fi
 tray_click_result="$tray_show_result"
-screencapture -x "$tray_menu_capture" >/dev/null 2>&1 || true
-if ! /usr/bin/osascript >> "$tray_interaction_log" 2>&1 <<'APPLESCRIPT'
-tell application "System Events"
-  key code 115
-  delay 0.2
-  key code 36
-  delay 2
-  return "tray menu first action submitted"
-end tell
-APPLESCRIPT
-then
-  echo "The macOS tray menu selection could not be completed." >&2
-  sed -n '1,160p' "$tray_interaction_log" >&2 || true
-  exit 1
-fi
 tray_menu_result=""
 for _ in {1..20}; do
   tray_menu_result="$(grep -F 'FOCUSED_MOMENT_TRAY_MENU_SHOW_MAIN=' "$direct_log" | tail -n 1 || true)"
