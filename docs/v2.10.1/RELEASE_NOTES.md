@@ -34,4 +34,8 @@
 - 便携 EXE：`Focused Moment v2.10.1.exe`，SHA-256 `3DA2322844D8DC7DDF6032B9271BC0671D270461A94F16819CB19F8C170A83C`。
 - Setup/NSIS：`Focused Moment Setup v2.10.1.exe`，SHA-256 `5A7009CD7A24BB9D1D19F819F1BB86EB2D68A44769088CFAF86A349B920260CF`。
 - MSI：`Focused Moment_2.10.1_x64_en-US.msi`，SHA-256 `F8281C639C07AE2C3FA30EBA6F385219D5F04200B53FD620F678870E7CC80238`。
-- 远程 CI、GitHub Release 链接、macOS Universal DMG 和远端 digest 将在 v2.10.1 正式收口后补录。
+- GitHub Checks [34379212962](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34379212962)：通过，59/59 前端测试与 Rust format/check/test 通过。
+- macOS Native Smoke [34379212970](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34379212970)：通过。
+- macOS Universal Release [34380453629](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34380453629)：通过并上传 Universal DMG。
+- GitHub Release [v2.10.1](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.10.1)：四项资产均为 `uploaded`。
+- 远端 Release digest：便携 EXE `3da2322844d8dc7ddf6032b9271bc0671d270461a94f16819cb19f8c170a83c9`；Setup/NSIS `5a7009cd7a24bb9d1d19f819f1bb86eb2d68a44769088cfaf86a349b920260cf`；MSI `f8281c639c07ae2c3fa30eba6f385219d5f04200b53fd620f678870e7cc80238`；Universal DMG `5a9d635d8c4f1dc3e2e794f28057ba799da43c138de7009b943a60e65eb2f924`。

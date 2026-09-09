@@ -7,20 +7,20 @@
 
 | 字段 | 当前值 |
 | --- | --- |
-| as_of / updated_at | 2026-09-10；Night Valley 第一套主题的“今日”页已完成一轮截图驱动局部精修候选，定向视觉/交互回归通过；v2.10.1 的完整构建、打包、远程 CI 与 Release 闭环进行中 |
+| as_of / updated_at | 2026-09-10；Night Valley 第一套主题的“今日”页已完成一轮截图驱动局部精修，v2.10.1 已完成版本同步、正式包、远程 CI、macOS Universal 资产与 GitHub Release 收口；等待用户验收 |
 | 产品目标 | 本地优先的桌面专注工具：待办 → 专注 → 桌面提醒 → 保存记录 → 回看投入 → 可恢复地长期保留 |
-| 当前阶段 | 五套主题均已接入；v2.10.0 已发布；当前只处理第一套主题 Night Valley 的一个界面“今日”，按截图和自然语言反馈完成局部精修，随后执行 v2.10.1 发布闭环 |
-| 代码基线 | v2.10.0 发布代码提交为 `ce15ff0`，tag `v2.10.0` 固定在同一提交；本轮 v2.10.1 候选仍在 `main` 工作树；旧 v2.9.2 发布 tag 固定在 `9978e45` |
-| 当前工作分支 | `main`；旧 CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06/DESK-01/DESK-02/DESK-03/ARCH-01/QA-01/PERF-01/TH-02/TH-03/TH-04/TH-05/DATA-01/REL-01 已完成；REFINE-03/REFINE-04/REFINE-05 DONE；REL-02/REL-03 DONE；REFINE-06 DOING |
-| 发布基线 | GitHub `v2.10.0`，tag peeled commit 为 `ce15ff0`；Checks `34364439803`、macOS Native Smoke `34364439775`、macOS Universal Release `34364312849` 均 PASS；`v2.10.0` Release 四项资产均为 uploaded，digest 见 `docs/v2.10.0/RELEASE_NOTES.md`；旧 tag 未移动 |
-| 远程 main | 远程仍停留在 v2.10.0 发布代码 `ce15ff0`；本轮 v2.10.1 候选尚未提交/推送；`v2.10.0` tag 固定且未移动，既有远程 Checks、macOS Native Smoke、Universal Release 与四项资产 digest 仍见 `docs/v2.10.0/RELEASE_NOTES.md` |
-| 本轮交付 | REFINE-06 已完成 Night Valley 今日页的节点信息可见性、路径节奏、Today 命令入口和右卡职责精修候选；定向视觉 28/28、应用交互 31/31、完整前端 59/59、Vite 构建、Rust 33/33、Windows 正式包均通过；提交/推送、远程发布待 REL-04 收口 |
-| 下一项 | REL-04：同步 v2.10.1，完成完整验证、Windows 包、提交/推送、远程 CI、GitHub Release 资产与 digest 核对；随后等待用户验收本轮 Today 页面 |
-| 当前执行人 / 在做任务 | Codex / REFINE-06 已完成本地候选实现，正在执行 v2.10.1 发布闭环 |
+| 当前阶段 | 五套主题均已接入；v2.10.1 已发布；当前只处理第一套主题 Night Valley 的一个界面“今日”，本轮技术闭环完成，等待用户验收，不自动展开其他页面 |
+| 代码基线 | v2.10.1 发布代码提交为 `4ceabf9`，tag `v2.10.1` 固定在同一提交；v2.10.0 tag 固定在 `ce15ff0`；旧 v2.9.2 发布 tag 固定在 `9978e45` |
+| 当前工作分支 | `main`；旧 CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06/DESK-01/DESK-02/DESK-03/ARCH-01/QA-01/PERF-01/TH-02/TH-03/TH-04/TH-05/DATA-01/REL-01 已完成；REFINE-03/REFINE-04/REFINE-05 DONE；REL-02/REL-03/REL-04 DONE；REFINE-06 REVIEW |
+| 发布基线 | GitHub `v2.10.1`，tag peeled commit 为 `4ceabf9`；Checks `34379212962`、macOS Native Smoke `34379212970`、macOS Universal Release `34380453629` 均 PASS；Release 四项资产均为 uploaded，digest 见 `docs/v2.10.1/RELEASE_NOTES.md`；旧 tag 未移动 |
+| 远程 main | 已推送 v2.10.1 应用代码 `4ceabf9`；后续仅补推发布证据文档，`v2.10.1` tag 固定且未移动；本轮远程 Checks、macOS Native Smoke、Universal Release 与四项资产 digest 已核对 |
+| 本轮交付 | REFINE-06 已完成 Night Valley 今日页的节点信息可见性、路径节奏、Today 命令入口和右卡职责精修；定向视觉 28/28、应用交互 31/31、完整前端 59/59、Vite 构建、Rust 33/33、Windows 正式包均通过；REL-04 已完成 v2.10.1 版本、提交/推送、远程 CI、macOS Universal 资产、GitHub Release 与 digest 收口 |
+| 下一项 | 等待用户验收本轮 Night Valley Today 页面；未收到新的主题/界面反馈前，不继续修改其他页面 |
+| 当前执行人 / 在做任务 | Codex / v2.10.1 发布闭环已完成，等待用户验收 REFINE-06 |
 | 首套验收结论 | **Windows 原生核心闭环、编辑态计时刷新、主题渲染边界、QA-01 回退回归、五套主题 25 页前端回归、Editorial 长历史性能专项、v2.6.10/v2.7.0/v2.8.0/v2.9.0/v2.9.1 Windows 与 macOS 资产发布、CORE-03 macOS 原生数据目录与迁移、DESK-02 macOS 第二实例/托盘/浮窗/隔离安装启动、DATA-01 备份范围/隔离跨目录搬移/素材清单已通过**；资源出处补录缺口已在清单中保留为后续治理事项 |
 | source | 本轮用户说明；当前源码与测试；Git 提交/远程 refs；GitHub Release/Actions；本轮命令结果 |
 | supersedes | 旧文档中的 v1.4.1/v1.5.x/v1.10.0/v2.0 当前进度，以及 2026-09-06 摘要中的“其他四页未实现、主题注册未建立” |
-| pending | REFINE-06 的用户验收尚未完成；v2.10.1 尚未提交/推送，远程 CI、macOS 资产与 GitHub Release 尚未收口；资源出处补录缺口仍按既有清单保留为后续治理事项 |
+| pending | REFINE-06 用户验收尚未完成；资源出处补录缺口仍按既有清单保留为后续治理事项 |
 
 ### 最新用户纠正与主题精修阶段（2026-09-09）
 
@@ -183,8 +183,8 @@ CORE-03、DESK-02 为 macOS 下一次发布门槛，可与 Windows 首套验收�
 | REFINE-04 | P1 | DONE | REL-02 | Aurora Ocean 主题精修：五页改为深海极光、流体光场、轨道气泡、玻璃容器与潮汐路径；真实业务数据边界、独立结构断言、1487px 截图与 1120/820/560/420px 压力宽度验证已完成 |
 | REFINE-05 | P1 | DONE | REFINE-04 | Botanical Library 主题精修：五页改为木质书房、书架、纸卡、植物节点、暖灯与年轮档案；真实业务数据边界、独立结构断言、1487px 截图与 1120/820/560/420px 压力宽度验证已完成 |
 | REL-03 | P1 | DONE | REFINE-04/05 | v2.10.0 Aurora Ocean + Botanical Library 精修发布：版本同步、完整构建、Windows/macOS 资产、远程 CI、GitHub Release 与最终计划证据已完成 |
-| REFINE-06 | P1 | DOING | REL-03 | Night Valley 今日页截图驱动局部精修：节点信息不丢失、路径节奏收紧、Today 快速命令入口移除、右卡改为下一节点信息并跳转计时页；本地定向回归已通过 |
-| REL-04 | P1 | TODO | REFINE-06 | v2.10.1 Night Valley 今日页精修发布：版本同步、完整验证、Windows/macOS 资产、远程 main/CI、GitHub Release 与 digest 核对 |
+| REFINE-06 | P1 | REVIEW | REL-03 | Night Valley 今日页截图驱动局部精修：节点信息不丢失、路径节奏收紧、Today 快速命令入口移除、右卡改为下一节点信息并跳转计时页；本地/远程验证与 v2.10.1 发布已完成，等待用户验收 |
+| REL-04 | P1 | DONE | REFINE-06 | v2.10.1 Night Valley 今日页精修发布：版本同步、完整验证、Windows/macOS 资产、远程 main/CI、GitHub Release 与 digest 核对已完成 |
 
 ### CORE-01 · 磁盘保存与恢复链（第一个执行任务）
 
@@ -548,7 +548,8 @@ NV-05 的具体键盘缺口：`CommandPalette.tsx` 声明 modal/listbox，但缺
 | 2026-09-09 | REL-03 | `7bade92`→工作树；同步 `package.json`、Cargo/lock、`tauri.conf.json`、运行时版本/里程碑、README 与 `docs/v2.10.0/RELEASE_NOTES.md`；本地 `pnpm check`、`pnpm build`（2061 modules）、前端串行 58/58、cargo fmt/check/test locked（33/33）均 PASS；正式 Windows 包、远程 main/tag/CI、macOS 资产与 GitHub Release 尚未执行 | DOING；继续正式打包 |
 | 2026-09-09 | REL-03 | `7bade92`→`ce15ff0`；同步版本源、README、`docs/v2.10.0/RELEASE_NOTES.md` 与 Aurora/Botanical QA 证据；本地 `pnpm check`、`pnpm build`（2061 modules）、前端串行 58/58、cargo fmt/check/test locked（33/33）、Windows release MSI/NSIS/EXE 包通过；Checks `34364439803`、macOS Native Smoke `34364439775`、Universal Release `34364312849` 均 PASS；GitHub Release 四项资产均 uploaded，digest 见 v2.10.0 说明；旧 tag 未移动 | DONE；暂无下一项 |
 | 2026-09-09 | DOCS-REFINE-PROTOCOL | `10c3787`→`a7104a6`；修改 `THEME_REFINEMENT_PROMPT.md`、`PROJECT_PLAN.md`；补齐版本源同步、发布候选门槛、正式打包、commit/push、远程 CI、GitHub Release 资产与 digest 核对，并明确仅文档/计划变更例外；`git diff --check` PASS；已提交并推送 `origin/main`；因仅流程文档修正，未升应用版本、未重打包、未创建新 tag/Release | DONE；下一项为首张截图驱动的主题/界面精修 |
-| 2026-09-10 | REFINE-06 | `ce15ff0`→工作树；修改 `src/components/TodayDashboard.tsx`、`src/App.css`、`src/MainShell.tsx`、两组 Playwright 测试，新增 `docs/qa/REFINE-06-night-valley-today.md` 与 `docs/v2.10.1/RELEASE_NOTES.md`；按用户截图反馈收紧节点路径、保障标签可见、隐藏 Today 快速命令、右卡改为下一节点信息并导向计时页；`pnpm check`、Today 视觉 28/28、应用交互 31/31、完整前端 59/59、Vite 2061 modules、cargo fmt/check/test locked（33/33）、`pnpm package:release`、`git diff --check` PASS；本地 v2.10.1 Windows EXE/NSIS/MSI SHA 已记入证据；尚未提交/推送、远程 CI、macOS 资产和 GitHub Release | DOING；下一步 REL-04 |
+| 2026-09-10 | REFINE-06 | `ce15ff0`→`4ceabf9`；修改 `src/components/TodayDashboard.tsx`、`src/App.css`、`src/MainShell.tsx`、两组 Playwright 测试，新增 `docs/qa/REFINE-06-night-valley-today.md` 与 `docs/v2.10.1/RELEASE_NOTES.md`；按用户截图反馈收紧节点路径、保障标签可见、隐藏 Today 快速命令、右卡改为下一节点信息并导向计时页；`pnpm check`、Today 视觉 28/28、应用交互 31/31、完整前端 59/59、Vite 2061 modules、cargo fmt/check/test locked（33/33）、`pnpm package:release`、`git diff --check` PASS；本地 v2.10.1 Windows EXE/NSIS/MSI SHA 已记入证据；技术实现提交并推送，等待 REL-04 |
+| 2026-09-10 | REL-04 | `4ceabf9`→发布 tag `v2.10.1`；推送 `main`、创建不可移动 tag、创建 GitHub Release 并上传 Windows EXE/Setup/MSI；Checks `34379212962`、macOS Native Smoke `34379212970`、Universal Release `34380453629` 均 PASS；GitHub Release 四项资产均为 uploaded，远端 digest 与本地 SHA 已核对；发布说明与 QA 证据已补录；用户验收仍待进行 | DONE；下一步等待 REFINE-06 用户验收 |
 
 每条后续记录使用：`日期｜任务ID｜开始SHA→结束SHA｜修改文件｜验证命令与结果｜证据路径/链接｜版本/发布状态｜剩余问题｜下一ID`。没有执行的测试必须写“未执行”，不可复制上一版结果。
 

@@ -3,7 +3,7 @@
 日期：2026-09-10  
 主题：第一套主题 Night Valley  
 界面：今日 / 今日路径  
-状态：REVIEW，v2.10.1 本地发布候选已完成，等待远程闭环与用户验收
+状态：REVIEW，v2.10.1 已完成远程发布闭环，等待用户验收
 
 ## 用户反馈与问题复述
 
@@ -56,4 +56,6 @@
 
 本地 Windows 资产 SHA-256：便携 EXE `3DA2322844D8DC7DDF6032B9271BC0671D270461A94F16819CB19F8C170A83C9`；Setup/NSIS `5A7009CD7A24BB9D1D19F819F1BB86EB2D68A44769088CFAF86A349B920260CF`；MSI `F8281C639C07AE2C3FA30EBA6F385219D5F04200B53FD620F678870E7CC80238`。
 
-远程 CI、GitHub Release 资产和远端 digest 将在 v2.10.1 发布收口后补录。
+远程证据：Checks [34379212962](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34379212962) PASS，macOS Native Smoke [34379212970](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34379212970) PASS，macOS Release [34380453629](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34380453629) PASS；GitHub Release [v2.10.1](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.10.1) 四项资产均为 `uploaded`。
+
+远端 Release digest：便携 EXE `3da2322844d8dc7ddf6032b9271bc0671d270461a94f16819cb19f8c170a83c9`；Setup/NSIS `5a7009cd7a24bb9d1d19f819f1bb86eb2d68a44769088cfaf86a349b920260cf`；MSI `f8281c639c07ae2c3fa30eba6f385219d5f04200b53fd620f678870e7cc80238`；Universal DMG `5a9d635d8c4f1dc3e2e794f28057ba799da43c138de7009b943a60e65eb2f924`。
