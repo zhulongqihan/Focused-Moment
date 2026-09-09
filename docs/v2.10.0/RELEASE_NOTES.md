@@ -18,9 +18,12 @@
 - `cargo check --locked --manifest-path src-tauri/Cargo.toml`：通过。
 - `cargo test --locked --manifest-path src-tauri/Cargo.toml`：33/33 library tests 通过。
 - Windows 正式包已生成：便携 EXE `110c5047476f159403e10fbb5d0d5a17f11f417938f9c86f0b2b1f5cf6436768`；Setup/NSIS `933f26ead6df14bcea11f8c355a041d285d4be00ac3d120ac6c2bd10462ac1a4`；MSI `eb44afb18a868ab2404a9b5773457b26f604280d12dc85058e8bfdd0ca82c11e`。
-- macOS 原生 Smoke、Universal DMG、远程 CI、GitHub Release 资产与最终 digest 将在正式发布收口后补录。
+- GitHub Checks `34364439803`：通过，前端 `58 passed (5.0m)`，Rust check/test 通过。
+- macOS Native Smoke `34364439775`：通过。
+- macOS Universal Release `34364312849`：通过并上传 Universal DMG。
+- GitHub Release `v2.10.0`：四项资产均为 `uploaded`。Release digest：便携 EXE `a1239d72fab7ad48ed94465f4d0a5d502b5fe4e337a9e88d2bfdeb6a0a60a183`；Setup EXE `2ed00567a7ab9be0a34da3490336bf0b1e7d1a2e4cfbefd0d4d7c446335cbed3`；MSI `38db19662a37bd8348e36e300cf79a46276617804f379b77faa06fd5b012549f`；Universal DMG `5f126a92e975ebc0c1799edfbe4c82eecd6fe9d131b1e31580a2a3dbea00dabf`。
 
 ## 已知边界
 
-- 浏览器回归运行在 Chromium + Tauri mock；macOS 原生与 Universal DMG 仍依赖本版本远程 workflow 的最终结果。
+- 浏览器回归运行在 Chromium + Tauri mock；macOS Native Smoke 与 Universal DMG workflow 已通过，但发布资产未做代码签名、公证或真实 `/Applications` 安装承诺。
 - 本版本聚焦 Aurora Ocean 与 Botanical Library 的视觉重做，不改变共享业务状态机、数据格式或用户数据目录。
