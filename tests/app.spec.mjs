@@ -114,6 +114,7 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
     window.__todoItemsCalls = 0;
     window.__timerSnapshotCalls = 0;
     window.__focusFloatingShown = false;
+    window.__floatingTodosShown = false;
     window.__focusFloatingUnlocked = false;
     window.__mainWindowDragged = false;
     window.__flashMainWindowAttention = false;
@@ -297,6 +298,9 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
           case "show_focus_floating":
             window.__focusFloatingShown = true;
             return null;
+          case "show_floating_todos":
+            window.__floatingTodosShown = true;
+            return null;
           case "unlock_focus_floating":
             window.__focusFloatingUnlocked = true;
             return null;
@@ -406,6 +410,17 @@ test("command palette keeps keyboard focus inside the dialog and executes the ac
   await trigger.click();
   await page.keyboard.press("Escape");
   await expect(trigger).toBeFocused();
+});
+
+test("command palette can open the floating workspace", async ({ page }) => {
+  await bootWithTauriMock(page);
+
+  await page.getByRole("button", { name: /命令 Ctrl K/ }).click();
+  await page.getByRole("searchbox", { name: "搜索命令" }).fill("悬浮工作台");
+  await expect(page.getByRole("option", { name: "打开悬浮工作台" })).toBeVisible();
+  await page.keyboard.press("Enter");
+
+  await expect.poll(() => page.evaluate(() => window.__floatingTodosShown)).toBe(true);
 });
 
 test("initial data errors stay visible and recover through the retry action", async ({ page }) => {

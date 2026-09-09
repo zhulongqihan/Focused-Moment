@@ -661,6 +661,7 @@ function MainShell() {
     { id: "start", label: "开始下一件事", detail: "把最早的未完成待办带入专注", shortcut: "Enter" },
     { id: "pause", label: "暂停当前专注", detail: "保留当前进度，稍后继续" },
     { id: "finish", label: "完成并记录当前专注", detail: "保存这一轮并回到可继续的状态" },
+    { id: "floating", label: "打开悬浮工作台", detail: "把待办和当前计时放到桌面上" },
     { id: "backup", label: "导出本地备份", detail: "把当前待办、记录和运行态保存下来" },
   ];
 
@@ -1424,6 +1425,9 @@ function MainShell() {
         } else {
           showMessage("当前还没有可以保存的专注进度。", "info");
         }
+        break;
+      case "floating":
+        void showFloatingTodos();
         break;
       case "backup":
         void createBackup();

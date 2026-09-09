@@ -30,6 +30,18 @@ ax_probe_log="$smoke_root/accessibility-probe.log"
 ax_tree_log="$smoke_root/accessibility-tree.log"
 tray_probe_log="$smoke_root/tray-probe.log"
 system_tray_probe_log="$smoke_root/system-tray-probe.log"
+floating_probe_log="$smoke_root/floating-probe.log"
+tray_interaction_log="$smoke_root/tray-interaction.log"
+install_log="$smoke_root/install.log"
+install_finder_log="$smoke_root/install-finder.log"
+install_mount="$smoke_root/dmg-mount"
+install_home="$smoke_root/install-home"
+install_tmp="$smoke_root/install-tmp"
+install_work_dir="$smoke_root/install-workdir"
+install_applications="$smoke_root/Applications"
+installed_app="$install_applications/Focused Moment.app"
+installed_executable="$installed_app/Contents/MacOS/focused-moment"
+install_canonical_dir="$install_home/Library/Application Support/FocusedMoment"
 
 mkdir -p "$smoke_home" "$smoke_tmp" "$work_dir" "$second_work_dir"
 printf '%s\n' \
@@ -55,6 +67,7 @@ running_pids=()
 last_pid=""
 launchctl_home_marker=""
 launchctl_home_previous=""
+install_image_attached=""
 
 append_report() {
   printf '%s\n' "$1" >> "$report_path"
@@ -134,8 +147,17 @@ restore_launchctl_home() {
   launchctl_home_marker=""
 }
 
+detach_install_image() {
+  if [[ -z "$install_image_attached" ]]; then
+    return
+  fi
+  hdiutil detach "$install_mount" -quiet >/dev/null 2>&1 || true
+  install_image_attached=""
+}
+
 cleanup() {
   stop_all_known_pids
+  detach_install_image
   restore_launchctl_home
 }
 trap cleanup EXIT
@@ -301,29 +323,75 @@ fi
 
 if /usr/bin/osascript > "$system_tray_probe_log" 2>&1 <<'APPLESCRIPT'
 tell application "System Events"
-  tell process "SystemUIServer"
-    set statusItems to {}
-    repeat with barIndex from 1 to (count of menu bars)
-      set itemRefs to every menu bar item of menu bar barIndex
-      repeat with itemRef in itemRefs
-        try
-          set end of statusItems to ("bar" & barIndex & ":" & (name of itemRef) & ":" & (description of itemRef))
-        on error
-          try
-            set end of statusItems to ("bar" & barIndex & ":" & (name of itemRef))
-          end try
-        end try
-      end repeat
+  set statusItems to {}
+  repeat with processName in {"SystemUIServer", "ControlCenter", "NotificationCenter", "Dock"}
+    try
+      tell process (contents of processName)
+        set barCount to count of menu bars
+        set end of statusItems to ((contents of processName) & ":bars=" & (barCount as text))
+        repeat with barIndex from 1 to barCount
+          set itemRefs to every menu bar item of menu bar barIndex
+          repeat with itemRef in itemRefs
+            try
+              set end of statusItems to ((contents of processName) & ":bar" & (barIndex as text) & ":" & (name of itemRef) & ":" & (description of itemRef))
+            on error
+              try
+                set end of statusItems to ((contents of processName) & ":bar" & (barIndex as text) & ":" & (name of itemRef))
+              end try
+            end try
+          end repeat
+        end repeat
+      end tell
+    on error processError
+      set end of statusItems to ((contents of processName) & ":ERROR:" & processError)
+    end try
+  end repeat
+  set AppleScript's text item delimiters to linefeed
+  return statusItems as text
+end tell
+APPLESCRIPT
+then
+  if grep -Fq "Focused Moment" "$system_tray_probe_log"; then
+    append_report "- macOS status-bar item probe: PASS"
+  else
+    append_report "- macOS status-bar item probe: UNAVAILABLE (no Focused Moment item exposed; see system-tray-probe.log)"
+  fi
+else
+  append_report "- macOS status-bar surface probe: UNAVAILABLE (see system-tray-probe.log)"
+fi
+
+# The compact top-bar control is intentionally hidden by the cinematic Today
+# layout. Exercise the real keyboard-accessible command-palette route so the
+# native smoke verifies that the configured Tauri floating window can actually
+# be shown from the shipped UI.
+if /usr/bin/osascript > "$floating_probe_log" 2>&1 <<'APPLESCRIPT'
+tell application "System Events"
+  tell process "Focused Moment"
+    set frontmost to true
+    keystroke "k" using {command down}
+    delay 1
+    repeat 8 times
+      key code 125
     end repeat
-    set AppleScript's text item delimiters to linefeed
-    return statusItems as text
+    key code 36
+    delay 2
+    set windowNames to name of every window
+    return "windows=" & (windowNames as text)
   end tell
 end tell
 APPLESCRIPT
 then
-  append_report "- SystemUIServer status-bar probe: PASS"
+  if grep -Fq "Focused Moment 悬浮工作台" "$floating_probe_log"; then
+    append_report "- command-palette keyboard path shows the native floating workspace: PASS"
+  else
+    echo "The command-palette keyboard path did not expose the floating workspace window." >&2
+    sed -n '1,160p' "$floating_probe_log" >&2 || true
+    exit 1
+  fi
 else
-  append_report "- SystemUIServer status-bar probe: UNAVAILABLE (see system-tray-probe.log)"
+  echo "The command-palette keyboard path could not be executed." >&2
+  sed -n '1,160p' "$floating_probe_log" >&2 || true
+  exit 1
 fi
 
 stop_pid "$direct_pid"
@@ -351,6 +419,57 @@ if [[ -z "$finder_pid" ]]; then
 fi
 append_report "- LaunchServices/Finder-style bundle launch: PASS (pid $finder_pid)"
 stop_pid "$finder_pid"
+
+# A macOS DMG is the installation boundary for this product: mount the exact
+# artifact produced by the build, copy the app to a disposable Applications
+# directory, and launch that copied bundle through LaunchServices with a new
+# synthetic HOME. Never write to the runner's real /Applications or user data.
+dmg_path="$(find "$repo_root/src-tauri/target/debug/bundle/dmg" -maxdepth 1 -type f -name '*.dmg' -print -quit)"
+if [[ -z "$dmg_path" ]]; then
+  echo "Debug macOS DMG was not produced." >&2
+  exit 1
+fi
+mkdir -p "$install_mount" "$install_home" "$install_tmp" "$install_work_dir" "$install_applications"
+hdiutil attach -readonly -nobrowse -mountpoint "$install_mount" "$dmg_path" > "$install_log" 2>&1
+install_image_attached="attached"
+if [[ ! -d "$install_mount/Focused Moment.app" ]]; then
+  echo "Mounted DMG did not contain Focused Moment.app." >&2
+  find "$install_mount" -maxdepth 2 -print >&2 || true
+  exit 1
+fi
+ditto "$install_mount/Focused Moment.app" "$installed_app"
+if [[ ! -x "$installed_executable" ]]; then
+  echo "Copied installed app executable not found: $installed_executable" >&2
+  exit 1
+fi
+append_report "- read-only DMG mounted and app copied to isolated Applications directory: PASS ($dmg_path)"
+
+launchctl setenv HOME "$install_home"
+pushd "$install_work_dir" >/dev/null
+open -n "$installed_app" > "$install_finder_log" 2>&1
+popd >/dev/null
+installed_pid=""
+for _ in {1..45}; do
+  installed_pid="$(pgrep -f "$installed_executable" | head -n 1 || true)"
+  if [[ -n "$installed_pid" && -d "$install_canonical_dir" ]]; then
+    break
+  fi
+  sleep 1
+done
+if [[ -z "$installed_pid" ]]; then
+  echo "LaunchServices did not start the copied installed app bundle." >&2
+  sed -n '1,160p' "$install_finder_log" >&2 || true
+  exit 1
+fi
+if [[ ! -d "$install_canonical_dir" ]]; then
+  echo "Installed app did not initialize its canonical Application Support directory." >&2
+  sed -n '1,160p' "$install_log" >&2 || true
+  exit 1
+fi
+append_report "- copied installed app launches through LaunchServices with canonical Application Support data: PASS (pid $installed_pid)"
+stop_pid "$installed_pid"
+installed_pid=""
+detach_install_image
 
 append_report ""
 append_report "The smoke uses only RUNNER_TEMP and a synthetic HOME; no developer data directory is read or migrated."
