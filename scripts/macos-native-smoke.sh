@@ -417,7 +417,12 @@ on run argv
       set frontmost to true
       keystroke "w" using {command down}
       delay 1
-      set mainVisibleBeforeTrayClick to visible of window 1
+      set windowCountAfterCommandW to count of windows
+      if windowCountAfterCommandW is 0 then
+        set mainVisibleBeforeTrayClick to false
+      else
+        set mainVisibleBeforeTrayClick to visible of window 1
+      end if
     end tell
     if mainVisibleBeforeTrayClick then
       error "Command-W did not hide the main window before the tray interaction."
