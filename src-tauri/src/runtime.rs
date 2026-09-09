@@ -2975,11 +2975,18 @@ fn build_system_tray(app: &AppHandle) -> Result<(), String> {
 
 #[cfg(target_os = "macos")]
 fn trigger_native_smoke_tray_click(app: &AppHandle) {
+    if std::env::var_os("FOCUSED_MOMENT_NATIVE_SMOKE").is_some() {
+        eprintln!("FOCUSED_MOMENT_TRAY_NATIVE_CLICK=started");
+    }
+
     let Some(tray) = app.tray_by_id("focused-moment-tray") else {
         eprintln!("FOCUSED_MOMENT_TRAY_NATIVE_CLICK=error:tray-unavailable");
         return;
     };
 
+    if std::env::var_os("FOCUSED_MOMENT_NATIVE_SMOKE").is_some() {
+        eprintln!("FOCUSED_MOMENT_TRAY_NATIVE_CLICK=before-inner-icon");
+    }
     let result = tray.with_inner_tray_icon(|inner| {
         let Some(status_item) = inner.ns_status_item() else {
             return Err("status-item-unavailable".to_string());
@@ -2998,6 +3005,10 @@ fn trigger_native_smoke_tray_click(app: &AppHandle) {
         unsafe { button.performClick(None) };
         Ok(())
     });
+
+    if std::env::var_os("FOCUSED_MOMENT_NATIVE_SMOKE").is_some() {
+        eprintln!("FOCUSED_MOMENT_TRAY_NATIVE_CLICK=after-inner-icon");
+    }
 
     match result {
         Ok(Ok(())) => eprintln!("FOCUSED_MOMENT_TRAY_NATIVE_CLICK=ok"),
@@ -3978,9 +3989,12 @@ pub fn run() {
 
     #[cfg(target_os = "macos")]
     let builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+        if std::env::var_os("FOCUSED_MOMENT_NATIVE_SMOKE").is_some() {
+            eprintln!("FOCUSED_MOMENT_SINGLE_INSTANCE_ARGS={argv:?}");
+        }
         if argv
             .iter()
-            .any(|argument| argument == "--focused-moment-native-smoke-tray-click")
+            .any(|argument| argument.contains("focused-moment-native-smoke-tray-click"))
         {
             trigger_native_smoke_tray_click(app);
         } else {
