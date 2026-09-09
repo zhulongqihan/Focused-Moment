@@ -422,7 +422,9 @@ on run argv
     if mainVisibleBeforeTrayClick then
       error "Command-W did not hide the main window before the tray interaction."
     end if
-    click at {trayclickx, trayclicky} using {control down}
+    key down control
+    click at {trayclickx, trayclicky}
+    key up control
     delay 1
     return "tray control-click delivered; mainVisibleBeforeMenu=" & (mainVisibleBeforeTrayClick as text)
   end tell
