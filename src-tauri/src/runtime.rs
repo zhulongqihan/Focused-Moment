@@ -19,6 +19,11 @@ use tauri::menu::{MenuBuilder, MenuItemBuilder};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, Window, WindowEvent};
 
+#[cfg(target_os = "macos")]
+use objc2::MainThreadMarker;
+#[cfg(target_os = "macos")]
+use objc2_app_kit::NSScreen;
+
 #[cfg(windows)]
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     FlashWindowEx, FLASHWINFO, FLASHW_TIMERNOFG, FLASHW_TRAY,
@@ -2968,27 +2973,44 @@ fn log_native_smoke_tray_rect(app: &AppHandle) {
         return;
     }
 
-    match app
-        .tray_by_id("focused-moment-tray")
-        .and_then(|tray| tray.rect().ok().flatten())
-    {
-        Some(rect) => {
-            let (x, y) = match rect.position {
-                tauri::Position::Physical(position) => {
-                    (f64::from(position.x), f64::from(position.y))
-                }
-                tauri::Position::Logical(position) => (position.x, position.y),
-            };
-            let (width, height) = match rect.size {
-                tauri::Size::Physical(size) => (f64::from(size.width), f64::from(size.height)),
-                tauri::Size::Logical(size) => (size.width, size.height),
-            };
-            eprintln!(
-                "FOCUSED_MOMENT_TRAY_RECT=x:{x:.0},y:{y:.0},width:{width:.0},height:{height:.0}"
-            );
-        }
-        None => eprintln!("FOCUSED_MOMENT_TRAY_RECT=unavailable"),
-    }
+    let Some(tray) = app.tray_by_id("focused-moment-tray") else {
+        eprintln!("FOCUSED_MOMENT_TRAY_POINT=unavailable:tray");
+        return;
+    };
+    let Some(status_item) = tray.ns_status_item() else {
+        eprintln!("FOCUSED_MOMENT_TRAY_POINT=unavailable:status-item");
+        return;
+    };
+    let Some(marker) = MainThreadMarker::new() else {
+        eprintln!("FOCUSED_MOMENT_TRAY_POINT=unavailable:main-thread");
+        return;
+    };
+    let Some(button) = status_item.button(marker) else {
+        eprintln!("FOCUSED_MOMENT_TRAY_POINT=unavailable:button");
+        return;
+    };
+    let Some(window) = button.window() else {
+        eprintln!("FOCUSED_MOMENT_TRAY_POINT=unavailable:window");
+        return;
+    };
+    let Some(screen) = NSScreen::mainScreen(marker) else {
+        eprintln!("FOCUSED_MOMENT_TRAY_POINT=unavailable:screen");
+        return;
+    };
+
+    let button_rect = window.convertRectToScreen(button.frame());
+    let screen_frame = screen.frame();
+    let top_y = screen_frame.origin.y + screen_frame.size.height
+        - button_rect.origin.y
+        - button_rect.size.height;
+    eprintln!(
+        "FOCUSED_MOMENT_TRAY_POINT=x:{:.0},y:{:.0},width:{:.0},height:{:.0},scale:{:.2}",
+        button_rect.origin.x,
+        top_y,
+        button_rect.size.width,
+        button_rect.size.height,
+        window.backingScaleFactor()
+    );
 }
 
 #[tauri::command]

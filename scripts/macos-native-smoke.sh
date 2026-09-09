@@ -388,14 +388,14 @@ fi
 # runner's Accessibility limitation above rather than treating it as a pass.
 tray_rect_line=""
 for _ in {1..20}; do
-  tray_rect_line="$(grep -F 'FOCUSED_MOMENT_TRAY_RECT=' "$direct_log" | tail -n 1 || true)"
+  tray_rect_line="$(grep -F 'FOCUSED_MOMENT_TRAY_POINT=' "$direct_log" | tail -n 1 || true)"
   if [[ "$tray_rect_line" == *"x:"* && "$tray_rect_line" != *"unavailable"* ]]; then
     break
   fi
   sleep 1
 done
 if [[ -z "$tray_rect_line" || "$tray_rect_line" == *"unavailable"* ]]; then
-  echo "The native tray rect was not reported by the running macOS app." >&2
+  echo "The native tray point was not reported by the running macOS app." >&2
   sed -n '1,160p' "$direct_log" >&2 || true
   exit 1
 fi
@@ -410,8 +410,8 @@ tray_click_y="$((tray_y + tray_height / 2))"
 
 if ! /usr/bin/osascript - "$tray_click_x" "$tray_click_y" > "$tray_interaction_log" 2>&1 <<'APPLESCRIPT'
 on run argv
-  set clickX to (item 1 of argv) as integer
-  set clickY to (item 2 of argv) as integer
+  set pointX to (item 1 of argv) as integer
+  set pointY to (item 2 of argv) as integer
   tell application "System Events"
     tell process "Focused Moment"
       set frontmost to true
@@ -422,7 +422,7 @@ on run argv
     if mainVisibleBeforeTrayClick then
       error "Command-W did not hide the main window before the tray interaction."
     end if
-    click at {clickX, clickY} using {control down}
+    click at {pointX, pointY} using {control down}
     delay 1
     return "tray control-click delivered; mainVisibleBeforeMenu=" & (mainVisibleBeforeTrayClick as text)
   end tell
