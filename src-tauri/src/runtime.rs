@@ -2974,16 +2974,22 @@ fn build_system_tray(app: &AppHandle) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     if std::env::var_os("FOCUSED_MOMENT_NATIVE_SMOKE").is_some() {
         let result = _tray
-            .with_inner_tray_icon(|inner| inner.ns_status_item())
+            .with_inner_tray_icon(|inner| {
+                if let Some(status_item) = inner.ns_status_item() {
+                    NATIVE_SMOKE_STATUS_ITEM.with(|cell| {
+                        *cell.borrow_mut() = Some(status_item);
+                    });
+                    true
+                } else {
+                    false
+                }
+            })
             .map_err(|error| error.to_string());
         match result {
-            Ok(Some(status_item)) => {
-                NATIVE_SMOKE_STATUS_ITEM.with(|cell| {
-                    *cell.borrow_mut() = Some(status_item);
-                });
+            Ok(true) => {
                 eprintln!("FOCUSED_MOMENT_TRAY_NATIVE_SETUP=status-item-ready");
             }
-            Ok(None) => {
+            Ok(false) => {
                 eprintln!("FOCUSED_MOMENT_TRAY_NATIVE_SETUP=error:status-item-unavailable")
             }
             Err(error) => eprintln!("FOCUSED_MOMENT_TRAY_NATIVE_SETUP=error:{error}"),
@@ -3033,8 +3039,7 @@ fn trigger_native_smoke_tray_click() {
     }
 
     match result {
-        Ok(Ok(())) => eprintln!("FOCUSED_MOMENT_TRAY_NATIVE_CLICK=ok"),
-        Ok(Err(error)) => eprintln!("FOCUSED_MOMENT_TRAY_NATIVE_CLICK=error:{error}"),
+        Ok(()) => eprintln!("FOCUSED_MOMENT_TRAY_NATIVE_CLICK=ok"),
         Err(error) => eprintln!("FOCUSED_MOMENT_TRAY_NATIVE_CLICK=error:{error}"),
     }
 }
