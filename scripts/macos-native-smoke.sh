@@ -32,6 +32,7 @@ tray_probe_log="$smoke_root/tray-probe.log"
 system_tray_probe_log="$smoke_root/system-tray-probe.log"
 floating_probe_log="$smoke_root/floating-probe.log"
 tray_interaction_log="$smoke_root/tray-interaction.log"
+tray_menu_capture="$smoke_root/tray-menu.png"
 install_log="$smoke_root/install.log"
 install_dmg_log="$smoke_root/install-dmg.log"
 screen_capture="$smoke_root/screen.png"
@@ -119,7 +120,7 @@ wait_for_direct_start() {
 start_direct() {
   local launch_dir="${1:-$work_dir}"
   pushd "$launch_dir" >/dev/null
-  HOME="$smoke_home" TMPDIR="$smoke_tmp" "$app_executable" > "$direct_log" 2>&1 &
+  FOCUSED_MOMENT_NATIVE_SMOKE=1 HOME="$smoke_home" TMPDIR="$smoke_tmp" "$app_executable" > "$direct_log" 2>&1 &
   local pid=$!
   popd >/dev/null
   running_pids+=("$pid")
@@ -378,6 +379,84 @@ then
 else
   append_report "- macOS status-bar surface probe: UNAVAILABLE (see system-tray-probe.log)"
 fi
+
+# macOS 26's Accessibility tree does not expose every third-party
+# NSStatusItem. The tray-icon API does expose its native screen rect, so use
+# that exact rect for a real Quartz/System Events control-click. The menu's
+# first action is "显示主界面"; selecting it must restore the hidden main
+# window. This keeps the assertion on the user path while recording the
+# runner's Accessibility limitation above rather than treating it as a pass.
+tray_rect_line=""
+for _ in {1..20}; do
+  tray_rect_line="$(grep -F 'FOCUSED_MOMENT_TRAY_RECT=' "$direct_log" | tail -n 1 || true)"
+  if [[ "$tray_rect_line" == *"x:"* && "$tray_rect_line" != *"unavailable"* ]]; then
+    break
+  fi
+  sleep 1
+done
+if [[ -z "$tray_rect_line" || "$tray_rect_line" == *"unavailable"* ]]; then
+  echo "The native tray rect was not reported by the running macOS app." >&2
+  sed -n '1,160p' "$direct_log" >&2 || true
+  exit 1
+fi
+tray_rect_values="$(printf '%s\n' "$tray_rect_line" | sed -E 's/.*x:([^,]+),y:([^,]+),width:([^,]+),height:([^,]+).*/\1 \2 \3 \4/')"
+read -r tray_x tray_y tray_width tray_height <<< "$tray_rect_values"
+if [[ "$tray_x" == "$tray_rect_line" || -z "$tray_width" || -z "$tray_height" ]]; then
+  echo "Could not parse the native tray rect: $tray_rect_line" >&2
+  exit 1
+fi
+tray_click_x="$((tray_x + tray_width / 2))"
+tray_click_y="$((tray_y + tray_height / 2))"
+
+if ! /usr/bin/osascript - "$tray_click_x" "$tray_click_y" > "$tray_interaction_log" 2>&1 <<'APPLESCRIPT'
+on run argv
+  set clickX to (item 1 of argv) as integer
+  set clickY to (item 2 of argv) as integer
+  tell application "System Events"
+    tell process "Focused Moment"
+      set frontmost to true
+      keystroke "w" using {command down}
+      delay 1
+      set mainVisibleBeforeTrayClick to visible of window 1
+    end tell
+    if mainVisibleBeforeTrayClick then
+      error "Command-W did not hide the main window before the tray interaction."
+    end if
+    click at {clickX, clickY} using {control down}
+    delay 1
+    return "tray control-click delivered; mainVisibleBeforeMenu=" & (mainVisibleBeforeTrayClick as text)
+  end tell
+end run
+APPLESCRIPT
+then
+  echo "The macOS tray control-click could not be delivered." >&2
+  sed -n '1,160p' "$tray_interaction_log" >&2 || true
+  exit 1
+fi
+screencapture -x "$tray_menu_capture" >/dev/null 2>&1 || true
+if ! /usr/bin/osascript >> "$tray_interaction_log" 2>&1 <<'APPLESCRIPT'
+tell application "System Events"
+  key code 115
+  delay 0.2
+  key code 36
+  delay 2
+  tell process "Focused Moment"
+    set mainVisibleAfterTrayMenu to visible of window 1
+  end tell
+  return "mainVisibleAfterTrayMenu=" & (mainVisibleAfterTrayMenu as text)
+end tell
+APPLESCRIPT
+then
+  echo "The macOS tray menu selection could not be completed." >&2
+  sed -n '1,160p' "$tray_interaction_log" >&2 || true
+  exit 1
+fi
+if ! grep -Fq "mainVisibleAfterTrayMenu=true" "$tray_interaction_log"; then
+  echo "The tray menu did not restore the hidden main window." >&2
+  sed -n '1,160p' "$tray_interaction_log" >&2 || true
+  exit 1
+fi
+append_report "- macOS tray control-click opens the menu and its first action restores the main window: PASS (rect ${tray_x},${tray_y} ${tray_width}x${tray_height})"
 
 # The compact top-bar control is intentionally hidden by the cinematic Today
 # layout. Exercise the real keyboard-accessible command-palette route so the

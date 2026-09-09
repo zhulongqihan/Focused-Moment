@@ -2962,6 +2962,24 @@ fn build_system_tray(app: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+#[cfg(target_os = "macos")]
+fn log_native_smoke_tray_rect(app: &AppHandle) {
+    if std::env::var_os("FOCUSED_MOMENT_NATIVE_SMOKE").is_none() {
+        return;
+    }
+
+    match app
+        .tray_by_id("focused-moment-tray")
+        .and_then(|tray| tray.rect())
+    {
+        Some(rect) => eprintln!(
+            "FOCUSED_MOMENT_TRAY_RECT=x:{:.0},y:{:.0},width:{},height:{}",
+            rect.position.x, rect.position.y, rect.size.width, rect.size.height
+        ),
+        None => eprintln!("FOCUSED_MOMENT_TRAY_RECT=unavailable"),
+    }
+}
+
 #[tauri::command]
 fn minimize_main_window(window: tauri::Window) -> Result<(), String> {
     window.minimize().map_err(|error| error.to_string())
@@ -3942,6 +3960,8 @@ pub fn run() {
         .manage(AppLifecycleState::new())
         .setup(|app| {
             build_system_tray(&app.handle())?;
+            #[cfg(target_os = "macos")]
+            log_native_smoke_tray_rect(&app.handle());
             Ok(())
         })
         .on_window_event(|window, event| {
