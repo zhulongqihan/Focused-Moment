@@ -22,7 +22,7 @@ use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, Window, WindowEvent};
 #[cfg(target_os = "macos")]
 use objc2::MainThreadMarker;
 #[cfg(target_os = "macos")]
-use objc2_app_kit::NSScreen;
+use objc2_app_kit::NSAccessibilityElementProtocol;
 
 #[cfg(windows)]
 use windows_sys::Win32::UI::WindowsAndMessaging::{
@@ -2930,7 +2930,15 @@ fn build_system_tray(app: &AppHandle) -> Result<(), String> {
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id.as_ref() {
             TRAY_SHOW_ID => {
-                let _ = show_main_window(app);
+                let result = show_main_window(app);
+                if std::env::var_os("FOCUSED_MOMENT_NATIVE_SMOKE").is_some() {
+                    match result {
+                        Ok(()) => eprintln!("FOCUSED_MOMENT_TRAY_MENU_SHOW_MAIN=ok"),
+                        Err(error) => {
+                            eprintln!("FOCUSED_MOMENT_TRAY_MENU_SHOW_MAIN=error:{error}")
+                        }
+                    }
+                }
             }
             TRAY_QUIT_ID => {
                 if let Some(state) = app.try_state::<AppLifecycleState>() {
@@ -2990,18 +2998,10 @@ fn log_native_smoke_tray_rect(app: &AppHandle) {
         let Some(window) = button.window() else {
             return None;
         };
-        let Some(screen) = NSScreen::mainScreen(marker) else {
-            return None;
-        };
-
-        let button_rect = window.convertRectToScreen(button.frame());
-        let screen_frame = screen.frame();
-        let top_y = screen_frame.origin.y + screen_frame.size.height
-            - button_rect.origin.y
-            - button_rect.size.height;
+        let button_rect = button.accessibilityFrame();
         Some((
             button_rect.origin.x,
-            top_y,
+            button_rect.origin.y,
             button_rect.size.width,
             button_rect.size.height,
             window.backingScaleFactor(),

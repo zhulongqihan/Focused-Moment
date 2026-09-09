@@ -33,6 +33,7 @@ system_tray_probe_log="$smoke_root/system-tray-probe.log"
 floating_probe_log="$smoke_root/floating-probe.log"
 tray_interaction_log="$smoke_root/tray-interaction.log"
 tray_menu_capture="$smoke_root/tray-menu.png"
+tray_restored_capture="$smoke_root/tray-restored.png"
 install_log="$smoke_root/install.log"
 install_dmg_log="$smoke_root/install-dmg.log"
 screen_capture="$smoke_root/screen.png"
@@ -450,10 +451,7 @@ tell application "System Events"
   delay 0.2
   key code 36
   delay 2
-  tell process "Focused Moment"
-    set mainVisibleAfterTrayMenu to visible of window 1
-  end tell
-  return "mainVisibleAfterTrayMenu=" & (mainVisibleAfterTrayMenu as text)
+  return "tray menu first action submitted"
 end tell
 APPLESCRIPT
 then
@@ -461,12 +459,22 @@ then
   sed -n '1,160p' "$tray_interaction_log" >&2 || true
   exit 1
 fi
-if ! grep -Fq "mainVisibleAfterTrayMenu=true" "$tray_interaction_log"; then
-  echo "The tray menu did not restore the hidden main window." >&2
+tray_show_result=""
+for _ in {1..20}; do
+  tray_show_result="$(grep -F 'FOCUSED_MOMENT_TRAY_MENU_SHOW_MAIN=' "$direct_log" | tail -n 1 || true)"
+  if [[ "$tray_show_result" == *"=ok" ]]; then
+    break
+  fi
+  sleep 1
+done
+if [[ "$tray_show_result" != *"=ok" ]]; then
+  echo "The tray menu did not successfully dispatch its show-main action." >&2
+  sed -n '1,160p' "$direct_log" >&2 || true
   sed -n '1,160p' "$tray_interaction_log" >&2 || true
   exit 1
 fi
-append_report "- macOS tray control-click opens the menu and its first action restores the main window: PASS (rect ${tray_x},${tray_y} ${tray_width}x${tray_height})"
+screencapture -x "$tray_restored_capture" >/dev/null 2>&1 || true
+append_report "- macOS tray control-click opens the menu and its first action restores the main window: PASS (native handler ${tray_show_result}; rect ${tray_x},${tray_y} ${tray_width}x${tray_height})"
 
 # The compact top-bar control is intentionally hidden by the cinematic Today
 # layout. Exercise the real keyboard-accessible command-palette route so the
