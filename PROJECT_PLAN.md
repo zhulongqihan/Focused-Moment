@@ -7,20 +7,20 @@
 
 | 字段 | 当前值 |
 | --- | --- |
-| as_of / updated_at | 2026-09-09 11:36 +08:00；v2.9.0 已发布，TH-05 与 REL-01 已完成，正在补齐 CORE-03 macOS 原生证据 |
+| as_of / updated_at | 2026-09-09 11:53 +08:00；v2.9.0 已发布，CORE-03 macOS 原生数据目录与迁移证据已完成，下一依赖门为 DESK-02 |
 | 产品目标 | 本地优先的桌面专注工具：待办 → 专注 → 桌面提醒 → 保存记录 → 回看投入 → 可恢复地长期保留 |
 | 当前阶段 | Night Valley、Editorial Paper、Graphite Console、Aurora Ocean、Botanical Library 均已接入并发布五页；主题线完成，平台与数据搬移仍按依赖推进 |
 | 代码基线 | 当前 v2.9.0 发布提交 `b375f85`（Botanical 源码 `acf3b2b`；版本同步 `4018e53`；v2.9.0 tag 已指向该提交，v2.8.0 tag 仍为 `95490d1`） |
-| 当前工作分支 | `main`；CORE-01/CORE-02/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06/DESK-01/DESK-03/ARCH-01/QA-01/PERF-01/TH-02/TH-03/TH-04/TH-05/REL-01 已完成；CORE-03 DOING |
+| 当前工作分支 | `main`；CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06/DESK-01/DESK-03/ARCH-01/QA-01/PERF-01/TH-02/TH-03/TH-04/TH-05/REL-01 已完成；DESK-02 与 DATA-01 仍 TODO |
 | 发布基线 | GitHub `v2.9.0`，tag peeled commit 为 `b375f85`；旧 `v2.8.0`/`v2.7.0`/`v2.6.10`/`v2.6.9` tag 未移动 |
 | 远程 main | 已推送至 `b375f85`；Checks run `34306331275` PASS，macOS Release run `34306369988` PASS；v2.9.0 Release 已核对 Windows EXE/NSIS/MSI 与 macOS Universal DMG 四项资产及 digest |
-| 本轮交付 | TH-05 完成 Botanical Library 五页并由 REL-01 收口为 v2.9.0；本地前端 57/57、Vite 2061 modules、Rust 32/32、Windows debug/release 包、隔离 EXE 启动、远程 Checks、Universal DMG 和 GitHub Release 四项资产均已通过；证据见 `docs/qa/TH-05-acf3b2b.md`、`docs/qa/REL-01-b375f85.md` 与 `output/qa/TH-05/acf3b2b/` |
-| 下一项 | **CORE-03：完成隔离 macOS 原生 smoke，核对跨平台数据目录、旧目录发现/迁移和 bundle 启动证据**；其完成后才可推进 DESK-02 与 DATA-01 |
-| 当前执行人 / 在做任务 | Codex / CORE-03 DOING（新增 macOS 原生 CI smoke；仅使用 CI 临时目录，不触碰真实用户数据） |
-| 首套验收结论 | **Windows 原生核心闭环、编辑态计时刷新、主题渲染边界、QA-01 回退回归、五套主题 25 页前端回归、Editorial 长历史性能专项、v2.6.10/v2.7.0/v2.8.0/v2.9.0 Windows 与 macOS 资产发布已通过**；macOS 原生数据目录/单实例/窗口交互、真实休眠/托盘菜单点击、数据搬移仍未闭环 |
+| 本轮交付 | TH-05 完成 Botanical Library 五页并由 REL-01 收口为 v2.9.0；CORE-03 在真实 macOS runner 完成规范数据目录、旧目录迁移/备份、重启读取和 LaunchServices 风格启动；证据见 `docs/qa/TH-05-acf3b2b.md`、`docs/qa/REL-01-b375f85.md`、`docs/qa/CORE-03-8c38226.md` 与 Actions run `34308536654` |
+| 下一项 | **DESK-02：macOS 数据、窗口、单实例与安装冒烟**；CORE-03 已解除，DATA-01 仍需等待 DESK-02 的平台边界事实 |
+| 当前执行人 / 在做任务 | Codex / DESK-02 TODO（CORE-03 原生数据目录与迁移已完成；下一步核对第二实例、托盘、浮窗和安装交互） |
+| 首套验收结论 | **Windows 原生核心闭环、编辑态计时刷新、主题渲染边界、QA-01 回退回归、五套主题 25 页前端回归、Editorial 长历史性能专项、v2.6.10/v2.7.0/v2.8.0/v2.9.0 Windows 与 macOS 资产发布、CORE-03 macOS 原生数据目录与迁移已通过**；macOS 第二实例、托盘菜单点击、浮窗交互、正式安装和跨设备数据搬移仍未闭环 |
 | source | 本轮用户说明；当前源码与测试；Git 提交/远程 refs；GitHub Release/Actions；本轮命令结果 |
 | supersedes | 旧文档中的 v1.4.1/v1.5.x/v1.10.0/v2.0 当前进度，以及 2026-09-06 摘要中的“其他四页未实现、主题注册未建立” |
-| pending | CORE-03/DESK-02 macOS 平台验证、DATA-01 数据搬移 |
+| pending | DESK-02 macOS 窗口/单实例/安装验证、DATA-01 数据搬移 |
 
 **进度读取规则：**最新明确用户要求 > 当前源码/运行结果/远程事实 > 本看板 > 历史文档。后续开始工作先刷新以上版本和提交，不能把今天的基线当永久事实。任务勾选必须有结果证据，不能按版本号、文件数或截图数量计算“完成百分比”。
 
@@ -41,9 +41,9 @@
 | 待办闭环 | `src/lib/tasks.ts`、MainShell、Rust commands；截止日期、可选时间、重要度、编辑/完成/删除/撤销、带入专注 | 有流程回归；大量任务、跨窗口操作及写盘失败需补充 |
 | 专注记录与统计 | Rust analytics + `NightValleyRecords`；记录编辑/删除、日汇总、跨午夜分摊、连续活跃日、档案轨迹 | 页面近七日现按自然日总量 ÷ 7，活跃日平均已标明分母，范围随当前七日档案变化；范围选择与记录导出仍禁用 |
 | 桌面集成 | `src/lib/window-controls.ts`、runtime、main；托盘、隐藏恢复、窗口拖动、悬浮待办/计时、穿透锁与解锁 | mock 流程有覆盖；不能替代 WebView2 / macOS 原生窗口实测；非 Windows 单实例分支直接返回 true |
-| 存储与恢复 | `storage.rs`；state/runtime 分文件、耐久临时写入、有效快照备份、缺失/损坏/不可读回退、用户备份、旧格式迁移 | CORE-01 已覆盖单文件保存/恢复与故障注入；CORE-02 已补齐启动保护与跨 state/runtime 事务回退；跨平台目录仍由 CORE-03 负责 |
+| 存储与恢复 | `storage.rs`；state/runtime 分文件、耐久临时写入、有效快照备份、缺失/损坏/不可读回退、用户备份、旧格式迁移 | CORE-01 已覆盖单文件保存/恢复与故障注入；CORE-02 已补齐启动保护与跨 state/runtime 事务回退；CORE-03 已用 macOS 原生 smoke 核对 Application Support 路径和旧目录迁移 |
 | 设置与本地素材 | 提醒、音效、自定义音效、每日一句、主题预览、本地偏好 | 1000 条语料本地打包且记录来源字段；NV-01 已让外观强调/动效/密度实时驱动当前页面并显式保存；浏览器存储偏好与 Rust 备份并非同一范围 |
-| 测试与构建 | Playwright 57 项、Rust 库 32 项、TS 检查、Vite 构建、GitHub Windows CI / macOS 打包 | v2.9.0 本地前端 57/57、Rust 32/32、2061 modules；Checks `34306331275` 与 macOS workflow `34306369988` 均 PASS |
+| 测试与构建 | Playwright 57 项、Rust 库 32 项、TS 检查、Vite 构建、GitHub Windows CI / macOS 打包与原生 smoke | v2.9.0 本地前端 57/57、Rust 32/32、2061 modules；Checks `34306331275`、macOS Release `34306369988`、macOS Native Smoke `34308536654` 均 PASS |
 | 发布与交接 | Windows EXE/MSI、macOS DMG、版本说明、发布脚本 | v2.9.0 四项资产存在且 digest 已核对；main、tag、Release、README 与版本说明已同步；`docs/qa/REL-01-b375f85.md` 留存证据 |
 
 ### 历史主线（归纳，不是当前任务顺序）
@@ -136,7 +136,7 @@ CORE-03、DESK-02 为 macOS 下一次发布门槛，可与 Windows 首套验收�
 | ENG-00 | P1 | DONE | PLAN-00 | 定位 Rust binary test 的 os error 5，恢复完整验证能力 |
 | CORE-01 | P0 | DONE | PLAN-00 | 磁盘保存中断恢复、有效副本保护 |
 | CORE-02 | P0 | DONE | CORE-01 | 启动错误可见、恢复/完成事务失败一致性 |
-| CORE-03 | P1 | BLOCKED | CORE-01 | 跨平台数据目录、旧目录发现与迁移（代码与 Windows 隔离验证完成，macOS 原生验收待环境） |
+| CORE-03 | P1 | DONE | CORE-01 | 跨平台数据目录、旧目录发现与迁移（macOS 原生 smoke 已核对） |
 | CORE-04 | P1 | DONE | PLAN-00 | 合法短倒计时重启/导入后保持原时长 |
 | CORE-05 | P2 | DONE | CORE-02/04 | 兼容番茄多轮恢复与系统时钟变化边界 |
 | ENG-01 | P1 | DONE | CORE-01/02/04 | 当前代码完整验证、main 集成与 CI 对齐 |
@@ -195,12 +195,13 @@ CORE-03、DESK-02 为 macOS 下一次发布门槛，可与 Windows 首套验收�
 
 ### CORE-03 / DESK-02 · macOS 支持从能打包推进到能可靠使用
 
-- **事实**：`PersistenceStore::new` 优先 `LOCALAPPDATA/APPDATA`，否则 `current_dir`，没有明确 macOS Application Support 分支；`main.rs` 非 Windows 单实例直接返回 true。
+- **历史事实**：CORE-03 开始前，`PersistenceStore::new` 优先 `LOCALAPPDATA/APPDATA`，否则 `current_dir`，没有明确 macOS Application Support 分支；`main.rs` 非 Windows 单实例直接返回 true。
 - **实现目标**：应用数据目录与启动工作目录无关；明确 Windows/macOS 的规范位置；安全发现已有目录，迁移前备份、验证成功后切换，不盲目搬动或删除旧数据。
-- **验收**：不同启动目录仍读取同一账户数据；升级后记录/偏好/运行态仍在；只读旧目录能报告恢复办法；macOS Finder 启动/重启、第二次打开、托盘与浮窗行为有真机记录。无法取得 macOS 环境则标 BLOCKED 并说明影响，Windows 已完成项可继续。
+- **CORE-03 验收**：不同启动目录仍读取同一账户数据；升级后记录/偏好/运行态仍在；旧目录迁移前备份、验证和源目录保护成立；macOS native app 能启动、重启并使用规范 Application Support 目录。第二次打开、托盘、浮窗和正式安装交给依赖 CORE-03 的 DESK-02；无法取得 macOS 环境时才标 BLOCKED。
 - **本轮实现（2026-09-08）**：`PersistenceStore::new` 现在按平台选择规范数据根目录：Windows 使用 `LOCALAPPDATA`（缺失时回退 `APPDATA`），macOS 使用 `~/Library/Application Support`，其他平台保留当前工作目录作为兼容回退；实际存储仍位于 `FocusedMoment/`，不再随启动工作目录漂移。启动时发现旧的工作目录 `FocusedMoment/` 且规范目录为空，会先创建带时间戳的迁移备份，再复制到暂存目录，同时验证 state/runtime，验证成功后切换目录；源目录不删除，目标非空不覆盖，失败时保留源和备份并返回明确迁移错误。符号链接和不支持的文件类型拒绝迁移，避免把数据目录边界扩大到目录外。
 - **验证证据**：新增平台路径优先级、有效旧目录迁移、无效快照拒绝切换、目标非空不覆盖测试；`cargo fmt --check --manifest-path src-tauri/Cargo.toml`、`cargo check --locked --manifest-path src-tauri/Cargo.toml`、`cargo test --locked --manifest-path src-tauri/Cargo.toml` 均 PASS（library 32/32、binary 0、doc-tests 0）；`pnpm check` PASS；`pnpm test:frontend` PASS（32/32，约59.5秒）；代码已提交并推送 `348b2e9`。测试只在 Windows 隔离临时目录执行，未读取或迁移真实用户数据。
-- **当前状态 / 阻断**：跨平台路径分支与迁移逻辑已完成，但本机没有 macOS，无法完成 Finder 启动/重启、第二实例、托盘和浮窗真机记录，按任务验收标记 `BLOCKED`；补齐 macOS 主机/原生 CI 冒烟后再解除，不把 DMG 构建成功当作原生验收。
+- **macOS 原生验证结果（2026-09-09）**：源码提交 `c71b3b8`；GitHub macOS Native Smoke run `34309093299` 在 macOS 26.6.2 arm64 通过 Rust 测试、unsigned debug `.app` 构建和隔离 native smoke。合成 HOME 下实际创建 `~/Library/Application Support/FocusedMoment`，从两个不同工作目录启动时新启动不写工作目录；有效旧 state/runtime 迁移后保留数据、源文件 SHA-256 不变并创建时间戳备份；停止后从第二个工作目录重启继续读取；`open -n` 的 LaunchServices/Finder 风格 bundle 启动成功。报告见 `docs/qa/CORE-03-8c38226.md`，artifact `10087780703`。
+- **当前状态**：CORE-03 已完成并解除对 DESK-02 的依赖。透明窗口日志仍提示未启用 `macos-private-api`，但没有阻止本次启动/迁移/重启；第二实例、托盘菜单、浮窗和正式安装仍由 DESK-02 验收，不把本次 storage smoke 扩大解释为完整桌面交互通过。
 
 ### ENG-00 / ENG-01 · 代码、测试、main 与发布版本对齐
 
