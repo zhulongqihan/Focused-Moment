@@ -332,15 +332,32 @@ tell application "System Events"
         set barCount to count of menu bars
         set end of statusItems to ((contents of processName) & ":bars=" & (barCount as text))
         repeat with barIndex from 1 to barCount
-          set itemRefs to every menu bar item of menu bar barIndex
-          repeat with itemRef in itemRefs
+          set itemRefs to entire contents of menu bar barIndex
+          set itemLimit to count of itemRefs
+          if itemLimit > 250 then set itemLimit to 250
+          repeat with itemIndex from 1 to itemLimit
+            set itemRef to item itemIndex of itemRefs
             try
-              set end of statusItems to ((contents of processName) & ":bar" & (barIndex as text) & ":" & (name of itemRef) & ":" & (description of itemRef))
+              set itemRole to role of itemRef
             on error
-              try
-                set end of statusItems to ((contents of processName) & ":bar" & (barIndex as text) & ":" & (name of itemRef))
-              end try
+              set itemRole to "?"
             end try
+            try
+              set itemName to name of itemRef
+            on error
+              set itemName to ""
+            end try
+            try
+              set itemDescription to description of itemRef
+            on error
+              set itemDescription to ""
+            end try
+            try
+              set itemPosition to position of itemRef as text
+            on error
+              set itemPosition to ""
+            end try
+            set end of statusItems to ((contents of processName) & ":bar" & (barIndex as text) & ":" & itemRole & ":" & itemName & ":" & itemDescription & ":" & itemPosition)
           end repeat
         end repeat
       end tell
