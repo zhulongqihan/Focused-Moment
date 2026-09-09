@@ -360,6 +360,25 @@ tell application "System Events"
             on error
               set itemPosition to ""
             end try
+            try
+              set rawPosition to position of itemRef
+              set itemX to item 1 of rawPosition
+              set itemY to item 2 of rawPosition
+            on error
+              set itemX to -1
+              set itemY to -1
+            end try
+            try
+              set rawSize to size of itemRef
+              set itemWidth to item 1 of rawSize
+              set itemHeight to item 2 of rawSize
+            on error
+              set itemWidth to -1
+              set itemHeight to -1
+            end try
+            if itemRole is "AXMenuBarItem" and itemDescription is "status menu" then
+              set end of statusItems to "FOCUSED_MOMENT_AX_CANDIDATE=x:" & (itemX as text) & ",y:" & (itemY as text) & ",width:" & (itemWidth as text) & ",height:" & (itemHeight as text)
+            end if
             set end of statusItems to ((contents of processName) & ":bar" & (barIndex as text) & ":" & itemRole & ":" & itemName & ":" & itemDescription & ":" & itemPosition)
           end repeat
         end repeat
@@ -382,21 +401,16 @@ else
   append_report "- macOS status-bar surface probe: UNAVAILABLE (see system-tray-probe.log)"
 fi
 
-# macOS 26's Accessibility tree does not expose every third-party
-# NSStatusItem, and AppKit reports the status item's button in a private
-# coordinate space. CoreGraphics exposes the actual on-screen window bounds;
-# the helper filters those bounds by the running app's PID, then System Events
-# uses the resulting screen point for a real control-click. The menu's first
-# action is "显示主界面"; selecting it must restore the hidden main window.
-if ! /usr/bin/swift "$repo_root/scripts/macos-native-tray-point.swift" "$direct_pid" > "$tray_window_probe_log" 2>&1; then
-  echo "The CoreGraphics tray window probe failed." >&2
-  sed -n '1,160p' "$tray_window_probe_log" >&2 || true
-  exit 1
-fi
-tray_rect_line="$(grep -F 'FOCUSED_MOMENT_TRAY_POINT=' "$tray_window_probe_log" | tail -n 1 || true)"
+# macOS 26 hosts third-party NSStatusItems in ControlCenter rather than
+# exposing them as windows owned by the application. The Accessibility probe
+# above records each generic "status menu" item's screen position and size;
+# use the first real rectangle for a Quartz/System Events control-click. The
+# menu's first action is "显示主界面"; selecting it must restore the hidden
+# main window.
+tray_rect_line="$(grep -F 'FOCUSED_MOMENT_AX_CANDIDATE=' "$system_tray_probe_log" | head -n 1 || true)"
 if [[ -z "$tray_rect_line" || "$tray_rect_line" == *"unavailable"* ]]; then
-  echo "The CoreGraphics tray window probe did not report a usable point." >&2
-  sed -n '1,160p' "$tray_window_probe_log" >&2 || true
+  echo "The Accessibility status-item probe did not report a usable point." >&2
+  sed -n '1,160p' "$system_tray_probe_log" >&2 || true
   exit 1
 fi
 tray_rect_values="$(printf '%s\n' "$tray_rect_line" | sed -E 's/.*x:([^,]+),y:([^,]+),width:([^,]+),height:([^,]+).*/\1 \2 \3 \4/')"
