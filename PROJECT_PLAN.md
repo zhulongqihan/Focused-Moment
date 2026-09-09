@@ -7,20 +7,20 @@
 
 | 字段 | 当前值 |
 | --- | --- |
-| as_of / updated_at | 2026-09-09 11:12 +08:00；v2.8.0 已发布，TH-04 已完成，TH-05 源码验收完成，v2.9.0 本地候选已打包，等待远程发布 |
+| as_of / updated_at | 2026-09-09 11:24 +08:00；v2.9.0 已发布，TH-05 与 REL-01 已完成，下一依赖门为 CORE-03 macOS 原生证据 |
 | 产品目标 | 本地优先的桌面专注工具：待办 → 专注 → 桌面提醒 → 保存记录 → 回看投入 → 可恢复地长期保留 |
-| 当前阶段 | Night Valley、Editorial Paper、Graphite Console、Aurora Ocean、Botanical Library 均已接入五页；前四套已发布，Botanical 等待 v2.9.0 收口 |
-| 代码基线 | 当前 v2.9.0 本地候选 `4018e53`（Botanical 源码 `acf3b2b`；起始 SHA `c485ce8`；v2.8.0 tag 仍指向 `95490d1`，v2.7.0 tag 仍为 `23b5dcd`） |
-| 当前工作分支 | `main`；此前 CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06/DESK-01/DESK-03/ARCH-01/QA-01/PERF-01/TH-02/TH-03/TH-04/REL-01 已完成；TH-05 源码已完成，当前为 TH-05 REVIEW → REL-01 DOING |
-| 发布基线 | GitHub `v2.8.0`，tag peeled commit 为 `95490d1`；旧 `v2.7.0`/`v2.6.10`/`v2.6.9` tag 未移动 |
-| 远程 main | 仍在 `95490d1`；Checks run `34258546519` PASS，macOS Release run `34258554857` PASS；v2.8.0 Release 已核对 Windows EXE/NSIS/MSI 与 macOS Universal DMG 四项资产及 digest；v2.9.0 候选 `acf3b2b`→`4018e53` 尚待推送 |
-| 本轮交付 | TH-05 完成 Botanical Library 五页、真实共享动作、主题持久化/回退、响应式边界与专项证据；v2.9.0 已同步版本源、发布说明，并完成 `pnpm check`、完整前端 57/57、Vite build 2061 modules、Rust 32/32、debug/release 包和隔离 EXE 启动冒烟；证据见 `docs/qa/TH-05-acf3b2b.md` 与 `output/qa/TH-05/acf3b2b/` |
-| 下一项 | **REL-01：推送 v2.9.0 候选并完成远程 Checks、macOS Universal DMG、GitHub Release 四项资产及 digest 核对**；DATA-01 因 CORE-03 继续阻塞，CORE-03/DESK-02 仍等待真实 macOS 原生证据 |
-| 当前执行人 / 在做任务 | Codex / REL-01 DOING（v2.9.0 本地候选 `4018e53`；不移动旧 tag、不触碰真实用户数据） |
-| 首套验收结论 | **Windows 原生核心闭环、编辑态计时刷新、主题渲染边界、QA-01 回退回归、Night Valley/Editorial/Graphite/Aurora/Botanical 前端回归、Editorial 长历史性能专项、v2.6.10/v2.7.0/v2.8.0 Windows 与 macOS 资产发布、v2.9.0 本地版本与包门禁已通过**；macOS 原生数据目录/单实例/窗口交互、真实休眠/托盘菜单点击、数据搬移和 v2.9.0 远程发布仍未闭环 |
+| 当前阶段 | Night Valley、Editorial Paper、Graphite Console、Aurora Ocean、Botanical Library 均已接入并发布五页；主题线完成，平台与数据搬移仍按依赖推进 |
+| 代码基线 | 当前 v2.9.0 发布提交 `b375f85`（Botanical 源码 `acf3b2b`；版本同步 `4018e53`；v2.9.0 tag 已指向该提交，v2.8.0 tag 仍为 `95490d1`） |
+| 当前工作分支 | `main`；CORE-01/CORE-02/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06/DESK-01/DESK-03/ARCH-01/QA-01/PERF-01/TH-02/TH-03/TH-04/TH-05/REL-01 已完成；CORE-03 仍 BLOCKED |
+| 发布基线 | GitHub `v2.9.0`，tag peeled commit 为 `b375f85`；旧 `v2.8.0`/`v2.7.0`/`v2.6.10`/`v2.6.9` tag 未移动 |
+| 远程 main | 已推送至 `b375f85`；Checks run `34306331275` PASS，macOS Release run `34306369988` PASS；v2.9.0 Release 已核对 Windows EXE/NSIS/MSI 与 macOS Universal DMG 四项资产及 digest |
+| 本轮交付 | TH-05 完成 Botanical Library 五页并由 REL-01 收口为 v2.9.0；本地前端 57/57、Vite 2061 modules、Rust 32/32、Windows debug/release 包、隔离 EXE 启动、远程 Checks、Universal DMG 和 GitHub Release 四项资产均已通过；证据见 `docs/qa/TH-05-acf3b2b.md`、`docs/qa/REL-01-b375f85.md` 与 `output/qa/TH-05/acf3b2b/` |
+| 下一项 | **CORE-03：等待真实 macOS 环境完成跨平台数据目录、旧目录发现/迁移和原生边界验收**；其完成后才可推进 DESK-02 与 DATA-01；不以 CI 的 DMG 构建替代原生证据 |
+| 当前执行人 / 在做任务 | Codex / CORE-03 BLOCKED（Windows 代码与隔离验证完成，macOS 原生环境缺失；不触碰真实用户数据） |
+| 首套验收结论 | **Windows 原生核心闭环、编辑态计时刷新、主题渲染边界、QA-01 回退回归、五套主题 25 页前端回归、Editorial 长历史性能专项、v2.6.10/v2.7.0/v2.8.0/v2.9.0 Windows 与 macOS 资产发布已通过**；macOS 原生数据目录/单实例/窗口交互、真实休眠/托盘菜单点击、数据搬移仍未闭环 |
 | source | 本轮用户说明；当前源码与测试；Git 提交/远程 refs；GitHub Release/Actions；本轮命令结果 |
 | supersedes | 旧文档中的 v1.4.1/v1.5.x/v1.10.0/v2.0 当前进度，以及 2026-09-06 摘要中的“其他四页未实现、主题注册未建立” |
-| pending | REL-01 v2.9.0 发布、CORE-03/DESK-02 macOS 平台验证、DATA-01 数据搬移 |
+| pending | CORE-03/DESK-02 macOS 平台验证、DATA-01 数据搬移 |
 
 **进度读取规则：**最新明确用户要求 > 当前源码/运行结果/远程事实 > 本看板 > 历史文档。后续开始工作先刷新以上版本和提交，不能把今天的基线当永久事实。任务勾选必须有结果证据，不能按版本号、文件数或截图数量计算“完成百分比”。
 
@@ -43,8 +43,8 @@
 | 桌面集成 | `src/lib/window-controls.ts`、runtime、main；托盘、隐藏恢复、窗口拖动、悬浮待办/计时、穿透锁与解锁 | mock 流程有覆盖；不能替代 WebView2 / macOS 原生窗口实测；非 Windows 单实例分支直接返回 true |
 | 存储与恢复 | `storage.rs`；state/runtime 分文件、耐久临时写入、有效快照备份、缺失/损坏/不可读回退、用户备份、旧格式迁移 | CORE-01 已覆盖单文件保存/恢复与故障注入；CORE-02 已补齐启动保护与跨 state/runtime 事务回退；跨平台目录仍由 CORE-03 负责 |
 | 设置与本地素材 | 提醒、音效、自定义音效、每日一句、主题预览、本地偏好 | 1000 条语料本地打包且记录来源字段；NV-01 已让外观强调/动效/密度实时驱动当前页面并显式保存；浏览器存储偏好与 Rust 备份并非同一范围 |
-| 测试与构建 | Playwright 57 项、Rust 库 32 项、TS 检查、Vite 构建、GitHub Windows CI / macOS 打包 | TH-05 本地候选通过：前端 57/57、TS check、2061 modules；Rust/Windows 包/远程发布留给 REL-01 v2.9.0 |
-| 发布与交接 | Windows EXE/MSI、macOS DMG、版本说明、发布脚本 | v2.8.0 四项资产存在且 digest 已核对；v2.9.0 版本源、Windows debug/release 包和说明已完成，远程 CI/Release 尚未执行 |
+| 测试与构建 | Playwright 57 项、Rust 库 32 项、TS 检查、Vite 构建、GitHub Windows CI / macOS 打包 | v2.9.0 本地前端 57/57、Rust 32/32、2061 modules；Checks `34306331275` 与 macOS workflow `34306369988` 均 PASS |
+| 发布与交接 | Windows EXE/MSI、macOS DMG、版本说明、发布脚本 | v2.9.0 四项资产存在且 digest 已核对；main、tag、Release、README 与版本说明已同步；`docs/qa/REL-01-b375f85.md` 留存证据 |
 
 ### 历史主线（归纳，不是当前任务顺序）
 
@@ -64,7 +64,7 @@
 | 02 Editorial Paper / 编辑纸页 | 5/5 | 5/5 已接线 | 已注册，可用，`implemented: true` | DONE（v2.6.10 已发布） | 已完成 |
 | 03 Graphite Console / 石墨控制台 | 5/5 | 5/5 已接线 | 已注册，可用，`implemented: true` | DONE（v2.7.0 已发布） | 已完成 |
 | 04 Aurora Ocean / 极光海面 | 5/5 | 5/5 | 已注册，可用，`implemented: true` | DONE（v2.8.0 已发布） | 已完成 |
-| 05 Botanical Library / 植物书房 | 5/5 | 5/5 已接线 | 已注册，可用，`implemented: true` | REVIEW（v2.9.0 待发布） | REL-01 收口 |
+| 05 Botanical Library / 植物书房 | 5/5 | 5/5 已接线 | 已注册，可用，`implemented: true` | DONE（v2.9.0 已发布） | 已完成 |
 
 证据：`src/lib/themes.ts`，`src/MainShell.tsx`，`src/components/TodayDashboard.tsx`，`src/components/NightValleyViews.tsx`，`docs/design-references/concept-images/`，`public/theme-previews/`。
 
@@ -154,10 +154,10 @@ CORE-03、DESK-02 为 macOS 下一次发布门槛，可与 Windows 首套验收�
 | TH-02 | P2 | DONE | G0/G1/G2/REL-01 | 第二套 Editorial Paper 五页；实现、验证、版本化 Release 已完成 |
 | TH-03 | P2 | DONE | TH-02 | 第三套 Graphite Console 五页；源码、测试、证据与 v2.7.0 Release 已完成 |
 | TH-04 | P2 | DONE | TH-03 | 第四套 Aurora Ocean 五页；源码、测试、证据与 v2.8.0 Release 已完成 |
-| TH-05 | P2 | REVIEW | TH-04 | 第五套 Botanical Library 五页；源码、测试与专项证据完成，等待 v2.9.0 发布闭环 |
+| TH-05 | P2 | DONE | TH-04 | 第五套 Botanical Library 五页；源码、测试、证据与 v2.9.0 Release 已完成 |
 | PERF-01 | P2 | DONE | G1；第二套启用前先建立基线 | 启动/常驻/大历史性能预算与优化 |
 | DATA-01 | P2 | TODO | CORE-02/03 | 备份包含范围、跨设备搬移流程、素材清单 |
-| REL-01 | P1 | DOING | ENG-01；每个版本重复 | 当前执行 v2.9.0：同步 Botanical 版本、包、说明、主线、CI、平台资产与 GitHub Release；v2.8.0/v2.7.0/v2.6.10 已完成 |
+| REL-01 | P1 | DONE | ENG-01；每个版本重复 | v2.9.0 Botanical Library 版本、包、说明、主线、CI、平台资产与 GitHub Release 已完成；v2.8.0/v2.7.0/v2.6.10 同样完成 |
 
 ### CORE-01 · 磁盘保存与恢复链（第一个执行任务）
 
@@ -378,14 +378,15 @@ NV-05 的具体键盘缺口：`CommandPalette.tsx` 声明 modal/listbox，但缺
 - **实现结果**：`acf3b2b` 新增 `BotanicalLibraryViews.tsx`/`.css`，接入 `ThemeSurface`、`MainShell`、`themes.ts`；今日、计时、待办、记录、设置五页均真实接线，主题持久化和无效主题回退仍由公共壳层负责。
 - **视觉与边界**：植物年轮、木质书架、纸张和安静生长语言已形成独立 token/布局；环境音、导出等现有业务未接入能力仍明确禁用，没有制造概念图之外的假功能。420px 下记录页趋势线两端日期标签已向内对齐。
 - **验证结果**：`pnpm check` PASS；Botanical 专项 `3/3`；主题注册 `1/1`；完整 `pnpm test:frontend` `57/57` PASS；`pnpm build` PASS（2061 modules）；`git diff --check` PASS。五页截图与 `geometry.json` 见 `output/qa/TH-05/acf3b2b/`，报告见 `docs/qa/TH-05-acf3b2b.md`。
-- **任务判断**：记为 `REVIEW`。实现和浏览器/Windows 工作区证据已完成，但新增主题必须在 REL-01 中同步 v2.9.0、构建包、远程 Checks、macOS Universal DMG 和四项 Release 资产后才转 `DONE`；macOS 原生目录、第二实例、Finder/托盘/浮窗交互仍归 CORE-03/DESK-02。
+- **任务判断**：记为 `DONE`。实现、浏览器/Windows 工作区证据、v2.9.0 版本源、Windows 包、远程 Checks、macOS Universal DMG 和四项 Release 资产已由 REL-01 收口；macOS 原生目录、第二实例、Finder/托盘/浮窗交互仍归 CORE-03/DESK-02。
 
 ### REL-01 · v2.9.0 Botanical Library 发布闭环
 
-- **当前状态**：`DOING`；本地候选提交 `4018e53`，由 TH-05 源码提交 `acf3b2b` 和版本同步组成；远程 `main` 仍在 `95490d1`，旧 v2.8.0/v2.7.0 tag 不移动。
+- **当前状态**：`DONE`；发布提交 `b375f85`，由 TH-05 源码提交 `acf3b2b`、版本同步 `4018e53` 和发布计划提交组成；`v2.9.0` tag 已指向该提交，旧 v2.8.0/v2.7.0 tag 不移动。
 - **版本同步**：已统一 `package.json`、`src-tauri/Cargo.toml`/`Cargo.lock`、`tauri.conf.json`、运行时 `APP_VERSION`/植物书房里程碑、README 与 `docs/v2.9.0/RELEASE_NOTES.md` 到 `2.9.0`。
-- **本地验证**：`pnpm check`、完整前端 `57/57`、Vite build（2061 modules）、cargo fmt/check/test locked（32/32）、`pnpm package:debug`、`pnpm package:release` 和隔离 v2.9.0 EXE 启动冒烟 PASS；Windows release EXE/NSIS/MSI 的 SHA-256 已记录在本轮候选证据中。
-- **剩余步骤**：提交计划候选、推送 main、创建不可移动的 `v2.9.0` tag/Release、等待 Checks 与 macOS Universal workflow、补传 MSI、核对四项资产/提交/digest，并保存 `docs/qa/REL-01-<release-sha>.md`；完成后 TH-05 与 REL-01 才转 `DONE`。
+- **本地验证**：`pnpm check`、完整前端 `57/57`、Vite build（2061 modules）、cargo fmt/check/test locked（32/32）、`pnpm package:debug`、`pnpm package:release` 和隔离 v2.9.0 EXE 启动冒烟 PASS；Windows release EXE/NSIS/MSI 的 SHA-256 与 Release digest 已核对。
+- **远程验证**：main Checks `34306331275` PASS（前端 57 passed，Rust check/test 通过）；macOS Universal workflow `34306369988` PASS（DMG 上传成功）；Release 四项资产 digest 已核对，见 `docs/qa/REL-01-b375f85.md`。
+- **边界**：没有 macOS 主机时，只记录 workflow/资产结果，不能把 macOS 原生目录、第二实例、Finder/托盘/浮窗交互写成已验收；这些仍由 CORE-03/DESK-02 负责。
 
 ### TH-02～TH-05 · 每套都按同样的完整性流程执行
 
@@ -492,6 +493,7 @@ NV-05 的具体键盘缺口：`CommandPalette.tsx` 声明 modal/listbox，但缺
 | 2026-09-09 | REL-01 | `43d53dd`→`95490d1`；同步 v2.8.0 版本源、README 与 `docs/v2.8.0/RELEASE_NOTES.md`；本地前端/Rust/构建/Windows 包全部 PASS；推送 main、创建 `v2.8.0` tag 与 Release，补传 MSI；Checks `34258546519` PASS，macOS workflow `34258554857` PASS 并上传 Universal DMG；四项资产 digest/边界见 `docs/qa/REL-01-95490d1.md`；旧 `v2.7.0` tag 未移动 | TH-05（CORE-03/DESK-02 继续阻塞） |
 | 2026-09-09 | TH-05 | `c485ce8`→`acf3b2b`；新增 `BotanicalLibraryViews.tsx`/`.css`，修改 `ThemeSurface.tsx`、`themes.ts`、`MainShell.tsx`、`tests/today-visual.spec.mjs`；五页真实接线、共享动作、主题持久化/回退与 1120/820/560/420px 响应式边界完成；`pnpm check`、Botanical 3/3、主题注册 1/1、完整前端 57/57、`pnpm build`（2061 modules）、`git diff --check` PASS；报告 `docs/qa/TH-05-acf3b2b.md`，截图/几何 `output/qa/TH-05/acf3b2b/`；源码候选未版本化发布，任务 REVIEW | REL-01 v2.9.0（CORE-03/DESK-02 继续阻塞） |
 | 2026-09-09 | REL-01 | `acf3b2b`→`4018e53`；同步 v2.9.0 版本源、README 与 `docs/v2.9.0/RELEASE_NOTES.md`；本地前端 57/57、Vite 2061 modules、Rust 32/32、debug/release 包与隔离 v2.9.0 EXE 启动冒烟 PASS；release EXE `E810A9FAFF892AA6CA7D6ED05A766D9FF9FDBCB533CD2B739F72ACD7A04C0F34`、Setup/NSIS `BA46223432EE33305507550956C053E05FC970DE3082A6975D6E5B5E63451D67`、MSI `1DCF96FB4F4B8669BD2259024F786F8FECD64DB2B880D748EFB725904A8D76BD`；远程 main/CI/tag/Release 尚未执行 | 继续 REL-01 v2.9.0（CORE-03/DESK-02 继续阻塞） |
+| 2026-09-09 | REL-01 | `4018e53`→`b375f85`；推送 main、创建 `v2.9.0` tag 与 Release，补传 MSI；Checks `34306331275` PASS（前端 57 passed，Rust check/test 通过），macOS workflow `34306369988` PASS 并上传 Universal DMG；Release 四项资产 digest 已核对，证据见 `docs/qa/REL-01-b375f85.md`；旧 `v2.8.0` tag 未移动 | CORE-03（macOS 原生环境仍缺，DESK-02/DATA-01 依赖其解除） |
 
 每条后续记录使用：`日期｜任务ID｜开始SHA→结束SHA｜修改文件｜验证命令与结果｜证据路径/链接｜版本/发布状态｜剩余问题｜下一ID`。没有执行的测试必须写“未执行”，不可复制上一版结果。
 
