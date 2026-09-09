@@ -13,7 +13,7 @@
 | 代码基线 | 当前 v2.9.1 发布提交 `9938c08`（DESK-02 功能实现提交区间从 `b375f85` 到 `2fee00d`；版本同步 `342009c`；`v2.9.1` tag 已指向 `9938c08`，v2.9.0 tag 仍为 `b375f85`，v2.8.0 tag 仍为 `95490d1`） |
 | 当前工作分支 | `main`；CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06/DESK-01/DESK-02/DESK-03/ARCH-01/QA-01/PERF-01/TH-02/TH-03/TH-04/TH-05/REL-01 已完成；DATA-01 TODO |
 | 发布基线 | GitHub `v2.9.1`，tag peeled commit 为 `9938c08`；Universal macOS Release run `34330712307` PASS；旧 `v2.9.0`/`v2.8.0`/`v2.7.0`/`v2.6.10`/`v2.6.9` tag 未移动 |
-| 远程 main | 已推送至 `32faba4`；功能发布 tag `v2.9.1` 仍指向 `9938c08`；Checks run `34330682891` PASS（前端与 Rust 共 58 项），macOS Native Smoke run `34330682984` PASS；Release 已核对 Windows EXE/NSIS/MSI 与 macOS Universal DMG 四项资产及 digest |
+| 远程 main | 已推送；当前 HEAD 以 `git rev-parse HEAD` 核对，功能发布 tag `v2.9.1` 固定指向 `9938c08`；Checks run `34330682891` PASS（前端与 Rust 共 58 项），macOS Native Smoke run `34330682984` PASS；Release 已核对 Windows EXE/NSIS/MSI 与 macOS Universal DMG 四项资产及 digest |
 | 本轮交付 | DESK-02 已补齐 macOS 单实例、主窗口隐藏/恢复、原生托盘菜单、命令面板浮窗入口和隔离 DMG 安装启动，并由 v2.9.1 完成版本化发布；证据见 `docs/qa/DESK-02-342009c.md`、`docs/v2.9.1/RELEASE_NOTES.md` 与 Actions runs `34330682984`/`34330712307` |
 | 下一项 | **DATA-01：备份范围、跨设备数据搬移与素材清单**；DESK-02 的 macOS 平台事实与 v2.9.1 发布均已收口 |
 | 当前执行人 / 在做任务 | Codex / DATA-01 TODO（DESK-02 已完成，等待继续按依赖执行） |
