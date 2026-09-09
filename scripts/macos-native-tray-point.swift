@@ -72,11 +72,18 @@ for window in rawWindows {
     ))
 }
 
+for window in windows {
+    print("FOCUSED_MOMENT_CG_WINDOW=pid:\(window.ownerPID),owner:\(window.ownerName),name:\(window.windowName),x:\(window.x),y:\(window.y),width:\(window.width),height:\(window.height)")
+}
+
 let candidates = windows
     .filter { window in
         window.x >= 0 && window.y >= 0 && window.y <= 40 &&
             window.width >= 40 && window.width <= 260 &&
-            window.height >= 15 && window.height <= 40
+            window.height >= 15 && window.height <= 40 &&
+            (window.ownerPID == targetPID ||
+                window.ownerName.localizedCaseInsensitiveContains("Focused Moment") ||
+                window.windowName.localizedCaseInsensitiveContains("Focused Moment"))
     }
     .sorted { lhs, rhs in
         (lhs.width * lhs.height) > (rhs.width * rhs.height)
