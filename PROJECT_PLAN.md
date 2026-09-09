@@ -13,7 +13,7 @@
 | 代码基线 | 当前工作树从 v2.9.1 发布提交 `9938c08`（旧功能/发布历史保持不变）进入 REFINE-03；v2.9.2 Graphite 代码提交为 `44fa75b`，发布 tag 固定在 `9978e45`，发布后计划/证据收口提交为 `25090f1` |
 | 当前工作分支 | `main`；旧 CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06/DESK-01/DESK-02/DESK-03/ARCH-01/QA-01/PERF-01/TH-02/TH-03/TH-04/TH-05/DATA-01/REL-01 已完成；REFINE-03 DONE；REL-02 DONE；REFINE-04 TODO |
 | 发布基线 | GitHub `v2.9.2`，tag peeled commit 为 `9978e45`；Checks `34350535611`、macOS Native Smoke `34350535428`、macOS Universal Release `34350728878` 均 PASS；`v2.9.2` Release 四项资产均为 uploaded；旧 `v2.9.0`/`v2.8.0`/`v2.7.0`/`v2.6.10`/`v2.6.9` tag 未移动 |
-| 远程 main | 已推送；当前 HEAD `25090f1` 与 origin/main 一致；`v2.9.2` tag 固定在发布代码提交 `9978e45`；远程 Checks、macOS Native Smoke、Universal Release 与四项资产 digest 已核对，证据见 `docs/v2.9.2/RELEASE_NOTES.md` |
+| 远程 main | 已推送；当前工作树与 origin/main 一致；`v2.9.2` tag 固定在发布代码提交 `9978e45`；远程 Checks、macOS Native Smoke、Universal Release 与四项资产 digest 已核对，证据见 `docs/v2.9.2/RELEASE_NOTES.md` |
 | 本轮交付 | 旧阶段已由 DESK-02 / DATA-01 / v2.9.1 收口；REFINE-03 将 Graphite 从同构换色控制台重做为工业仪表/序列控制台，并完成本地前端、Rust、构建、Windows 包、远程 CI、macOS smoke、Universal DMG 与 GitHub Release |
 | 下一项 | REFINE-04：按依赖开始 Aurora Ocean 主题精修；完成后再进入 REFINE-05 Botanical Library |
 | 当前执行人 / 在做任务 | Codex / 无进行中发布任务；REFINE-04 TODO，等待用户确认继续进入 Aurora 精修 |
