@@ -257,7 +257,7 @@ if /usr/bin/osascript > "$ax_tree_log" 2>&1 <<'APPLESCRIPT'
 tell application "System Events"
   tell process "Focused Moment"
     set uiElements to entire contents of window 1
-    set lines to {}
+    set treeItems to {}
     set elementLimit to count of uiElements
     if elementLimit > 250 then set elementLimit to 250
     repeat with elementIndex from 1 to elementLimit
@@ -272,10 +272,10 @@ tell application "System Events"
       on error
         set elementName to ""
       end try
-      set end of lines to (elementRole & ":" & elementName)
+      set end of treeItems to (elementRole & ":" & elementName)
     end repeat
     set AppleScript's text item delimiters to linefeed
-    return lines as text
+    return treeItems as text
   end tell
 end tell
 APPLESCRIPT
@@ -302,21 +302,21 @@ fi
 if /usr/bin/osascript > "$system_tray_probe_log" 2>&1 <<'APPLESCRIPT'
 tell application "System Events"
   tell process "SystemUIServer"
-    set lines to {}
+    set statusItems to {}
     repeat with barIndex from 1 to (count of menu bars)
       set itemRefs to every menu bar item of menu bar barIndex
       repeat with itemRef in itemRefs
         try
-          set end of lines to ("bar" & barIndex & ":" & (name of itemRef) & ":" & (description of itemRef))
+          set end of statusItems to ("bar" & barIndex & ":" & (name of itemRef) & ":" & (description of itemRef))
         on error
           try
-            set end of lines to ("bar" & barIndex & ":" & (name of itemRef))
+            set end of statusItems to ("bar" & barIndex & ":" & (name of itemRef))
           end try
         end try
       end repeat
     end repeat
     set AppleScript's text item delimiters to linefeed
-    return lines as text
+    return statusItems as text
   end tell
 end tell
 APPLESCRIPT
