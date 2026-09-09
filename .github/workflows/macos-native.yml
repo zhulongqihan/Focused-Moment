@@ -67,5 +67,6 @@ jobs:
           path: |
             ${{ runner.temp }}/focused-moment-macos-native-*/report.md
             ${{ runner.temp }}/focused-moment-macos-native-*/*.log
+            ${{ runner.temp }}/focused-moment-macos-native-*/*.png
           if-no-files-found: ignore
           retention-days: 14

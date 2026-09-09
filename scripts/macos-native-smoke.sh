@@ -33,7 +33,8 @@ system_tray_probe_log="$smoke_root/system-tray-probe.log"
 floating_probe_log="$smoke_root/floating-probe.log"
 tray_interaction_log="$smoke_root/tray-interaction.log"
 install_log="$smoke_root/install.log"
-install_finder_log="$smoke_root/install-finder.log"
+install_dmg_log="$smoke_root/install-dmg.log"
+screen_capture="$smoke_root/screen.png"
 install_mount="$smoke_root/dmg-mount"
 install_home="$smoke_root/install-home"
 install_tmp="$smoke_root/install-tmp"
@@ -169,6 +170,7 @@ fi
 
 start_direct
 direct_pid="$last_pid"
+screencapture -x "$screen_capture" >/dev/null 2>&1 || true
 if [[ ! -d "$canonical_dir" ]]; then
   echo "Canonical Application Support directory was not created." >&2
   exit 1
@@ -316,9 +318,9 @@ tell application "System Events"
 end tell
 APPLESCRIPT
 then
-  append_report "- macOS status-bar item probe: PASS"
+  append_report "- macOS application menu accessibility probe: PASS"
 else
-  append_report "- macOS status-bar item probe: UNAVAILABLE (see tray-probe.log)"
+  append_report "- macOS application menu accessibility probe: UNAVAILABLE (see tray-probe.log)"
 fi
 
 if /usr/bin/osascript > "$system_tray_probe_log" 2>&1 <<'APPLESCRIPT'
@@ -430,7 +432,7 @@ if [[ -z "$dmg_path" ]]; then
   exit 1
 fi
 mkdir -p "$install_mount" "$install_home" "$install_tmp" "$install_work_dir" "$install_applications"
-hdiutil attach -readonly -nobrowse -mountpoint "$install_mount" "$dmg_path" > "$install_log" 2>&1
+hdiutil attach -readonly -nobrowse -mountpoint "$install_mount" "$dmg_path" > "$install_dmg_log" 2>&1
 install_image_attached="attached"
 if [[ ! -d "$install_mount/Focused Moment.app" ]]; then
   echo "Mounted DMG did not contain Focused Moment.app." >&2
@@ -444,31 +446,31 @@ if [[ ! -x "$installed_executable" ]]; then
 fi
 append_report "- read-only DMG mounted and app copied to isolated Applications directory: PASS ($dmg_path)"
 
-launchctl setenv HOME "$install_home"
 pushd "$install_work_dir" >/dev/null
-open -n "$installed_app" > "$install_finder_log" 2>&1
+HOME="$install_home" TMPDIR="$install_tmp" "$installed_executable" > "$install_log" 2>&1 &
+installed_pid=$!
 popd >/dev/null
-installed_pid=""
+running_pids+=("$installed_pid")
 for _ in {1..45}; do
-  installed_pid="$(pgrep -f "$installed_executable" | head -n 1 || true)"
-  if [[ -n "$installed_pid" && -d "$install_canonical_dir" ]]; then
+  if [[ -d "$install_canonical_dir" ]]; then
     break
+  fi
+  if ! kill -0 "$installed_pid" 2>/dev/null; then
+    echo "Copied installed app exited before initializing its canonical data directory." >&2
+    sed -n '1,160p' "$install_log" >&2 || true
+    exit 1
   fi
   sleep 1
 done
-if [[ -z "$installed_pid" ]]; then
-  echo "LaunchServices did not start the copied installed app bundle." >&2
-  sed -n '1,160p' "$install_finder_log" >&2 || true
-  exit 1
-fi
 if [[ ! -d "$install_canonical_dir" ]]; then
   echo "Installed app did not initialize its canonical Application Support directory." >&2
   sed -n '1,160p' "$install_log" >&2 || true
   exit 1
 fi
-append_report "- copied installed app launches through LaunchServices with canonical Application Support data: PASS (pid $installed_pid)"
+append_report "- copied installed app launches with canonical Application Support data: PASS (pid $installed_pid)"
 stop_pid "$installed_pid"
 installed_pid=""
+running_pids=()
 detach_install_image
 
 append_report ""
