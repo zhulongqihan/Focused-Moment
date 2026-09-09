@@ -19,13 +19,14 @@ smoke_root="${RUNNER_TEMP:-$repo_root/output/qa}/focused-moment-macos-native-${G
 smoke_home="$smoke_root/home"
 smoke_tmp="$smoke_root/tmp"
 work_dir="$smoke_root/workdir"
+second_work_dir="$smoke_root/second-workdir"
 canonical_dir="$smoke_home/Library/Application Support/FocusedMoment"
 legacy_dir="$work_dir/FocusedMoment"
 report_path="$smoke_root/report.md"
 direct_log="$smoke_root/direct.log"
 finder_log="$smoke_root/finder.log"
 
-mkdir -p "$smoke_home" "$smoke_tmp" "$work_dir"
+mkdir -p "$smoke_home" "$smoke_tmp" "$work_dir" "$second_work_dir"
 printf '%s\n' \
   "# macOS native smoke" \
   "" \
@@ -33,7 +34,7 @@ printf '%s\n' \
   "- commit: ${GITHUB_SHA:-local}" \
   "- app: $app_path" \
   "- isolated HOME: $smoke_home" \
-  "- isolated working directory: $work_dir" \
+  "- isolated working directories: $work_dir and $second_work_dir" \
   > "$report_path"
 
 if [[ ! -x "$app_executable" ]]; then
@@ -97,7 +98,8 @@ wait_for_direct_start() {
 }
 
 start_direct() {
-  pushd "$work_dir" >/dev/null
+  local launch_dir="${1:-$work_dir}"
+  pushd "$launch_dir" >/dev/null
   HOME="$smoke_home" TMPDIR="$smoke_tmp" "$app_executable" > "$direct_log" 2>&1 &
   local pid=$!
   popd >/dev/null
@@ -195,14 +197,14 @@ append_report "- timestamped migration backup retained beside source: PASS"
 stop_pid "$direct_pid"
 running_pids=()
 
-start_direct
+start_direct "$second_work_dir"
 direct_pid="$last_pid"
 if grep -Fq '本地数据未加载' "$direct_log"; then
   echo "Restart after migration reported a storage startup failure." >&2
   sed -n '1,160p' "$direct_log" >&2 || true
   exit 1
 fi
-append_report "- restart from migrated Application Support data: PASS"
+append_report "- restart from migrated Application Support data using a different working directory: PASS"
 stop_pid "$direct_pid"
 running_pids=()
 
