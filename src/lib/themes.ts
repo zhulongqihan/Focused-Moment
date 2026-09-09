@@ -57,8 +57,8 @@ export const themes: ThemeDefinition[] = [
     name: "植物书房",
     englishName: "Botanical Library",
     preview: "/theme-previews/05-botanical-library.png",
-    implemented: false,
-    description: "植物标本、木质书桌与安静阅读的概念方向。",
+    implemented: true,
+    description: "植物年轮、木质书架与安静生长的专注空间。",
   },
 ];
 

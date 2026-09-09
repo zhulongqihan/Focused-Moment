@@ -22,6 +22,13 @@ import {
   AuroraOceanTodos,
 } from "./AuroraOceanViews";
 import {
+  BotanicalLibraryFocus,
+  BotanicalLibraryRecords,
+  BotanicalLibrarySettings,
+  BotanicalLibraryToday,
+  BotanicalLibraryTodos,
+} from "./BotanicalLibraryViews";
+import {
   NightValleyFocus,
   NightValleyRecords,
   NightValleySettings,
@@ -46,7 +53,7 @@ export interface ThemeSurfaceProps {
   settings: NightValleySettingsProps;
 }
 
-type ThemeImplementation = "night-valley" | "editorial-paper" | "graphite-console" | "aurora-ocean";
+type ThemeImplementation = "night-valley" | "editorial-paper" | "graphite-console" | "aurora-ocean" | "botanical-library";
 
 function resolveThemeImplementation(themeId: ThemeId): ThemeImplementation {
   switch (getTheme(themeId).id) {
@@ -58,6 +65,8 @@ function resolveThemeImplementation(themeId: ThemeId): ThemeImplementation {
       return "graphite-console";
     case "aurora-ocean":
       return "aurora-ocean";
+    case "botanical-library":
+      return "botanical-library";
     default:
       return "night-valley";
   }
@@ -100,6 +109,13 @@ export default function ThemeSurface(props: ThemeSurfaceProps) {
         <Show when={props.activeView() === "todos"}><AuroraOceanTodos {...props.todos} /></Show>
         <Show when={props.activeView() === "records"}><AuroraOceanRecords {...props.records} /></Show>
         <Show when={props.activeView() === "settings"}><AuroraOceanSettings {...props.settings} /></Show>
+      </Match>
+      <Match when={themeImplementation() === "botanical-library"}>
+        <Show when={props.activeView() === "today"}><BotanicalLibraryToday {...props.today} /></Show>
+        <Show when={props.activeView() === "focus"}><BotanicalLibraryFocus {...props.focus} /></Show>
+        <Show when={props.activeView() === "todos"}><BotanicalLibraryTodos {...props.todos} /></Show>
+        <Show when={props.activeView() === "records"}><BotanicalLibraryRecords {...props.records} /></Show>
+        <Show when={props.activeView() === "settings"}><BotanicalLibrarySettings {...props.settings} /></Show>
       </Match>
     </Switch>
   );
