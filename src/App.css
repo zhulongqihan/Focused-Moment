@@ -6907,3 +6907,110 @@ body,
 .minimal-app--cinematic[data-density="compact"] .nv-record-history {
   margin-top: 20px;
 }
+
+/* v2.10.1 Today refinement: keep node metadata readable, keep the route
+   compact and winding, and leave timing work to the Focus tab. */
+.minimal-app--trail .command-trigger {
+  display: none !important;
+}
+
+.minimal-app--trail .trail-node__meta {
+  z-index: 2;
+  width: min(190px, calc(100vw - 36px));
+  max-width: min(190px, calc(100vw - 36px));
+  gap: 3px;
+  padding: 7px 10px 8px;
+  overflow: visible;
+}
+
+.minimal-app--trail .trail-node__meta strong {
+  max-width: 100%;
+  overflow: visible;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.minimal-app--trail .trail-node .trail-node__meta.trail-node__meta--start {
+  right: auto !important;
+  left: 12px !important;
+  transform: none !important;
+  text-align: left;
+}
+
+.minimal-app--trail .trail-node .trail-node__meta.trail-node__meta--end {
+  right: 12px !important;
+  left: auto !important;
+  transform: none !important;
+  text-align: right;
+}
+
+.minimal-app--trail .trail-node .trail-node__meta.trail-node__meta--below {
+  top: calc(100% + 12px) !important;
+  bottom: auto !important;
+}
+
+.minimal-app--trail .trail-focus-panel {
+  box-sizing: border-box;
+  height: auto;
+  min-height: 352px;
+  padding: 24px 20px 20px;
+}
+
+.minimal-app--trail .trail-focus-panel h2 {
+  margin: 17px 0 6px;
+}
+
+.minimal-app--trail .trail-focus-panel__description {
+  min-height: 0;
+  margin-top: 8px;
+}
+
+.minimal-app--trail .trail-focus-panel__waypoint {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 20px;
+  padding: 13px 0;
+  border-top: 1px solid rgba(207, 177, 113, 0.2);
+  border-bottom: 1px solid rgba(207, 177, 113, 0.2);
+}
+
+.minimal-app--trail .trail-focus-panel__waypoint span {
+  color: rgba(201, 213, 195, 0.56);
+  font-size: 11px;
+}
+
+.minimal-app--trail .trail-focus-panel__waypoint strong {
+  min-width: 0;
+  color: rgba(232, 226, 202, 0.88);
+  font: 12px/1.35 "Cascadia Mono", Consolas, monospace;
+  text-align: right;
+}
+
+.minimal-app--trail .trail-focus-panel__focus-link {
+  width: 100%;
+  min-height: 46px;
+  justify-content: space-between;
+  margin-top: 18px;
+  padding-right: 14px;
+  padding-left: 14px;
+}
+
+.minimal-app--trail .trail-focus-panel__quiet-note {
+  margin-top: 10px;
+  text-align: left;
+}
+
+@media (max-width: 820px) {
+  .minimal-app--trail .trail-node__meta {
+    width: min(168px, calc(100vw - 44px));
+    max-width: min(168px, calc(100vw - 44px));
+  }
+
+  .minimal-app--trail .trail-focus-panel {
+    min-height: 0;
+  }
+}

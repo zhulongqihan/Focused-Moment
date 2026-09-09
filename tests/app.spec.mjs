@@ -358,22 +358,22 @@ test("Today cockpit exposes the next action and command palette", async ({ page 
   await bootWithTauriMock(page);
 
   await expect(page.getByText("写完产品复盘").first()).toBeVisible();
-  await expect(page.getByRole("button", { name: "开始下一件事" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "查看计时", exact: true })).toBeVisible();
+  await expect(page.locator(".minimal-app--trail .command-trigger")).toBeHidden();
 
-  await page.getByRole("button", { name: /命令 Ctrl K/ }).click();
+  await page.keyboard.press("Control+K");
   await expect(page.getByRole("dialog", { name: "你想做什么？" })).toBeVisible();
   await page.getByRole("searchbox", { name: "搜索命令" }).fill("记录");
   await expect(page.getByRole("option", { name: "打开记录" })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog", { name: "你想做什么？" })).toBeHidden();
-  await expect(page.getByRole("button", { name: /命令 Ctrl K/ })).toBeFocused();
+  await expect(page.getByRole("button", { name: "今日", exact: true })).toBeFocused();
 });
 
 test("command palette keeps keyboard focus inside the dialog and executes the active option", async ({ page }) => {
   await bootWithTauriMock(page);
 
-  const trigger = page.getByRole("button", { name: /命令 Ctrl K/ });
-  await trigger.click();
+  await page.keyboard.press("Control+K");
   const dialog = page.getByRole("dialog", { name: "你想做什么？" });
   const search = page.getByRole("searchbox", { name: "搜索命令" });
   const close = page.getByRole("button", { name: "关闭命令面板" });
@@ -388,7 +388,7 @@ test("command palette keeps keyboard focus inside the dialog and executes the ac
   await expect(dialog).toBeHidden();
   await expect(page.getByRole("button", { name: "计时", exact: true })).toHaveClass(/active/);
 
-  await trigger.click();
+  await page.keyboard.press("Control+K");
   await expect(search).toBeFocused();
   await page.keyboard.press("Shift+Tab");
   await expect(close).toBeFocused();
@@ -405,17 +405,17 @@ test("command palette keeps keyboard focus inside the dialog and executes the ac
   await close.focus();
   await page.keyboard.press("Space");
   await expect(dialog).toBeHidden();
-  await expect(trigger).toBeFocused();
+  await expect(page.getByRole("button", { name: "计时", exact: true })).toBeFocused();
 
-  await trigger.click();
+  await page.keyboard.press("Control+K");
   await page.keyboard.press("Escape");
-  await expect(trigger).toBeFocused();
+  await expect(page.getByRole("button", { name: "计时", exact: true })).toBeFocused();
 });
 
 test("command palette can open the floating workspace", async ({ page }) => {
   await bootWithTauriMock(page);
 
-  await page.getByRole("button", { name: /命令 Ctrl K/ }).click();
+  await page.keyboard.press("Control+K");
   await page.getByRole("searchbox", { name: "搜索命令" }).fill("悬浮工作台");
   await expect(page.getByRole("option", { name: "打开悬浮工作台" })).toBeVisible();
   await page.keyboard.press("Enter");
@@ -435,16 +435,16 @@ test("initial data errors stay visible and recover through the retry action", as
 
   await expect(page.getByRole("heading", { name: "今天，从一件事开始" })).toBeVisible();
   await expect(loadError).toBeHidden();
-  await expect(page.getByRole("button", { name: "开始下一件事" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "查看计时", exact: true })).toBeVisible();
 });
 
-test("Today trail starts the next task without leaving the path page", async ({ page }) => {
+test("Today trail sends timing work to the focus page", async ({ page }) => {
   await bootWithTauriMock(page);
 
-  await page.getByRole("button", { name: "开始下一件事" }).click();
+  await page.getByRole("button", { name: "查看计时", exact: true }).click();
 
-  await expect(page.getByText("今日路径", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "暂停这一轮" })).toBeVisible();
+  await expect(page.getByText("专注计时", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "开始", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "计时", exact: true })).toBeVisible();
 });
 
@@ -882,5 +882,5 @@ test("Today cockpit remains usable on a narrow window", async ({ page }) => {
     scrollWidth: document.documentElement.scrollWidth,
   }));
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.viewport);
-  await expect(page.getByRole("button", { name: "开始下一件事" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "查看计时", exact: true })).toBeVisible();
 });

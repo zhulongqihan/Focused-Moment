@@ -1383,7 +1383,13 @@ function MainShell() {
   function closeCommandPalette() {
     setCommandPaletteOpen(false);
     setCommandSearch("");
-    queueMicrotask(() => commandTrigger?.focus());
+    queueMicrotask(() => {
+      if (commandTrigger && commandTrigger.offsetParent !== null) {
+        commandTrigger.focus();
+        return;
+      }
+      document.querySelector<HTMLElement>(".minimal-nav > button.active")?.focus();
+    });
   }
 
   function openCommandPalette() {
