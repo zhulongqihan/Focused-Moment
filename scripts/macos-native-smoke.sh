@@ -27,7 +27,9 @@ direct_log="$smoke_root/direct.log"
 finder_log="$smoke_root/finder.log"
 secondary_log="$smoke_root/secondary.log"
 ax_probe_log="$smoke_root/accessibility-probe.log"
+ax_tree_log="$smoke_root/accessibility-tree.log"
 tray_probe_log="$smoke_root/tray-probe.log"
+system_tray_probe_log="$smoke_root/system-tray-probe.log"
 
 mkdir -p "$smoke_home" "$smoke_tmp" "$work_dir" "$second_work_dir"
 printf '%s\n' \
@@ -251,6 +253,38 @@ else
   append_report "- macOS Accessibility window/button probe: UNAVAILABLE (see accessibility-probe.log)"
 fi
 
+if /usr/bin/osascript > "$ax_tree_log" 2>&1 <<'APPLESCRIPT'
+tell application "System Events"
+  tell process "Focused Moment"
+    set uiElements to entire contents of window 1
+    set lines to {}
+    set elementLimit to count of uiElements
+    if elementLimit > 250 then set elementLimit to 250
+    repeat with elementIndex from 1 to elementLimit
+      set elementRef to item elementIndex of uiElements
+      try
+        set elementRole to role of elementRef
+      on error
+        set elementRole to "?"
+      end try
+      try
+        set elementName to name of elementRef
+      on error
+        set elementName to ""
+      end try
+      set end of lines to (elementRole & ":" & elementName)
+    end repeat
+    set AppleScript's text item delimiters to linefeed
+    return lines as text
+  end tell
+end tell
+APPLESCRIPT
+then
+  append_report "- macOS Accessibility tree probe: PASS"
+else
+  append_report "- macOS Accessibility tree probe: UNAVAILABLE (see accessibility-tree.log)"
+fi
+
 if /usr/bin/osascript > "$tray_probe_log" 2>&1 <<'APPLESCRIPT'
 tell application "System Events"
   tell process "Focused Moment"
@@ -263,6 +297,33 @@ then
   append_report "- macOS status-bar item probe: PASS"
 else
   append_report "- macOS status-bar item probe: UNAVAILABLE (see tray-probe.log)"
+fi
+
+if /usr/bin/osascript > "$system_tray_probe_log" 2>&1 <<'APPLESCRIPT'
+tell application "System Events"
+  tell process "SystemUIServer"
+    set lines to {}
+    repeat with barIndex from 1 to (count of menu bars)
+      set itemRefs to every menu bar item of menu bar barIndex
+      repeat with itemRef in itemRefs
+        try
+          set end of lines to ("bar" & barIndex & ":" & (name of itemRef) & ":" & (description of itemRef))
+        on error
+          try
+            set end of lines to ("bar" & barIndex & ":" & (name of itemRef))
+          end try
+        end try
+      end repeat
+    end repeat
+    set AppleScript's text item delimiters to linefeed
+    return lines as text
+  end tell
+end tell
+APPLESCRIPT
+then
+  append_report "- SystemUIServer status-bar probe: PASS"
+else
+  append_report "- SystemUIServer status-bar probe: UNAVAILABLE (see system-tray-probe.log)"
 fi
 
 stop_pid "$direct_pid"
