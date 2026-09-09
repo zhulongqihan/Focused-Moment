@@ -14,7 +14,7 @@ fi
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 app_path="${1:-$repo_root/src-tauri/target/debug/bundle/macos/Focused Moment.app}"
-app_executable="$app_path/Contents/MacOS/Focused Moment"
+app_executable="$app_path/Contents/MacOS/focused-moment"
 smoke_root="${RUNNER_TEMP:-$repo_root/output/qa}/focused-moment-macos-native-${GITHUB_RUN_ID:-$$}"
 smoke_home="$smoke_root/home"
 smoke_tmp="$smoke_root/tmp"
