@@ -7,20 +7,20 @@
 
 | 字段 | 当前值 |
 | --- | --- |
-| as_of / updated_at | 2026-09-09 17:25 +08:00；v2.9.1 已发布，DESK-02 已完成，CORE-03 已完成，DATA-01 执行中 |
+| as_of / updated_at | 2026-09-09 17:44 +08:00；v2.9.1 已发布，26 个计划任务均已完成，DATA-01 已收口 |
 | 产品目标 | 本地优先的桌面专注工具：待办 → 专注 → 桌面提醒 → 保存记录 → 回看投入 → 可恢复地长期保留 |
 | 当前阶段 | Night Valley、Editorial Paper、Graphite Console、Aurora Ocean、Botanical Library 均已接入并发布五页；主题线完成，平台与数据搬移仍按依赖推进 |
 | 代码基线 | 当前 v2.9.1 发布提交 `9938c08`（DESK-02 功能实现提交区间从 `b375f85` 到 `2fee00d`；版本同步 `342009c`；`v2.9.1` tag 已指向 `9938c08`，v2.9.0 tag 仍为 `b375f85`，v2.8.0 tag 仍为 `95490d1`） |
-| 当前工作分支 | `main`；CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06/DESK-01/DESK-02/DESK-03/ARCH-01/QA-01/PERF-01/TH-02/TH-03/TH-04/TH-05/REL-01 已完成；DATA-01 DOING |
+| 当前工作分支 | `main`；CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06/DESK-01/DESK-02/DESK-03/ARCH-01/QA-01/PERF-01/TH-02/TH-03/TH-04/TH-05/DATA-01/REL-01 全部 DONE |
 | 发布基线 | GitHub `v2.9.1`，tag peeled commit 为 `9938c08`；Universal macOS Release run `34330712307` PASS；旧 `v2.9.0`/`v2.8.0`/`v2.7.0`/`v2.6.10`/`v2.6.9` tag 未移动 |
 | 远程 main | 已推送；当前 HEAD 以 `git rev-parse HEAD` 核对，功能发布 tag `v2.9.1` 固定指向 `9938c08`；Checks run `34330682891` PASS（前端与 Rust 共 58 项），macOS Native Smoke run `34330682984` PASS；Release 已核对 Windows EXE/NSIS/MSI 与 macOS Universal DMG 四项资产及 digest |
 | 本轮交付 | DESK-02 已补齐 macOS 单实例、主窗口隐藏/恢复、原生托盘菜单、命令面板浮窗入口和隔离 DMG 安装启动，并由 v2.9.1 完成版本化发布；证据见 `docs/qa/DESK-02-342009c.md`、`docs/v2.9.1/RELEASE_NOTES.md` 与 Actions runs `34330682984`/`34330712307` |
-| 下一项 | **DATA-01：备份范围、跨设备数据搬移与素材清单**；正在补齐隔离搬移演练、用户文档和素材出处清单 |
-| 当前执行人 / 在做任务 | Codex / DATA-01 DOING（起始 SHA `c60eeb1`；仅改用户文档、素材清单、隔离验证夹具与计划证据） |
-| 首套验收结论 | **Windows 原生核心闭环、编辑态计时刷新、主题渲染边界、QA-01 回退回归、五套主题 25 页前端回归、Editorial 长历史性能专项、v2.6.10/v2.7.0/v2.8.0/v2.9.0/v2.9.1 Windows 与 macOS 资产发布、CORE-03 macOS 原生数据目录与迁移、DESK-02 macOS 第二实例/托盘/浮窗/隔离安装启动已通过**；仅 DATA-01 跨设备数据搬移和备份范围仍未闭环 |
+| 下一项 | 无；26 个计划任务均为 DONE，后续只保留资源出处补录等维护性治理事项 |
+| 当前执行人 / 在做任务 | Codex / DATA-01 DONE（`89d9404`；证据见 `docs/qa/DATA-01-89d9404.md`） |
+| 首套验收结论 | **Windows 原生核心闭环、编辑态计时刷新、主题渲染边界、QA-01 回退回归、五套主题 25 页前端回归、Editorial 长历史性能专项、v2.6.10/v2.7.0/v2.8.0/v2.9.0/v2.9.1 Windows 与 macOS 资产发布、CORE-03 macOS 原生数据目录与迁移、DESK-02 macOS 第二实例/托盘/浮窗/隔离安装启动、DATA-01 备份范围/隔离跨目录搬移/素材清单已通过**；资源出处补录缺口已在清单中保留为后续治理事项 |
 | source | 本轮用户说明；当前源码与测试；Git 提交/远程 refs；GitHub Release/Actions；本轮命令结果 |
 | supersedes | 旧文档中的 v1.4.1/v1.5.x/v1.10.0/v2.0 当前进度，以及 2026-09-06 摘要中的“其他四页未实现、主题注册未建立” |
-| pending | DATA-01 数据搬移、备份范围与素材清单（执行中） |
+| pending | 无（26 个计划任务均已 DONE）；资源清单中的出处补录为后续维护事项 |
 
 **进度读取规则：**最新明确用户要求 > 当前源码/运行结果/远程事实 > 本看板 > 历史文档。后续开始工作先刷新以上版本和提交，不能把今天的基线当永久事实。任务勾选必须有结果证据，不能按版本号、文件数或截图数量计算“完成百分比”。
 
@@ -156,7 +156,7 @@ CORE-03、DESK-02 为 macOS 下一次发布门槛，可与 Windows 首套验收�
 | TH-04 | P2 | DONE | TH-03 | 第四套 Aurora Ocean 五页；源码、测试、证据与 v2.8.0 Release 已完成 |
 | TH-05 | P2 | DONE | TH-04 | 第五套 Botanical Library 五页；源码、测试、证据与 v2.9.0 Release 已完成 |
 | PERF-01 | P2 | DONE | G1；第二套启用前先建立基线 | 启动/常驻/大历史性能预算与优化 |
-| DATA-01 | P2 | DOING | CORE-02/03 | 备份包含范围、跨设备搬移流程、素材清单 |
+| DATA-01 | P2 | DONE | CORE-02/03 | 备份包含范围、跨设备搬移流程、素材清单；隔离 round-trip、用户文档、资源清单与 QA 证据已完成 |
 | REL-01 | P1 | DONE | ENG-01；每个版本重复 | v2.9.0 Botanical Library 版本、包、说明、主线、CI、平台资产与 GitHub Release 已完成；v2.8.0/v2.7.0/v2.6.10 同样完成 |
 
 ### CORE-01 · 磁盘保存与恢复链（第一个执行任务）
@@ -420,6 +420,8 @@ NV-05 的具体键盘缺口：`CommandPalette.tsx` 声明 modal/listbox，但缺
 ### PERF-01 / DATA-01 · 长期可用性
 
 - **DATA-01 本轮开始（2026-09-09 17:25 +08:00）**：起始 SHA `c60eeb1`。先核对 Rust 备份字段、WebView `localStorage` 偏好、跨平台存储目录和现有素材出处；允许修改范围为用户文档、素材清单、隔离迁移验证与本计划证据，不读取真实用户数据，不把 MIT 仓库许可或源码字段当作单项素材的完整法律核验。
+- **DATA-01 本轮完成（2026-09-09 17:42 +08:00）**：`c60eeb1`→`89d9404`；新增跨目录 JSON 复制—导入—重启全量 state/runtime 对比单测，新增 `docs/data-portability.md` 和 `docs/content/asset-inventory.md`；Rust 33/33、前端 58/58（单 worker）、`pnpm check`、`pnpm build`（2061 modules）、cargo fmt/check、`git diff --check` 均 PASS；证据见 `docs/qa/DATA-01-89d9404.md`。未改变运行时格式或用户可见行为，v2.9.1 与现有 Release 资产保持不变。
+- **DATA-01 任务判断**：记为 `DONE`。备份范围、跨设备搬移流程和资源清单均有可读文档；隔离测试不触碰真实用户目录，并明确主题/外观/自定义音频不在 Rust 备份中的边界。logo、背景、主题预览和 MP3 条款的进一步出处治理保留为后续维护事项，不冒充已完成法律核验。
 
 - **PERF-01 本轮开始（2026-09-08 21:34 +08:00）**：起始 SHA `c2670b3`。先建立同一 Windows 环境下的可复测基线，不先改代码、不读取真实用户数据；覆盖 3 次冷启动、10 分钟空闲、30 分钟运行中计时，以及 1000/10000 条合成记录的 CPU、内存、帧/交互延迟。若测量工具或 WebView 指标无法可靠取得，记录可测范围和替代指标，不把估算写成性能达标。
 - **PERF-01 本轮完成（2026-09-08 22:46 +08:00）**：基线确认后定位到 Editorial Paper 记录页一次性挂载长历史；`218e754` 改为选中日期初始最多 200 条、按批次展开，并让完整历史按日期展开。优化前 10,000 条切换约 2,318.1 ms / 110,158 DOM 节点，优化后约 126.7 ms / 2,158 DOM 节点；1,000 条为 179.1 ms / 2,158 节点。完整前端 `50/50`、`pnpm check`、`pnpm build`、`pnpm tauri build --debug`、`git diff --check` PASS；详见 `docs/qa/PERF-01-218e754.md`。
@@ -513,6 +515,7 @@ NV-05 的具体键盘缺口：`CommandPalette.tsx` 声明 modal/listbox，但缺
 | 2026-09-09 | REL-01 | `acf3b2b`→`4018e53`；同步 v2.9.0 版本源、README 与 `docs/v2.9.0/RELEASE_NOTES.md`；本地前端 57/57、Vite 2061 modules、Rust 32/32、debug/release 包与隔离 v2.9.0 EXE 启动冒烟 PASS；release EXE `E810A9FAFF892AA6CA7D6ED05A766D9FF9FDBCB533CD2B739F72ACD7A04C0F34`、Setup/NSIS `BA46223432EE33305507550956C053E05FC970DE3082A6975D6E5B5E63451D67`、MSI `1DCF96FB4F4B8669BD2259024F786F8FECD64DB2B880D748EFB725904A8D76BD`；远程 main/CI/tag/Release 尚未执行 | 继续 REL-01 v2.9.0（CORE-03/DESK-02 继续阻塞） |
 | 2026-09-09 | REL-01 | `4018e53`→`b375f85`；推送 main、创建 `v2.9.0` tag 与 Release，补传 MSI；Checks `34306331275` PASS（前端 57 passed，Rust check/test 通过），macOS workflow `34306369988` PASS 并上传 Universal DMG；Release 四项资产 digest 已核对，证据见 `docs/qa/REL-01-b375f85.md`；旧 `v2.8.0` tag 未移动 | CORE-03（macOS 原生环境仍缺，DESK-02/DATA-01 依赖其解除） |
 | 2026-09-09 | DESK-02 | `b375f85`→`9938c08`；修改 `src-tauri/Cargo.toml`/`Cargo.lock`、`src-tauri/src/runtime.rs`、`scripts/macos-native-smoke.sh`、`.github/workflows/macos-native.yml`、`src/MainShell.tsx`、`tests/app.spec.mjs`，同步 v2.9.1 版本源并新增 `docs/qa/DESK-02-342009c.md`；macOS 单实例、主窗隐藏/恢复、原生托盘菜单、命令面板浮窗、隔离 DMG 安装启动已由 Native Smoke `34330682984` PASS，Checks `34330682891` PASS，Universal Release `34330712307` PASS；本地前端串行 58/58、Rust 32/32、debug/release 包 PASS，Windows EXE/NSIS/MSI 与 macOS Universal DMG 四项资产 digest 见报告；v2.9.1 tag/Release 已收口 | DONE；下一项 DATA-01 |
+| 2026-09-09 | DATA-01 | `c60eeb1`→`89d9404`；新增 `src-tauri/src/runtime.rs` 隔离 portable backup round-trip 单测、`docs/data-portability.md`、`docs/content/asset-inventory.md`；明确 state/runtime 备份字段与 WebView `localStorage` 排除项，登记跨平台目录、语料/音效/位图来源、SHA-256 和未核验缺口；定向迁移 1/1、Rust 33/33、`pnpm check`、`pnpm build`（2061 modules）、前端单 worker 58/58、cargo fmt/check、`git diff --check` PASS；证据 `docs/qa/DATA-01-89d9404.md`；仅文档/测试，不升版本、不重打 v2.9.1 Release | DONE；无下一项 |
 
 每条后续记录使用：`日期｜任务ID｜开始SHA→结束SHA｜修改文件｜验证命令与结果｜证据路径/链接｜版本/发布状态｜剩余问题｜下一ID`。没有执行的测试必须写“未执行”，不可复制上一版结果。
 
