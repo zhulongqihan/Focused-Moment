@@ -2972,10 +2972,21 @@ fn log_native_smoke_tray_rect(app: &AppHandle) {
         .tray_by_id("focused-moment-tray")
         .and_then(|tray| tray.rect().ok().flatten())
     {
-        Some(rect) => eprintln!(
-            "FOCUSED_MOMENT_TRAY_RECT=x:{:.0},y:{:.0},width:{},height:{}",
-            rect.position.x, rect.position.y, rect.size.width, rect.size.height
-        ),
+        Some(rect) => {
+            let (x, y) = match rect.position {
+                tauri::Position::Physical(position) => {
+                    (f64::from(position.x), f64::from(position.y))
+                }
+                tauri::Position::Logical(position) => (position.x, position.y),
+            };
+            let (width, height) = match rect.size {
+                tauri::Size::Physical(size) => (f64::from(size.width), f64::from(size.height)),
+                tauri::Size::Logical(size) => (size.width, size.height),
+            };
+            eprintln!(
+                "FOCUSED_MOMENT_TRAY_RECT=x:{x:.0},y:{y:.0},width:{width:.0},height:{height:.0}"
+            );
+        }
         None => eprintln!("FOCUSED_MOMENT_TRAY_RECT=unavailable"),
     }
 }
