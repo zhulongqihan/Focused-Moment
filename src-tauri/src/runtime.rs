@@ -2970,7 +2970,7 @@ fn log_native_smoke_tray_rect(app: &AppHandle) {
 
     match app
         .tray_by_id("focused-moment-tray")
-        .and_then(|tray| tray.rect())
+        .and_then(|tray| tray.rect().ok().flatten())
     {
         Some(rect) => eprintln!(
             "FOCUSED_MOMENT_TRAY_RECT=x:{:.0},y:{:.0},width:{},height:{}",
