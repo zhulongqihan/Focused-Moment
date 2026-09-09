@@ -7,20 +7,20 @@
 
 | 字段 | 当前值 |
 | --- | --- |
-| as_of / updated_at | 2026-09-09 12:03 +08:00；v2.9.0 已发布，CORE-03 已完成，正在执行 DESK-02 macOS 原生桌面集成验收 |
+| as_of / updated_at | 2026-09-09 16:38 +08:00；v2.9.1 候选已完成本地与远程验证，等待 tag/Release 收口，CORE-03 已完成 |
 | 产品目标 | 本地优先的桌面专注工具：待办 → 专注 → 桌面提醒 → 保存记录 → 回看投入 → 可恢复地长期保留 |
 | 当前阶段 | Night Valley、Editorial Paper、Graphite Console、Aurora Ocean、Botanical Library 均已接入并发布五页；主题线完成，平台与数据搬移仍按依赖推进 |
-| 代码基线 | 当前 v2.9.0 发布提交 `b375f85`（Botanical 源码 `acf3b2b`；版本同步 `4018e53`；v2.9.0 tag 已指向该提交，v2.8.0 tag 仍为 `95490d1`） |
-| 当前工作分支 | `main`；CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06/DESK-01/DESK-03/ARCH-01/QA-01/PERF-01/TH-02/TH-03/TH-04/TH-05/REL-01 已完成；DESK-02 与 DATA-01 仍 TODO |
-| 发布基线 | GitHub `v2.9.0`，tag peeled commit 为 `b375f85`；旧 `v2.8.0`/`v2.7.0`/`v2.6.10`/`v2.6.9` tag 未移动 |
-| 远程 main | 已推送至 `b375f85`；Checks run `34306331275` PASS，macOS Release run `34306369988` PASS；v2.9.0 Release 已核对 Windows EXE/NSIS/MSI 与 macOS Universal DMG 四项资产及 digest |
-| 本轮交付 | TH-05 完成 Botanical Library 五页并由 REL-01 收口为 v2.9.0；CORE-03 在真实 macOS runner 完成规范数据目录、旧目录迁移/备份、重启读取和 LaunchServices 风格启动；证据见 `docs/qa/TH-05-acf3b2b.md`、`docs/qa/REL-01-b375f85.md`、`docs/qa/CORE-03-8c38226.md` 与 Actions run `34308536654` |
-| 下一项 | **DESK-02：macOS 数据、窗口、单实例与安装冒烟**；CORE-03 已解除，DATA-01 仍需等待 DESK-02 的平台边界事实 |
-| 当前执行人 / 在做任务 | Codex / DESK-02 DOING（接入 macOS 单实例并补第二实例、托盘、浮窗和安装交互证据） |
-| 首套验收结论 | **Windows 原生核心闭环、编辑态计时刷新、主题渲染边界、QA-01 回退回归、五套主题 25 页前端回归、Editorial 长历史性能专项、v2.6.10/v2.7.0/v2.8.0/v2.9.0 Windows 与 macOS 资产发布、CORE-03 macOS 原生数据目录与迁移已通过**；macOS 第二实例、托盘菜单点击、浮窗交互、正式安装和跨设备数据搬移仍未闭环 |
+| 代码基线 | 当前 v2.9.1 候选代码提交 `342009c`（DESK-02 功能实现提交区间从 `b375f85` 到 `2fee00d`；版本同步 `342009c`；v2.9.0 tag 仍为 `b375f85`，v2.8.0 tag 仍为 `95490d1`） |
+| 当前工作分支 | `main`；CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06/DESK-01/DESK-03/ARCH-01/QA-01/PERF-01/TH-02/TH-03/TH-04/TH-05/REL-01 已完成；DESK-02 REVIEW，DATA-01 TODO |
+| 发布基线 | GitHub 当前仍为 `v2.9.0`，tag peeled commit 为 `b375f85`；v2.9.1 已完成候选验证，tag/Release 待收口；旧 `v2.8.0`/`v2.7.0`/`v2.6.10`/`v2.6.9` tag 未移动 |
+| 远程 main | 已推送至 `342009c`；Checks run `34328199910` PASS（前端与 Rust 共 58 项），macOS Native Smoke run `34328199858` PASS；Windows v2.9.1 release EXE/NSIS/MSI 本地候选已核对，Universal DMG 待 tag workflow |
+| 本轮交付 | DESK-02 已补齐 macOS 单实例、主窗口隐藏/恢复、原生托盘菜单、命令面板浮窗入口和隔离 DMG 安装启动；远程原生证据见 `docs/qa/DESK-02-342009c.md` 与 Actions run `34328199858`；v2.9.1 Release 尚待收口 |
+| 下一项 | **DATA-01：备份范围、跨设备数据搬移与素材清单**；DESK-02 的 macOS 平台事实已取得，发布收口完成后解除其余依赖 |
+| 当前执行人 / 在做任务 | Codex / DESK-02 REVIEW（功能、原生 smoke、Windows 包和 CI 已通过，等待 tag/Release/Universal DMG） |
+| 首套验收结论 | **Windows 原生核心闭环、编辑态计时刷新、主题渲染边界、QA-01 回退回归、五套主题 25 页前端回归、Editorial 长历史性能专项、v2.6.10/v2.7.0/v2.8.0/v2.9.0 Windows 与 macOS 资产发布、CORE-03 macOS 原生数据目录与迁移、DESK-02 macOS 第二实例/托盘/浮窗/隔离安装启动已通过**；v2.9.1 发布收口和 DATA-01 跨设备数据搬移仍未闭环 |
 | source | 本轮用户说明；当前源码与测试；Git 提交/远程 refs；GitHub Release/Actions；本轮命令结果 |
 | supersedes | 旧文档中的 v1.4.1/v1.5.x/v1.10.0/v2.0 当前进度，以及 2026-09-06 摘要中的“其他四页未实现、主题注册未建立” |
-| pending | DESK-02 macOS 窗口/单实例/安装验证、DATA-01 数据搬移 |
+| pending | DESK-02 v2.9.1 tag/Release/Universal DMG 收口、DATA-01 数据搬移 |
 
 **进度读取规则：**最新明确用户要求 > 当前源码/运行结果/远程事实 > 本看板 > 历史文档。后续开始工作先刷新以上版本和提交，不能把今天的基线当永久事实。任务勾选必须有结果证据，不能按版本号、文件数或截图数量计算“完成百分比”。
 
@@ -43,8 +43,8 @@
 | 桌面集成 | `src/lib/window-controls.ts`、runtime、main；托盘、隐藏恢复、窗口拖动、悬浮待办/计时、穿透锁与解锁 | mock 流程有覆盖；不能替代 WebView2 / macOS 原生窗口实测；非 Windows 单实例分支直接返回 true |
 | 存储与恢复 | `storage.rs`；state/runtime 分文件、耐久临时写入、有效快照备份、缺失/损坏/不可读回退、用户备份、旧格式迁移 | CORE-01 已覆盖单文件保存/恢复与故障注入；CORE-02 已补齐启动保护与跨 state/runtime 事务回退；CORE-03 已用 macOS 原生 smoke 核对 Application Support 路径和旧目录迁移 |
 | 设置与本地素材 | 提醒、音效、自定义音效、每日一句、主题预览、本地偏好 | 1000 条语料本地打包且记录来源字段；NV-01 已让外观强调/动效/密度实时驱动当前页面并显式保存；浏览器存储偏好与 Rust 备份并非同一范围 |
-| 测试与构建 | Playwright 57 项、Rust 库 32 项、TS 检查、Vite 构建、GitHub Windows CI / macOS 打包与原生 smoke | v2.9.0 本地前端 57/57、Rust 32/32、2061 modules；Checks `34306331275`、macOS Release `34306369988`、macOS Native Smoke `34308536654` 均 PASS |
-| 发布与交接 | Windows EXE/MSI、macOS DMG、版本说明、发布脚本 | v2.9.0 四项资产存在且 digest 已核对；main、tag、Release、README 与版本说明已同步；`docs/qa/REL-01-b375f85.md` 留存证据 |
+| 测试与构建 | Playwright 58 项、Rust 库 32 项、TS 检查、Vite 构建、GitHub Windows CI / macOS 打包与原生 smoke | v2.9.1 候选本地串行前端 58/58、Rust 32/32、2061 modules；Checks `34328199910`、macOS Native Smoke `34328199858` 均 PASS |
+| 发布与交接 | Windows EXE/MSI、macOS DMG、版本说明、发布脚本 | v2.9.0 四项资产仍可追溯；v2.9.1 Windows release 包已本地核对，tag/Release/Universal DMG 待收口；`docs/qa/DESK-02-342009c.md` 留存证据 |
 
 ### 历史主线（归纳，不是当前任务顺序）
 
@@ -147,7 +147,7 @@ CORE-03、DESK-02 为 macOS 下一次发布门槛，可与 Windows 首套验收�
 | NV-05 | P1 | DONE | NV-04 | 五页响应式、键盘、焦点、错误态收口 |
 | NV-06 | P2 | DONE | NV-04/05 | 分页视觉精修并完成第一套视觉验收 |
 | DESK-01 | P1 | DONE | CORE-02、NV-03 | Windows 真机计时/悬浮/托盘/恢复冒烟 |
-| DESK-02 | P1 | DOING | CORE-03 | macOS 数据、窗口、单实例与安装冒烟 |
+| DESK-02 | P1 | REVIEW | CORE-03 | macOS 数据、窗口、单实例与安装冒烟；功能和原生证据已通过，待 v2.9.1 发布收口 |
 | DESK-03 | P1 | DONE | CORE-02、NV-03 | 计时刷新与列表编辑解耦，多窗口状态一致 |
 | ARCH-01 | P2 | DONE | G1 | 有限拆分视图/CSS，建立最小主题渲染边界 |
 | QA-01 | P1 | DONE | NV-04、ENG-01 | 公共业务回归、主题专用视觉回归、CI 证据留存 |
@@ -202,6 +202,13 @@ CORE-03、DESK-02 为 macOS 下一次发布门槛，可与 Windows 首套验收�
 - **验证证据**：新增平台路径优先级、有效旧目录迁移、无效快照拒绝切换、目标非空不覆盖测试；`cargo fmt --check --manifest-path src-tauri/Cargo.toml`、`cargo check --locked --manifest-path src-tauri/Cargo.toml`、`cargo test --locked --manifest-path src-tauri/Cargo.toml` 均 PASS（library 32/32、binary 0、doc-tests 0）；`pnpm check` PASS；`pnpm test:frontend` PASS（32/32，约59.5秒）；代码已提交并推送 `348b2e9`。测试只在 Windows 隔离临时目录执行，未读取或迁移真实用户数据。
 - **macOS 原生验证结果（2026-09-09）**：源码提交 `c71b3b8`；GitHub macOS Native Smoke run `34309093299` 在 macOS 26.6.2 arm64 通过 Rust 测试、unsigned debug `.app` 构建和隔离 native smoke。合成 HOME 下实际创建 `~/Library/Application Support/FocusedMoment`，从两个不同工作目录启动时新启动不写工作目录；有效旧 state/runtime 迁移后保留数据、源文件 SHA-256 不变并创建时间戳备份；停止后从第二个工作目录重启继续读取；`open -n` 的 LaunchServices/Finder 风格 bundle 启动成功。报告见 `docs/qa/CORE-03-8c38226.md`，artifact `10087780703`。
 - **当前状态**：CORE-03 已完成并解除对 DESK-02 的依赖。透明窗口日志仍提示未启用 `macos-private-api`，但没有阻止本次启动/迁移/重启；第二实例、托盘菜单、浮窗和正式安装仍由 DESK-02 验收，不把本次 storage smoke 扩大解释为完整桌面交互通过。
+
+### DESK-02 · macOS 数据、窗口、单实例与安装冒烟
+
+- **实现结果（2026-09-09）**：macOS 接入 `tauri-plugin-single-instance`；第二次原生启动唤回已有主窗口而不创建第二实例；主窗口关闭请求默认隐藏；菜单栏托盘提供显示主界面/退出应用；命令面板提供悬浮工作台入口。托盘原生验证在主线程保存 `NSStatusItem`，用 AppKit `NSStatusItem.performClick` 打开菜单，再通过第一菜单项恢复主窗口，规避 macOS 26 ControlCenter 对第三方状态项坐标/Accessibility 暴露不稳定的问题。
+- **远程验收**：代码基线 `342009c`；macOS Native Smoke run `34328199858` 在 macOS 26.6.2 arm64 通过 Application Support 数据目录、旧目录迁移、不同工作目录重启、第二实例、窗口/菜单探测、原生托盘菜单、浮窗、LaunchServices/Finder 风格启动、隔离 DMG 挂载复制与安装后启动。托盘标记 `FOCUSED_MOMENT_TRAY_NATIVE_CLICK=ok`、`FOCUSED_MOMENT_TRAY_MENU_SHOW_MAIN=ok` 均存在。
+- **本地/CI 验证**：`pnpm check`、`pnpm build`（2061 modules）、`pnpm test:frontend -- --workers=1`（58/58）、`cargo fmt --check`、`cargo check --locked`、`cargo test --locked`（32/32）、`pnpm package:debug`、`pnpm package:release` 均通过；Checks run `34328199910` 通过，报告见 `docs/qa/DESK-02-342009c.md`。
+- **边界**：Accessibility/SystemUIServer 状态栏位置探测记为 `UNAVAILABLE`，但不影响实际原生 NSStatusItem 点击和菜单回调通过；DMG 为 unsigned debug 安装证据，未声称公证、签名或真实 `/Applications` 安装。v2.9.1 tag/Release/Universal DMG 待发布 workflow 收口，完成后任务改为 `DONE`；DATA-01 负责跨设备数据搬移和备份范围。
 
 ### ENG-00 / ENG-01 · 代码、测试、main 与发布版本对齐
 
@@ -495,6 +502,7 @@ NV-05 的具体键盘缺口：`CommandPalette.tsx` 声明 modal/listbox，但缺
 | 2026-09-09 | TH-05 | `c485ce8`→`acf3b2b`；新增 `BotanicalLibraryViews.tsx`/`.css`，修改 `ThemeSurface.tsx`、`themes.ts`、`MainShell.tsx`、`tests/today-visual.spec.mjs`；五页真实接线、共享动作、主题持久化/回退与 1120/820/560/420px 响应式边界完成；`pnpm check`、Botanical 3/3、主题注册 1/1、完整前端 57/57、`pnpm build`（2061 modules）、`git diff --check` PASS；报告 `docs/qa/TH-05-acf3b2b.md`，截图/几何 `output/qa/TH-05/acf3b2b/`；源码候选未版本化发布，任务 REVIEW | REL-01 v2.9.0（CORE-03/DESK-02 继续阻塞） |
 | 2026-09-09 | REL-01 | `acf3b2b`→`4018e53`；同步 v2.9.0 版本源、README 与 `docs/v2.9.0/RELEASE_NOTES.md`；本地前端 57/57、Vite 2061 modules、Rust 32/32、debug/release 包与隔离 v2.9.0 EXE 启动冒烟 PASS；release EXE `E810A9FAFF892AA6CA7D6ED05A766D9FF9FDBCB533CD2B739F72ACD7A04C0F34`、Setup/NSIS `BA46223432EE33305507550956C053E05FC970DE3082A6975D6E5B5E63451D67`、MSI `1DCF96FB4F4B8669BD2259024F786F8FECD64DB2B880D748EFB725904A8D76BD`；远程 main/CI/tag/Release 尚未执行 | 继续 REL-01 v2.9.0（CORE-03/DESK-02 继续阻塞） |
 | 2026-09-09 | REL-01 | `4018e53`→`b375f85`；推送 main、创建 `v2.9.0` tag 与 Release，补传 MSI；Checks `34306331275` PASS（前端 57 passed，Rust check/test 通过），macOS workflow `34306369988` PASS 并上传 Universal DMG；Release 四项资产 digest 已核对，证据见 `docs/qa/REL-01-b375f85.md`；旧 `v2.8.0` tag 未移动 | CORE-03（macOS 原生环境仍缺，DESK-02/DATA-01 依赖其解除） |
+| 2026-09-09 | DESK-02 | `b375f85`→`342009c`；修改 `src-tauri/Cargo.toml`/`Cargo.lock`、`src-tauri/src/runtime.rs`、`scripts/macos-native-smoke.sh`、`.github/workflows/macos-native.yml`、`src/MainShell.tsx`、`tests/app.spec.mjs`，同步 v2.9.1 版本源并新增 `docs/qa/DESK-02-342009c.md`；macOS 单实例、主窗隐藏/恢复、原生托盘菜单、命令面板浮窗、隔离 DMG 安装启动已由 Native Smoke `34328199858` PASS，Checks `34328199910` PASS；本地前端串行 58/58、Rust 32/32、debug/release 包 PASS，Windows release EXE/NSIS/MSI digest 见报告；v2.9.1 tag/Release/Universal DMG 待收口 | REVIEW；发布收口后进入 DATA-01 |
 
 每条后续记录使用：`日期｜任务ID｜开始SHA→结束SHA｜修改文件｜验证命令与结果｜证据路径/链接｜版本/发布状态｜剩余问题｜下一ID`。没有执行的测试必须写“未执行”，不可复制上一版结果。
 
