@@ -3616,6 +3616,153 @@ mod tests {
     }
 
     #[test]
+    fn portable_backup_round_trip_survives_copy_and_restart() {
+        let source_root = isolated_root();
+        let destination_root = isolated_root();
+        let source_store = PersistenceStore::for_test(&source_root).expect("create source store");
+        let preferences = TimerPreferences {
+            pomodoro_focus_minutes: 50,
+            pomodoro_break_minutes: 10,
+            stopwatch_reminder_minutes: Some(90),
+            toast_reminder_enabled: false,
+            window_attention_reminder_enabled: true,
+            sound_reminder_enabled: false,
+            alert_sound_key: AlertSoundKey::Custom,
+        };
+        let source_state = TimerEngineState {
+            timer: Mutex::new(TimerEngine {
+                mode: TimerMode::Pomodoro,
+                stopwatch_elapsed_ms: 1_600_000,
+                countdown_elapsed_ms: 123_000,
+                countdown_duration_ms: 300_000,
+                pomodoro_elapsed_ms: 123_000,
+                pomodoro_phase: PomodoroPhase::Break,
+                pending_pomodoro_record_ms: Some(1_500_000),
+                current_task_title: "跨设备搬移演练".to_string(),
+                linked_todo_id: Some(42),
+                complete_linked_todo_on_finish: true,
+                completed_focus_count: 3,
+                completed_break_count: 2,
+                pomodoro_focus_ms: preferences.pomodoro_focus_ms(),
+                pomodoro_break_ms: preferences.pomodoro_break_ms(),
+                stopwatch_reminder_ms: preferences.stopwatch_reminder_ms(),
+                stopwatch_stage_index: 2,
+                alert_sequence: 7,
+                active_alert_kind: Some(AlertKind::PomodoroBreakComplete),
+                ..TimerEngine::default()
+            }),
+            timer_preferences: Mutex::new(preferences),
+            focus_records: Mutex::new(vec![FocusRecord {
+                id: 41,
+                title: "完成迁移验证".to_string(),
+                duration_ms: 1_500_000,
+                duration_label: "25 分钟".to_string(),
+                mode_key: "pomodoro".to_string(),
+                mode_label: "番茄钟".to_string(),
+                phase_label: "专注".to_string(),
+                linked_todo_id: Some(42),
+                linked_todo_title: Some("跨设备数据搬移".to_string()),
+                completed_at: "2026-09-09T16:30:00+08:00".to_string(),
+                completed_date: "2026-09-09".to_string(),
+                completed_time: "16:30".to_string(),
+            }]),
+            next_record_id: Mutex::new(42),
+            todo_items: Mutex::new(vec![TodoItem {
+                id: 42,
+                title: "跨设备数据搬移".to_string(),
+                is_completed: false,
+                scheduled_date: "2026-09-10".to_string(),
+                scheduled_time: "09:30".to_string(),
+                importance_key: "high".to_string(),
+            }]),
+            next_todo_id: Mutex::new(43),
+            persistence: Some(source_store.clone()),
+            startup_error: None,
+        };
+
+        source_state
+            .persist_all()
+            .expect("persist source account before export");
+        let expected_state = source_state
+            .snapshot_state()
+            .expect("snapshot source state");
+        let expected_runtime = source_state
+            .snapshot_runtime_state()
+            .expect("snapshot source runtime");
+        let backup = source_state
+            .export_backup_file()
+            .expect("export source backup");
+        let file_name = "focused-moment-backup-v2-portability-test.json";
+        let source_backup_path = source_store
+            .save_user_backup(file_name, &backup)
+            .expect("save source backup");
+
+        let destination_store =
+            PersistenceStore::for_test(&destination_root).expect("create clean destination store");
+        let destination_backup_path = destination_store
+            .user_backup_dir()
+            .expect("create destination backup directory")
+            .join(file_name);
+        std::fs::copy(&source_backup_path, &destination_backup_path)
+            .expect("copy portable backup into destination account");
+        let imported_backup = destination_store
+            .load_user_backup(file_name)
+            .expect("load copied backup");
+        let destination_state = state_with_store(destination_store.clone(), 0, 0);
+
+        let import_result = destination_state
+            .apply_backup_file(imported_backup)
+            .expect("import copied backup");
+        assert_eq!(import_result.focus_record_count, 1);
+        assert_eq!(import_result.todo_count, 1);
+        assert!(import_result.restored_runtime_session);
+        assert!(destination_store
+            .list_user_backups()
+            .expect("list destination backups")
+            .iter()
+            .any(|(name, _)| name == file_name));
+
+        let imported_state = destination_state
+            .snapshot_state()
+            .expect("snapshot imported destination state");
+        let imported_runtime = destination_state
+            .snapshot_runtime_state()
+            .expect("snapshot imported destination runtime");
+        assert_eq!(
+            serde_json::to_value(&expected_state).expect("serialize expected state"),
+            serde_json::to_value(imported_state).expect("serialize imported state")
+        );
+        assert_eq!(
+            serde_json::to_value(&expected_runtime).expect("serialize expected runtime"),
+            serde_json::to_value(imported_runtime).expect("serialize imported runtime")
+        );
+
+        let restarted_store =
+            PersistenceStore::for_test(&destination_root).expect("reopen destination account");
+        assert_eq!(
+            serde_json::to_value(&expected_state).expect("serialize expected state after restart"),
+            serde_json::to_value(
+                restarted_store
+                    .load()
+                    .expect("load destination state after restart")
+            )
+            .expect("serialize destination state after restart")
+        );
+        assert_eq!(
+            serde_json::to_value(&expected_runtime)
+                .expect("serialize expected runtime after restart"),
+            serde_json::to_value(
+                restarted_store
+                    .load_runtime()
+                    .expect("load destination runtime after restart")
+            )
+            .expect("serialize destination runtime after restart")
+        );
+        cleanup_isolated_root(&source_root);
+        cleanup_isolated_root(&destination_root);
+    }
+
+    #[test]
     fn pomodoro_delayed_confirmation_accumulates_rounds_and_survives_restore() {
         let preferences = TimerPreferences::default();
         let focus_duration_ms = preferences.pomodoro_focus_ms();

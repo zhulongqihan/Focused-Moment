@@ -7,20 +7,20 @@
 
 | 字段 | 当前值 |
 | --- | --- |
-| as_of / updated_at | 2026-09-09 17:01 +08:00；v2.9.1 已发布，DESK-02 已完成，CORE-03 已完成，下一项为 DATA-01 |
+| as_of / updated_at | 2026-09-09 17:25 +08:00；v2.9.1 已发布，DESK-02 已完成，CORE-03 已完成，DATA-01 执行中 |
 | 产品目标 | 本地优先的桌面专注工具：待办 → 专注 → 桌面提醒 → 保存记录 → 回看投入 → 可恢复地长期保留 |
 | 当前阶段 | Night Valley、Editorial Paper、Graphite Console、Aurora Ocean、Botanical Library 均已接入并发布五页；主题线完成，平台与数据搬移仍按依赖推进 |
 | 代码基线 | 当前 v2.9.1 发布提交 `9938c08`（DESK-02 功能实现提交区间从 `b375f85` 到 `2fee00d`；版本同步 `342009c`；`v2.9.1` tag 已指向 `9938c08`，v2.9.0 tag 仍为 `b375f85`，v2.8.0 tag 仍为 `95490d1`） |
-| 当前工作分支 | `main`；CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06/DESK-01/DESK-02/DESK-03/ARCH-01/QA-01/PERF-01/TH-02/TH-03/TH-04/TH-05/REL-01 已完成；DATA-01 TODO |
+| 当前工作分支 | `main`；CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06/DESK-01/DESK-02/DESK-03/ARCH-01/QA-01/PERF-01/TH-02/TH-03/TH-04/TH-05/REL-01 已完成；DATA-01 DOING |
 | 发布基线 | GitHub `v2.9.1`，tag peeled commit 为 `9938c08`；Universal macOS Release run `34330712307` PASS；旧 `v2.9.0`/`v2.8.0`/`v2.7.0`/`v2.6.10`/`v2.6.9` tag 未移动 |
 | 远程 main | 已推送；当前 HEAD 以 `git rev-parse HEAD` 核对，功能发布 tag `v2.9.1` 固定指向 `9938c08`；Checks run `34330682891` PASS（前端与 Rust 共 58 项），macOS Native Smoke run `34330682984` PASS；Release 已核对 Windows EXE/NSIS/MSI 与 macOS Universal DMG 四项资产及 digest |
 | 本轮交付 | DESK-02 已补齐 macOS 单实例、主窗口隐藏/恢复、原生托盘菜单、命令面板浮窗入口和隔离 DMG 安装启动，并由 v2.9.1 完成版本化发布；证据见 `docs/qa/DESK-02-342009c.md`、`docs/v2.9.1/RELEASE_NOTES.md` 与 Actions runs `34330682984`/`34330712307` |
-| 下一项 | **DATA-01：备份范围、跨设备数据搬移与素材清单**；DESK-02 的 macOS 平台事实与 v2.9.1 发布均已收口 |
-| 当前执行人 / 在做任务 | Codex / DATA-01 TODO（DESK-02 已完成，等待继续按依赖执行） |
+| 下一项 | **DATA-01：备份范围、跨设备数据搬移与素材清单**；正在补齐隔离搬移演练、用户文档和素材出处清单 |
+| 当前执行人 / 在做任务 | Codex / DATA-01 DOING（起始 SHA `c60eeb1`；仅改用户文档、素材清单、隔离验证夹具与计划证据） |
 | 首套验收结论 | **Windows 原生核心闭环、编辑态计时刷新、主题渲染边界、QA-01 回退回归、五套主题 25 页前端回归、Editorial 长历史性能专项、v2.6.10/v2.7.0/v2.8.0/v2.9.0/v2.9.1 Windows 与 macOS 资产发布、CORE-03 macOS 原生数据目录与迁移、DESK-02 macOS 第二实例/托盘/浮窗/隔离安装启动已通过**；仅 DATA-01 跨设备数据搬移和备份范围仍未闭环 |
 | source | 本轮用户说明；当前源码与测试；Git 提交/远程 refs；GitHub Release/Actions；本轮命令结果 |
 | supersedes | 旧文档中的 v1.4.1/v1.5.x/v1.10.0/v2.0 当前进度，以及 2026-09-06 摘要中的“其他四页未实现、主题注册未建立” |
-| pending | DATA-01 数据搬移、备份范围与素材清单 |
+| pending | DATA-01 数据搬移、备份范围与素材清单（执行中） |
 
 **进度读取规则：**最新明确用户要求 > 当前源码/运行结果/远程事实 > 本看板 > 历史文档。后续开始工作先刷新以上版本和提交，不能把今天的基线当永久事实。任务勾选必须有结果证据，不能按版本号、文件数或截图数量计算“完成百分比”。
 
@@ -156,7 +156,7 @@ CORE-03、DESK-02 为 macOS 下一次发布门槛，可与 Windows 首套验收�
 | TH-04 | P2 | DONE | TH-03 | 第四套 Aurora Ocean 五页；源码、测试、证据与 v2.8.0 Release 已完成 |
 | TH-05 | P2 | DONE | TH-04 | 第五套 Botanical Library 五页；源码、测试、证据与 v2.9.0 Release 已完成 |
 | PERF-01 | P2 | DONE | G1；第二套启用前先建立基线 | 启动/常驻/大历史性能预算与优化 |
-| DATA-01 | P2 | TODO | CORE-02/03 | 备份包含范围、跨设备搬移流程、素材清单 |
+| DATA-01 | P2 | DOING | CORE-02/03 | 备份包含范围、跨设备搬移流程、素材清单 |
 | REL-01 | P1 | DONE | ENG-01；每个版本重复 | v2.9.0 Botanical Library 版本、包、说明、主线、CI、平台资产与 GitHub Release 已完成；v2.8.0/v2.7.0/v2.6.10 同样完成 |
 
 ### CORE-01 · 磁盘保存与恢复链（第一个执行任务）
@@ -418,6 +418,8 @@ NV-05 的具体键盘缺口：`CommandPalette.tsx` 声明 modal/listbox，但缺
 主题不是新功能许可：概念图中的环境音、自由笔记、导出等若没有现有业务，应明确不提供或另排需求，不在换主题时暗中扩成新系统。
 
 ### PERF-01 / DATA-01 · 长期可用性
+
+- **DATA-01 本轮开始（2026-09-09 17:25 +08:00）**：起始 SHA `c60eeb1`。先核对 Rust 备份字段、WebView `localStorage` 偏好、跨平台存储目录和现有素材出处；允许修改范围为用户文档、素材清单、隔离迁移验证与本计划证据，不读取真实用户数据，不把 MIT 仓库许可或源码字段当作单项素材的完整法律核验。
 
 - **PERF-01 本轮开始（2026-09-08 21:34 +08:00）**：起始 SHA `c2670b3`。先建立同一 Windows 环境下的可复测基线，不先改代码、不读取真实用户数据；覆盖 3 次冷启动、10 分钟空闲、30 分钟运行中计时，以及 1000/10000 条合成记录的 CPU、内存、帧/交互延迟。若测量工具或 WebView 指标无法可靠取得，记录可测范围和替代指标，不把估算写成性能达标。
 - **PERF-01 本轮完成（2026-09-08 22:46 +08:00）**：基线确认后定位到 Editorial Paper 记录页一次性挂载长历史；`218e754` 改为选中日期初始最多 200 条、按批次展开，并让完整历史按日期展开。优化前 10,000 条切换约 2,318.1 ms / 110,158 DOM 节点，优化后约 126.7 ms / 2,158 DOM 节点；1,000 条为 179.1 ms / 2,158 节点。完整前端 `50/50`、`pnpm check`、`pnpm build`、`pnpm tauri build --debug`、`git diff --check` PASS；详见 `docs/qa/PERF-01-218e754.md`。
