@@ -7,20 +7,20 @@
 
 | 字段 | 当前值 |
 | --- | --- |
-| as_of / updated_at | 2026-09-09 22:25 +08:00；Aurora Ocean 与 Botanical Library 已完成独立视觉重做并通过本地回归；当前进入 v2.10.0 发布收口 |
+| as_of / updated_at | 2026-09-09 22:25 +08:00；Aurora Ocean 与 Botanical Library 已完成独立视觉重做，v2.10.0 版本同步与本地完整验证通过；当前进入正式包与远程发布收口 |
 | 产品目标 | 本地优先的桌面专注工具：待办 → 专注 → 桌面提醒 → 保存记录 → 回看投入 → 可恢复地长期保留 |
 | 当前阶段 | 五套主题均已接入；用户否定后三套“仅换色”的视觉验收，Graphite / Aurora / Botanical 已按概念图完成独立布局、材质、动效与交互语言重做，等待统一版本发布 |
-| 代码基线 | 当前工作树从 v2.9.1 发布提交 `9938c08`（旧功能/发布历史保持不变）进入 REFINE-03；v2.9.2 Graphite 代码提交为 `44fa75b`，发布 tag 固定在 `9978e45`，发布后计划/证据收口提交为 `25090f1` |
+| 代码基线 | 当前候选代码提交为 `7bade92`，Aurora/Botanical 精修已完成；v2.10.0 版本同步与发布说明正在工作树中收口；旧 v2.9.2 发布 tag 固定在 `9978e45` |
 | 当前工作分支 | `main`；旧 CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06/DESK-01/DESK-02/DESK-03/ARCH-01/QA-01/PERF-01/TH-02/TH-03/TH-04/TH-05/DATA-01/REL-01 已完成；REFINE-03/REFINE-04/REFINE-05 DONE；REL-02 DONE；REL-03 DOING |
 | 发布基线 | GitHub `v2.9.2`，tag peeled commit 为 `9978e45`；Checks `34350535611`、macOS Native Smoke `34350535428`、macOS Universal Release `34350728878` 均 PASS；`v2.9.2` Release 四项资产均为 uploaded；旧 `v2.9.0`/`v2.8.0`/`v2.7.0`/`v2.6.10`/`v2.6.9` tag 未移动 |
 | 远程 main | 已推送；当前工作树与 origin/main 一致；`v2.9.2` tag 固定在发布代码提交 `9978e45`；远程 Checks、macOS Native Smoke、Universal Release 与四项资产 digest 已核对，证据见 `docs/v2.9.2/RELEASE_NOTES.md` |
-| 本轮交付 | 旧阶段已由 DESK-02 / DATA-01 / v2.9.1 收口；REFINE-03/REL-02 已完成 Graphite 工业仪表主题及 v2.9.2 发布；REFINE-04 Aurora 与 REFINE-05 Botanical 已完成独立五页重做、结构断言和视觉证据 |
+| 本轮交付 | 旧阶段已由 DESK-02 / DATA-01 / v2.9.1 收口；REFINE-03/REL-02 已完成 Graphite 工业仪表主题及 v2.9.2 发布；REFINE-04 Aurora 与 REFINE-05 Botanical 已完成独立五页重做、结构断言和视觉证据；v2.10.0 版本源、README、发布说明与本地验证已完成 |
 | 下一项 | REL-03：v2.10.0 Aurora Ocean + Botanical Library 精修版本、Windows/macOS 包、远程 CI、GitHub Release 与资产核对 |
 | 当前执行人 / 在做任务 | Codex / REL-03 DOING；准备版本同步、完整构建、发布与计划收口 |
 | 首套验收结论 | **Windows 原生核心闭环、编辑态计时刷新、主题渲染边界、QA-01 回退回归、五套主题 25 页前端回归、Editorial 长历史性能专项、v2.6.10/v2.7.0/v2.8.0/v2.9.0/v2.9.1 Windows 与 macOS 资产发布、CORE-03 macOS 原生数据目录与迁移、DESK-02 macOS 第二实例/托盘/浮窗/隔离安装启动、DATA-01 备份范围/隔离跨目录搬移/素材清单已通过**；资源出处补录缺口已在清单中保留为后续治理事项 |
 | source | 本轮用户说明；当前源码与测试；Git 提交/远程 refs；GitHub Release/Actions；本轮命令结果 |
 | supersedes | 旧文档中的 v1.4.1/v1.5.x/v1.10.0/v2.0 当前进度，以及 2026-09-06 摘要中的“其他四页未实现、主题注册未建立” |
-| pending | REFINE-04/05 已通过本地概念 fidelity、独立布局、材质、五页结构和压力宽度验收；REL-03 尚未完成版本同步、正式包、远程 main/tag/CI、macOS 资产和 GitHub Release 收口；旧任务 DONE 仍只表示历史功能/发布闭环 |
+| pending | REFINE-04/05 已通过本地概念 fidelity、独立布局、材质、五页结构和压力宽度验收；REL-03 已完成版本同步、本地完整验证，尚未完成正式 Windows 包、远程 main/tag/CI、macOS 资产和 GitHub Release 收口；旧任务 DONE 仍只表示历史功能/发布闭环 |
 
 ### 最新用户纠正与主题精修阶段（2026-09-09）
 
@@ -539,6 +539,7 @@ NV-05 的具体键盘缺口：`CommandPalette.tsx` 声明 modal/listbox，但缺
 | 2026-09-09 | DATA-01 | `c60eeb1`→`89d9404`；新增 `src-tauri/src/runtime.rs` 隔离 portable backup round-trip 单测、`docs/data-portability.md`、`docs/content/asset-inventory.md`；明确 state/runtime 备份字段与 WebView `localStorage` 排除项，登记跨平台目录、语料/音效/位图来源、SHA-256 和未核验缺口；定向迁移 1/1、Rust 33/33、`pnpm check`、`pnpm build`（2061 modules）、前端单 worker 58/58、cargo fmt/check、`git diff --check` PASS；证据 `docs/qa/DATA-01-89d9404.md`；仅文档/测试，不升版本、不重打 v2.9.1 Release | DONE；无下一项 |
 | 2026-09-09 | REFINE-03 | `1c8fc9c`→`44fa75b`；重做 `GraphiteConsoleViews.tsx` / `.css`，将五页从同构换色控制台改为工业仪表、序列槽位、任务舱、信号记录与系统模块；移除状态栏伪造 CPU/MEM/SYNC 数据，补充真实记录时段计算与空槽位；新增 Graphite 结构断言与证据 `docs/qa/REFINE-03-graphite.md`；`pnpm check`、Graphite 3/3、完整前端串行等效 58/58、Vite build、cargo fmt/check/test 33/33、Windows v2.9.2 EXE/NSIS/MSI 打包 PASS | REVIEW；REL-02 发布闭环 |
 | 2026-09-09 | REL-02 | `44fa75b`→`25090f1`；发布代码 tag 固定在 `9978e45`；补齐发布计划与 v2.9.2 说明，推送 main、创建 `v2.9.2` tag/Release、上传 Windows MSI 并刷新 GitHub Release notes；Checks `34350535611` PASS，macOS Native Smoke `34350535428` PASS，Universal Release `34350728878` PASS；Release 四项资产均为 uploaded，digest 见 `docs/v2.9.2/RELEASE_NOTES.md`；旧 tag 未移动 | DONE；下一项 REFINE-04 |
+| 2026-09-09 | REL-03 | `7bade92`→工作树；同步 `package.json`、Cargo/lock、`tauri.conf.json`、运行时版本/里程碑、README 与 `docs/v2.10.0/RELEASE_NOTES.md`；本地 `pnpm check`、`pnpm build`（2061 modules）、前端串行 58/58、cargo fmt/check/test locked（33/33）均 PASS；正式 Windows 包、远程 main/tag/CI、macOS 资产与 GitHub Release 尚未执行 | DOING；继续正式打包 |
 
 每条后续记录使用：`日期｜任务ID｜开始SHA→结束SHA｜修改文件｜验证命令与结果｜证据路径/链接｜版本/发布状态｜剩余问题｜下一ID`。没有执行的测试必须写“未执行”，不可复制上一版结果。
 
