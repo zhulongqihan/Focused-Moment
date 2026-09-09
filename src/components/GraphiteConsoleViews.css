@@ -336,3 +336,774 @@
 @media (max-width: 420px) {
   .minimal-app[data-theme="graphite-console"] .minimal-nav > button { padding: 0 4px !important; font-size: 0.64rem; letter-spacing: 0; }.minimal-app[data-theme="graphite-console"] .trail-nav__brand strong, .minimal-app[data-theme="graphite-console"] .trail-nav__brand > span:last-child { font-size: 0.52rem; }.gc-panel { padding: 12px 10px; }.gc-task-grid { grid-template-columns: 1fr; }.gc-todo-card { min-height: 120px; }.gc-dial-module { padding: 10px; }.gc-dial { width: 90%; }.gc-dial__face > strong { font-size: 2.05rem; }.gc-operation-card h2 { font-size: 1.25rem; }
 }
+
+/* REFINE-03 / Graphite Console v2
+   This layer intentionally changes the layout language, not just the palette:
+   the reference is a physical operations console with bays, bezels and signal
+   paths. Keep it scoped so the other themes can grow their own surfaces. */
+.minimal-app[data-theme="graphite-console"] {
+  --gc-bg: #080b0b;
+  --gc-panel: #171c1d;
+  --gc-panel-deep: #0d1112;
+  --gc-panel-raised: #252c2c;
+  --gc-line: #53605c;
+  --gc-line-soft: #2a3331;
+  --gc-text: #e0e5df;
+  --gc-muted: #8c9791;
+  --gc-lime: #c9f226;
+  --gc-lime-dim: #7e991f;
+  --gc-orange: #f39a26;
+  min-height: 100vh !important;
+  padding: 12px !important;
+  color: var(--gc-text) !important;
+  background:
+    radial-gradient(circle at 50% -20%, rgba(155, 169, 158, 0.16), transparent 35%),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.018) 0 1px, transparent 1px 4px),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.012) 0 1px, transparent 1px 7px),
+    #080b0b !important;
+  font-family: "Bahnschrift SemiCondensed", "DIN Alternate", "Cascadia Mono", ui-monospace, "Microsoft YaHei UI", sans-serif !important;
+  letter-spacing: 0.025em;
+}
+
+.minimal-app[data-theme="graphite-console"] .minimal-workspace {
+  display: block !important;
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+}
+
+.minimal-app[data-theme="graphite-console"] .minimal-nav {
+  position: sticky !important;
+  top: 12px !important;
+  z-index: 30 !important;
+  display: grid !important;
+  grid-template-columns: minmax(220px, 1.3fr) repeat(5, minmax(92px, 1fr)) !important;
+  gap: 0 !important;
+  min-height: 78px !important;
+  padding: 5px !important;
+  overflow: visible !important;
+  border: 1px solid #69756f !important;
+  border-radius: 0 !important;
+  background:
+    linear-gradient(180deg, rgba(49, 57, 56, 0.98), rgba(17, 22, 23, 0.98) 16%, rgba(11, 15, 16, 0.98)),
+    repeating-linear-gradient(0deg, transparent 0 3px, rgba(255, 255, 255, 0.03) 3px 4px) !important;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.56), inset 0 1px rgba(255, 255, 255, 0.14), inset 0 -7px 0 rgba(0, 0, 0, 0.2) !important;
+  clip-path: polygon(0 7px, 7px 0, calc(100% - 7px) 0, 100% 7px, 100% calc(100% - 7px), calc(100% - 7px) 100%, 7px 100%, 0 calc(100% - 7px));
+}
+
+.minimal-app[data-theme="graphite-console"] .minimal-nav::before,
+.minimal-app[data-theme="graphite-console"] .minimal-nav::after {
+  position: absolute;
+  pointer-events: none;
+  content: "";
+}
+
+.minimal-app[data-theme="graphite-console"] .minimal-nav::before {
+  inset: 4px;
+  z-index: 0;
+  border: 1px solid rgba(184, 199, 190, 0.18);
+  clip-path: polygon(0 6px, 6px 0, calc(100% - 6px) 0, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 0 calc(100% - 6px));
+}
+
+.minimal-app[data-theme="graphite-console"] .minimal-nav::after {
+  right: 10px;
+  bottom: 8px;
+  width: 5px;
+  height: 5px;
+  border: 1px solid var(--gc-lime);
+  border-radius: 50%;
+  background: var(--gc-lime);
+  box-shadow: 0 0 9px var(--gc-lime);
+}
+
+.minimal-app[data-theme="graphite-console"] .trail-nav__brand,
+.minimal-app[data-theme="graphite-console"] .minimal-nav > button {
+  position: relative !important;
+  z-index: 1;
+  border-radius: 0 !important;
+}
+
+.minimal-app[data-theme="graphite-console"] .trail-nav__brand {
+  display: grid !important;
+  grid-template-columns: 42px 1fr;
+  grid-template-rows: 1fr 1fr;
+  column-gap: 12px;
+  align-items: center;
+  min-width: 0;
+  padding: 8px 16px !important;
+  border-right: 1px solid var(--gc-line) !important;
+  color: var(--gc-text) !important;
+  background: linear-gradient(90deg, rgba(68, 79, 75, 0.34), transparent) !important;
+  text-transform: uppercase;
+}
+
+.minimal-app[data-theme="graphite-console"] .trail-nav__brand strong {
+  align-self: end;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+}
+
+.minimal-app[data-theme="graphite-console"] .trail-nav__brand > span:last-child {
+  align-self: start;
+  color: var(--gc-muted) !important;
+  font-size: 0.58rem;
+  letter-spacing: 0.3em;
+}
+
+.minimal-app[data-theme="graphite-console"] .trail-nav__logo {
+  position: relative;
+  grid-row: 1 / span 2;
+  display: grid;
+  width: 35px;
+  height: 35px;
+  place-items: center;
+  border: 2px solid var(--gc-lime) !important;
+  border-radius: 50% !important;
+  box-shadow: 0 0 13px rgba(201, 242, 38, 0.2) !important;
+}
+
+.minimal-app[data-theme="graphite-console"] .trail-nav__logo-ring {
+  width: 17px;
+  height: 17px;
+  border: 2px solid var(--gc-lime) !important;
+  border-radius: 50%;
+}
+
+.minimal-app[data-theme="graphite-console"] .trail-nav__logo-dot {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--gc-orange) !important;
+  box-shadow: 0 0 8px rgba(243, 154, 38, 0.6);
+  transform: translate(9px, -11px);
+}
+
+.minimal-app[data-theme="graphite-console"] .minimal-nav > button {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  min-height: 66px !important;
+  padding: 0 10px !important;
+  border: 1px solid transparent !important;
+  border-right-color: var(--gc-line-soft) !important;
+  background: linear-gradient(180deg, rgba(32, 39, 39, 0.45), rgba(8, 12, 13, 0.18)) !important;
+  color: var(--gc-muted) !important;
+  font-size: 0.82rem;
+  letter-spacing: 0.12em;
+  transition: background 140ms ease, color 140ms ease, box-shadow 140ms ease;
+}
+
+.minimal-app[data-theme="graphite-console"] .minimal-nav > button::before,
+.minimal-app[data-theme="graphite-console"] .minimal-nav > button.active::before {
+  display: none !important;
+  content: none !important;
+}
+
+.minimal-app[data-theme="graphite-console"] .minimal-nav > button:hover,
+.minimal-app[data-theme="graphite-console"] .minimal-nav > button:focus-visible {
+  outline: none;
+  color: var(--gc-text) !important;
+  background: rgba(114, 132, 121, 0.16) !important;
+  box-shadow: inset 0 -3px var(--gc-lime-dim);
+}
+
+.minimal-app[data-theme="graphite-console"] .minimal-nav > button.active {
+  border-color: var(--gc-lime) !important;
+  color: var(--gc-lime) !important;
+  background: linear-gradient(180deg, rgba(201, 242, 38, 0.17), rgba(201, 242, 38, 0.035)) !important;
+  box-shadow: inset 0 -4px var(--gc-lime), inset 0 1px rgba(255, 255, 255, 0.14), 0 0 16px rgba(201, 242, 38, 0.08);
+}
+
+.minimal-app[data-theme="graphite-console"] .minimal-nav > button .trail-nav__icon {
+  display: none !important;
+}
+
+.minimal-app[data-theme="graphite-console"] .minimal-nav__count {
+  position: static !important;
+  margin-left: 8px !important;
+  color: var(--gc-orange) !important;
+  font-size: 0.62rem !important;
+}
+
+.minimal-app[data-theme="graphite-console"] .minimal-content,
+.minimal-app[data-theme="graphite-console"] .minimal-content--records {
+  width: 100% !important;
+  max-width: none !important;
+  min-height: 0 !important;
+  height: auto !important;
+  overflow: visible !important;
+  padding: 13px 0 38px !important;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-page {
+  gap: 10px;
+  width: 100%;
+  max-width: 1560px;
+  margin: 0 auto;
+  animation: gc-console-in 180ms ease both;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-page-head {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  min-height: 78px;
+  gap: 0;
+  padding: 0 !important;
+  overflow: hidden;
+  border: 1px solid #5c6862 !important;
+  border-radius: 0 !important;
+  background: linear-gradient(180deg, #252d2d, #101516 22%, #111718) !important;
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.12), 0 7px 20px rgba(0, 0, 0, 0.28) !important;
+  clip-path: polygon(0 8px, 8px 0, calc(100% - 8px) 0, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0 calc(100% - 8px));
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-page-head::before {
+  position: absolute;
+  inset: 7px;
+  pointer-events: none;
+  border: 1px solid rgba(194, 208, 199, 0.16);
+  content: "";
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-page-head > div {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  padding: 13px 19px;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-page-head--split {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-today-page .gc-page-head--split {
+  grid-template-columns: 170px minmax(0, 1fr) auto;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-todos-page .gc-page-head {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-page-head > button,
+.minimal-app[data-theme="graphite-console"] .gc-page-head > .gc-records-actions {
+  align-self: center;
+  justify-self: end;
+  width: max-content;
+  max-width: 100%;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-head-identity {
+  display: grid;
+  align-content: center;
+  gap: 3px;
+  border-right: 1px solid var(--gc-line);
+  background: rgba(5, 9, 10, 0.28);
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-head-identity strong {
+  color: var(--gc-lime);
+  font-size: 1.08rem;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-head-identity small {
+  color: var(--gc-muted);
+  font-size: 0.62rem;
+  letter-spacing: 0.18em;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-head-title {
+  display: grid;
+  align-content: center;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-page-head h1 {
+  margin: 4px 0 0;
+  color: var(--gc-text);
+  font-size: clamp(1.5rem, 2.4vw, 2.4rem);
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-page-head h1 em {
+  color: var(--gc-lime);
+  font-size: 0.63em;
+  font-style: normal;
+  letter-spacing: 0.08em;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-page-head p {
+  margin: 7px 0 0;
+  color: var(--gc-muted);
+  font-family: "Microsoft YaHei UI", sans-serif;
+  font-size: 0.7rem;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-head-readout {
+  display: grid;
+  grid-template-columns: auto auto;
+  min-width: 138px;
+  align-content: center;
+  column-gap: 8px;
+  border-left: 1px solid var(--gc-line);
+  background: rgba(4, 8, 9, 0.3);
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-head-readout strong {
+  grid-row: 1 / span 2;
+  color: var(--gc-lime);
+  font-size: 2.65rem;
+  font-weight: 400;
+  line-height: 0.85;
+  text-shadow: 0 0 14px rgba(201, 242, 38, 0.26);
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-panel {
+  position: relative;
+  min-width: 0;
+  padding: 17px;
+  overflow: hidden;
+  border: 1px solid #5a6761 !important;
+  border-radius: 0 !important;
+  background:
+    linear-gradient(135deg, rgba(36, 44, 43, 0.98), rgba(13, 18, 19, 0.99) 42%, rgba(18, 23, 24, 0.98)),
+    repeating-linear-gradient(0deg, transparent 0 3px, rgba(255, 255, 255, 0.026) 3px 4px) !important;
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.11), inset 0 -16px 26px rgba(0, 0, 0, 0.2), 0 7px 18px rgba(0, 0, 0, 0.26) !important;
+  clip-path: polygon(0 8px, 8px 0, calc(100% - 8px) 0, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0 calc(100% - 8px));
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-panel::after {
+  right: 18px;
+  top: 10px;
+  width: 30px;
+  height: 7px;
+  background: repeating-linear-gradient(115deg, transparent 0 4px, rgba(243, 154, 38, 0.75) 4px 6px);
+  opacity: 0.76;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-panel__heading {
+  position: relative;
+  z-index: 1;
+  margin-bottom: 13px;
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--gc-line-soft);
+  color: var(--gc-lime);
+  font-size: 0.66rem;
+  letter-spacing: 0.15em;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-screw {
+  width: 9px;
+  height: 9px;
+  border-color: #87928b;
+  border-radius: 50%;
+  background: #303938;
+  box-shadow: inset 0 0 0 2px #0d1112, 0 1px 2px #000;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-screw::after {
+  top: 3px;
+  left: 1px;
+  width: 5px;
+  height: 1px;
+  background: #b2bbb2;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-lime-button,
+.minimal-app[data-theme="graphite-console"] .gc-dark-button,
+.minimal-app[data-theme="graphite-console"] .gc-danger-button {
+  border-radius: 0 !important;
+  clip-path: polygon(0 5px, 5px 0, calc(100% - 5px) 0, 100% 5px, 100% calc(100% - 5px), calc(100% - 5px) 100%, 5px 100%, 0 calc(100% - 5px));
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-lime-button {
+  min-height: 42px;
+  background: linear-gradient(180deg, #e2ff54, #a9d40e) !important;
+  box-shadow: 0 0 15px rgba(201, 242, 38, 0.13), inset 0 1px rgba(255, 255, 255, 0.72) !important;
+  color: #11170c !important;
+  letter-spacing: 0.07em;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-dark-button {
+  background: #161d1e !important;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-today-layout {
+  grid-template-columns: minmax(0, 1.84fr) minmax(300px, 0.68fr);
+  gap: 10px;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-sequence-panel,
+.minimal-app[data-theme="graphite-console"] .gc-operation-panel {
+  min-height: 568px;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-sequence-grid {
+  grid-template-rows: repeat(7, minmax(0, 1fr));
+  grid-auto-rows: unset;
+  min-height: 452px;
+  gap: 4px;
+  padding: 10px 9px 8px;
+  border-color: #3f4a46;
+  background:
+    linear-gradient(rgba(201, 242, 38, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(201, 242, 38, 0.04) 1px, transparent 1px),
+    #0d1213;
+  background-size: 12.5% 14.285%, 12.5% 100%, auto;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-sequence-row {
+  grid-template-columns: 61px 54px minmax(0, 1fr) 80px;
+  min-height: 0;
+  padding: 0 10px;
+  border-color: #47534e;
+  border-left: 3px solid #657169;
+  border-radius: 0 !important;
+  background: linear-gradient(90deg, rgba(43, 52, 50, 0.95), rgba(18, 24, 25, 0.88)) !important;
+  clip-path: polygon(0 5px, 5px 0, calc(100% - 5px) 0, 100% 5px, 100% calc(100% - 5px), calc(100% - 5px) 100%, 5px 100%, 0 calc(100% - 5px));
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-sequence-row::after {
+  position: absolute;
+  right: 76px;
+  width: 11px;
+  height: 11px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  content: "";
+  opacity: 0.54;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-sequence-row.is-done {
+  border-left-color: var(--gc-lime);
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-sequence-row.is-active {
+  border-color: var(--gc-orange);
+  border-left-color: var(--gc-orange);
+  box-shadow: inset 0 0 18px rgba(243, 154, 38, 0.08), 0 0 14px rgba(243, 154, 38, 0.14);
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-sequence-row--empty {
+  color: var(--gc-muted);
+  border-style: dashed;
+  opacity: 0.74;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-sequence-row--empty::after {
+  display: none;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-sequence-row__index {
+  color: var(--gc-lime);
+  font-size: 1.16rem;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-sequence-row__icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 0;
+  transform: rotate(45deg);
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-sequence-row__icon svg {
+  transform: rotate(-45deg);
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-sequence-row__content strong {
+  font-size: 0.78rem;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-sequence-row__state {
+  justify-content: flex-end;
+  color: var(--gc-muted);
+  font-size: 0.57rem;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-sequence-legend {
+  padding-top: 12px;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-operation-panel {
+  background: linear-gradient(180deg, #202727, #0d1213 24%, #101617) !important;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-operation-card h2,
+.minimal-app[data-theme="graphite-console"] .gc-next-task-content h2 {
+  color: var(--gc-lime);
+  font-size: clamp(1.55rem, 2.7vw, 2.75rem);
+  line-height: 1.14;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-operation-meta,
+.minimal-app[data-theme="graphite-console"] .gc-operation-status {
+  border-color: #3c4743;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-today-footer,
+.minimal-app[data-theme="graphite-console"] .gc-focus-bottom,
+.minimal-app[data-theme="graphite-console"] .gc-todo-footer,
+.minimal-app[data-theme="graphite-console"] .gc-settings-footer,
+.minimal-app[data-theme="graphite-console"] .gc-status-strip {
+  border-color: #5a6761;
+  border-radius: 0 !important;
+  background: #46524d;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-today-footer > div,
+.minimal-app[data-theme="graphite-console"] .gc-focus-bottom > div,
+.minimal-app[data-theme="graphite-console"] .gc-todo-footer > div,
+.minimal-app[data-theme="graphite-console"] .gc-settings-footer > span,
+.minimal-app[data-theme="graphite-console"] .gc-settings-footer > strong,
+.minimal-app[data-theme="graphite-console"] .gc-status-strip > div {
+  background: linear-gradient(180deg, #1b2222, #0e1314) !important;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-status-strip {
+  grid-template-columns: 1.45fr 1.2fr 0.8fr 1.2fr 0.75fr;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-focus-layout {
+  grid-template-columns: minmax(190px, 0.62fr) minmax(380px, 1.4fr) minmax(240px, 0.78fr);
+  gap: 10px;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-run-log,
+.minimal-app[data-theme="graphite-console"] .gc-session-profile,
+.minimal-app[data-theme="graphite-console"] .gc-dial-module {
+  min-height: 640px;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-dial-module {
+  border-color: #68756e !important;
+  background:
+    radial-gradient(circle at 50% 40%, rgba(201, 242, 38, 0.09), transparent 34%),
+    repeating-linear-gradient(0deg, transparent 0 24px, rgba(201, 242, 38, 0.04) 24px 25px),
+    #101617 !important;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-dial {
+  border-width: 17px;
+  border-color: #3a4442;
+  background: conic-gradient(from -150deg, var(--gc-lime) 0 var(--gc-progress), #515d57 var(--gc-progress) 83%, transparent 83% 100%);
+  box-shadow: 0 0 0 7px #090d0e, 0 0 0 10px #6a766f, inset 0 0 34px #000, 0 0 38px rgba(201, 242, 38, 0.12);
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-dial::after {
+  position: absolute;
+  inset: 12%;
+  border: 1px dashed rgba(201, 242, 38, 0.28);
+  border-radius: 50%;
+  content: "";
+  pointer-events: none;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-task-layout {
+  grid-template-columns: minmax(0, 1fr) minmax(270px, 0.43fr);
+  gap: 10px;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-task-bays {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 8px;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-task-bay {
+  min-height: 400px;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-task-grid {
+  grid-template-columns: 1fr;
+  align-content: start;
+  gap: 6px;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-todo-card {
+  min-height: 128px;
+  padding: 12px 9px 8px;
+  border-radius: 0 !important;
+  border-left: 3px solid #657169;
+  background: linear-gradient(135deg, #252d2c, #111718) !important;
+  clip-path: polygon(0 5px, 5px 0, calc(100% - 5px) 0, 100% 5px, 100% calc(100% - 5px), calc(100% - 5px) 100%, 5px 100%, 0 calc(100% - 5px));
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-task-bay--active {
+  border-color: var(--gc-orange) !important;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-task-bay--active .gc-todo-card {
+  border-left-color: var(--gc-orange);
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-next-task-content {
+  min-height: 470px;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-records-grid {
+  gap: 10px;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-record-stat-grid > div,
+.minimal-app[data-theme="graphite-console"] .gc-event-row,
+.minimal-app[data-theme="graphite-console"] .gc-band-list > div,
+.minimal-app[data-theme="graphite-console"] .gc-key-map > div {
+  background: linear-gradient(180deg, #1b2222, #0f1415) !important;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-radar {
+  border-radius: 0;
+  transform: rotate(45deg);
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-radar::after,
+.minimal-app[data-theme="graphite-console"] .gc-radar i,
+.minimal-app[data-theme="graphite-console"] .gc-radar span {
+  transform: rotate(-45deg);
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-settings-layout {
+  grid-template-columns: 166px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-settings-nav a {
+  min-height: 53px;
+  padding: 9px 10px;
+  border-radius: 0;
+  background: linear-gradient(180deg, #202827, #101516) !important;
+  clip-path: polygon(0 5px, 5px 0, 100% 0, 100% 100%, 5px 100%, 0 calc(100% - 5px));
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-settings-nav a:hover,
+.minimal-app[data-theme="graphite-console"] .gc-settings-nav a:focus-visible {
+  background: rgba(201, 242, 38, 0.08) !important;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-theme-card,
+.minimal-app[data-theme="graphite-console"] .gc-console-field input,
+.minimal-app[data-theme="graphite-console"] .gc-console-field select,
+.minimal-app[data-theme="graphite-console"] .gc-create-task input,
+.minimal-app[data-theme="graphite-console"] .gc-create-task select,
+.minimal-app[data-theme="graphite-console"] .gc-edit-grid input,
+.minimal-app[data-theme="graphite-console"] .gc-edit-grid select {
+  border-radius: 0 !important;
+}
+
+@keyframes gc-console-in {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .minimal-app[data-theme="graphite-console"] .gc-page { animation: none; }
+}
+
+@media (max-width: 1120px) {
+  .minimal-app[data-theme="graphite-console"] .minimal-nav { grid-template-columns: 190px repeat(5, minmax(0, 1fr)) !important; }
+  .minimal-app[data-theme="graphite-console"] .gc-focus-layout { grid-template-columns: minmax(160px, 0.55fr) minmax(320px, 1.2fr) minmax(210px, 0.72fr); }
+  .minimal-app[data-theme="graphite-console"] .gc-task-bays { grid-template-columns: 1fr; }
+  .minimal-app[data-theme="graphite-console"] .gc-task-bay { min-height: 0; }
+}
+
+@media (min-width: 821px) {
+  .minimal-app[data-theme="graphite-console"] .minimal-nav > button.active {
+    left: auto !important;
+    width: auto !important;
+    height: auto !important;
+    min-height: 66px !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+  }
+
+  .minimal-app[data-theme="graphite-console"].minimal-app--cinematic .minimal-nav > button.active,
+  .minimal-app[data-theme="graphite-console"].minimal-app--cinematic:not(.minimal-app--trail) .minimal-nav > button.active {
+    left: auto !important;
+    width: auto !important;
+    height: auto !important;
+    min-height: 66px !important;
+    margin: 0 !important;
+    border: 1px solid var(--gc-lime) !important;
+    border-radius: 0 !important;
+    background: linear-gradient(180deg, rgba(201, 242, 38, 0.17), rgba(201, 242, 38, 0.035)) !important;
+    box-shadow: inset 0 -4px var(--gc-lime), inset 0 1px rgba(255, 255, 255, 0.14), 0 0 16px rgba(201, 242, 38, 0.08) !important;
+  }
+}
+
+@media (max-width: 900px) {
+  .minimal-app[data-theme="graphite-console"] { padding: 7px !important; }
+  .minimal-app[data-theme="graphite-console"] .minimal-nav { top: 7px !important; grid-template-columns: repeat(5, minmax(0, 1fr)) !important; grid-template-rows: 37px 48px !important; min-height: 91px !important; }
+  .minimal-app[data-theme="graphite-console"] .trail-nav__brand { grid-column: 1 / -1; grid-row: 1; min-height: 37px; grid-template-columns: 25px auto auto; grid-template-rows: 1fr; padding: 3px 8px !important; border-right: 0 !important; border-bottom: 1px solid var(--gc-line) !important; }
+  .minimal-app[data-theme="graphite-console"] .trail-nav__logo { grid-row: auto; width: 23px; height: 23px; border-width: 1px !important; }
+  .minimal-app[data-theme="graphite-console"] .trail-nav__logo-ring { width: 11px; height: 11px; border-width: 1px !important; }
+  .minimal-app[data-theme="graphite-console"] .trail-nav__logo-dot { width: 3px; height: 3px; transform: translate(6px, -7px); }
+  .minimal-app[data-theme="graphite-console"] .trail-nav__brand strong,
+  .minimal-app[data-theme="graphite-console"] .trail-nav__brand > span:last-child { align-self: center; font-size: 0.6rem; letter-spacing: 0.12em; }
+  .minimal-app[data-theme="graphite-console"] .minimal-nav > button { grid-row: 2; min-height: 48px !important; font-size: 0.7rem; }
+  .minimal-app[data-theme="graphite-console"] .gc-page-head--split { grid-template-columns: 145px minmax(0, 1fr) auto; }
+  .minimal-app[data-theme="graphite-console"] .gc-today-layout,
+  .minimal-app[data-theme="graphite-console"] .gc-focus-layout,
+  .minimal-app[data-theme="graphite-console"] .gc-task-layout,
+  .minimal-app[data-theme="graphite-console"] .gc-records-grid { grid-template-columns: 1fr; }
+  .minimal-app[data-theme="graphite-console"] .gc-sequence-panel,
+  .minimal-app[data-theme="graphite-console"] .gc-operation-panel,
+  .minimal-app[data-theme="graphite-console"] .gc-run-log,
+  .minimal-app[data-theme="graphite-console"] .gc-session-profile,
+  .minimal-app[data-theme="graphite-console"] .gc-dial-module { min-height: auto; }
+  .minimal-app[data-theme="graphite-console"] .gc-dial-module { min-height: 540px; }
+  .minimal-app[data-theme="graphite-console"] .gc-settings-layout { grid-template-columns: 1fr; }
+  .minimal-app[data-theme="graphite-console"] .gc-settings-nav { position: static; grid-template-columns: repeat(5, 1fr); }
+  .minimal-app[data-theme="graphite-console"] .gc-settings-nav a { min-height: 0; text-align: center; }
+  .minimal-app[data-theme="graphite-console"] .gc-settings-main { grid-template-columns: 1fr; }
+  .minimal-app[data-theme="graphite-console"] .gc-settings-appearance,
+  .minimal-app[data-theme="graphite-console"] .gc-audio-panel,
+  .minimal-app[data-theme="graphite-console"] .gc-data-panel { grid-column: auto; grid-row: auto; }
+}
+
+@media (max-width: 640px) {
+  .minimal-app[data-theme="graphite-console"] .minimal-content { padding-top: 8px !important; }
+  .minimal-app[data-theme="graphite-console"] .gc-page-head--split,
+  .minimal-app[data-theme="graphite-console"] .gc-page-head { grid-template-columns: 1fr; min-height: 0; }
+  .minimal-app[data-theme="graphite-console"] .gc-head-identity,
+  .minimal-app[data-theme="graphite-console"] .gc-head-readout { border-right: 0; border-left: 0; border-bottom: 1px solid var(--gc-line); }
+  .minimal-app[data-theme="graphite-console"] .gc-head-readout { grid-template-columns: auto auto; min-width: 0; }
+  .minimal-app[data-theme="graphite-console"] .gc-page-head > div { padding: 10px 14px; }
+  .minimal-app[data-theme="graphite-console"] .gc-sequence-grid { min-height: 0; grid-template-rows: repeat(7, minmax(58px, auto)); }
+  .minimal-app[data-theme="graphite-console"] .gc-sequence-row { grid-template-columns: 40px 31px minmax(0, 1fr); min-height: 58px; }
+  .minimal-app[data-theme="graphite-console"] .gc-sequence-row__icon { width: 27px; height: 27px; }
+  .minimal-app[data-theme="graphite-console"] .gc-sequence-row__state { display: none; }
+  .minimal-app[data-theme="graphite-console"] .gc-time-ruler { padding-left: 55px; }
+  .minimal-app[data-theme="graphite-console"] .gc-task-bays { grid-template-columns: 1fr; }
+  .minimal-app[data-theme="graphite-console"] .gc-today-footer,
+  .minimal-app[data-theme="graphite-console"] .gc-focus-bottom,
+  .minimal-app[data-theme="graphite-console"] .gc-todo-footer,
+  .minimal-app[data-theme="graphite-console"] .gc-status-strip,
+  .minimal-app[data-theme="graphite-console"] .gc-settings-footer { grid-auto-flow: row; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .minimal-app[data-theme="graphite-console"] .gc-status-strip__label { grid-column: 1 / -1; }
+  .minimal-app[data-theme="graphite-console"] .gc-create-task { grid-template-columns: 1fr 1fr; }
+  .minimal-app[data-theme="graphite-console"] .gc-create-task .gc-panel-label,
+  .minimal-app[data-theme="graphite-console"] .gc-create-task input:first-of-type,
+  .minimal-app[data-theme="graphite-console"] .gc-create-task .gc-lime-button { grid-column: 1 / -1; }
+  .minimal-app[data-theme="graphite-console"] .gc-theme-matrix { grid-template-columns: repeat(2, 1fr); }
+  .minimal-app[data-theme="graphite-console"] .gc-audio-grid { grid-template-columns: 1fr; }
+  .minimal-app[data-theme="graphite-console"] .gc-audio-actions { grid-column: auto; }
+  .minimal-app[data-theme="graphite-console"] .gc-key-map { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 420px) {
+  .minimal-app[data-theme="graphite-console"] .minimal-nav > button { padding: 0 4px !important; font-size: 0.62rem; letter-spacing: 0; }
+  .minimal-app[data-theme="graphite-console"] .trail-nav__brand strong,
+  .minimal-app[data-theme="graphite-console"] .trail-nav__brand > span:last-child { font-size: 0.52rem; }
+  .minimal-app[data-theme="graphite-console"] .gc-panel { padding: 12px 10px; }
+  .minimal-app[data-theme="graphite-console"] .gc-dial-module { padding: 10px; }
+  .minimal-app[data-theme="graphite-console"] .gc-dial { width: 90%; }
+  .minimal-app[data-theme="graphite-console"] .gc-dial__face > strong { font-size: 2.05rem; }
+}

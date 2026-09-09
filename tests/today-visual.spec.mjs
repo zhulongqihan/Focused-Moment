@@ -612,6 +612,16 @@ test("Graphite Console renders all five pages inside the control surface", async
     expect(geometry[label].right).toBeLessThanOrEqual(1487);
     await page.screenshot({ path: `${graphiteDirectory}/${screenshot}`, animations: "disabled", fullPage: true });
   }
+  await pageButton(page, "今日").click();
+  await expect(page.locator(".gc-sequence-row")).toHaveCount(7);
+  await expect(page.locator(".gc-sequence-row--empty")).toHaveCount(6);
+  await expect(page.locator(".gc-status-strip")).toContainText("STORE");
+  await expect(page.locator(".minimal-nav > button.active")).toHaveCSS("border-radius", "0px");
+
+  await pageButton(page, "待办").click();
+  await expect(page.locator(".gc-task-bays > .gc-task-bay")).toHaveCount(3);
+  const addTaskBox = await page.getByRole("button", { name: /ADD TASK/ }).boundingBox();
+  expect(addTaskBox?.width ?? Number.POSITIVE_INFINITY).toBeLessThan(220);
   writeFileSync(`${graphiteDirectory}/geometry.json`, JSON.stringify({ viewport: { width: 1487, height: 1058 }, pages: geometry }, null, 2));
 });
 
