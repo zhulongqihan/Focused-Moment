@@ -20,7 +20,7 @@ use tauri::tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, Tray
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, Window, WindowEvent};
 
 #[cfg(target_os = "macos")]
-use objc2::MainThreadMarker;
+use objc2::{rc::Retained, MainThreadMarker};
 
 #[cfg(windows)]
 use windows_sys::Win32::UI::WindowsAndMessaging::{
@@ -2969,26 +2969,48 @@ fn build_system_tray(app: &AppHandle) -> Result<(), String> {
         tray_builder = tray_builder.icon(icon.clone());
     }
 
-    let _ = tray_builder.build(app).map_err(|error| error.to_string())?;
+    let _tray = tray_builder.build(app).map_err(|error| error.to_string())?;
+
+    #[cfg(target_os = "macos")]
+    if std::env::var_os("FOCUSED_MOMENT_NATIVE_SMOKE").is_some() {
+        let result = _tray
+            .with_inner_tray_icon(|inner| inner.ns_status_item())
+            .map_err(|error| error.to_string());
+        match result {
+            Ok(Some(status_item)) => {
+                NATIVE_SMOKE_STATUS_ITEM.with(|cell| {
+                    *cell.borrow_mut() = Some(status_item);
+                });
+                eprintln!("FOCUSED_MOMENT_TRAY_NATIVE_SETUP=status-item-ready");
+            }
+            Ok(None) => {
+                eprintln!("FOCUSED_MOMENT_TRAY_NATIVE_SETUP=error:status-item-unavailable")
+            }
+            Err(error) => eprintln!("FOCUSED_MOMENT_TRAY_NATIVE_SETUP=error:{error}"),
+        }
+    }
+
     Ok(())
 }
 
 #[cfg(target_os = "macos")]
-fn trigger_native_smoke_tray_click(app: &AppHandle) {
+thread_local! {
+    static NATIVE_SMOKE_STATUS_ITEM: std::cell::RefCell<Option<Retained<objc2_app_kit::NSStatusItem>>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+#[cfg(target_os = "macos")]
+fn trigger_native_smoke_tray_click() {
     if std::env::var_os("FOCUSED_MOMENT_NATIVE_SMOKE").is_some() {
         eprintln!("FOCUSED_MOMENT_TRAY_NATIVE_CLICK=started");
     }
 
-    let Some(tray) = app.tray_by_id("focused-moment-tray") else {
-        eprintln!("FOCUSED_MOMENT_TRAY_NATIVE_CLICK=error:tray-unavailable");
-        return;
-    };
-
     if std::env::var_os("FOCUSED_MOMENT_NATIVE_SMOKE").is_some() {
-        eprintln!("FOCUSED_MOMENT_TRAY_NATIVE_CLICK=before-inner-icon");
+        eprintln!("FOCUSED_MOMENT_TRAY_NATIVE_CLICK=before-status-item");
     }
-    let result = tray.with_inner_tray_icon(|inner| {
-        let Some(status_item) = inner.ns_status_item() else {
+    let result = NATIVE_SMOKE_STATUS_ITEM.with(|status_item_cell| {
+        let status_item_ref = status_item_cell.borrow();
+        let Some(status_item) = status_item_ref.as_ref() else {
             return Err("status-item-unavailable".to_string());
         };
         let Some(marker) = MainThreadMarker::new() else {
@@ -3007,7 +3029,7 @@ fn trigger_native_smoke_tray_click(app: &AppHandle) {
     });
 
     if std::env::var_os("FOCUSED_MOMENT_NATIVE_SMOKE").is_some() {
-        eprintln!("FOCUSED_MOMENT_TRAY_NATIVE_CLICK=after-inner-icon");
+        eprintln!("FOCUSED_MOMENT_TRAY_NATIVE_CLICK=after-status-item");
     }
 
     match result {
@@ -3996,8 +4018,7 @@ pub fn run() {
             .iter()
             .any(|argument| argument.contains("focused-moment-native-smoke-tray-click"))
         {
-            let app_handle = app.clone();
-            match app.run_on_main_thread(move || trigger_native_smoke_tray_click(&app_handle)) {
+            match app.run_on_main_thread(trigger_native_smoke_tray_click) {
                 Ok(()) => eprintln!("FOCUSED_MOMENT_TRAY_NATIVE_CLICK=scheduled"),
                 Err(error) => {
                     eprintln!("FOCUSED_MOMENT_TRAY_NATIVE_CLICK=error:schedule:{error}")
