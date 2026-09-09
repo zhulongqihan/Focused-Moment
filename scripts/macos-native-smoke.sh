@@ -410,8 +410,8 @@ tray_click_y="$((tray_y + tray_height / 2))"
 
 if ! /usr/bin/osascript - "$tray_click_x" "$tray_click_y" > "$tray_interaction_log" 2>&1 <<'APPLESCRIPT'
 on run argv
-  set xCoord to (item 1 of argv) as integer
-  set yCoord to (item 2 of argv) as integer
+  set trayclickx to (item 1 of argv) as integer
+  set trayclicky to (item 2 of argv) as integer
   tell application "System Events"
     tell process "Focused Moment"
       set frontmost to true
@@ -422,7 +422,7 @@ on run argv
     if mainVisibleBeforeTrayClick then
       error "Command-W did not hide the main window before the tray interaction."
     end if
-    click at {xCoord, yCoord} using {control down}
+    click at {trayclickx, trayclicky} using {control down}
     delay 1
     return "tray control-click delivered; mainVisibleBeforeMenu=" & (mainVisibleBeforeTrayClick as text)
   end tell
