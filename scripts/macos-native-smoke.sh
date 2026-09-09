@@ -26,6 +26,8 @@ report_path="$smoke_root/report.md"
 direct_log="$smoke_root/direct.log"
 finder_log="$smoke_root/finder.log"
 secondary_log="$smoke_root/secondary.log"
+ax_probe_log="$smoke_root/accessibility-probe.log"
+tray_probe_log="$smoke_root/tray-probe.log"
 
 mkdir -p "$smoke_home" "$smoke_tmp" "$work_dir" "$second_work_dir"
 printf '%s\n' \
@@ -229,6 +231,40 @@ if ! kill -0 "$direct_pid" 2>/dev/null; then
   exit 1
 fi
 append_report "- secondary native launch exits without creating a second instance: PASS"
+
+# Record the actual macOS accessibility surface before adding interaction
+# assertions. WebKit/Tauri may expose a different hierarchy from Chromium;
+# keeping this probe in the artifact prevents guessed selectors from becoming
+# false native evidence.
+if /usr/bin/osascript > "$ax_probe_log" 2>&1 <<'APPLESCRIPT'
+tell application "System Events"
+  tell process "Focused Moment"
+    set windowNames to name of every window
+    set buttonNames to name of every button of window 1
+    return "windows=" & (windowNames as text) & ";buttons=" & (buttonNames as text)
+  end tell
+end tell
+APPLESCRIPT
+then
+  append_report "- macOS Accessibility window/button probe: PASS"
+else
+  append_report "- macOS Accessibility window/button probe: UNAVAILABLE (see accessibility-probe.log)"
+fi
+
+if /usr/bin/osascript > "$tray_probe_log" 2>&1 <<'APPLESCRIPT'
+tell application "System Events"
+  tell process "Focused Moment"
+    set itemNames to name of every menu bar item of menu bar 1
+    return itemNames as text
+  end tell
+end tell
+APPLESCRIPT
+then
+  append_report "- macOS status-bar item probe: PASS"
+else
+  append_report "- macOS status-bar item probe: UNAVAILABLE (see tray-probe.log)"
+fi
+
 stop_pid "$direct_pid"
 running_pids=()
 
