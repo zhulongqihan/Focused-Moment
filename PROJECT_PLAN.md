@@ -545,6 +545,7 @@ NV-05 的具体键盘缺口：`CommandPalette.tsx` 声明 modal/listbox，但缺
 | 2026-09-09 | REL-02 | `44fa75b`→`25090f1`；发布代码 tag 固定在 `9978e45`；补齐发布计划与 v2.9.2 说明，推送 main、创建 `v2.9.2` tag/Release、上传 Windows MSI 并刷新 GitHub Release notes；Checks `34350535611` PASS，macOS Native Smoke `34350535428` PASS，Universal Release `34350728878` PASS；Release 四项资产均为 uploaded，digest 见 `docs/v2.9.2/RELEASE_NOTES.md`；旧 tag 未移动 | DONE；下一项 REFINE-04 |
 | 2026-09-09 | REL-03 | `7bade92`→工作树；同步 `package.json`、Cargo/lock、`tauri.conf.json`、运行时版本/里程碑、README 与 `docs/v2.10.0/RELEASE_NOTES.md`；本地 `pnpm check`、`pnpm build`（2061 modules）、前端串行 58/58、cargo fmt/check/test locked（33/33）均 PASS；正式 Windows 包、远程 main/tag/CI、macOS 资产与 GitHub Release 尚未执行 | DOING；继续正式打包 |
 | 2026-09-09 | REL-03 | `7bade92`→`ce15ff0`；同步版本源、README、`docs/v2.10.0/RELEASE_NOTES.md` 与 Aurora/Botanical QA 证据；本地 `pnpm check`、`pnpm build`（2061 modules）、前端串行 58/58、cargo fmt/check/test locked（33/33）、Windows release MSI/NSIS/EXE 包通过；Checks `34364439803`、macOS Native Smoke `34364439775`、Universal Release `34364312849` 均 PASS；GitHub Release 四项资产均 uploaded，digest 见 v2.10.0 说明；旧 tag 未移动 | DONE；暂无下一项 |
+| 2026-09-09 | DOCS-REFINE-PROTOCOL | `10c3787`→`a7104a6`；修改 `THEME_REFINEMENT_PROMPT.md`、`PROJECT_PLAN.md`；补齐版本源同步、发布候选门槛、正式打包、commit/push、远程 CI、GitHub Release 资产与 digest 核对，并明确仅文档/计划变更例外；`git diff --check` PASS；已提交并推送 `origin/main`；因仅流程文档修正，未升应用版本、未重打包、未创建新 tag/Release | DONE；下一项为首张截图驱动的主题/界面精修 |
 
 每条后续记录使用：`日期｜任务ID｜开始SHA→结束SHA｜修改文件｜验证命令与结果｜证据路径/链接｜版本/发布状态｜剩余问题｜下一ID`。没有执行的测试必须写“未执行”，不可复制上一版结果。
 
