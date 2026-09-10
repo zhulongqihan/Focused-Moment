@@ -2243,7 +2243,7 @@ function MainShell() {
               onCompleteLinkedTodoChange: setCompleteLinkedTodo,
               onCountdownMinutesChange: setCountdownMinutes,
               onCountdownDraftDirty: () => setCountdownDraftDirty(true),
-              onChangeMode: (mode) => void changeMode(mode),
+              onChangeMode: (mode) => changeMode(mode),
               onStart: () => void startFocus(),
               onPause: () => void pauseFocus(),
               onFinish: () => void finishFocus(),

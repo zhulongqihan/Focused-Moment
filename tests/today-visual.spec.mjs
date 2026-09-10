@@ -533,37 +533,20 @@ test("Night Valley uses one shared sidebar tab module across every page", async 
   expect(tabStates.every((state) => state.buttons[state.activeIndex].backgroundImage.includes("linear-gradient"))).toBe(true);
 });
 
-test("Timer route explains the four-state focus path with smooth curves", async ({ page }) => {
+test("Timer workspace keeps orientation useful and removes decorative state chrome", async ({ page }) => {
   await page.setViewportSize({ width: 1487, height: 1058 });
   await bootTodayReferenceMock(page);
   await page.getByRole("button", { name: "计时", exact: true }).click();
 
-  const geometry = await page.locator(".nv-focus-route").evaluate((route) => {
-    const routeRect = route.getBoundingClientRect();
-    const points = [...route.querySelectorAll(".nv-focus-route__point")].map((point) => {
-      const rect = point.getBoundingClientRect();
-      return {
-        x: rect.left + rect.width / 2 - routeRect.left,
-        y: rect.top + rect.height / 2 - routeRect.top,
-      };
-    });
-    const labels = [...route.querySelectorAll(".nv-focus-route__labels span")].map((label) => (
-      label.getBoundingClientRect().top - routeRect.top
-    ));
-    return {
-      points,
-      labels,
-      path: route.querySelector(".nv-focus-route__line")?.getAttribute("d") ?? "",
-    };
-  });
-
-  expect(geometry.points).toHaveLength(4);
-  expect(geometry.points[1].y).toBeGreaterThan(geometry.points[0].y + 80);
-  expect(geometry.points[2].y).toBeLessThan(geometry.points[1].y);
-  expect(geometry.points[3].x).toBeGreaterThan(geometry.points[2].x + 80);
-  expect((geometry.path.match(/\bC\b/g) ?? []).length).toBe(3);
-  expect(geometry.path).not.toContain(" L ");
-  expect(geometry.labels).toHaveLength(4);
+  await expect(page.locator(".nv-focus-brief")).toBeVisible();
+  await expect(page.locator(".nv-focus-panel")).toBeVisible();
+  await expect(page.locator(".nv-focus-route")).toHaveCount(0);
+  await expect(page.locator(".nv-focus-instrument")).toHaveCount(0);
+  await expect(page.locator(".nv-focus-footer")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "25 分钟", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "45 分钟", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "60 分钟", exact: true })).toBeVisible();
+  await expect(page.locator(".nv-focus-panel__status")).toContainText("未开始");
 });
 
 test("Theme registry exposes five implemented surfaces and no disabled preview", async ({ page }) => {
@@ -1175,10 +1158,11 @@ test("Night Valley remains operable on a high-DPI desktop context", async ({ bro
   try {
     await bootTodayReferenceMock(page);
     await page.getByRole("button", { name: "计时", exact: true }).click();
-    await expect(page.locator(".nv-chronograph")).toBeVisible();
+    await expect(page.locator(".nv-focus-brief")).toBeVisible();
     await expect(page.locator(".nv-focus-panel")).toBeVisible();
     await expect(page.locator(".nv-focus-panel .timer-readout")).toBeVisible();
-    await expect(page.locator(".nv-focus-route__labels li")).toHaveCount(4);
+    await expect(page.locator(".nv-focus-route")).toHaveCount(0);
+    await expect(page.locator(".nv-focus-footer")).toHaveCount(0);
     await expect(page.locator(".command-trigger")).toBeHidden();
     await expect.poll(() => page.evaluate(() => window.devicePixelRatio)).toBe(2);
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(1487);
@@ -1187,14 +1171,14 @@ test("Night Valley remains operable on a high-DPI desktop context", async ({ bro
   }
 });
 
-test("Night Valley timer fullscreen keeps the working card and footer visible", async ({ page }) => {
+test("Night Valley timer fullscreen keeps the working workspace readable", async ({ page }) => {
   const viewport = { width: 2560, height: 1368 };
   await page.setViewportSize(viewport);
   await bootTodayReferenceMock(page, { recordCount: 7 });
   await page.getByRole("button", { name: "计时", exact: true }).click();
 
   const bounds = await page.evaluate(() => {
-    const selectors = [".nv-focus-panel", ".nv-focus-footer"];
+    const selectors = [".nv-focus-panel", ".nv-focus-brief"];
     return Object.fromEntries(selectors.map((selector) => {
       const rect = document.querySelector(selector)?.getBoundingClientRect();
       return [selector, rect ? { top: rect.top, bottom: rect.bottom, right: rect.right } : null];
@@ -1202,11 +1186,14 @@ test("Night Valley timer fullscreen keeps the working card and footer visible", 
   });
 
   await expect(page.locator(".nv-focus-panel .timer-readout")).toBeVisible();
-  await expect(page.locator(".nv-focus-footer")).toBeVisible();
+  await expect(page.locator(".nv-focus-brief")).toBeVisible();
+  await expect(page.locator(".nv-focus-footer")).toHaveCount(0);
+  await expect(page.locator(".nv-focus-route")).toHaveCount(0);
   await expect(page.locator(".nv-page-heading__clock")).toHaveText(/^\d{2}:\d{2}:\d{2}$/);
   expect(bounds[".nv-focus-panel"].bottom).toBeLessThanOrEqual(viewport.height);
   expect(bounds[".nv-focus-panel"].right).toBeLessThanOrEqual(viewport.width);
-  expect(bounds[".nv-focus-footer"].bottom).toBeLessThanOrEqual(viewport.height);
-  expect(bounds[".nv-focus-footer"].right).toBeLessThanOrEqual(viewport.width);
+  expect(bounds[".nv-focus-brief"].bottom).toBeLessThanOrEqual(viewport.height);
+  expect(bounds[".nv-focus-brief"].right).toBeLessThanOrEqual(viewport.width);
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
   await page.screenshot({ path: "output/playwright/night-valley-timer-fullscreen.png", animations: "disabled" });
 });

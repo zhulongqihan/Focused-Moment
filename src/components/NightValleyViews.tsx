@@ -68,16 +68,6 @@ export interface NightValleyFocusProps {
   onOpenRecords: () => void;
 }
 
-function timerProgress(timer: TimerSnapshot, hasProgress: boolean) {
-  if (!hasProgress) {
-    return 0;
-  }
-  if (timer.modeKey === "countdown" && timer.targetDurationMs && timer.remainingMs !== null) {
-    return Math.min(1, Math.max(0, 1 - timer.remainingMs / timer.targetDurationMs));
-  }
-  return Math.min(1, Math.max(0, timer.elapsedMs / Math.max(timer.targetDurationMs ?? 45 * 60 * 1000, 45 * 60 * 1000)));
-}
-
 function formatPreviewMinutes(value: number) {
   const totalSeconds = Math.max(0, Math.round((Number.isFinite(value) ? value : 0) * 60));
   const hours = Math.floor(totalSeconds / 3600);
@@ -93,7 +83,6 @@ interface FocusVisualState {
   label: string;
   compactLabel: string;
   description: string;
-  routeIndex: number;
 }
 
 function resolveFocusVisualState(
@@ -106,8 +95,7 @@ function resolveFocusVisualState(
       key: "recovered",
       label: "已恢复",
       compactLabel: "RECOVERED",
-      description: "上一轮进度仍然保留，可以继续、完成记录或重置。",
-      routeIndex: 2,
+      description: "上次专注还没有结束，可以继续、保存或清空。",
     };
   }
 
@@ -119,8 +107,7 @@ function resolveFocusVisualState(
       key: "awaiting-save",
       label: "到点待保存",
       compactLabel: "SAVE REQUIRED",
-      description: "这一轮已经到点，但还没有写入专注记录。",
-      routeIndex: 3,
+      description: "时间已到，保存后会写入专注记录。",
     };
   }
 
@@ -129,8 +116,7 @@ function resolveFocusVisualState(
       key: "saved",
       label: "保存成功",
       compactLabel: "SAVED",
-      description: "专注记录已写入，可以开始下一轮。",
-      routeIndex: 3,
+      description: "已保存，可以开始下一次专注。",
     };
   }
 
@@ -139,8 +125,7 @@ function resolveFocusVisualState(
       key: "running",
       label: "运行中",
       compactLabel: "RUNNING",
-      description: "保持当前节奏，其他事情稍后再处理。",
-      routeIndex: 1,
+      description: "正在记录这次专注时间。",
     };
   }
 
@@ -149,8 +134,7 @@ function resolveFocusVisualState(
       key: "paused",
       label: "已暂停",
       compactLabel: "PAUSED",
-      description: "这一轮已经暂停，准备好后继续回来。",
-      routeIndex: 2,
+      description: "已暂停，准备好后可以继续。",
     };
   }
 
@@ -158,18 +142,17 @@ function resolveFocusVisualState(
     key: "ready",
     label: "未开始",
     compactLabel: "READY",
-    description: "写下这一轮的目标，开始后会记录实际投入。",
-    routeIndex: 0,
+    description: "写下要专注的事，选择时长后开始。",
   };
 }
 
 export function NightValleyFocus(props: NightValleyFocusProps) {
   const visualState = createMemo(() => resolveFocusVisualState(props.timer(), props.timerHasProgress(), props.savedConfirmation()));
-  const phaseIndex = createMemo(() => visualState().routeIndex);
 
   const displayTime = createMemo(() => {
     if (props.timer().modeKey === "countdown" && props.countdownDraftDirty()) {
-      return formatPreviewMinutes(props.countdownMinutes());
+      const preview = formatPreviewMinutes(props.countdownMinutes());
+      return preview.startsWith("00:") ? preview.slice(3) : preview;
     }
     const label = props.timer().elapsedLabel;
     return props.timer().modeKey === "countdown" && label.startsWith("00:") ? label.slice(3) : label;
@@ -191,119 +174,57 @@ export function NightValleyFocus(props: NightValleyFocusProps) {
 
   const activeTodo = createMemo(() => props.todos().find((item) => item.id === props.linkedTodoId()) ?? null);
   const currentLabel = createMemo(() => props.timer().activeTaskTitle.trim() || activeTodo()?.title || "还没有指定事项");
+  const modeLabel = createMemo(() => props.timer().modeKey === "countdown" ? "倒计时" : "正向计时");
+  const resetLabel = createMemo(() => props.timerHasProgress() ? "重置本次专注" : "清空设置");
+  const resetDescription = createMemo(() => props.timerHasProgress()
+    ? "放弃当前计时并清除本次专注设置"
+    : "清除当前标题、时长和待办选择");
 
-  const phases = [
-    { label: "准备", detail: "写下目标" },
-    { label: "专注", detail: "时间正在记录" },
-    { label: "暂停", detail: "稍后继续" },
-    { label: "完成", detail: "保存为记录" },
-  ];
-  const routeStateIndexes = [0, 1, 2, 3];
-  const routePoints = [
-    { x: 24, y: 64 },
-    { x: 196, y: 208 },
-    { x: 389, y: 116 },
-    { x: 576, y: 218 },
-  ];
-  const routePath = "M 24 64 C 82 18, 132 112, 196 208 C 263 302, 321 46, 389 116 C 460 187, 520 160, 576 218";
-  const routeCompletion = createMemo(() => phaseIndex() / (phases.length - 1));
+  const chooseDuration = async (minutes: number) => {
+    if (props.busy() || !props.ready() || props.timerHasProgress()) return;
+    if (props.timer().modeKey !== "countdown") {
+      await props.onChangeMode("countdown");
+    }
+    props.onCountdownMinutesChange(minutes);
+    props.onCountdownDraftDirty();
+  };
 
   return (
     <section class="nv-page nv-focus-page focus-page" aria-label="专注计时">
       <header class="nv-page-heading nv-focus-heading">
         <NightValleyDateStamp date={currentDateLabel()} />
         <h1>专注计时</h1>
-        <p>让一段时间完整地属于你。</p>
+        <p>写下要做的事，开始一段专注。</p>
       </header>
 
       <div class="nv-focus-layout">
-        <section class="nv-focus-route" aria-label="本轮专注流程">
-          <div class="nv-focus-route__heading">
+        <section class="nv-focus-brief" aria-label="专注说明">
+          <span class="nv-section-kicker">FOCUS TIMER / 专注计时</span>
+          <h2>准备开始下一次专注</h2>
+          <p>写下要做的事，选择时长，然后开始。完成后会自动留下记录。</p>
+          <div class="nv-focus-brief__stats">
+            <div><span>今天已记录</span><strong>{props.timer().completedFocusCount} 段</strong></div>
+            <div><span>当前模式</span><strong>{modeLabel()}</strong></div>
+          </div>
+          <div class="nv-focus-quick" aria-label="常用专注时长">
+            <span>常用时长</span>
             <div>
-              <span class="nv-section-kicker">SESSION PATH / 本轮流程</span>
-              <h2>专注流程</h2>
+              <For each={[25, 45, 60]}>{(minutes) => (
+                <button
+                  type="button"
+                  classList={{ active: props.timer().modeKey === "countdown" && props.countdownMinutes() === minutes }}
+                  disabled={props.busy() || !props.ready() || props.timerHasProgress()}
+                  onClick={() => void chooseDuration(minutes)}
+                >{minutes} 分钟</button>
+              )}</For>
             </div>
-            <small>{phases[phaseIndex()].detail}</small>
           </div>
-          <div class="nv-focus-route__canvas">
-            <svg viewBox="0 0 600 280" preserveAspectRatio="none" aria-hidden="true">
-            <defs>
-              <linearGradient id="nv-focus-route-gradient" x1="0" x2="1" y1="0" y2="0">
-                <stop offset="0" stop-color="#d59b56" />
-                <stop offset="0.65" stop-color="#e9bd6e" />
-                <stop offset="1" stop-color="#bce2c8" />
-              </linearGradient>
-              <filter id="nv-focus-route-glow" x="-30%" y="-30%" width="160%" height="160%">
-                <feGaussianBlur stdDeviation="4" result="blur" />
-                <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-              </filter>
-            </defs>
-            <path class="nv-focus-route__shadow" d={routePath} />
-            <path class="nv-focus-route__line" d={routePath} />
-            <path class="nv-focus-route__dash" d={routePath} />
-            <path
-              class="nv-focus-route__progress"
-              d={routePath}
-              pathLength="100"
-              style={{ "stroke-dasharray": `${routeCompletion() * 100} 100` }}
-            />
-            <For each={routePoints}>
-              {(point, index) => {
-                const routeStateIndex = routeStateIndexes[index()];
-                return (
-                  <g aria-hidden="true">
-                    <circle
-                      classList={{
-                        "nv-focus-route__point": true,
-                        "nv-focus-route__point--active": routeStateIndex !== null && routeStateIndex === phaseIndex(),
-                        "nv-focus-route__point--done": routeStateIndex !== null && routeStateIndex < phaseIndex(),
-                      }}
-                      cx={point.x}
-                      cy={point.y}
-                      r={routeStateIndex === phaseIndex() ? 13 : 9}
-                    />
-                  </g>
-                );
-              }}
-            </For>
-            </svg>
-            <ol class="nv-focus-route__labels">
-            <For each={phases}>
-              {(phase, index) => (
-                <li
-                  classList={{ "is-active": index() === phaseIndex(), "is-done": index() < phaseIndex() }}
-                  aria-current={index() === phaseIndex() ? "step" : undefined}
-                >
-                  <b>{String(index() + 1).padStart(2, "0")}</b>
-                  <span><strong>{phase.label}</strong><small>{phase.detail}</small></span>
-                </li>
-              )}
-            </For>
-            </ol>
-          </div>
+          <button type="button" class="secondary-button nv-focus-records-link" onClick={props.onOpenRecords}>
+            查看专注记录 <ArrowUpRight size={15} strokeWidth={1.8} aria-hidden="true" />
+          </button>
         </section>
 
-        <main class="nv-chronograph nv-focus-instrument" aria-label="专注进度">
-          <div class="nv-focus-instrument__topline">
-            <span>FOCUS / 当前进度</span>
-            <strong>{Math.round(routeCompletion() * 100)}%</strong>
-          </div>
-          <div class="nv-focus-instrument__horizon" aria-hidden="true">
-            <span style={{ width: `${Math.max(8, routeCompletion() * 100)}%` }} />
-            <i style={{ left: `${routeCompletion() * 100}%` }} />
-          </div>
-          <div class="nv-focus-instrument__state">
-            <span>当前阶段</span>
-            <strong>{visualState().label}</strong>
-            <small>{phases[phaseIndex()].detail}</small>
-          </div>
-          <div class="nv-focus-instrument__facts">
-            <div><span>本轮</span><strong>{props.timer().currentRound}</strong><small>ROUND</small></div>
-            <div><span>今日完成</span><strong>{props.timer().completedFocusCount}</strong><small>SESSIONS</small></div>
-          </div>
-        </main>
-
-        <aside class="nv-focus-panel" aria-label="本次专注">
+        <main class="nv-focus-panel nv-focus-workspace" aria-label="本次专注">
           <div class="nv-focus-panel__header">
             <div>
               <div class="nv-panel-kicker"><span class="nv-live-dot" /> 本次专注</div>
@@ -311,17 +232,18 @@ export function NightValleyFocus(props: NightValleyFocusProps) {
             </div>
             <span data-focus-state={visualState().key}>{visualState().label}</span>
           </div>
-          <div class="timer-readout nv-focus-panel__timer" role="timer" aria-label="本轮计时">
-            <span>{props.timer().status}</span>
+          <div class="timer-readout nv-focus-panel__timer" role="timer" aria-label="这次专注计时">
+            <span>{visualState().label}</span>
             <strong>{displayTime()}</strong>
-            <small>{props.timer().mode === "countdown" ? "倒计时" : "正向计时"} · {displayTarget()}</small>
+            <small>{modeLabel()} · {displayTarget()}</small>
           </div>
           <div class="nv-focus-panel__session-data">
             <div><span>目标时长</span><strong>{targetDurationLabel()}</strong></div>
             <div><span>今日已完成</span><strong>{props.timer().completedFocusCount} 段</strong></div>
           </div>
-          <p class="nv-focus-panel__copy" aria-live="polite">
-            <strong>{visualState().label}</strong> · {visualState().description}
+          <p class="nv-focus-panel__status" aria-live="polite">
+            <strong>{visualState().label}</strong>
+            <span>{visualState().description}</span>
           </p>
 
           <div class="mode-switcher nv-mode-switcher" role="group" aria-label="计时模式">
@@ -341,8 +263,9 @@ export function NightValleyFocus(props: NightValleyFocusProps) {
             >倒计时</button>
           </div>
 
+          <div class="nv-focus-field-grid">
           <label class="nv-field nv-focus-panel__title-field">
-            <span>这一轮要做什么</span>
+            <span>要专注什么</span>
             <input
               type="text"
               name="sessionTitle"
@@ -398,6 +321,7 @@ export function NightValleyFocus(props: NightValleyFocusProps) {
               <For each={props.pendingTodos()}>{(item) => <option value={item.id}>{item.title}</option>}</For>
             </select>
           </label>
+          </div>
 
           <Show when={props.linkedTodoId() !== null}>
             <label class="linked-todo-option nv-linked-todo-option">
@@ -430,25 +354,26 @@ export function NightValleyFocus(props: NightValleyFocusProps) {
                 {props.busy() ? props.busyLabel() : "暂停"}
               </button>
             </Show>
-            <button type="button" class="secondary-button nv-focus-finish" disabled={props.busy() || !props.canFinish()} onClick={() => props.onFinish()}>
-              <CircleCheck size={16} strokeWidth={1.8} aria-hidden="true" />
-              完成并记录
-            </button>
-            <button type="button" class="text-button nv-focus-reset" disabled={props.busy() || !props.timerHasProgress()} onClick={() => props.onReset()}>
-              <RotateCcw size={14} strokeWidth={1.8} aria-hidden="true" />
-              重置
-            </button>
+            <Show when={props.timerHasProgress()}>
+              <button type="button" class="secondary-button nv-focus-finish" disabled={props.busy() || !props.canFinish()} onClick={() => props.onFinish()}>
+                <CircleCheck size={16} strokeWidth={1.8} aria-hidden="true" />
+                完成并记录
+              </button>
+            </Show>
           </div>
-          <div class="nv-focus-panel__shortcut"><kbd>Ctrl</kbd><span>+</span><kbd>Enter</kbd><small>开始 / 继续</small></div>
-        </aside>
+          <button
+            type="button"
+            class="text-button nv-focus-reset"
+            disabled={props.busy() || !props.ready()}
+            title={resetDescription()}
+            aria-label={resetLabel()}
+            onClick={() => props.onReset()}
+          >
+            <RotateCcw size={14} strokeWidth={1.8} aria-hidden="true" />
+            {resetLabel()}
+          </button>
+        </main>
       </div>
-
-      <footer class="nv-focus-footer" aria-label="计时状态">
-        <div><span>当前状态</span><strong>{visualState().label}</strong></div>
-        <div><span>本轮模式</span><strong>{props.timer().mode}</strong></div>
-        <div><span>今日已完成</span><strong>{props.timer().completedFocusCount} 段</strong></div>
-        <div class="nv-focus-footer__line" aria-hidden="true"><span style={{ width: `${Math.max(5, timerProgress(props.timer(), props.timerHasProgress()) * 100)}%` }} /></div>
-      </footer>
     </section>
   );
 }

@@ -119,6 +119,7 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
     window.__mainWindowDragged = false;
     window.__flashMainWindowAttention = false;
     window.__completedFocusCalls = 0;
+    window.__resetTimerCalls = 0;
     let initialLoadFailures = initialLoadError ? 1 : 0;
     window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
     let timerPreferences = {
@@ -317,6 +318,23 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
             timer = { ...timer, isRunning: false, status: "已暂停" };
             return timer;
           case "reset_timer":
+            window.__resetTimerCalls += 1;
+            timer = {
+              ...timer,
+              status: "待开始",
+              isRunning: false,
+              elapsedMs: 0,
+              elapsedLabel: "00:00:00",
+              remainingMs: timer.modeKey === "countdown" ? timer.targetDurationMs : null,
+              activeTaskTitle: "",
+              linkedTodoId: null,
+              completeLinkedTodoOnFinish: false,
+              recoveredFromLastSession: false,
+              alertKey: null,
+              alertTitle: null,
+              alertMessage: null,
+            };
+            return timer;
           case "update_timer_context":
             return timer;
           case "switch_timer_mode":
@@ -725,44 +743,65 @@ test("stopwatch shows a clear target duration instead of a one-minute target", a
   await expect(page.locator(".timer-readout")).not.toContainText("1 分钟");
 });
 
-test("timer route maps running, paused and saved states without fake rest stages", async ({ page }) => {
+test("timer workspace keeps only actionable controls and state copy", async ({ page }) => {
   await bootWithTauriMock(page, { pausedFocus: true });
 
   await page.getByRole("button", { name: "计时", exact: true }).click();
   await expect(page.locator(".nv-focus-panel .nv-panel-kicker")).toContainText("本次专注");
   await expect(page.locator(".nv-focus-panel .timer-readout")).toBeVisible();
   await expect(page.locator(".nv-chronograph__bezel")).toHaveCount(0);
-  await expect(page.locator(".nv-focus-route__labels li")).toHaveCount(4);
-  await expect(page.locator(".nv-focus-footer strong").first()).toHaveText("已暂停");
-  await expect(page.locator(".nv-focus-route__labels")).not.toContainText("休息");
-  await expect(page.locator(".nv-focus-route__point-label")).toHaveCount(0);
-  await expect(page.locator(".nv-focus-route svg")).toHaveAttribute("aria-hidden", "true");
+  await expect(page.locator(".nv-focus-brief")).toBeVisible();
+  await expect(page.locator(".nv-focus-route")).toHaveCount(0);
+  await expect(page.locator(".nv-focus-instrument")).toHaveCount(0);
+  await expect(page.locator(".nv-focus-footer")).toHaveCount(0);
+  await expect(page.locator(".nv-focus-panel__shortcut")).toHaveCount(0);
+  await expect(page.locator(".nv-focus-panel__status")).toContainText("已暂停");
 
   await page.getByRole("button", { name: "继续", exact: true }).click();
-  await expect(page.locator(".nv-focus-footer strong").first()).toHaveText("运行中");
+  await expect(page.locator(".nv-focus-panel__status")).toContainText("运行中");
 
   await page.getByRole("button", { name: "暂停", exact: true }).click();
-  await expect(page.locator(".nv-focus-footer strong").first()).toHaveText("已暂停");
+  await expect(page.locator(".nv-focus-panel__status")).toContainText("已暂停");
 
   await page.getByRole("button", { name: "完成并记录", exact: true }).click();
-  await expect(page.locator(".nv-focus-footer strong").first()).toHaveText("保存成功");
+  await expect(page.locator(".nv-focus-panel__status")).toContainText("保存成功");
   await expect.poll(() => page.evaluate(() => window.__completedFocusCalls)).toBe(1);
+
+  await page.getByRole("button", { name: "清空设置", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => window.__resetTimerCalls)).toBe(1);
 });
 
-test("timer route distinguishes a completed countdown", async ({ page }) => {
+test("timer workspace distinguishes a completed countdown", async ({ page }) => {
   await bootWithTauriMock(page, { completedCountdown: true });
 
   await page.getByRole("button", { name: "计时", exact: true }).click();
-  await expect(page.locator(".nv-focus-footer strong").first()).toHaveText("到点待保存");
-  await expect(page.locator(".nv-focus-panel__copy")).toContainText("还没有写入专注记录");
+  await expect(page.locator(".nv-focus-panel__status")).toContainText("到点待保存");
+  await expect(page.locator(".nv-focus-panel__status")).toContainText("保存后会写入专注记录");
 });
 
-test("timer route distinguishes a recovered session", async ({ page }) => {
+test("timer workspace distinguishes a recovered session", async ({ page }) => {
   await bootWithTauriMock(page, { pausedFocus: true });
   await page.getByRole("button", { name: "计时", exact: true }).click();
   await page.evaluate(() => window.__replaceTimer({ recoveredFromLastSession: true }));
-  await expect.poll(() => page.locator(".nv-focus-footer strong").first().textContent()).toBe("已恢复");
-  await expect(page.locator(".nv-focus-panel__copy")).toContainText("上一轮进度仍然保留");
+  await expect(page.locator(".nv-focus-panel__status")).toContainText("已恢复");
+  await expect(page.locator(".nv-focus-panel__status")).toContainText("可以继续、保存或清空");
+});
+
+test("timer workspace offers quick durations and a usable pre-start reset", async ({ page }) => {
+  await bootWithTauriMock(page);
+
+  await page.getByRole("button", { name: "计时", exact: true }).click();
+  await expect(page.getByRole("button", { name: "25 分钟", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "45 分钟", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "60 分钟", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "清空设置", exact: true })).toBeEnabled();
+
+  await page.getByRole("button", { name: "45 分钟", exact: true }).click();
+  await expect(page.locator(".nv-mode-switcher button.active")).toHaveText("倒计时");
+  await expect(page.locator(".timer-readout")).toContainText("45:00");
+
+  await page.getByRole("button", { name: "清空设置", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => window.__resetTimerCalls)).toBe(1);
 });
 
 test("paused focus floating window can continue without returning to the main window", async ({ page }) => {
