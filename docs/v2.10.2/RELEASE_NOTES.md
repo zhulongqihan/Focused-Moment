@@ -34,4 +34,17 @@
 - Setup/NSIS：`Focused Moment Setup v2.10.2.exe`，SHA-256 `C0BB9D6CC6D337844274EC9A5962DC803F6C2EAE68841A9B231F73D877C0926C`。
 - MSI：`Focused Moment_2.10.2_x64_en-US.msi`，SHA-256 `016FED763CA9192B09DB966280F1FB56C76ABBDC11D526F2CB2FDC58AF017057`。
 
-远程发布信息将在 tag、CI 和 macOS Universal 资产完成后补录。
+## 远程发布闭环
+
+- `origin/main`：`fef30c734cd689d5d81840bf79b6de4ba8fe6e1b`；`v2.10.2` tag 的 peeled commit 与该提交一致。
+- [Checks run 34422166056](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34422166056)：PASS，前端 60/60，Rust check/test 通过。
+- [macOS Native Smoke run 34422166055](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34422166055)：PASS。
+- [macOS Universal Release run 34422184750](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34422184750)：PASS，Universal DMG 上传成功。
+- [GitHub Release v2.10.2](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.10.2)：正式 Release，4 项资产均为 `uploaded`。
+
+远端资产摘要：
+
+- `Focused.Moment.v2.10.2.exe`：23,730,176 bytes，`sha256:5217596faf62ffcafe04f3bbf041c6bc2a67b629f50c9a7090e83f0f9aef50a2`。
+- `Focused.Moment.Setup.v2.10.2.exe`：16,128,333 bytes，`sha256:c0bb9d6cc6d337844274ec9a5962dc803f6c2eae68841a9b231f73d877c0926c`。
+- `Focused.Moment_2.10.2_universal.dmg`：34,258,189 bytes，`sha256:1ed9e8fdd3abf6acc6ed0834e5a2dddf7e6467b5453b7681a152657cfcb70055`。
+- `Focused.Moment_2.10.2_x64_en-US.msi`：17,108,992 bytes，`sha256:016fed763ca9192b09db966280f1fb56c76abbdc11d526f2cb2fdc58af017057`。
