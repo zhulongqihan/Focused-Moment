@@ -4,7 +4,7 @@
 主题：第一套主题 Night Valley / 夜谷
 界面：今日 / 今日路径
 版本：v2.10.3
-状态：本地验证与 Windows 产物完成，等待远程发布闭环
+状态：v2.10.3 已发布，远程发布闭环完成，等待用户验收
 
 ## 用户反馈与问题复述
 
@@ -71,4 +71,15 @@
 
 ## 远程发布闭环
 
-待补录：发布提交、v2.10.3 tag、远程 Checks / Native Smoke / Universal Release run、四项 Release 资产 digest 与 GitHub Release 链接。
+- 发布代码提交：`c4176ee33349a079df770b72f0d8fd11ac1f75e2`；`v2.10.3` tag 的 peeled commit 与该提交一致；tag object 为 `e0b6e9d684ed30e9773e551ce914283e20557991`。
+- [Checks run 34429945507](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34429945507)：PASS，前端 60/60，Rust check/test 通过。
+- [macOS Native Smoke run 34429945494](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34429945494)：PASS。
+- [macOS Universal Release run 34429994761](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34429994761)：PASS，Universal DMG 上传成功。
+- [GitHub Release v2.10.3](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.10.3)：正式 Release，4 项资产均为 `uploaded`。
+
+远端资产与本地构建产物核对如下：
+
+- `Focused.Moment.v2.10.3.exe`，23,731,200 bytes，远端 digest `sha256:a8fc2190c4d28c896a79c3bbe163ec6d430886bd65ecff3055ba6ca5c0792b1c`，与本地便携 EXE 一致。
+- `Focused.Moment.Setup.v2.10.3.exe`，16,133,917 bytes，远端 digest `sha256:ea88668e5210b80642ba2419b76229aa4492727548ce9926ed0fa6650fa42687`，与本地 Setup 一致。
+- `Focused.Moment_2.10.3_x64_en-US.msi`，17,108,992 bytes，远端 digest `sha256:fc058867a036b5f6643e7cbc8611c7e1de30b9dbfc14e724bafbd19af93a8cf7`，与本地 MSI 一致。
+- `Focused.Moment_2.10.3_universal.dmg`，34,260,492 bytes，远端 digest `sha256:d7a34fd82b8fbe72179c397a5cb2458917efd36ec6f1f5ff19a9f9d2ae1b819f`。

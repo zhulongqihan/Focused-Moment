@@ -37,4 +37,15 @@
 
 ## 远程发布闭环
 
-待发布后补录 v2.10.3 代码提交、tag、远程 Checks、macOS Native Smoke、Universal Release 和 GitHub Release 链接。
+- 发布代码提交：`c4176ee33349a079df770b72f0d8fd11ac1f75e2`；`v2.10.3` tag 的 peeled commit 与该提交一致。
+- [Checks run 34429945507](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34429945507)：PASS，前端 60/60，Rust check/test 通过。
+- [macOS Native Smoke run 34429945494](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34429945494)：PASS。
+- [macOS Universal Release run 34429994761](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34429994761)：PASS，Universal DMG 上传成功。
+- [GitHub Release v2.10.3](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.10.3)：正式 Release，4 项资产均已上传。
+
+远端资产摘要：
+
+- `Focused.Moment.v2.10.3.exe`：23,731,200 bytes，`sha256:a8fc2190c4d28c896a79c3bbe163ec6d430886bd65ecff3055ba6ca5c0792b1c`。
+- `Focused.Moment.Setup.v2.10.3.exe`：16,133,917 bytes，`sha256:ea88668e5210b80642ba2419b76229aa4492727548ce9926ed0fa6650fa42687`。
+- `Focused.Moment_2.10.3_universal.dmg`：34,260,492 bytes，`sha256:d7a34fd82b8fbe72179c397a5cb2458917efd36ec6f1f5ff19a9f9d2ae1b819f`。
+- `Focused.Moment_2.10.3_x64_en-US.msi`：17,108,992 bytes，`sha256:fc058867a036b5f6643e7cbc8611c7e1de30b9dbfc14e724bafbd19af93a8cf7`。
