@@ -24,7 +24,26 @@ function pageButton(page, label) {
   return page.locator(".minimal-nav > button").filter({ hasText: label });
 }
 
-async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一件事开始", recordCount = 7 } = {}) {
+function countHardTrailTurns(path) {
+  const points = [...path.matchAll(/[ML]\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g)].map((match) => ({
+    x: Number(match[1]),
+    y: Number(match[2]),
+  }));
+
+  return points.slice(1, -1).reduce((count, current, index) => {
+    const previous = points[index];
+    const next = points[index + 2];
+    const incoming = { x: current.x - previous.x, y: current.y - previous.y };
+    const outgoing = { x: next.x - current.x, y: next.y - current.y };
+    const incomingLength = Math.hypot(incoming.x, incoming.y);
+    const outgoingLength = Math.hypot(outgoing.x, outgoing.y);
+    const cosine = (incoming.x * outgoing.x + incoming.y * outgoing.y) / (incomingLength * outgoingLength);
+    const angle = Math.acos(Math.max(-1, Math.min(1, cosine))) * (180 / Math.PI);
+    return count + (angle > 90 ? 1 : 0);
+  }, 0);
+}
+
+async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一件事开始", recordCount = 7, includeTodo = true } = {}) {
   await page.addInitScript(() => {
     const NativeDate = Date;
     class ReferenceDate extends NativeDate {
@@ -40,7 +59,7 @@ async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一
     window.Date = ReferenceDate;
   });
 
-  await page.addInitScript(({ today, recordCount }) => {
+  await page.addInitScript(({ today, recordCount, includeTodo }) => {
     const focusRecordSeeds = [
       ["晨间计划", "08:10"],
       ["阅读行业报告", "09:35"],
@@ -69,14 +88,14 @@ async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一
       };
     });
 
-    let todos = [{
+    let todos = includeTodo ? [{
       id: 101,
       title: "明日规划",
       isCompleted: false,
       scheduledDate: today,
       scheduledTime: "21:00",
       importanceKey: "medium",
-    }];
+    }] : [];
 
     let timer = {
       modeKey: "countdown",
@@ -122,7 +141,7 @@ async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一
       sessionCount: focusRecords.length,
       linkedSessionCount: 0,
       independentSessionCount: focusRecords.length,
-      pendingTodoCount: 1,
+      pendingTodoCount: includeTodo ? 1 : 0,
       completedTodoCount: 0,
       activeDays: 9,
       averageDailyDurationLabel: "00:35:00",
@@ -194,7 +213,7 @@ async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一
         }
       },
     };
-  }, { today: referenceDate, recordCount });
+  }, { today: referenceDate, recordCount, includeTodo });
 
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
@@ -212,6 +231,26 @@ test("Today reference composition stays aligned at the concept viewport", async 
   await expect(page.locator(".trail-timer")).toHaveCount(0);
   await expect(page.locator(".minimal-app--trail .command-trigger")).toBeHidden();
   await page.screenshot({ path: "output/playwright/today-after.png", animations: "disabled" });
+});
+
+test("Today fullscreen keeps the summary visible and uses four hard turns", async ({ page }) => {
+  await page.setViewportSize({ width: 2560, height: 1368 });
+  await bootTodayReferenceMock(page, { recordCount: 1, includeTodo: false });
+
+  await expect(page.locator(".trail-node")).toHaveCount(1);
+  await expect(page.getByText(/今天已完成 1 段专注/)).toBeVisible();
+
+  const footerBounds = await page.locator(".trail-map__footer").evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    return { top: rect.top, bottom: rect.bottom };
+  });
+  expect(footerBounds.top).toBeGreaterThanOrEqual(0);
+  expect(footerBounds.bottom).toBeLessThanOrEqual(1368);
+
+  const routePath = await page.locator(".trail-map__route-line").getAttribute("d");
+  expect(routePath).toBeTruthy();
+  expect(countHardTrailTurns(routePath ?? "")).toBeGreaterThanOrEqual(4);
+  await page.screenshot({ path: "output/playwright/today-fullscreen-refined.png", animations: "disabled" });
 });
 
 test("Today keeps node information visible and sends timing to the focus tab", async ({ page }) => {

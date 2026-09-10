@@ -54,6 +54,11 @@ interface TrailPoint {
   top: number;
 }
 
+interface TrailCoordinate {
+  x: number;
+  y: number;
+}
+
 interface TrailSegment {
   key: string;
   title: string;
@@ -158,35 +163,78 @@ function createTrailPositions(count: number): TrailPoint[] {
   }));
 }
 
+function pushTrailCoordinate(route: TrailCoordinate[], point: TrailCoordinate) {
+  const previous = route[route.length - 1];
+  if (!previous || Math.hypot(point.x - previous.x, point.y - previous.y) > 0.5) {
+    route.push(point);
+  }
+}
+
+function appendHardTrailLeg(route: TrailCoordinate[], from: TrailCoordinate, to: TrailCoordinate, legIndex: number) {
+  const deltaX = to.x - from.x;
+  if (Math.abs(deltaX) < 1) {
+    pushTrailCoordinate(route, to);
+    return;
+  }
+
+  const detourDistance = Math.min(150, Math.max(104, Math.abs(to.y - from.y) + 72));
+  const detourY = clamp(
+    (from.y + to.y) / 2 + (legIndex % 2 === 0 ? -detourDistance : detourDistance),
+    72,
+    728,
+  );
+
+  // The short backtrack before each horizontal run creates deliberate
+  // switchbacks instead of another rounded Bézier wave.  Two of these turns
+  // are over 90 degrees per leg; the single-node route below adds two more.
+  pushTrailCoordinate(route, { x: from.x + deltaX * 0.28, y: from.y });
+  pushTrailCoordinate(route, { x: from.x + deltaX * 0.12, y: detourY });
+  pushTrailCoordinate(route, { x: from.x + deltaX * 0.62, y: detourY });
+  pushTrailCoordinate(route, { x: to.x - deltaX * 0.14, y: to.y });
+  pushTrailCoordinate(route, to);
+}
+
+function trailCoordinatesToPath(points: TrailCoordinate[]) {
+  return points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ");
+}
+
 function createTrailPath(points: TrailPoint[]) {
   if (points.length === 0) {
     return "M 0 320";
   }
 
-  const routePoints = [
-    { left: 0, top: points[0].top },
-    ...points,
-    { left: 100, top: points[points.length - 1].top },
-  ];
-  const coordinates = routePoints.map((point) => ({ x: point.left * 10, y: point.top * 8 }));
+  const coordinates = points.map((point) => ({ x: point.left * 10, y: point.top * 8 }));
 
   if (points.length === 1) {
-    const point = coordinates[1];
-    const startY = point.y + 96;
-    const distance = point.x * 0.42;
-    return `M 0 ${startY} C ${distance} ${startY}, ${point.x - distance * 0.7} ${point.y - 28}, ${point.x} ${point.y}`;
+    const point = coordinates[0];
+    const startY = clamp(point.y + 112, 72, 728);
+    const upperY = clamp(point.y - 110, 72, 728);
+    const lowerY = clamp(point.y + 126, 72, 728);
+    const route: TrailCoordinate[] = [{ x: 0, y: startY }];
+
+    // Keep the single real node as the semantic endpoint, but give the route
+    // four visible >90° switchbacks before it reaches that node.
+    pushTrailCoordinate(route, { x: point.x * 0.25, y: startY });
+    pushTrailCoordinate(route, { x: point.x * 0.1, y: upperY });
+    pushTrailCoordinate(route, { x: point.x * 0.55, y: upperY });
+    pushTrailCoordinate(route, { x: point.x * 0.38, y: lowerY });
+    pushTrailCoordinate(route, { x: point.x * 0.78, y: lowerY });
+    pushTrailCoordinate(route, point);
+    return trailCoordinatesToPath(route);
   }
 
-  let path = `M ${coordinates[0].x} ${coordinates[0].y}`;
+  const route: TrailCoordinate[] = [{ x: 0, y: coordinates[0].y }];
+  coordinates.forEach((coordinate, index) => {
+    appendHardTrailLeg(route, route[route.length - 1], coordinate, index);
+  });
+  appendHardTrailLeg(
+    route,
+    route[route.length - 1],
+    { x: 1000, y: coordinates[coordinates.length - 1].y },
+    coordinates.length,
+  );
 
-  for (let index = 1; index < coordinates.length; index += 1) {
-    const previous = coordinates[index - 1];
-    const current = coordinates[index];
-    const distance = (current.x - previous.x) * 0.44;
-    path += ` C ${previous.x + distance} ${previous.y}, ${current.x - distance} ${current.y}, ${current.x} ${current.y}`;
-  }
-
-  return path;
+  return trailCoordinatesToPath(route);
 }
 
 export default function TodayDashboard(props: TodayDashboardProps) {

@@ -44,8 +44,8 @@ const DEFAULT_COUNTDOWN_MINUTES: u64 = 25;
 const MIN_COUNTDOWN_MINUTES: u64 = 1;
 const MAX_COUNTDOWN_MINUTES: u64 = 12 * 60;
 const MAX_TODO_TITLE_CHARS: usize = 200;
-const APP_VERSION: &str = "2.10.1";
-const APP_MILESTONE: &str = "v2.10.1 Night Valley Today experience refinement";
+const APP_VERSION: &str = "2.10.2";
+const APP_MILESTONE: &str = "v2.10.2 Night Valley Today fullscreen and route refinement";
 const APP_BACKUP_KIND: &str = "focused-moment-backup";
 const APP_BACKUP_FORMAT_VERSION: u64 = 2;
 const FLOATING_WORKSPACE_SYNC_EVENT: &str = "floating-workspace-sync";
@@ -3339,8 +3339,10 @@ mod tests {
 
     fn rewind_timer_anchor(timer: &mut TimerEngine, elapsed_ms: u64) {
         let elapsed = Duration::from_millis(elapsed_ms);
+        // Keep the synthetic elapsed time in the wall clock so this helper does
+        // not assume the host has been running longer than a focus session.
         timer.running_anchor = Some(RunAnchor {
-            monotonic: Instant::now() - elapsed,
+            monotonic: Instant::now(),
             wall_clock: SystemTime::now() - elapsed,
         });
     }
