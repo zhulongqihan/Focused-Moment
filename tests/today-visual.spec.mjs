@@ -24,25 +24,6 @@ function pageButton(page, label) {
   return page.locator(".minimal-nav > button").filter({ hasText: label });
 }
 
-function countHardTrailTurns(path) {
-  const points = [...path.matchAll(/[ML]\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g)].map((match) => ({
-    x: Number(match[1]),
-    y: Number(match[2]),
-  }));
-
-  return points.slice(1, -1).reduce((count, current, index) => {
-    const previous = points[index];
-    const next = points[index + 2];
-    const incoming = { x: current.x - previous.x, y: current.y - previous.y };
-    const outgoing = { x: next.x - current.x, y: next.y - current.y };
-    const incomingLength = Math.hypot(incoming.x, incoming.y);
-    const outgoingLength = Math.hypot(outgoing.x, outgoing.y);
-    const cosine = (incoming.x * outgoing.x + incoming.y * outgoing.y) / (incomingLength * outgoingLength);
-    const angle = Math.acos(Math.max(-1, Math.min(1, cosine))) * (180 / Math.PI);
-    return count + (angle > 90 ? 1 : 0);
-  }, 0);
-}
-
 async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一件事开始", recordCount = 7, includeTodo = true } = {}) {
   await page.addInitScript(() => {
     const NativeDate = Date;
@@ -227,13 +208,17 @@ test("Today reference composition stays aligned at the concept viewport", async 
   await expect(page.locator(".trail-node")).toHaveCount(8);
   await expect(page.getByText(/今天已完成 7 段专注/)).toBeVisible();
   await expect(page.getByText("连续 9 天", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "查看计时", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "今日概览", exact: true })).toBeVisible();
+  await expect(page.locator(".trail-page__clock")).toHaveText(/^\d{2}:\d{2}:\d{2}$/);
+  await expect(page.getByText("05:15:00", { exact: true })).toBeVisible();
+  await expect(page.getByText("0 / 1", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "查看计时", exact: true })).toHaveCount(0);
   await expect(page.locator(".trail-timer")).toHaveCount(0);
   await expect(page.locator(".minimal-app--trail .command-trigger")).toBeHidden();
   await page.screenshot({ path: "output/playwright/today-after.png", animations: "disabled" });
 });
 
-test("Today fullscreen keeps the summary visible and uses four hard turns", async ({ page }) => {
+test("Today fullscreen keeps the summary visible and uses a smooth winding route", async ({ page }) => {
   await page.setViewportSize({ width: 2560, height: 1368 });
   await bootTodayReferenceMock(page, { recordCount: 1, includeTodo: false });
 
@@ -249,17 +234,23 @@ test("Today fullscreen keeps the summary visible and uses four hard turns", asyn
 
   const routePath = await page.locator(".trail-map__route-line").getAttribute("d");
   expect(routePath).toBeTruthy();
-  expect(countHardTrailTurns(routePath ?? "")).toBeGreaterThanOrEqual(4);
+  expect(routePath).toMatch(/^M\s/);
+  expect(routePath).not.toMatch(/\bL\b/);
+  expect((routePath?.match(/\bC\b/g) ?? []).length).toBeGreaterThanOrEqual(12);
+  await expect(page.getByRole("heading", { name: "今日概览", exact: true })).toBeVisible();
+  await expect(page.locator(".trail-page__clock")).toHaveText(/^\d{2}:\d{2}:\d{2}$/);
   await page.screenshot({ path: "output/playwright/today-fullscreen-refined.png", animations: "disabled" });
 });
 
-test("Today keeps node information visible and sends timing to the focus tab", async ({ page }) => {
+test("Today keeps node information visible and keeps timing in the focus tab", async ({ page }) => {
   await page.setViewportSize({ width: 1487, height: 1058 });
   await bootTodayReferenceMock(page);
 
   await expect(page.locator(".trail-node__meta").first()).toContainText("晨间计划");
   await expect(page.locator(".trail-node__meta").first()).toHaveCSS("visibility", "visible");
-  await page.getByRole("button", { name: "查看计时", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "今日概览", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "查看计时", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "计时", exact: true }).click();
   await expect(page.locator(".nv-focus-page")).toBeVisible();
 });
 
@@ -279,7 +270,7 @@ test("Today route keeps the panel and path usable as the window narrows", async 
       }),
     );
     const map = layout.find((item) => item.className === "trail-map");
-    const panel = layout.find((item) => item.className === "trail-focus-panel");
+    const panel = layout.find((item) => item.className.includes("trail-focus-panel"));
     expect(panel.right).toBeLessThanOrEqual(width);
     expect(panel.x).toBeGreaterThanOrEqual(0);
     if (width <= 1160) {
@@ -287,7 +278,7 @@ test("Today route keeps the panel and path usable as the window narrows", async 
       expect(panel.bottom).toBeLessThanOrEqual(height);
       await expect(page.locator(".trail-nav__brand")).toBeVisible();
       await expect(page.locator(".trail-nav__icon").first()).toBeVisible();
-      await expect(page.getByRole("button", { name: "查看计时", exact: true })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "今日概览", exact: true })).toBeVisible();
     }
     await page.screenshot({ path: screenshotPath, animations: "disabled" });
   }

@@ -354,11 +354,13 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
   }
 }
 
-test("Today cockpit exposes the next action and command palette", async ({ page }) => {
+test("Today cockpit exposes the overview and command palette", async ({ page }) => {
   await bootWithTauriMock(page);
 
   await expect(page.getByText("写完产品复盘").first()).toBeVisible();
-  await expect(page.getByRole("button", { name: "查看计时", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "今日概览", exact: true })).toBeVisible();
+  await expect(page.getByText("0 / 1", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "查看计时", exact: true })).toHaveCount(0);
   await expect(page.locator(".minimal-app--trail .command-trigger")).toBeHidden();
 
   await page.keyboard.press("Control+K");
@@ -435,13 +437,15 @@ test("initial data errors stay visible and recover through the retry action", as
 
   await expect(page.getByRole("heading", { name: "今天，从一件事开始" })).toBeVisible();
   await expect(loadError).toBeHidden();
-  await expect(page.getByRole("button", { name: "查看计时", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "今日概览", exact: true })).toBeVisible();
 });
 
-test("Today trail sends timing work to the focus page", async ({ page }) => {
+test("Today overview keeps timing work in the focus page", async ({ page }) => {
   await bootWithTauriMock(page);
 
-  await page.getByRole("button", { name: "查看计时", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "今日概览", exact: true })).toBeVisible();
+  await expect(page.locator(".trail-timer")).toHaveCount(0);
+  await page.getByRole("button", { name: "计时", exact: true }).click();
 
   await expect(page.getByText("专注计时", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "开始", exact: true })).toBeVisible();
@@ -470,7 +474,9 @@ test("Today trail does not invent tasks when there are no todos", async ({ page 
   await bootWithTauriMock(page, { todayTodoCount: 0 });
 
   await expect(page.locator(".trail-node")).toHaveCount(1);
-  await expect(page.getByRole("heading", { name: "今天的第一段" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "今日概览", exact: true })).toBeVisible();
+  await expect(page.locator(".trail-node__meta").first()).toContainText("今天的第一段");
+  await expect(page.getByText("今天还没有安排待办", { exact: true })).toBeVisible();
   await expect(page.getByText("本段任务", { exact: true })).toHaveCount(0);
   await expect(page.getByText("整理今天的会议笔记", { exact: true })).toHaveCount(0);
   await expect(page.locator(".trail-map__footer strong")).toHaveText("今天的第一段，从这里开始");
@@ -882,5 +888,5 @@ test("Today cockpit remains usable on a narrow window", async ({ page }) => {
     scrollWidth: document.documentElement.scrollWidth,
   }));
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.viewport);
-  await expect(page.getByRole("button", { name: "查看计时", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "今日概览", exact: true })).toBeVisible();
 });

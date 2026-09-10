@@ -1,4 +1,4 @@
-import { For, Show, createEffect, createMemo, onCleanup, onMount } from "solid-js";
+import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount } from "solid-js";
 import {
   ArrowUpRight,
   BookOpen,
@@ -123,6 +123,24 @@ function weekdayFromLabel(label: string, dateValue: string) {
     : new Intl.DateTimeFormat("zh-CN", { weekday: "short" }).format(date);
 }
 
+function formatClock(date: Date) {
+  return [date.getHours(), date.getMinutes(), date.getSeconds()]
+    .map((unit) => String(unit).padStart(2, "0"))
+    .join(":");
+}
+
+function formatDurationMs(durationMs: number) {
+  const totalSeconds = Math.max(0, Math.round(durationMs / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return [hours, minutes, seconds].map((unit) => String(unit).padStart(2, "0")).join(":");
+}
+
+function formatRecordsDuration(records: FocusRecord[]) {
+  return formatDurationMs(records.reduce((total, record) => total + record.durationMs, 0));
+}
+
 function formatRecordTime(record: FocusRecord) {
   const completedTime = record.completedTime || record.completedAt.match(/T(\d{2}:\d{2})/)?.[1] || "";
   return completedTime ? `${completedTime} · ${record.durationLabel}` : record.durationLabel;
@@ -170,32 +188,70 @@ function pushTrailCoordinate(route: TrailCoordinate[], point: TrailCoordinate) {
   }
 }
 
-function appendHardTrailLeg(route: TrailCoordinate[], from: TrailCoordinate, to: TrailCoordinate, legIndex: number) {
+function appendWindingTrailLeg(
+  route: TrailCoordinate[],
+  from: TrailCoordinate,
+  to: TrailCoordinate,
+  legIndex: number,
+  guideCount: number,
+) {
   const deltaX = to.x - from.x;
   if (Math.abs(deltaX) < 1) {
     pushTrailCoordinate(route, to);
     return;
   }
 
-  const detourDistance = Math.min(150, Math.max(104, Math.abs(to.y - from.y) + 72));
-  const detourY = clamp(
-    (from.y + to.y) / 2 + (legIndex % 2 === 0 ? -detourDistance : detourDistance),
-    72,
-    728,
-  );
+  const waveOffsets = [0.76, -0.44, 0.62, -0.7, 0.52, -0.34, 0.58, -0.46];
+  const amplitude = clamp(50 + Math.abs(to.y - from.y) * 0.3, 54, 108);
+  const direction = legIndex % 2 === 0 ? 1 : -1;
 
-  // The short backtrack before each horizontal run creates deliberate
-  // switchbacks instead of another rounded Bézier wave.  Two of these turns
-  // are over 90 degrees per leg; the single-node route below adds two more.
-  pushTrailCoordinate(route, { x: from.x + deltaX * 0.28, y: from.y });
-  pushTrailCoordinate(route, { x: from.x + deltaX * 0.12, y: detourY });
-  pushTrailCoordinate(route, { x: from.x + deltaX * 0.62, y: detourY });
-  pushTrailCoordinate(route, { x: to.x - deltaX * 0.14, y: to.y });
+  for (let index = 1; index <= guideCount; index += 1) {
+    const fraction = index / (guideCount + 1);
+    const baseline = from.y + (to.y - from.y) * fraction;
+    const offset = waveOffsets[(index - 1 + legIndex) % waveOffsets.length];
+    pushTrailCoordinate(route, {
+      x: from.x + deltaX * fraction,
+      y: clamp(baseline + direction * amplitude * offset, 64, 736),
+    });
+  }
+
   pushTrailCoordinate(route, to);
 }
 
-function trailCoordinatesToPath(points: TrailCoordinate[]) {
-  return points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ");
+function trailCoordinatesToSmoothPath(points: TrailCoordinate[]) {
+  if (points.length === 0) {
+    return "M 0 320";
+  }
+
+  if (points.length === 1) {
+    return "M " + points[0].x + " " + points[0].y;
+  }
+
+  const tension = 0.9;
+  const segments = points.slice(0, -1).map((point, index) => {
+    const previous = points[index - 1] ?? point;
+    const next = points[index + 1] ?? point;
+    const after = points[index + 2] ?? next;
+    const controlOne = {
+      x: point.x + ((next.x - previous.x) * tension) / 6,
+      y: point.y + ((next.y - previous.y) * tension) / 6,
+    };
+    const controlTwo = {
+      x: next.x - ((after.x - point.x) * tension) / 6,
+      y: next.y - ((after.y - point.y) * tension) / 6,
+    };
+    return [
+      "C",
+      controlOne.x,
+      controlOne.y,
+      controlTwo.x,
+      controlTwo.y,
+      next.x,
+      next.y,
+    ].join(" ");
+  });
+
+  return ["M", points[0].x, points[0].y, ...segments].join(" ");
 }
 
 function createTrailPath(points: TrailPoint[]) {
@@ -204,37 +260,23 @@ function createTrailPath(points: TrailPoint[]) {
   }
 
   const coordinates = points.map((point) => ({ x: point.left * 10, y: point.top * 8 }));
-
-  if (points.length === 1) {
-    const point = coordinates[0];
-    const startY = clamp(point.y + 112, 72, 728);
-    const upperY = clamp(point.y - 110, 72, 728);
-    const lowerY = clamp(point.y + 126, 72, 728);
-    const route: TrailCoordinate[] = [{ x: 0, y: startY }];
-
-    // Keep the single real node as the semantic endpoint, but give the route
-    // four visible >90° switchbacks before it reaches that node.
-    pushTrailCoordinate(route, { x: point.x * 0.25, y: startY });
-    pushTrailCoordinate(route, { x: point.x * 0.1, y: upperY });
-    pushTrailCoordinate(route, { x: point.x * 0.55, y: upperY });
-    pushTrailCoordinate(route, { x: point.x * 0.38, y: lowerY });
-    pushTrailCoordinate(route, { x: point.x * 0.78, y: lowerY });
-    pushTrailCoordinate(route, point);
-    return trailCoordinatesToPath(route);
-  }
-
-  const route: TrailCoordinate[] = [{ x: 0, y: coordinates[0].y }];
+  const startY = clamp(coordinates[0].y + (points.length === 1 ? 96 : 60), 72, 728);
+  const guideCount = points.length === 1 ? 7 : points.length <= 3 ? 4 : 2;
+  const route: TrailCoordinate[] = [{ x: 0, y: startY }];
   coordinates.forEach((coordinate, index) => {
-    appendHardTrailLeg(route, route[route.length - 1], coordinate, index);
+    appendWindingTrailLeg(route, route[route.length - 1], coordinate, index, guideCount);
   });
-  appendHardTrailLeg(
+
+  const lastPoint = coordinates[coordinates.length - 1];
+  appendWindingTrailLeg(
     route,
     route[route.length - 1],
-    { x: 1000, y: coordinates[coordinates.length - 1].y },
+    { x: 1000, y: clamp(lastPoint.y + (points.length % 2 === 0 ? -32 : 28), 72, 728) },
     coordinates.length,
+    points.length === 1 ? 7 : 3,
   );
 
-  return trailCoordinatesToPath(route);
+  return trailCoordinatesToSmoothPath(route);
 }
 
 export default function TodayDashboard(props: TodayDashboardProps) {
@@ -242,6 +284,12 @@ export default function TodayDashboard(props: TodayDashboardProps) {
   let trailViewportElement: HTMLDivElement | undefined;
   let trailScrollFrame: number | undefined;
   let previousReadyTrailCount: number | null = null;
+  const [currentTime, setCurrentTime] = createSignal(new Date());
+
+  onMount(() => {
+    const clockInterval = window.setInterval(() => setCurrentTime(new Date()), 1000);
+    onCleanup(() => window.clearInterval(clockInterval));
+  });
 
   onMount(() => {
     if (!trailPageElement || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
@@ -297,6 +345,18 @@ export default function TodayDashboard(props: TodayDashboardProps) {
   const completedTodayTodos = createMemo(() => {
     const linkedTodoIds = new Set(todayRecords().map((record) => record.linkedTodoId).filter((id): id is number => id !== null));
     return sortByTime(props.todayCompletedTodos().filter((item) => !linkedTodoIds.has(item.id)));
+  });
+
+  const todayFocusDurationLabel = createMemo(() =>
+    props.analytics()?.todayFocusDurationLabel || formatRecordsDuration(todayRecords()),
+  );
+  const todaySessionCount = createMemo(() => props.analytics()?.todaySessionCount ?? todayRecords().length);
+  const todayStreakDays = createMemo(() => props.analytics()?.currentStreakDays ?? 0);
+  const todayTodoCompletionCount = createMemo(() => props.todayCompletedTodos().length);
+  const todayTodoTotal = createMemo(() => todayTodoCompletionCount() + props.todayTodos().length);
+  const todayTodoCompletionRate = createMemo(() => {
+    const total = todayTodoTotal();
+    return total === 0 ? 0 : Math.round((todayTodoCompletionCount() / total) * 100);
   });
 
   const trailSegments = createMemo<TrailSegment[]>(() => {
@@ -367,30 +427,6 @@ export default function TodayDashboard(props: TodayDashboardProps) {
   // instead of shrinking labels until they overlap.
   const trailCanvasWidth = () => Math.max(1080, 110 + Math.max(0, trailTotalCount() - 1) * 134);
   const trailRoutePath = createMemo(() => createTrailPath(trailNodes().map((node) => node.position)));
-  const activeTrailNode = createMemo(() => trailNodes().find((node) => node.state === "current"));
-
-  const focusTitle = () =>
-    props.timerHasProgress()
-      ? props.timer().activeTaskTitle || "当前专注"
-      : activeTrailNode()?.title || "下一段专注";
-
-  const focusSchedule = () =>
-    props.timerHasProgress()
-      ? props.timer().isRunning
-        ? "这一轮正在进行 · 保持当前节奏"
-        : "这一轮已暂停 · 可以继续回来"
-      : activeTrailNode()?.time || "准备好后再走一段";
-
-  const focusDescription = () =>
-    props.timerHasProgress()
-      ? "把注意力交给眼前这一件事，其他事情稍后再处理。"
-      : activeTrailNode()?.item
-        ? "下一段从这里开始，完成后会留在今天的路径里。"
-        : activeTrailNode()
-          ? "从一段专注开始，为今天留下一个清晰的坐标。"
-          : completedNodeCount() > 0
-            ? "今天的路径已经留下坐标，想继续就再走一段。"
-            : "准备好后，从今天的第一段开始。";
 
   createEffect(() => {
     if (!props.ready()) {
@@ -448,6 +484,13 @@ export default function TodayDashboard(props: TodayDashboardProps) {
       <header class="trail-page__heading">
         <div class="trail-page__date">
           <strong>{props.todayDate}</strong>
+          <time
+            class="trail-page__clock"
+            dateTime={currentTime().toISOString()}
+            aria-label={"当前时间 " + formatClock(currentTime())}
+          >
+            {formatClock(currentTime())}
+          </time>
           <span>{weekdayFromLabel(props.todayLabel, props.todayDate)}</span>
         </div>
         <h1 aria-label="今天，从一件事开始">今日路径</h1>
@@ -584,37 +627,59 @@ export default function TodayDashboard(props: TodayDashboardProps) {
           </div>
         </div>
 
-        <aside classList={{ "trail-focus-panel": true, "trail-focus-panel--running": props.timer().isRunning }} aria-label="下一站信息">
+        <aside class="trail-focus-panel trail-focus-panel--overview" aria-label="今日概览">
           <div class="trail-focus-panel__topline">
             <span class="trail-live-indicator" aria-hidden="true" />
-            <span>{props.timerHasProgress() ? "当前一段" : "下一站"}</span>
+            <span>今日数据</span>
           </div>
-          <h2>{focusTitle()}</h2>
-          <p class="trail-focus-panel__schedule">{focusSchedule()}</p>
-          <p class="trail-focus-panel__description">{focusDescription()}</p>
+          <h2>今日概览</h2>
 
-          <div class="trail-focus-panel__waypoint">
-            <span>{props.timerHasProgress() ? "当前状态" : "路径节点"}</span>
-            <strong>
-              {props.timerHasProgress()
-                ? props.timer().status
-                : activeTrailNode()
-                  ? `第 ${activeTrailNode()!.index} 段`
-                  : "准备开始"}
-            </strong>
+          <div class="trail-overview-lead">
+            <span>今天的投入</span>
+            <strong>{todayFocusDurationLabel()}</strong>
+            <small>{todaySessionCount()} 段专注 · 连续 {todayStreakDays()} 天</small>
           </div>
 
-          <button type="button" class="trail-action trail-action--primary trail-focus-panel__focus-link" onClick={props.onOpenFocus}>
-            <span>{props.timerHasProgress() ? "查看当前计时" : "查看计时"}</span>
-            <ArrowUpRight size={16} strokeWidth={1.8} aria-hidden="true" />
-          </button>
-
-          <div class="trail-focus-panel__quiet-note">
-            {activeTrailNode()?.item
-              ? "完成这段后，它会成为今天的新坐标。"
-              : "每一次完成，都会成为今天的新坐标。"}
+          <div class="trail-overview-stats">
+            <div>
+              <span>专注段数</span>
+              <strong>{todaySessionCount()}</strong>
+              <small>今天已完成</small>
+            </div>
+            <div>
+              <span>连续节奏</span>
+              <strong>{todayStreakDays()} 天</strong>
+              <small>{todayStreakDays() > 0 ? "连续记录" : "从今天开始"}</small>
+            </div>
           </div>
 
+          <div class="trail-overview-progress-block">
+            <div class="trail-overview-progress-heading">
+              <span>待办进度</span>
+              <strong>
+                {todayTodoTotal() > 0
+                  ? String(todayTodoCompletionCount()) + " / " + String(todayTodoTotal())
+                  : "—"}
+              </strong>
+            </div>
+            <div
+              class="trail-overview-progress"
+              role="progressbar"
+              aria-label="今日待办完成进度"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              aria-valuenow={todayTodoCompletionRate()}
+            >
+              <span style={{ width: String(todayTodoCompletionRate()) + "%" }} />
+            </div>
+            <small>
+              {todayTodoTotal() > 0
+                ? "完成 " + String(todayTodoCompletionRate()) + "% · 今日安排"
+                : "今天还没有安排待办"}
+            </small>
+          </div>
+
+          <div class="trail-focus-panel__quiet-note">每一段专注都会留在今天的路径里。</div>
         </aside>
 
         <button type="button" class="trail-add-button" onClick={props.onOpenTodos}>
