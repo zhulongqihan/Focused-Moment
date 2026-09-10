@@ -64,7 +64,7 @@
 
 ## 远程发布闭环
 
-- `origin/main`：`fef30c734cd689d5d81840bf79b6de4ba8fe6e1b`；`v2.10.2` tag 的 peeled commit 与该提交一致。
+- 发布代码提交：`fef30c734cd689d5d81840bf79b6de4ba8fe6e1b`；`v2.10.2` tag 的 peeled commit 与该提交一致；`origin/main` 另包含最终证据文档跟随提交 `eee866b604f73ffc459ab0f6bca1a13729d8af80`。
 - [Checks run 34422166056](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34422166056)：PASS，前端 60/60，Rust check/test 通过。
 - [macOS Native Smoke run 34422166055](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34422166055)：PASS。
 - [macOS Universal Release run 34422184750](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34422184750)：PASS，Universal DMG 上传成功。
