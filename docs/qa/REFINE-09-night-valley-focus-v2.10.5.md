@@ -59,7 +59,7 @@
 | `cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check` | PASS |
 | `cargo check --locked --manifest-path src-tauri/Cargo.toml` | PASS，`focused-moment v2.10.5` |
 | `cargo test --locked --manifest-path src-tauri/Cargo.toml` | PASS，33/33 library tests，0/0 binary/doc tests |
-| `pnpm exec playwright test tests/app.spec.mjs --workers=1 --grep "timer workspace"` | PASS，4/4 |
+| `pnpm exec playwright test tests/app.spec.mjs --workers=1 --grep "timer workspace|stopwatch shows|completed countdown"` | PASS，6/6 |
 | `pnpm exec playwright test tests/today-visual.spec.mjs --workers=1 --grep "Timer workspace|high-DPI|fullscreen|secondary widths|pressure widths"` | PASS，10/10 |
 | `pnpm test:frontend -- --workers=1` | PASS，63/63 |
 | `pnpm package:release` | PASS，生成 v2.10.5 Windows EXE / NSIS / MSI |
