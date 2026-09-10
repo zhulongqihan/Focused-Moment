@@ -33,8 +33,10 @@
 - 便携 EXE：`Focused Moment v2.10.4.exe`，23,733,248 bytes，SHA-256 `DF204A6820A064C5EE5E33E3A21B4D9A28F2F01FCF69C552D5F0FE0708203D26`。
 - Setup/NSIS：`Focused Moment Setup v2.10.4.exe`，16,131,599 bytes，SHA-256 `699BB019EDFCAAC3B54F3A72AAA70DE5607B8D4147192D68E146A75A2CD7A6E2`。
 - MSI：`Focused Moment_2.10.4_x64_en-US.msi`，17,108,992 bytes，SHA-256 `F7D40631EFE18AB556219092070255C452574C5EAC3CF1259D8D0A2FC6F89B13`。
-- macOS Universal DMG：待 GitHub Release workflow 上传后补录。
+- macOS Universal DMG：`Focused.Moment_2.10.4_universal.dmg`，34,262,638 bytes，远端 digest `sha256:b90c6eaee808616e7e8ad24965500e92334da9b43a8c8c2086d01980d51d9857`。
 
 ## 发布状态
 
-- 本地候选已完成；远程 main、tag、CI、macOS Universal 与 GitHub Release 将在本版本提交后完成并回填到 QA 证据。
+- 发布代码提交：`76629118ab014427c9d48db16f4b2b29342d290e`；`v2.10.4` tag 的 peeled commit 一致。
+- [Checks run 34439301338](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34439301338)、[macOS Native Smoke run 34439301192](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34439301192)、[macOS Universal Release run 34439341125](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34439341125)：均 PASS。
+- [GitHub Release v2.10.4](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.10.4)：正式 Release，四项资产均为 `uploaded`；完整大小与 digest 见 QA 证据。
