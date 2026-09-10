@@ -716,12 +716,12 @@ test("timer snapshots keep refreshing while a record draft is open", async ({ pa
   await expect(page.locator(".timer-readout")).toContainText("00:00:31");
 });
 
-test("stopwatch shows the next staged target instead of a one-minute target", async ({ page }) => {
+test("stopwatch shows a clear target duration instead of a one-minute target", async ({ page }) => {
   await bootWithTauriMock(page);
 
   await page.getByRole("button", { name: "计时", exact: true }).click();
 
-  await expect(page.locator(".timer-readout")).toContainText("下一阶段目标：25 分钟");
+  await expect(page.locator(".timer-readout")).toContainText("目标 25 分钟");
   await expect(page.locator(".timer-readout")).not.toContainText("1 分钟");
 });
 
@@ -729,6 +729,10 @@ test("timer route maps running, paused and saved states without fake rest stages
   await bootWithTauriMock(page, { pausedFocus: true });
 
   await page.getByRole("button", { name: "计时", exact: true }).click();
+  await expect(page.locator(".nv-focus-panel .nv-panel-kicker")).toContainText("本次专注");
+  await expect(page.locator(".nv-focus-panel .timer-readout")).toBeVisible();
+  await expect(page.locator(".nv-chronograph__bezel")).toHaveCount(0);
+  await expect(page.locator(".nv-focus-route__labels li")).toHaveCount(4);
   await expect(page.locator(".nv-focus-footer strong").first()).toHaveText("已暂停");
   await expect(page.locator(".nv-focus-route__labels")).not.toContainText("休息");
   await expect(page.locator(".nv-focus-route__point-label")).toHaveCount(0);

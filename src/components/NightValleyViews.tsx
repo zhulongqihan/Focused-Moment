@@ -20,6 +20,7 @@ import type {
   TodoItem,
 } from "../lib/contracts";
 import { themes, type ThemeId } from "../lib/themes";
+import { NightValleyDateStamp } from "./NightValleyDateStamp";
 
 type Accessor<T> = () => T;
 
@@ -28,6 +29,12 @@ function localDateKey(date = new Date()) {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function currentDateLabel() {
+  return new Date()
+    .toLocaleDateString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" })
+    .replace(/\//g, "-");
 }
 
 export interface NightValleyFocusProps {
@@ -151,7 +158,7 @@ function resolveFocusVisualState(
     key: "ready",
     label: "未开始",
     compactLabel: "READY",
-    description: "写下这一轮的目标，让时间有一个清晰的去处。",
+    description: "写下这一轮的目标，开始后会记录实际投入。",
     routeIndex: 0,
   };
 }
@@ -168,44 +175,58 @@ export function NightValleyFocus(props: NightValleyFocusProps) {
     return props.timer().modeKey === "countdown" && label.startsWith("00:") ? label.slice(3) : label;
   });
 
-  const displayTarget = createMemo(() => {
+  const targetDurationLabel = createMemo(() => {
     const snapshot = props.timer();
-    if (snapshot.modeKey === "countdown") {
-      return `设定 ${props.countdownMinutes()} 分钟`;
-    }
-    const minutes = props.timerPreferences().stopwatchReminderMinutes ?? props.timerPreferences().pomodoroFocusMinutes;
-    return snapshot.targetDurationMs !== null
-      ? `下一阶段目标：${Math.round(snapshot.targetDurationMs / 60_000)} 分钟`
-      : `下一阶段目标：${minutes} 分钟`;
+    const minutes = snapshot.modeKey === "countdown"
+      ? props.countdownMinutes()
+      : snapshot.targetDurationMs !== null
+        ? Math.round(snapshot.targetDurationMs / 60_000)
+        : props.timerPreferences().stopwatchReminderMinutes ?? props.timerPreferences().pomodoroFocusMinutes;
+    return `${minutes} 分钟`;
   });
+
+  const displayTarget = createMemo(() => props.timer().modeKey === "countdown"
+    ? `设定 ${targetDurationLabel()}`
+    : `目标 ${targetDurationLabel()}`);
 
   const activeTodo = createMemo(() => props.todos().find((item) => item.id === props.linkedTodoId()) ?? null);
   const currentLabel = createMemo(() => props.timer().activeTaskTitle.trim() || activeTodo()?.title || "还没有指定事项");
 
-  const phases = ["准备", "专注", "暂停", "完成"];
-  const routeStateIndexes: Array<number | null> = [0, null, 1, null, 2, null, 3];
-  const routePoints = [
-    { x: 20, y: 24 },
-    { x: 102, y: 226 },
-    { x: 200, y: 326 },
-    { x: 376, y: 415 },
-    { x: 610, y: 443 },
-    { x: 800, y: 392 },
-    { x: 838, y: 286 },
+  const phases = [
+    { label: "准备", detail: "写下目标" },
+    { label: "专注", detail: "时间正在记录" },
+    { label: "暂停", detail: "稍后继续" },
+    { label: "完成", detail: "保存为记录" },
   ];
-  const routePath = "M 20 24 C 10 72, 61 126, 102 226 C 124 268, 147 286, 200 326 C 249 385, 292 466, 376 415 C 445 373, 510 402, 610 443 C 690 480, 758 450, 800 392 C 824 358, 824 310, 838 286";
+  const routeStateIndexes = [0, 1, 2, 3];
+  const routePoints = [
+    { x: 24, y: 64 },
+    { x: 196, y: 208 },
+    { x: 389, y: 116 },
+    { x: 576, y: 218 },
+  ];
+  const routePath = "M 24 64 C 82 18, 132 112, 196 208 C 263 302, 321 46, 389 116 C 460 187, 520 160, 576 218";
+  const routeCompletion = createMemo(() => phaseIndex() / (phases.length - 1));
 
   return (
     <section class="nv-page nv-focus-page focus-page" aria-label="专注计时">
       <header class="nv-page-heading nv-focus-heading">
-        <span class="nv-page-heading__date">{new Date().toLocaleDateString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" }).replace(/\//g, "-")}</span>
+        <NightValleyDateStamp date={currentDateLabel()} />
         <h1>专注计时</h1>
         <p>让一段时间完整地属于你。</p>
       </header>
 
       <div class="nv-focus-layout">
-        <section class="nv-focus-route" aria-label="专注状态路径">
-          <svg viewBox="0 0 860 486" preserveAspectRatio="none" aria-hidden="true">
+        <section class="nv-focus-route" aria-label="本轮专注流程">
+          <div class="nv-focus-route__heading">
+            <div>
+              <span class="nv-section-kicker">SESSION PATH / 本轮流程</span>
+              <h2>专注流程</h2>
+            </div>
+            <small>{phases[phaseIndex()].detail}</small>
+          </div>
+          <div class="nv-focus-route__canvas">
+            <svg viewBox="0 0 600 280" preserveAspectRatio="none" aria-hidden="true">
             <defs>
               <linearGradient id="nv-focus-route-gradient" x1="0" x2="1" y1="0" y2="0">
                 <stop offset="0" stop-color="#d59b56" />
@@ -220,6 +241,12 @@ export function NightValleyFocus(props: NightValleyFocusProps) {
             <path class="nv-focus-route__shadow" d={routePath} />
             <path class="nv-focus-route__line" d={routePath} />
             <path class="nv-focus-route__dash" d={routePath} />
+            <path
+              class="nv-focus-route__progress"
+              d={routePath}
+              pathLength="100"
+              style={{ "stroke-dasharray": `${routeCompletion() * 100} 100` }}
+            />
             <For each={routePoints}>
               {(point, index) => {
                 const routeStateIndex = routeStateIndexes[index()];
@@ -230,7 +257,6 @@ export function NightValleyFocus(props: NightValleyFocusProps) {
                         "nv-focus-route__point": true,
                         "nv-focus-route__point--active": routeStateIndex !== null && routeStateIndex === phaseIndex(),
                         "nv-focus-route__point--done": routeStateIndex !== null && routeStateIndex < phaseIndex(),
-                        "nv-focus-route__point--decorative": routeStateIndex === null,
                       }}
                       cx={point.x}
                       cy={point.y}
@@ -240,64 +266,59 @@ export function NightValleyFocus(props: NightValleyFocusProps) {
                 );
               }}
             </For>
-          </svg>
-          <div class="nv-focus-route__labels">
+            </svg>
+            <ol class="nv-focus-route__labels">
             <For each={phases}>
               {(phase, index) => (
-                <span
+                <li
                   classList={{ "is-active": index() === phaseIndex(), "is-done": index() < phaseIndex() }}
                   aria-current={index() === phaseIndex() ? "step" : undefined}
                 >
                   <b>{String(index() + 1).padStart(2, "0")}</b>
-                  {phase}
-                </span>
+                  <span><strong>{phase.label}</strong><small>{phase.detail}</small></span>
+                </li>
               )}
             </For>
+            </ol>
           </div>
         </section>
 
-        <main class="nv-chronograph" aria-label="计时器">
-          <div class="nv-chronograph__halo" aria-hidden="true" />
-          <div class="nv-chronograph__ticks" aria-hidden="true">
-            <For each={Array.from({ length: 24 })}>
-              {(_, index) => <i style={{ transform: `rotate(${index() * 15}deg)` }} />}
-            </For>
+        <main class="nv-chronograph nv-focus-instrument" aria-label="专注进度">
+          <div class="nv-focus-instrument__topline">
+            <span>FOCUS / 当前进度</span>
+            <strong>{Math.round(routeCompletion() * 100)}%</strong>
           </div>
-          <div class="nv-chronograph__bezel" aria-hidden="true">
-            <div class="nv-chronograph__bezel-inner" />
-            <span class="nv-chronograph__marker nv-chronograph__marker--top" />
-            <span class="nv-chronograph__marker nv-chronograph__marker--right" />
-            <span class="nv-chronograph__marker nv-chronograph__marker--bottom" />
-            <span class="nv-chronograph__marker nv-chronograph__marker--left" />
+          <div class="nv-focus-instrument__horizon" aria-hidden="true">
+            <span style={{ width: `${Math.max(8, routeCompletion() * 100)}%` }} />
+            <i style={{ left: `${routeCompletion() * 100}%` }} />
           </div>
-          <div class="nv-chronograph__face">
-            <div class="nv-chronograph__face-caption">NIGHT VALLEY / FOCUS</div>
-            <div class="timer-readout nv-chronograph__readout">
-              <span>{props.timer().status}</span>
-              <strong>{displayTime()}</strong>
-              <small>{displayTarget()}</small>
-            </div>
-            <div class="nv-chronograph__needle" aria-hidden="true">
-              <span style={{ transform: `rotate(${timerProgress(props.timer(), props.timerHasProgress()) * 312 - 156}deg)` }} />
-              <i />
-            </div>
-            <div class="nv-chronograph__subdial nv-chronograph__subdial--left" aria-hidden="true">
-              <span>{props.timer().currentRound}</span>
-              <small>ROUND</small>
-            </div>
-            <div class="nv-chronograph__subdial nv-chronograph__subdial--right" aria-hidden="true">
-              <span>{props.timer().completedFocusCount}</span>
-              <small>DONE</small>
-            </div>
-            <div class="nv-chronograph__crown" aria-hidden="true" />
+          <div class="nv-focus-instrument__state">
+            <span>当前阶段</span>
+            <strong>{visualState().label}</strong>
+            <small>{phases[phaseIndex()].detail}</small>
+          </div>
+          <div class="nv-focus-instrument__facts">
+            <div><span>本轮</span><strong>{props.timer().currentRound}</strong><small>ROUND</small></div>
+            <div><span>今日完成</span><strong>{props.timer().completedFocusCount}</strong><small>SESSIONS</small></div>
           </div>
         </main>
 
-        <aside class="nv-focus-panel" aria-label="当前专注设置">
-          <div class="nv-panel-kicker"><span class="nv-live-dot" /> CURRENT SESSION / 当前一段</div>
-          <div class="nv-focus-panel__title-line">
-            <h2>{currentLabel()}</h2>
-            <span data-focus-state={visualState().key}>{visualState().compactLabel}</span>
+        <aside class="nv-focus-panel" aria-label="本次专注">
+          <div class="nv-focus-panel__header">
+            <div>
+              <div class="nv-panel-kicker"><span class="nv-live-dot" /> 本次专注</div>
+              <h2>{currentLabel()}</h2>
+            </div>
+            <span data-focus-state={visualState().key}>{visualState().label}</span>
+          </div>
+          <div class="timer-readout nv-focus-panel__timer" role="timer" aria-label="本轮计时">
+            <span>{props.timer().status}</span>
+            <strong>{displayTime()}</strong>
+            <small>{props.timer().mode === "countdown" ? "倒计时" : "正向计时"} · {displayTarget()}</small>
+          </div>
+          <div class="nv-focus-panel__session-data">
+            <div><span>目标时长</span><strong>{targetDurationLabel()}</strong></div>
+            <div><span>今日已完成</span><strong>{props.timer().completedFocusCount} 段</strong></div>
           </div>
           <p class="nv-focus-panel__copy" aria-live="polite">
             <strong>{visualState().label}</strong> · {visualState().description}
@@ -541,7 +562,7 @@ export function NightValleyTodo(props: NightValleyTodoProps) {
   return (
     <section class="nv-page nv-todo-page todo-page" aria-label="今日待办">
       <header class="nv-page-heading nv-todo-heading">
-        <span class="nv-page-heading__date">{new Date().toLocaleDateString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" }).replace(/\//g, "-")}</span>
+        <NightValleyDateStamp date={currentDateLabel()} />
         <h1>今日待办</h1>
         <p>把下一步变得清楚。</p>
       </header>
@@ -684,7 +705,7 @@ export function NightValleyRecords(props: NightValleyRecordsProps) {
   return (
     <section class="nv-page nv-records-page records-page" aria-label="专注记录">
       <header class="nv-page-heading nv-records-heading">
-        <span class="nv-page-heading__date">{new Date().toLocaleDateString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" }).replace(/\//g, "-")}</span>
+        <NightValleyDateStamp date={currentDateLabel()} />
         <h1>专注记录</h1>
         <p>看见投入留下的轨迹。</p>
       </header>
@@ -829,7 +850,7 @@ export function NightValleySettings(props: NightValleySettingsProps) {
   let customAlertSoundInput: HTMLInputElement | undefined;
   return (
     <section class="nv-page nv-settings-page settings-page" aria-label="设置">
-      <header class="nv-page-heading nv-settings-heading"><span class="nv-page-heading__date">{new Date().toLocaleDateString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" }).replace(/\//g, "-")}</span><h1>设置</h1><p>调整你的专注环境。</p></header>
+      <header class="nv-page-heading nv-settings-heading"><NightValleyDateStamp date={currentDateLabel()} /><h1>设置</h1><p>调整你的专注环境。</p></header>
       <div class="nv-settings-layout">
         <nav class="settings-subnav nv-settings-subnav" aria-label="设置分组"><a href="#nv-appearance">01 <span>外观</span></a><a href="#nv-behavior">02 <span>行为</span></a><a href="#nv-audio">03 <span>音效</span></a><a href="#nv-shortcuts">04 <span>快捷键</span></a><a href="#nv-backup">05 <span>本地备份</span></a></nav>
         <div class="nv-settings-panels">

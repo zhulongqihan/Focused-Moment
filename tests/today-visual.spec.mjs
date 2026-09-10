@@ -302,6 +302,18 @@ test("Night Valley pages expose the measured reference surfaces", async ({ page 
   }
 });
 
+test("Night Valley tabs share the live clock and hide the command trigger", async ({ page }) => {
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page);
+
+  for (const [label] of nightValleyPages) {
+    await pageButton(page, label).click();
+    await expect(page.locator('time[aria-label^="当前时间"]')).toHaveCount(1);
+    await expect(page.locator('time[aria-label^="当前时间"]')).toHaveText(/^\d{2}:\d{2}:\d{2}$/);
+    await expect(page.locator(".command-trigger")).toBeHidden();
+  }
+});
+
 test("Night Valley baseline records five-page geometry and environment metadata", async ({ page }) => {
   const viewport = { width: 1487, height: 1058 };
   const capturedAt = new Date().toISOString();
@@ -521,7 +533,7 @@ test("Night Valley uses one shared sidebar tab module across every page", async 
   expect(tabStates.every((state) => state.buttons[state.activeIndex].backgroundImage.includes("linear-gradient"))).toBe(true);
 });
 
-test("Timer route follows a tighter winding concept path", async ({ page }) => {
+test("Timer route explains the four-state focus path with smooth curves", async ({ page }) => {
   await page.setViewportSize({ width: 1487, height: 1058 });
   await bootTodayReferenceMock(page);
   await page.getByRole("button", { name: "计时", exact: true }).click();
@@ -545,13 +557,13 @@ test("Timer route follows a tighter winding concept path", async ({ page }) => {
     };
   });
 
-  expect(geometry.points).toHaveLength(7);
-  expect(geometry.points[6].y).toBeGreaterThan(geometry.points[0].y + 180);
-  expect(geometry.points[4].x).toBeGreaterThan(geometry.points[3].x + 180);
-  expect(geometry.points[5].y).toBeLessThan(geometry.points[4].y);
-  expect(geometry.points[6].x).toBeGreaterThan(geometry.points[5].x);
-  expect((geometry.path.match(/\bC\b/g) ?? []).length).toBe(6);
-  expect(geometry.labels[3]).toBeLessThan(340);
+  expect(geometry.points).toHaveLength(4);
+  expect(geometry.points[1].y).toBeGreaterThan(geometry.points[0].y + 80);
+  expect(geometry.points[2].y).toBeLessThan(geometry.points[1].y);
+  expect(geometry.points[3].x).toBeGreaterThan(geometry.points[2].x + 80);
+  expect((geometry.path.match(/\bC\b/g) ?? []).length).toBe(3);
+  expect(geometry.path).not.toContain(" L ");
+  expect(geometry.labels).toHaveLength(4);
 });
 
 test("Theme registry exposes five implemented surfaces and no disabled preview", async ({ page }) => {
@@ -1165,9 +1177,36 @@ test("Night Valley remains operable on a high-DPI desktop context", async ({ bro
     await page.getByRole("button", { name: "计时", exact: true }).click();
     await expect(page.locator(".nv-chronograph")).toBeVisible();
     await expect(page.locator(".nv-focus-panel")).toBeVisible();
+    await expect(page.locator(".nv-focus-panel .timer-readout")).toBeVisible();
+    await expect(page.locator(".nv-focus-route__labels li")).toHaveCount(4);
+    await expect(page.locator(".command-trigger")).toBeHidden();
     await expect.poll(() => page.evaluate(() => window.devicePixelRatio)).toBe(2);
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(1487);
   } finally {
     await context.close();
   }
+});
+
+test("Night Valley timer fullscreen keeps the working card and footer visible", async ({ page }) => {
+  const viewport = { width: 2560, height: 1368 };
+  await page.setViewportSize(viewport);
+  await bootTodayReferenceMock(page, { recordCount: 7 });
+  await page.getByRole("button", { name: "计时", exact: true }).click();
+
+  const bounds = await page.evaluate(() => {
+    const selectors = [".nv-focus-panel", ".nv-focus-footer"];
+    return Object.fromEntries(selectors.map((selector) => {
+      const rect = document.querySelector(selector)?.getBoundingClientRect();
+      return [selector, rect ? { top: rect.top, bottom: rect.bottom, right: rect.right } : null];
+    }));
+  });
+
+  await expect(page.locator(".nv-focus-panel .timer-readout")).toBeVisible();
+  await expect(page.locator(".nv-focus-footer")).toBeVisible();
+  await expect(page.locator(".nv-page-heading__clock")).toHaveText(/^\d{2}:\d{2}:\d{2}$/);
+  expect(bounds[".nv-focus-panel"].bottom).toBeLessThanOrEqual(viewport.height);
+  expect(bounds[".nv-focus-panel"].right).toBeLessThanOrEqual(viewport.width);
+  expect(bounds[".nv-focus-footer"].bottom).toBeLessThanOrEqual(viewport.height);
+  expect(bounds[".nv-focus-footer"].right).toBeLessThanOrEqual(viewport.width);
+  await page.screenshot({ path: "output/playwright/night-valley-timer-fullscreen.png", animations: "disabled" });
 });

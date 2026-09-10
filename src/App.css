@@ -7257,3 +7257,703 @@ body,
     font-size: 1.56rem;
   }
 }
+
+/* v2.10.4 Night Valley Focus refinement: give the timer a quieter center,
+   make the session path explain the real four-state lifecycle, and keep the
+   working card plus footer inside the viewport at every desktop ratio. */
+.minimal-app--cinematic[data-theme="night-valley"] .command-trigger {
+  display: none !important;
+}
+
+.minimal-app--cinematic[data-theme="night-valley"] .nv-page-heading__date {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 7px 13px;
+}
+
+.minimal-app--cinematic[data-theme="night-valley"] .nv-page-heading__date-value {
+  color: rgba(225, 219, 193, 0.86);
+  font: 21px/1.2 "Cascadia Mono", Consolas, monospace;
+  letter-spacing: 0.03em;
+}
+
+.minimal-app--cinematic[data-theme="night-valley"] .nv-page-heading__clock {
+  color: #e4b66a;
+  font: 500 14px/1.2 "Avenir Next", "Segoe UI", sans-serif;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.1em;
+}
+
+@media (min-width: 821px) {
+  .minimal-app--cinematic[data-theme="night-valley"].minimal-app--focus .nv-focus-page {
+    box-sizing: border-box;
+    display: grid !important;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    gap: 18px;
+    height: 100% !important;
+    min-height: 0 !important;
+    padding: 56px clamp(30px, 5vw, 84px) 24px;
+    overflow: hidden !important;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"].minimal-app--focus .nv-focus-heading {
+    position: relative;
+    top: auto;
+    left: auto;
+    z-index: 30;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"].minimal-app--focus .nv-focus-layout {
+    position: relative;
+    inset: auto;
+    display: grid;
+    grid-template-areas: "route instrument panel";
+    grid-template-columns: minmax(220px, 0.78fr) minmax(390px, 1.2fr) minmax(300px, 360px);
+    gap: clamp(18px, 2.6vw, 48px);
+    align-items: center;
+    min-height: 0;
+    height: auto;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"].minimal-app--focus .nv-focus-route {
+    position: relative;
+    inset: auto;
+    grid-area: route;
+    display: grid;
+    width: auto;
+    height: min(360px, 100%);
+    min-height: 260px;
+    grid-template-rows: auto minmax(0, 1fr);
+    align-self: center;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-route__heading {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-route__heading h2 {
+    margin: 10px 0 0;
+    color: rgba(235, 225, 199, 0.9);
+    font: 400 23px/1.1 "Source Han Serif SC", "Noto Serif CJK SC", "Songti SC", SimSun, serif;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-route__heading small {
+    max-width: 92px;
+    color: rgba(198, 216, 201, 0.56);
+    font-size: 10px;
+    line-height: 1.45;
+    text-align: right;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-route__canvas {
+    position: relative;
+    min-height: 0;
+    margin-top: 13px;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-route__canvas > svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-route__shadow {
+    stroke: rgba(225, 169, 82, 0.11);
+    stroke-width: 10;
+    filter: blur(5px);
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-route__line {
+    stroke-width: 2.2;
+    opacity: 0.78;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-route__dash {
+    stroke: rgba(240, 203, 119, 0.58);
+    stroke-width: 0.8;
+    stroke-dasharray: 1 10;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-route__progress {
+    fill: none;
+    stroke: #d9edcf;
+    stroke-width: 2.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0.88;
+    filter: drop-shadow(0 0 5px rgba(196, 237, 211, 0.38));
+    transition: stroke-dasharray 280ms ease-out;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-route__point {
+    fill: #07131a;
+    stroke: rgba(221, 192, 123, 0.66);
+    stroke-width: 1.3;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-route__point--done {
+    fill: #e5af62;
+    stroke: #f7d48f;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-route__point--active {
+    fill: #c5e6cc;
+    stroke: #ecf3d2;
+    filter: drop-shadow(0 0 8px rgba(187, 236, 197, 0.68));
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-route__labels {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    pointer-events: none;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-route__labels li {
+    position: absolute;
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    width: 112px;
+    color: rgba(221, 218, 197, 0.58);
+    font-size: 11px;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-route__labels li:nth-child(1) { top: 4%; left: 0; }
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-route__labels li:nth-child(2) { top: 67%; left: 22%; }
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-route__labels li:nth-child(3) { top: 24%; left: 56%; }
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-route__labels li:nth-child(4) { right: 0; bottom: 3%; justify-content: flex-end; text-align: right; }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-route__labels li > b {
+    display: grid;
+    width: 21px;
+    height: 21px;
+    flex: 0 0 21px;
+    place-items: center;
+    border: 1px solid rgba(215, 190, 124, 0.62);
+    border-radius: 50%;
+    color: rgba(229, 194, 115, 0.88);
+    font: 10px/1 "Cascadia Mono", Consolas, monospace;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-route__labels li > span {
+    position: static;
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+    transform: none;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-route__labels li > span strong {
+    color: rgba(232, 224, 199, 0.8);
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-route__labels li > span small {
+    color: rgba(196, 216, 200, 0.48);
+    font-size: 9px;
+    line-height: 1.3;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-route__labels li.is-active > span strong {
+    color: var(--nv-mint);
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-route__labels li.is-done > span strong {
+    color: rgba(234, 219, 179, 0.86);
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-instrument {
+    position: relative;
+    inset: auto;
+    grid-area: instrument;
+    display: grid;
+    width: 100%;
+    max-width: 720px;
+    height: min(320px, 100%);
+    min-height: 230px;
+    grid-template-rows: auto 1fr auto auto;
+    gap: 17px;
+    align-self: center;
+    box-sizing: border-box;
+    padding: 18px 0 0;
+    overflow: hidden;
+    border-top: 1px solid rgba(196, 237, 211, 0.18);
+    border-bottom: 1px solid rgba(196, 237, 211, 0.18);
+    border-radius: 0;
+    background: radial-gradient(ellipse at 50% 44%, rgba(91, 142, 123, 0.13), transparent 52%);
+    box-shadow: none;
+    transform: none;
+    justify-self: center;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-instrument::before {
+    position: absolute;
+    top: 47px;
+    left: 50%;
+    width: min(280px, 62%);
+    height: 120px;
+    border: 1px solid rgba(215, 190, 124, 0.18);
+    border-radius: 50%;
+    content: "";
+    transform: translateX(-50%) scaleY(0.54);
+    pointer-events: none;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-instrument__topline {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 0 8px;
+    color: rgba(218, 201, 157, 0.66);
+    font: 10px/1.2 "Cascadia Mono", Consolas, monospace;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-instrument__topline strong {
+    color: var(--nv-mint);
+    font: 500 14px/1 "Cascadia Mono", Consolas, monospace;
+    letter-spacing: 0;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-instrument__horizon {
+    position: relative;
+    z-index: 1;
+    align-self: center;
+    width: calc(100% - 16px);
+    height: 42px;
+    margin: 0 auto;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-instrument__horizon::before {
+    position: absolute;
+    top: 20px;
+    right: 0;
+    left: 0;
+    height: 1px;
+    background: rgba(196, 237, 211, 0.2);
+    content: "";
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-instrument__horizon span {
+    position: absolute;
+    top: 19px;
+    left: 0;
+    display: block;
+    height: 3px;
+    min-width: 8%;
+    background: linear-gradient(90deg, #d59b56, #d9edcf);
+    box-shadow: 0 0 11px rgba(231, 190, 109, 0.38);
+    transition: width 280ms ease-out;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-instrument__horizon i {
+    position: absolute;
+    top: 14px;
+    width: 12px;
+    height: 12px;
+    border: 1px solid #ecf3d2;
+    border-radius: 50%;
+    background: #c5e6cc;
+    box-shadow: 0 0 10px rgba(187, 236, 197, 0.58);
+    transform: translateX(-50%);
+    transition: left 280ms ease-out;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-instrument__state {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    justify-items: center;
+    gap: 7px;
+    text-align: center;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-instrument__state span {
+    color: rgba(215, 215, 196, 0.5);
+    font-size: 11px;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-instrument__state strong {
+    color: #e5efd9;
+    font: 400 31px/1.05 "Source Han Serif SC", "Noto Serif CJK SC", "Songti SC", SimSun, serif;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-instrument__state small {
+    color: rgba(196, 216, 200, 0.58);
+    font-size: 11px;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-instrument__facts {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    border-top: 1px solid rgba(196, 237, 211, 0.12);
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-instrument__facts div {
+    display: grid;
+    gap: 5px;
+    padding: 12px 8px 10px;
+    background: rgba(3, 14, 20, 0.18);
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-instrument__facts div + div {
+    border-left: 1px solid rgba(196, 237, 211, 0.12);
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-instrument__facts span,
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-instrument__facts small {
+    color: rgba(215, 215, 196, 0.48);
+    font-size: 10px;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-instrument__facts strong {
+    color: rgba(232, 224, 199, 0.86);
+    font: 18px/1 "Cascadia Mono", Consolas, monospace;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-instrument__facts small {
+    font: 8px/1 "Cascadia Mono", Consolas, monospace;
+    letter-spacing: 0.08em;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-panel {
+    position: relative;
+    inset: auto;
+    grid-area: panel;
+    display: flex;
+    width: auto;
+    height: auto;
+    min-height: 0;
+    max-height: 100%;
+    flex-direction: column;
+    box-sizing: border-box;
+    padding: 22px 20px 18px;
+    overflow-y: auto;
+    border: 1px solid rgba(207, 177, 113, 0.45);
+    border-radius: 8px;
+    background: linear-gradient(180deg, rgba(4, 14, 21, 0.91), rgba(4, 12, 17, 0.78));
+    box-shadow: none;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-panel__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-panel__header > div {
+    min-width: 0;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-panel__header .nv-panel-kicker {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-panel__header h2 {
+    margin: 12px 0 0;
+    overflow-wrap: anywhere;
+    color: rgba(239, 229, 203, 0.94);
+    font: 400 24px/1.22 "Source Han Serif SC", "Noto Serif CJK SC", "Songti SC", SimSun, serif;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-panel__header > span {
+    flex: 0 0 auto;
+    margin-top: 3px;
+    padding: 5px 7px;
+    border: 1px solid rgba(196, 237, 211, 0.2);
+    border-radius: 3px;
+    color: var(--nv-mint);
+    font-size: 9px;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-panel__timer {
+    position: relative;
+    display: grid;
+    min-height: 0;
+    margin: 19px 0 0;
+    padding: 14px 0 13px;
+    justify-items: start;
+    border-top: 1px solid rgba(196, 237, 211, 0.14);
+    border-right: 0;
+    border-bottom: 1px solid rgba(196, 237, 211, 0.14);
+    border-left: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    text-align: left;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-panel__timer::before {
+    display: none;
+    content: none;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-panel__timer > span {
+    color: var(--nv-mint);
+    font-size: 11px;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-panel__timer > strong {
+    margin-top: 6px;
+    color: #e9f2e7;
+    font: 400 48px/1 "Cascadia Mono", "Segoe UI Mono", monospace;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.04em;
+    text-shadow: 0 0 15px rgba(176, 235, 199, 0.16);
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-panel__timer > small {
+    margin-top: 8px;
+    color: rgba(215, 220, 196, 0.58);
+    font-size: 11px;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-panel__session-data {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 13px;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-panel__session-data div {
+    display: grid;
+    gap: 5px;
+    min-width: 0;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-panel__session-data span {
+    color: rgba(215, 215, 196, 0.48);
+    font-size: 10px;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-panel__session-data strong {
+    overflow: hidden;
+    color: rgba(232, 224, 199, 0.82);
+    font: 12px/1.35 "Cascadia Mono", Consolas, monospace;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-panel__copy {
+    min-height: 0;
+    margin: 14px 0 3px;
+    color: rgba(213, 216, 197, 0.66);
+    font-size: 12px;
+    line-height: 1.6;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-mode-switcher {
+    margin-bottom: 1px;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-mode-switcher button {
+    height: 32px;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-controls {
+    margin-top: 16px;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-primary,
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-finish {
+    min-height: 42px;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-panel__shortcut {
+    margin-top: 11px;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-footer {
+    position: relative;
+    top: auto;
+    left: auto;
+    display: grid;
+    width: min(100%, 920px);
+    height: auto;
+    min-height: 76px;
+    margin: 0 auto;
+    padding: 15px 22px;
+    box-sizing: border-box;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(130px, 0.9fr);
+    border: 1px solid rgba(196, 237, 211, 0.2);
+    border-radius: 8px;
+    background: rgba(4, 14, 20, 0.72);
+    box-shadow: none;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-footer > div {
+    padding: 0 14px;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-footer > div:first-child {
+    padding-left: 0;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-footer__line {
+    min-width: 0;
+    padding: 0 !important;
+  }
+}
+
+@media (min-width: 821px) and (max-width: 1300px) {
+  .minimal-app--cinematic[data-theme="night-valley"].minimal-app--focus .nv-focus-page {
+    height: auto !important;
+    min-height: 100dvh !important;
+    padding: 32px;
+    overflow: visible !important;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"].minimal-app--focus .nv-focus-layout {
+    grid-template-areas: "instrument panel" "route route";
+    grid-template-columns: minmax(200px, 0.8fr) minmax(300px, 1fr);
+    gap: 26px 24px;
+    align-items: start;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-instrument {
+    height: 280px;
+    min-height: 220px;
+    max-width: none;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-panel {
+    max-height: none;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-route {
+    width: 100%;
+    height: 250px;
+    min-height: 220px;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-footer {
+    width: 100%;
+  }
+}
+
+@media (max-width: 820px) {
+  .minimal-app--cinematic[data-theme="night-valley"].minimal-app--focus .nv-focus-page {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+    padding: 0 0 36px;
+    overflow: visible !important;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"].minimal-app--focus .nv-focus-heading {
+    position: relative;
+    top: auto !important;
+    left: auto !important;
+    padding: 39px 22px 0;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"].minimal-app--focus .nv-focus-layout {
+    position: relative;
+    inset: auto;
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+    gap: 22px;
+    margin-top: 24px;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-instrument {
+    order: 1;
+    width: calc(100% - 44px);
+    height: 220px;
+    min-height: 0;
+    margin: 0 22px;
+    padding-top: 15px;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-panel {
+    order: 2;
+    width: calc(100% - 44px);
+    max-height: none;
+    margin: 0 22px;
+    overflow: visible;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-route {
+    order: 3;
+    width: calc(100% - 44px);
+    height: 250px;
+    min-height: 0;
+    margin: 0 22px;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-route__labels li {
+    width: 105px;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-footer {
+    width: calc(100% - 44px);
+    min-height: 0;
+    margin: 24px 22px 0;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px 0;
+    padding: 18px;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-footer > div {
+    min-height: 42px;
+    padding: 0 13px;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-footer > div:nth-child(2) {
+    border-right: 0;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-footer__line {
+    grid-column: 1 / -1;
+    min-height: 2px;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-page-heading__date-value {
+    font-size: 16px;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-page-heading__clock {
+    font-size: 12px;
+    letter-spacing: 0.08em;
+  }
+}
+
+@media (max-width: 560px) {
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-panel {
+    padding: 20px 18px 17px;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-panel__timer > strong {
+    font-size: 41px;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-route__labels li {
+    width: 94px;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-route__labels li:nth-child(2) { left: 14%; }
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-route__labels li:nth-child(3) { left: 51%; }
+}

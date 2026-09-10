@@ -1,4 +1,4 @@
-import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount } from "solid-js";
+import { For, Show, createEffect, createMemo, onCleanup, onMount } from "solid-js";
 import {
   ArrowUpRight,
   BookOpen,
@@ -9,6 +9,7 @@ import {
   Plus,
 } from "lucide-solid";
 import type { AnalyticsSnapshot, FocusRecord, TodoImportance, TodoItem, TimerSnapshot } from "../lib/contracts";
+import { NightValleyClock } from "./NightValleyDateStamp";
 
 export interface TodayDashboardProps {
   todayDate: string;
@@ -121,12 +122,6 @@ function weekdayFromLabel(label: string, dateValue: string) {
   return Number.isNaN(date.getTime())
     ? ""
     : new Intl.DateTimeFormat("zh-CN", { weekday: "short" }).format(date);
-}
-
-function formatClock(date: Date) {
-  return [date.getHours(), date.getMinutes(), date.getSeconds()]
-    .map((unit) => String(unit).padStart(2, "0"))
-    .join(":");
 }
 
 function formatDurationMs(durationMs: number) {
@@ -284,13 +279,6 @@ export default function TodayDashboard(props: TodayDashboardProps) {
   let trailViewportElement: HTMLDivElement | undefined;
   let trailScrollFrame: number | undefined;
   let previousReadyTrailCount: number | null = null;
-  const [currentTime, setCurrentTime] = createSignal(new Date());
-
-  onMount(() => {
-    const clockInterval = window.setInterval(() => setCurrentTime(new Date()), 1000);
-    onCleanup(() => window.clearInterval(clockInterval));
-  });
-
   onMount(() => {
     if (!trailPageElement || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       return;
@@ -484,13 +472,7 @@ export default function TodayDashboard(props: TodayDashboardProps) {
       <header class="trail-page__heading">
         <div class="trail-page__date">
           <strong>{props.todayDate}</strong>
-          <time
-            class="trail-page__clock"
-            dateTime={currentTime().toISOString()}
-            aria-label={"当前时间 " + formatClock(currentTime())}
-          >
-            {formatClock(currentTime())}
-          </time>
+          <NightValleyClock className="trail-page__clock" />
           <span>{weekdayFromLabel(props.todayLabel, props.todayDate)}</span>
         </div>
         <h1 aria-label="今天，从一件事开始">今日路径</h1>
