@@ -45,6 +45,14 @@
 - 维护阶段和 REFINE-13/REL-12 已收口；v2.10.8 tag、Release、四项资产、`Focused Moment Backups` 和用户数据未被修改。
 - 最终证据文档已随 `9e7091bc33cbdaef40aeddade86123b57683f658` 正常推送；当前工作树干净，后续用户可见迭代须新建版本任务。
 
+## 1.5 本地旧归档与生成物清理（已完成，2026-09-12）
+
+- 用户明确要求删除 v2.9.0 之前的本地归档及相关内容，并清理此前约 80 GiB 的构建产物；范围限定为本机文件，不删除 Git 历史、GitHub Release、远程 tag 或当前发布资产。
+- 删除前已确认：外部维护归档约 84.00 GiB，当前 `src-tauri\target` 约 6.33 GiB，临时 clean checkout 约 4.76 GiB；完整目标和字节数见 `docs/maintenance/destructive-cleanup-manifest-20260912.md`。
+- v2.9.0 之前的 Git 已跟踪历史文档仍保留，因为当前计划、资源清单和历史证据仍有引用，且全部删除只释放约 0.11 MiB；只处理无当前引用的 ignored 旧副本。
+- `Focused Moment Backups`、v2.9.0+ 证据、v2.10.9 暂存资产、`.release` 当前 manifest、`output\qa`、`.playwright-cli`、主题素材及根目录可执行文件均列为保护项。
+- 已按清单删除约 95.25 GiB 本地生成物/临时归档、95 个 ignored 旧版本文件、旧本地发布辅助文件和合成 native 测试数据；删除目标残留 0，备份仍为 2 个文件，v2.9.0+ 资料和远程发布对象未触碰。下次本地开发前需按 lockfile 重建 `node_modules`、`dist` 和 Cargo/Tauri target。
+
 ## 2. 目标与明确不做
 
 ### 目标
