@@ -66,6 +66,7 @@ export interface NightValleyFocusProps {
   onPause: () => void | Promise<void>;
   onFinish: () => void | Promise<void>;
   onReset: () => void | Promise<void>;
+  onShowFocusFloating: () => void | Promise<void>;
   onOpenRecords: () => void;
 }
 
@@ -362,6 +363,17 @@ export function NightValleyFocus(props: NightValleyFocusProps) {
               </button>
             </Show>
           </div>
+          <Show when={props.timerHasProgress()}>
+            <button
+              type="button"
+              class="secondary-button nv-focus-floating-link"
+              disabled={props.busy()}
+              title="隐藏主窗口，回到悬浮计时"
+              onClick={() => void props.onShowFocusFloating()}
+            >
+              进入悬浮窗 <ArrowUpRight size={15} strokeWidth={1.8} aria-hidden="true" />
+            </button>
+          </Show>
           <button
             type="button"
             class="text-button nv-focus-reset"

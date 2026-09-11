@@ -802,6 +802,7 @@ test("timer workspace offers quick durations and a usable pre-start reset", asyn
   await bootWithTauriMock(page);
 
   await page.getByRole("button", { name: "计时", exact: true }).click();
+  await expect(page.getByRole("button", { name: "进入悬浮窗", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "25 分钟", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "45 分钟", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "60 分钟", exact: true })).toBeVisible();
@@ -813,6 +814,20 @@ test("timer workspace offers quick durations and a usable pre-start reset", asyn
 
   await page.getByRole("button", { name: "清空设置", exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.__resetTimerCalls)).toBe(1);
+});
+
+test("timer page can reopen the focus floating window after returning to main", async ({ page }) => {
+  await bootWithTauriMock(page, { pausedFocus: true });
+
+  await page.getByRole("button", { name: "计时", exact: true }).click();
+
+  const floatingButton = page.getByRole("button", { name: "进入悬浮窗", exact: true });
+  await expect(floatingButton).toBeVisible();
+  await expect(floatingButton).toBeEnabled();
+
+  await floatingButton.click();
+
+  await expect.poll(() => page.evaluate(() => window.__focusFloatingShown)).toBe(true);
 });
 
 test("paused focus floating window can continue without returning to the main window", async ({ page }) => {

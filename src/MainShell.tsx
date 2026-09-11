@@ -2249,6 +2249,7 @@ function MainShell() {
               onPause: () => void pauseFocus(),
               onFinish: () => void finishFocus(),
               onReset: () => void resetFocus(),
+              onShowFocusFloating: () => void showFocusFloating(),
               onOpenRecords: () => changeView("records"),
             }}
             todos={{

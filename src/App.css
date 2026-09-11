@@ -7970,6 +7970,28 @@ body,
   box-sizing: border-box;
 }
 
+.minimal-app--cinematic[data-theme="night-valley"] .nv-focus-floating-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  gap: 8px;
+  min-height: 36px;
+  margin: 12px auto 0;
+  padding: 0 11px;
+  border-color: rgba(196, 237, 211, 0.28);
+  color: rgba(216, 237, 218, 0.78);
+  background: rgba(4, 17, 23, 0.28);
+  font-size: 12px;
+}
+
+.minimal-app--cinematic[data-theme="night-valley"] .nv-focus-floating-link:hover:not(:disabled),
+.minimal-app--cinematic[data-theme="night-valley"] .nv-focus-floating-link:focus-visible {
+  border-color: rgba(196, 237, 211, 0.62);
+  color: #e4f2df;
+  background: rgba(9, 34, 39, 0.56);
+}
+
 @media (min-width: 1301px) {
   .minimal-app--cinematic[data-theme="night-valley"].minimal-app--focus .nv-focus-page {
     grid-template-rows: auto minmax(0, 1fr) !important;
