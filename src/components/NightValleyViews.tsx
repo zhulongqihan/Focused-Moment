@@ -624,14 +624,6 @@ export interface NightValleyRecordsProps {
 }
 
 export function NightValleyRecords(props: NightValleyRecordsProps) {
-  const archiveRangeLabel = () => {
-    const days = props.archiveDays();
-    if (days.length === 0) {
-      return "暂无日期";
-    }
-
-    return `${props.formatArchiveRangeDate(days[0].date)} — ${props.formatArchiveRangeDate(days[days.length - 1].date)}`;
-  };
   const recentWeekAverageDurationLabel = () => props.formatDurationMs(props.recentWeekDurationMs() / 7);
   const distributionBarHeight = (day: ArchiveDayShape) => {
     if (day.totalDurationMs === 0) {
@@ -655,12 +647,6 @@ export function NightValleyRecords(props: NightValleyRecordsProps) {
           <div class="records-archive__summary-copy"><span class="records-archive__kicker"><span aria-hidden="true" /> ARCHIVE / PERSONAL RHYTHM</span><h2>把时间连成一条路</h2><p>每个节点，都是你回来过的证据。</p></div>
           <div class="records-archive__metric"><span>累计专注</span><strong>{props.analytics()?.totalFocusDurationLabel ?? "00:00:00"}</strong><small>{props.analytics()?.sessionCount ?? 0} 条记录</small></div>
           <div class="records-archive__metric"><span>今天留下</span><strong>{props.analytics()?.todayFocusDurationLabel ?? "00:00:00"}</strong><small>{props.analytics()?.todaySessionCount ?? 0} 段专注</small></div>
-          <button type="button" class="secondary-button nv-export-button" disabled title="导出记录尚未接入">导出记录 <ArrowUpRight size={15} strokeWidth={1.8} aria-hidden="true" /></button>
-        </div>
-
-        <div class="nv-records-top-actions" aria-label="记录范围和导出">
-          <button type="button" class="nv-records-range" disabled title="日期范围筛选尚未接入" aria-label={`记录范围 ${archiveRangeLabel()}`}><span aria-hidden="true">▦</span> {archiveRangeLabel()} <span aria-hidden="true">⌄</span></button>
-          <button type="button" class="secondary-button nv-export-button" disabled title="导出记录尚未接入">导出记录 <ArrowUpRight size={15} strokeWidth={1.8} aria-hidden="true" /></button>
         </div>
 
         <section class="records-archive__timeline nv-records-chart" aria-label="最近七天专注轨迹">
@@ -806,7 +792,7 @@ export function NightValleySettings(props: NightValleySettingsProps) {
 
           <section id="nv-audio" class="settings-section nv-settings-panel nv-settings-panel--audio"><div class="settings-section__heading"><span class="nv-section-kicker">AUDIO / 03</span><h2>音效</h2></div><div class="nv-audio-row"><label class="settings-select"><span>提醒音效</span><select name="alertSoundKey" value={props.timerPreferences().alertSoundKey} disabled={props.busy()} onChange={(event) => void props.onSaveTimerPreferences({ alertSoundKey: event.currentTarget.value as AlertSoundKey })}><option value="soft_chime">柔和铃音</option><option value="bright_bell">明亮三连</option><option value="deep_pulse">沉稳脉冲</option><option value="viral_quote">胆子真是肥嘟嘟的（老牧师原声）</option><option value="custom" disabled={!props.customAlertSoundName()}>自定义音效{props.customAlertSoundName() ? ` · ${props.customAlertSoundName()}` : " · 请先导入"}</option></select></label><div class="sound-picker__actions"><button type="button" class="secondary-button" disabled={props.busy()} onClick={props.onPreviewAlertSound}><Volume2 size={15} strokeWidth={1.8} aria-hidden="true" />试听</button><button type="button" class="secondary-button" disabled={props.busy()} onClick={() => customAlertSoundInput?.click()}>导入音效</button><Show when={props.customAlertSoundName()}><button type="button" class="text-button" disabled={props.busy()} onClick={() => void props.onClearCustomAlertSound()}>移除自定义</button></Show><input ref={(element) => { customAlertSoundInput = element; }} class="sr-only" type="file" accept="audio/*" aria-label="导入自定义音效" onChange={(event) => void props.onChooseCustomAlertSound(event)} /></div></div></section>
 
-          <section id="nv-shortcuts" class="settings-section nv-settings-panel nv-settings-panel--shortcuts"><div class="settings-section__heading"><span class="nv-section-kicker">SHORTCUTS / 04</span><h2>快捷键</h2><p>把最常用的动作留在手边。</p></div><div class="nv-shortcut-list"><div><span>打开命令面板</span><kbd>Ctrl</kbd><i>+</i><kbd>K</kbd></div><div><span>开始 / 继续当前专注</span><kbd>Ctrl</kbd><i>+</i><kbd>Enter</kbd></div><div class="is-disabled"><span>导出记录 <small>尚未接入</small></span><kbd>—</kbd></div></div></section>
+          <section id="nv-shortcuts" class="settings-section nv-settings-panel nv-settings-panel--shortcuts"><div class="settings-section__heading"><span class="nv-section-kicker">SHORTCUTS / 04</span><h2>快捷键</h2><p>把最常用的动作留在手边。</p></div><div class="nv-shortcut-list"><div><span>打开命令面板</span><kbd>Ctrl</kbd><i>+</i><kbd>K</kbd></div><div><span>开始 / 继续当前专注</span><kbd>Ctrl</kbd><i>+</i><kbd>Enter</kbd></div></div></section>
 
           <section id="nv-backup" class="settings-section nv-settings-panel nv-settings-panel--backup"><div class="settings-section__heading"><span class="nv-section-kicker">LOCAL SAFETY / 05</span><h2>本地备份</h2><p>待办、专注记录和未完成的计时状态都只保存在这台电脑上。</p></div><div class="settings-actions"><button type="button" class="primary-button" disabled={props.busy()} onClick={() => void props.onCreateBackup()}>{props.busy() ? props.busyLabel() : "导出备份"}</button><button type="button" class="secondary-button" disabled={props.busy()} onClick={() => void props.onOpenBackupFolder()}>打开备份目录</button></div><Show when={props.lastBackupPath()}><p class="settings-path">最近备份：{props.lastBackupPath()}</p></Show></section>
 

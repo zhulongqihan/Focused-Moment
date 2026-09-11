@@ -3455,7 +3455,7 @@ html.floating-window body { overflow: hidden; }
 .minimal-app--records .records-page__counter strong { color: var(--trail-gold); }
 .minimal-app--records .records-page__counter small { color: #91aaa2; }
 .minimal-app--records .records-archive { display: grid; gap: 18px; }
-.minimal-app--records .records-archive__summary { display: grid; grid-template-columns: minmax(260px, 1.55fr) repeat(3, minmax(130px, 0.65fr)); gap: 1px; overflow: hidden; border: 1px solid rgba(190, 224, 210, 0.16); border-radius: 14px; background: rgba(190, 224, 210, 0.12); }
+.minimal-app--records .records-archive__summary { display: grid; grid-template-columns: minmax(260px, 1.55fr) repeat(2, minmax(130px, 0.65fr)); gap: 1px; overflow: hidden; border: 1px solid rgba(190, 224, 210, 0.16); border-radius: 14px; background: rgba(190, 224, 210, 0.12); }
 .minimal-app--records .records-archive__summary > * { min-height: 132px; padding: 22px; background: rgba(4, 24, 34, 0.7); }
 .minimal-app--records .records-archive__summary-copy { display: grid; align-content: center; gap: 9px; background: linear-gradient(135deg, rgba(12, 42, 47, 0.76), rgba(4, 24, 34, 0.7)) !important; }
 .minimal-app--records .records-archive__summary-copy h2 { margin: 0; color: #ecf3e9; font-family: "Noto Serif SC", "Source Han Serif SC", "Songti SC", Georgia, serif; font-size: clamp(1.45rem, 2.8vw, 2.15rem); font-weight: 400; line-height: 1.2; }
@@ -3558,7 +3558,7 @@ html.floating-window body { overflow: hidden; }
 
 @media (max-width: 1040px) {
   .minimal-app--cinematic:not(.minimal-app--trail) .minimal-content { padding-right: 34px; padding-left: 42px; }
-  .minimal-app--records .records-archive__summary { grid-template-columns: minmax(250px, 1.4fr) repeat(3, minmax(120px, 0.7fr)); }
+  .minimal-app--records .records-archive__summary { grid-template-columns: minmax(250px, 1.4fr) repeat(2, minmax(120px, 0.7fr)); }
   .minimal-app--records .records-archive__body { grid-template-columns: minmax(0, 1fr) 292px; }
   .minimal-app--todos .todo-create { grid-template-columns: minmax(0, 1fr) 140px 110px 104px auto; }
 }
@@ -5293,7 +5293,7 @@ body,
 
 .minimal-app--records .nv-records-page { height: 100%; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; scrollbar-color: rgba(205, 164, 91, 0.36) transparent; }
 .minimal-app--records .nv-records-archive { position: relative; width: min(1135px, calc(100% - 156px)); margin-left: 78px; padding-top: 181px; }
-.minimal-app--records .records-archive__summary { position: relative; display: grid; min-height: 80px; grid-template-columns: minmax(0, 1fr) 150px 150px auto; gap: 18px; align-items: end; padding: 0 18px 16px; border-bottom: 1px solid rgba(191, 202, 185, 0.17); }
+.minimal-app--records .records-archive__summary { position: relative; display: grid; min-height: 80px; grid-template-columns: minmax(0, 1fr) 150px 150px; gap: 18px; align-items: end; padding: 0 18px 16px; border-bottom: 1px solid rgba(191, 202, 185, 0.17); }
 .records-archive__summary-copy { min-width: 0; }
 .records-archive__kicker { display: flex; align-items: center; gap: 8px; color: rgba(217, 196, 145, 0.72); font: 10px/1 "Cascadia Mono", Consolas, monospace; letter-spacing: 0.13em; }
 .records-archive__kicker > span { display: block; width: 7px; height: 7px; border-radius: 50%; background: var(--nv-gold); box-shadow: 0 0 8px rgba(229, 175, 90, 0.48); }

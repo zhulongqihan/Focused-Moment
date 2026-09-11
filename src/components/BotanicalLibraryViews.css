@@ -1506,6 +1506,13 @@
   overflow: visible;
 }
 
+.minimal-app.minimal-app--cinematic[data-theme="botanical-library"] .bl-growth-points {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
 .minimal-app.minimal-app--cinematic[data-theme="botanical-library"] .bl-growth-shelf-line {
   position: absolute;
   right: 0;
@@ -1546,6 +1553,7 @@
   background: transparent;
   color: #927a61;
   transform: translateX(-50%);
+  pointer-events: auto;
 }
 
 .minimal-app.minimal-app--cinematic[data-theme="botanical-library"] .bl-growth-point i {

@@ -449,8 +449,9 @@ test("Night Valley records explain the natural seven-day range and averages", as
   await bootTodayReferenceMock(page);
   await page.getByRole("button", { name: "记录", exact: true }).click();
 
-  await expect(page.locator(".nv-records-range")).toContainText("8月30日 — 9月5日");
-  await expect(page.locator(".nv-records-range")).toBeDisabled();
+  await expect(page.locator(".nv-records-chart__labels")).toContainText("最近 7 天");
+  await expect(page.locator(".nv-records-range")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "导出记录", exact: true })).toHaveCount(0);
   await expect(page.locator(".nv-records-trend h2")).toHaveText("最近 7 天，平均每天 00:45:00。");
   await expect(page.locator(".records-archive__stats")).toContainText("活跃日平均 00:35:00");
 });

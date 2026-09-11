@@ -7,20 +7,20 @@
 
 | 字段 | 当前值 |
 | --- | --- |
-| as_of / updated_at | 2026-09-12 00:47（Asia/Shanghai）；REFINE-13 native 与最终本地回归已通过，2.10.9 已完成版本同步、Windows 打包、提交、正常推送、tag、远程 CI、macOS Universal DMG 和 GitHub Release；本地旧归档与生成物清理已按用户授权完成，证据见 `docs/maintenance/destructive-cleanup-manifest-20260912.md` |
+| as_of / updated_at | 2026-09-12 02:53（Asia/Shanghai）；UX-AUDIT-01 已完成 25 页 × 3 轮 = 75 轮真实浏览器体验、50 组紧凑密度专项、20 个设置锚点检查和人工视觉复核；用户可见修复已完成，v2.10.10 发布候选验证进行中；本地旧归档与生成物清理已按用户授权完成，证据见 `docs/maintenance/destructive-cleanup-manifest-20260912.md` |
 | 产品目标 | 本地优先的桌面专注工具：待办 → 专注 → 桌面提醒 → 保存记录 → 回看投入 → 可恢复地长期保留 |
-| 当前阶段 | 五套主题均已接入；MAINT-01 至 MAINT-06 瘦身、文档、远程审计和干净 checkout 验证已完成；REFINE-13 的 Night Valley“计时”页修复、Windows native 验收和 REL-12 v2.10.9 发布闭环均已完成；2026-09-12 本地旧归档与可再生生成物清理已完成；不扩展其他主题/页面 |
+| 当前阶段 | 五套主题均已接入；MAINT-01 至 MAINT-06 瘦身、文档、远程审计和干净 checkout 验证已完成；REFINE-13 的 Night Valley“计时”页修复、Windows native 验收和 REL-12 v2.10.9 发布闭环均已完成；2026-09-12 本地旧归档与可再生生成物清理已完成；UX-AUDIT-01 全主题逐页真实体验精修已完成，进入 REL-13 v2.10.10 发布闭环 |
 | 代码基线 | v2.10.9 发布代码提交为 `4115899a34b949d1cca031aa39f3f288d9fde521`，tag `v2.10.9` peeled commit 与其一致；v2.10.8 发布代码为 `96c22914e393924b7f5d312b5ce37ab675c25111`，旧 tag 未移动 |
-| 当前工作分支 | `main`；旧 CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06/DESK-01/DESK-02/DESK-03/ARCH-01/QA-01/PERF-01/TH-02/TH-03/TH-04/TH-05/DATA-01/REL-01 已完成；REFINE-03/REFINE-04/REFINE-05 DONE；REL-02/REL-03/REL-04 DONE；REFINE-06 REVIEW；REL-05 DONE；REFINE-07 REVIEW；REL-06 DONE；REFINE-08 REVIEW；REL-07 DONE；REFINE-09 REVIEW；REL-08 DONE；REFINE-10 REVIEW；REL-09 DONE；REFINE-11 REVIEW；REL-10 DONE；REFINE-12 REVIEW；REL-11 DONE；MAINT-01 至 MAINT-06 DONE；REFINE-13 DONE；REL-12 DONE；本地旧归档清理 DONE |
+| 当前工作分支 | `main`；旧 CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06/DESK-01/DESK-02/DESK-03/ARCH-01/QA-01/PERF-01/TH-02/TH-03/TH-04/TH-05/DATA-01/REL-01 已完成；REFINE-03/REFINE-04/REFINE-05 DONE；REL-02/REL-03/REL-04 DONE；REFINE-06 REVIEW；REL-05 DONE；REFINE-07 REVIEW；REL-06 DONE；REFINE-08 REVIEW；REL-07 DONE；REFINE-09 REVIEW；REL-08 DONE；REFINE-10 REVIEW；REL-09 DONE；REFINE-11 REVIEW；REL-10 DONE；REFINE-12 REVIEW；REL-11 DONE；MAINT-01 至 MAINT-06 DONE；REFINE-13 DONE；REL-12 DONE；本地旧归档清理 DONE；UX-AUDIT-01 DONE；REL-13 DOING |
 | 发布基线 | GitHub `v2.10.9`，tag peeled commit 为 `4115899`；Checks `34614788873`、macOS Native Smoke `34614788868`、macOS Release `34614841778` 均 PASS；Release 四项资产均为 uploaded，digest 见 `docs/v2.10.9/RELEASE_NOTES.md`；v2.10.8 tag/Release/资产未修改 |
 | 远程 main | `origin/main` 已包含 v2.10.9 发布代码提交 `4115899a34b949d1cca031aa39f3f288d9fde521` 及最终证据文档跟随提交 `9e7091bc33cbdaef40aeddade86123b57683f658`；GitHub Release `v2.10.9` 已正式发布并有四项资产；v2.10.8 tag、GitHub Release 与四项资产未触碰 |
-| 本轮交付 | 已完成 MAINT-02 清理与重建；MAINT-03 对 283 个清理前 tracked 文件、ignored 历史资料、素材、组件、依赖、脚本和 workflow 做引用审计，明确删除候选仅为无引用 `public/vite.svg`、`public/tauri.svg` 并从工作树移除；MAINT-04 重写 README 并验证全部本地链接/图片；MAINT-05 核对远程分支、tag、Release、资产和 Actions，未执行远程删除；MAINT-06 在 `ae6ac45` 干净 checkout 完成 install/check/build、前端 67/67、Rust 33/33、debug bundle、真实 Windows 启动与隔离数据验证；维护结果经 `804de40` 正常推送；REFINE-13 仅修改 Night Valley 计时页现有入口布局与对应回归断言，native/布局与最终回归完成；2.10.9 Windows 三项 bundle 与 macOS Universal DMG 已发布并核对 digest；本轮另按清单删除约 95.25 GiB 本地旧归档/生成物和无引用 ignored 旧副本；v2.10.8 Release 未触碰 |
-| 下一项 | 本轮发布与本地清理均无阻塞；后续若继续开发，先按 lockfile 重装本地依赖/构建缓存，再从新版本任务开始。当前明确边界是 Night Valley 没有独立 F11 命令，以及资源出处补录缺口仍按既有清单保留 |
-| 当前执行人 / 在做任务 | Codex / REL-12 v2.10.9 发布闭环与本地旧归档清理均已完成；修复范围只限第一套主题计时页 |
+| 本轮交付 | 已完成 MAINT-02 清理与重建；MAINT-03 对 283 个清理前 tracked 文件、ignored 历史资料、素材、组件、依赖、脚本和 workflow 做引用审计，明确删除候选仅为无引用 `public/vite.svg`、`public/tauri.svg` 并从工作树移除；MAINT-04 重写 README 并验证全部本地链接/图片；MAINT-05 核对远程分支、tag、Release、资产和 Actions，未执行远程删除；MAINT-06 在 `ae6ac45` 干净 checkout 完成 install/check/build、前端 67/67、Rust 33/33、debug bundle、真实 Windows 启动与隔离数据验证；维护结果经 `804de40` 正常推送；REFINE-13 仅修改 Night Valley 计时页现有入口布局与对应回归断言，native/布局与最终回归完成；2.10.9 Windows 三项 bundle 与 macOS Universal DMG 已发布并核对 digest；本轮另按清单删除约 95.25 GiB 本地旧归档/生成物和无引用 ignored 旧副本；UX-AUDIT-01 完成五套主题 25 页三轮真实体验，修复跨 Tab 滚动、无效记录占位、移动导航和图表日期点等问题；v2.10.8/v2.10.9 Release 未触碰 |
+| 下一项 | REL-13：完成 v2.10.10 的版本同步、Windows 打包、提交、正常推送、tag、远程 CI、macOS Universal DMG、GitHub Release 资产与 digest 核对 |
+| 当前执行人 / 在做任务 | Codex / REL-13 v2.10.10 发布闭环；UX-AUDIT-01 已完成，不重复清理、旧版本发布或 Night Valley 已完成的原生修复 |
 | 首套验收结论 | **Windows 原生核心闭环、编辑态计时刷新、主题渲染边界、QA-01 回退回归、五套主题 25 页前端回归、Editorial 长历史性能专项、v2.6.10/v2.7.0/v2.8.0/v2.9.0/v2.9.1 Windows 与 macOS 资产发布、CORE-03 macOS 原生数据目录与迁移、DESK-02 macOS 第二实例/托盘/浮窗/隔离安装启动、DATA-01 备份范围/隔离跨目录搬移/素材清单已通过**；资源出处补录缺口已在清单中保留为后续治理事项 |
 | source | 本轮用户说明；当前源码与测试；Git 提交/远程 refs；GitHub Release/Actions；本轮命令结果 |
 | supersedes | 旧文档中的 v1.4.1/v1.5.x/v1.10.0/v2.0 当前进度，以及 2026-09-06 摘要中的“其他四页未实现、主题注册未建立” |
-| pending | 本轮没有发布阻塞；本地 `src-tauri/target`、`node_modules`、`dist`、`test-results` 和临时验证目录已按授权清理，下次开发前需重建；Night Valley 当前没有独立 F11/全屏产品命令，本轮结论限定为无边框全屏几何和 CSS 全屏布局；资源出处补录缺口仍按既有清单保留；如继续用户可见迭代，必须新建版本任务并重新执行发布纪律 |
+| pending | REL-13 尚未完成；需要完成 v2.10.10 正式打包、远程 CI、macOS Universal DMG、GitHub Release 资产和 digest 核对；Night Valley 当前没有独立 F11/全屏产品命令，本轮结论限定为无边框全屏几何和 CSS 全屏布局；资源出处补录缺口仍按既有清单保留 |
 
 ### 2026-09-11 21:49 断点复核
 

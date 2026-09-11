@@ -337,6 +337,15 @@
   .minimal-app[data-theme="graphite-console"] .minimal-nav > button { padding: 0 4px !important; font-size: 0.64rem; letter-spacing: 0; }.minimal-app[data-theme="graphite-console"] .trail-nav__brand strong, .minimal-app[data-theme="graphite-console"] .trail-nav__brand > span:last-child { font-size: 0.52rem; }.gc-panel { padding: 12px 10px; }.gc-task-grid { grid-template-columns: 1fr; }.gc-todo-card { min-height: 120px; }.gc-dial-module { padding: 10px; }.gc-dial { width: 90%; }.gc-dial__face > strong { font-size: 2.05rem; }.gc-operation-card h2 { font-size: 1.25rem; }
 }
 
+/* The audio panel now exposes only the alert sound controls. Keep the
+   remaining field and action group together instead of reserving a dead
+   third column for the removed ambient-sound selector. */
+@media (min-width: 641px) {
+  .minimal-app[data-theme="graphite-console"] .gc-audio-grid {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}
+
 /* REFINE-03 / Graphite Console v2
    This layer intentionally changes the layout language, not just the palette:
    the reference is a physical operations console with bays, bezels and signal

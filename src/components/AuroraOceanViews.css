@@ -1522,6 +1522,13 @@
   overflow: visible;
 }
 
+.minimal-app.minimal-app--cinematic[data-theme="aurora-ocean"] .ao-archive-points {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
 .minimal-app.minimal-app--cinematic[data-theme="aurora-ocean"] .ao-archive-grid {
   fill: none;
   stroke: rgba(146, 228, 224, 0.12);
@@ -1550,6 +1557,7 @@
   background: transparent;
   color: var(--ao-muted);
   transform: translateX(-50%);
+  pointer-events: auto;
 }
 
 .minimal-app.minimal-app--cinematic[data-theme="aurora-ocean"] .ao-archive-point i {

@@ -1287,6 +1287,9 @@ function MainShell() {
 
   function changeView(view: AppView) {
     setActiveView(view);
+    // A tab is a new destination. Do not carry a long records/settings
+    // document position into the next page and hide its heading.
+    document.scrollingElement?.scrollTo(0, 0);
     if (view === "settings") {
       void loadBackups();
     }

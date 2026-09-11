@@ -894,3 +894,11 @@
     color: var(--ep-rust) !important;
   }
 }
+
+/* The late shell reset restores the brand on desktop with !important. Keep
+   that reset from consuming a grid cell in the compact mobile tab rail. */
+@media (max-width: 820px) {
+  .minimal-app[data-theme="editorial-paper"] .minimal-nav .trail-nav__brand {
+    display: none !important;
+  }
+}
