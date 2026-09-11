@@ -4,7 +4,7 @@
 主题：第一套主题 Night Valley / 夜谷  
 界面：计时 / 专注计时  
 版本：v2.10.6  
-状态：本地验证完成，待远程发布闭环
+状态：已完成本地验证与远程发布，待用户验收
 
 ## 用户反馈与问题复述
 
@@ -70,4 +70,22 @@
 
 ## 远程发布闭环
 
-待提交并推送后补录：发布提交、v2.10.6 tag、GitHub Checks、macOS Native Smoke、Universal Release、GitHub Release 四项资产及远端 digest。
+| 项目 | 结果 |
+| --- | --- |
+| 发布提交 | `0ec12d810a88516e6db8bbe4b587d100af82627f` 已推送至 `origin/main` |
+| tag | `v2.10.6` 已创建并固定在发布提交 |
+| GitHub Checks | [34558337330](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34558337330)，PASS；前端与 Rust 共 65 项通过 |
+| macOS Native Smoke | [34558337332](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34558337332)，PASS |
+| macOS Universal Release | [34558410140](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34558410140)，PASS |
+| GitHub Release | [v2.10.6](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.10.6)，正式 Release，四项资产均 uploaded |
+
+远端 Release 资产与 digest：
+
+| 资产 | 大小 | 远端 SHA-256 |
+| --- | ---: | --- |
+| `Focused.Moment.v2.10.6.exe` | 23,733,248 bytes | `12f018178060fe0a06e5d0a2a0718dcc92304bfd53c8c352b2f07e04f7c99847` |
+| `Focused.Moment.Setup.v2.10.6.exe` | 16,127,835 bytes | `1ff296f072993cd5eebcaec02707ef15942ab48907f7ffbed1144725426f7542` |
+| `Focused.Moment_2.10.6_x64_en-US.msi` | 17,108,992 bytes | `8cf8c8f3be892b1bb39a3b37f4dd7c24271fed7a4360f209fab956cfe9ab3b18` |
+| `Focused.Moment_2.10.6_universal.dmg` | 34,262,117 bytes | `722f41b6a6f0c79b52c9e7ba690a81b9b54b2be298f818439c9709b56720ad90` |
+
+结论：v2.10.6 已完成版本同步、构建、打包、提交、推送、远程 CI、GitHub Release 与四项资产 digest 核对；本轮功能范围等待用户验收。

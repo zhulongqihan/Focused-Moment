@@ -40,5 +40,15 @@
 
 ## 发布状态
 
-- 发布代码与文档提交后，将创建不可移动的 `v2.10.6` tag，并等待 GitHub Checks、macOS Native Smoke、Universal Release 完成。
-- GitHub Release 资产与远端 digest 将在远程构建完成后补录。
+- 发布提交为 `0ec12d8`（`0ec12d810a88516e6db8bbe4b587d100af82627f`），`v2.10.6` tag 已创建并固定在该提交。
+- [GitHub Checks](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34558337330)、[macOS Native Smoke](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34558337332) 与 [macOS Release](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34558410140) 均已通过。
+- [GitHub Release v2.10.6](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.10.6) 已发布，四项资产均为 uploaded：
+
+| 远端资产 | 大小 | 远端 SHA-256 |
+| --- | ---: | --- |
+| `Focused.Moment.v2.10.6.exe` | 23,733,248 bytes | `12f018178060fe0a06e5d0a2a0718dcc92304bfd53c8c352b2f07e04f7c99847` |
+| `Focused.Moment.Setup.v2.10.6.exe` | 16,127,835 bytes | `1ff296f072993cd5eebcaec02707ef15942ab48907f7ffbed1144725426f7542` |
+| `Focused.Moment_2.10.6_x64_en-US.msi` | 17,108,992 bytes | `8cf8c8f3be892b1bb39a3b37f4dd7c24271fed7a4360f209fab956cfe9ab3b18` |
+| `Focused.Moment_2.10.6_universal.dmg` | 34,262,117 bytes | `722f41b6a6f0c79b52c9e7ba690a81b9b54b2be298f818439c9709b56720ad90` |
+
+- Windows 三项远端 digest 与本地 v2.10.6 构建产物一致；当前版本等待用户验收。
