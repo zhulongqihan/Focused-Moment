@@ -7,20 +7,20 @@
 
 | 字段 | 当前值 |
 | --- | --- |
-| as_of / updated_at | 2026-09-11；Night Valley 第一套主题的“计时”页已修复悬浮窗返回主界面后的再次进入缺口，v2.10.8 已完成版本同步、测试、打包、提交、推送、远程 CI、macOS Universal 与 GitHub Release 闭环，等待用户验收 |
+| as_of / updated_at | 2026-09-11；用户最新实测确认 v2.10.8 的悬浮窗修复未通过：点击开始会打开悬浮窗，但主界面没有自动隐藏，运行中也找不到再次进入悬浮窗入口。计时修复已暂停，先执行项目瘦身与维护计划 |
 | 产品目标 | 本地优先的桌面专注工具：待办 → 专注 → 桌面提醒 → 保存记录 → 回看投入 → 可恢复地长期保留 |
-| 当前阶段 | 五套主题均已接入；当前只处理第一套主题 Night Valley 的“计时”页；REFINE-12 与 REL-11 已完成，等待用户验收，不自动展开其他主题或页面 |
+| 当前阶段 | 五套主题均已接入；Night Valley 的“计时”页问题按用户要求暂停修复，先做仓库/工作区只读审计、瘦身计划与安全边界；清理完成后再回到单主题单页面的计时问题 |
 | 代码基线 | v2.10.8 发布代码提交为 `96c2291`（`96c22914e393924b7f5d312b5ce37ab675c25111`），tag `v2.10.8` peeled commit 与其一致；v2.10.7 tag 固定在 `9f75902`；旧 tag 未移动 |
 | 当前工作分支 | `main`；旧 CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06/DESK-01/DESK-02/DESK-03/ARCH-01/QA-01/PERF-01/TH-02/TH-03/TH-04/TH-05/DATA-01/REL-01 已完成；REFINE-03/REFINE-04/REFINE-05 DONE；REL-02/REL-03/REL-04 DONE；REFINE-06 REVIEW；REL-05 DONE；REFINE-07 REVIEW；REL-06 DONE；REFINE-08 REVIEW；REL-07 DONE；REFINE-09 REVIEW；REL-08 DONE；REFINE-10 REVIEW；REL-09 DONE；REFINE-11 REVIEW；REL-10 DONE；REFINE-12 REVIEW；REL-11 DONE |
 | 发布基线 | GitHub `v2.10.8`，tag peeled commit 为 `96c2291`；Checks `34589143406`、macOS Native Smoke `34589143413`、macOS Release `34589231576` 均 PASS；Release 四项资产均为 uploaded，digest 见 `docs/v2.10.8/RELEASE_NOTES.md`；旧 tag 未移动 |
-| 远程 main | `origin/main` 当前为文档证据跟随提交 `a432daf652aea28473740bbc375c1457d4ce0cea`；v2.10.8 发布代码提交为 `96c22914e393924b7f5d312b5ce37ab675c25111`，tag、GitHub Release 与四项资产已收口；跟随提交 Checks `34590720366` 与 macOS Native Smoke `34590720364` 均 PASS |
-| 本轮交付 | 已确认 Night Valley 计时页在返回主界面后缺少再次进入悬浮窗入口；已复用既有 `showFocusFloating` 动作，在已有计时进度时显示“进入悬浮窗”，并补充空状态与往返回归；本地前端 67/67、构建、Rust 33/33、Windows v2.10.8 候选包、远程三条工作流与四项 Release 资产均已通过/核对 |
-| 下一项 | 等待用户验收；继续按逐主题、逐界面处理，不批量展开其他页面 |
-| 当前执行人 / 在做任务 | Codex / REFINE-12 修复与 REL-11 v2.10.8 发布闭环已完成，当前等待用户验收 |
+| 远程 main | `origin/main` 与当前工作树在本轮开始时均为 `3977cd6368b4c999fcae22cfc6b56418a379777f`；v2.10.8 发布代码提交为 `96c22914e393924b7f5d312b5ce37ab675c25111`，tag、GitHub Release 与四项资产已收口；最新跟随提交 Checks `34591659870` 与 macOS Native Smoke `34591659993` 均 PASS |
+| 本轮交付 | 没有修改代码。已记录用户对 v2.10.8 的最新失败实测，并完成仓库/工作区/GitHub 的只读盘点；新增项目瘦身与 README/GitHub 维护计划，清理、删除、README 重写和 GitHub 变更均暂不执行 |
+| 下一项 | 先按 `docs/maintenance/PROJECT_SLIMMING_PLAN.md` 执行 MAINT-02/03 的安全审计与分阶段清理；清理闭环后再进入 REFINE-13，继续只处理 Night Valley 的“计时”页 |
+| 当前执行人 / 在做任务 | Codex / MAINT-01 项目瘦身审计与计划记录；计时修复暂停，不领取 REFINE-13 |
 | 首套验收结论 | **Windows 原生核心闭环、编辑态计时刷新、主题渲染边界、QA-01 回退回归、五套主题 25 页前端回归、Editorial 长历史性能专项、v2.6.10/v2.7.0/v2.8.0/v2.9.0/v2.9.1 Windows 与 macOS 资产发布、CORE-03 macOS 原生数据目录与迁移、DESK-02 macOS 第二实例/托盘/浮窗/隔离安装启动、DATA-01 备份范围/隔离跨目录搬移/素材清单已通过**；资源出处补录缺口已在清单中保留为后续治理事项 |
 | source | 本轮用户说明；当前源码与测试；Git 提交/远程 refs；GitHub Release/Actions；本轮命令结果 |
 | supersedes | 旧文档中的 v1.4.1/v1.5.x/v1.10.0/v2.0 当前进度，以及 2026-09-06 摘要中的“其他四页未实现、主题注册未建立” |
-| pending | REFINE-12 用户验收；REFINE-11/REFINE-10/REFINE-09/REFINE-08/REFINE-07 历史页面仍按既有验收状态保留；资源出处补录缺口仍按既有清单保留为后续治理事项 |
+| pending | REFINE-12 实测未通过且暂停：主界面未自动隐藏、运行中无再次进入悬浮窗入口；MAINT-01 计划待复核，后续执行工作区/仓库瘦身；REFINE-11/REFINE-10/REFINE-09/REFINE-08/REFINE-07 历史页面仍按既有验收状态保留；资源出处补录缺口仍按既有清单保留 |
 
 ### 最新用户纠正与主题精修阶段（2026-09-09）
 
@@ -43,6 +43,14 @@
 2026-09-09 23:22：用户指出启动协议遗漏项目最高优先级的版本更迭、版本源同步、正式打包、提交、推送、远程 CI、GitHub Release 资产与 digest 核对。本工作单元已将这些步骤改为强制完成条件，并明确仅文档/计划变更的例外；本次只修正流程文档，不升应用版本、不重打 `v2.10.0` 资产。
 
 **进度读取规则：**最新明确用户要求 > 当前源码/运行结果/远程事实 > 本看板 > 历史文档。后续开始工作先刷新以上版本和提交，不能把今天的基线当永久事实。任务勾选必须有结果证据，不能按版本号、文件数或截图数量计算“完成百分比”。
+
+### 2026-09-11 最新用户纠正：计时修复暂停，先做项目瘦身
+
+用户最新实测取代了旧的“REFINE-12 已可验收”判断：点击开始后专注悬浮窗会弹出，但主界面没有自动隐藏；返回主界面后，运行中的计时页仍找不到再次打开悬浮窗的入口。本条是当前有效事实，不能被此前的 Playwright/Tauri mock 通过结果覆盖。
+
+本工作单元只做状态对账、只读扫描和计划落盘，不修改计时/窗口代码，不删除任何文件，不重写 README，不删除远程分支、tag、Release 资产或 Actions 产物。完整范围、证据、清理顺序、回滚和验收门槛见 `docs/maintenance/PROJECT_SLIMMING_PLAN.md`。
+
+用户提到的“为什么一个小 bug 会花很久”暂按三个可验证因素记录：每次用户可见代码变更都要经过版本同步、测试、打包、提交、推送、远程 CI、跨平台资产和 Release 闭环；当前 `src/App.css` 与 `src/MainShell.tsx` 仍是大体量共享壳层，局部级联/状态依赖会放大改动；浏览器 mock 通过与 Windows 原生窗口行为之间存在证据落差。上述是维护假设，后续以 MAINT-01 的依赖/引用审计和 REFINE-13 的原生复现验证，不预先把任何一项写成唯一根因。
 
 ## 1. 项目已经是什么
 
@@ -196,8 +204,16 @@ CORE-03、DESK-02 为 macOS 下一次发布门槛，可与 Windows 首套验收�
 | REL-09 | P1 | DONE | REFINE-10 | v2.10.6 Night Valley Timer 全屏排版修复发布闭环：版本同步、Windows 包、远程 main/CI、macOS Universal、GitHub Release 与四项资产 digest 已完成 |
 | REFINE-11 | P1 | REVIEW | REL-09 | Night Valley 计时页第七轮数据一致性修复：将“今天已记录/今日已完成”统一接入按日期汇总的 `todaySessionCount`，覆盖已有记录但计时运行态为 0 的场景；v2.10.7 已发布，待用户验收 |
 | REL-10 | P1 | DONE | REFINE-11 | v2.10.7 Night Valley Timer 今日记录数修复发布闭环：版本同步、完整验证、Windows/macOS 资产、远程 main/CI、GitHub Release 与 digest 核对已完成 |
-| REFINE-12 | P1 | REVIEW | REL-10 | Night Valley 计时页第八轮交互修复：修复从专注悬浮窗返回主界面后没有再次进入入口的问题，在已有进度时增加“进入悬浮窗”，并覆盖空状态与往返回归；v2.10.8 已发布，待用户验收 |
+| REFINE-12 | P1 | REVIEW | REL-10 | Night Valley 计时页第八轮交互修复候选：旧实现声称补齐从专注悬浮窗返回主界面后的再次进入入口，但用户最新实测不通过——开始后主界面未自动隐藏，运行中仍找不到入口；v2.10.8 已发布，当前暂停并等待后续重新复现 |
 | REL-11 | P1 | DONE | REFINE-12 | v2.10.8 Night Valley Timer 悬浮窗往返入口发布闭环：版本同步、完整本地验证、Windows 包、远程 main/tag/CI、macOS Universal、GitHub Release 与四项资产 digest 已完成 |
+| MAINT-01 | P1 | REVIEW | REFINE-12/REL-11 | 项目瘦身只读审计与可落地计划：记录失败实测、工作区/仓库/GitHub 基线、KEEP/ARCHIVE/DELETE-CANDIDATE/REFACTOR-CANDIDATE/UNKNOWN 分类和安全门槛；本工作单元不删除、不改代码 |
+| MAINT-02 | P1 | TODO | MAINT-01 | 生成物与本地工作区清理：仅处理证实可再生且不含用户数据的缓存/测试产物，清理前后完成基线、构建、测试和数据保护核对 |
+| MAINT-03 | P1 | TODO | MAINT-02 | 仓库内容精简：按引用图、构建脚本、历史证据和发布依赖整理 docs、设计资料、素材、脚本、依赖和候选死代码；不凭文件名或重复哈希直接删除 |
+| MAINT-04 | P1 | TODO | MAINT-02/03 | 面向用户重写 README：只保留准确的安装、使用、数据迁移、隐私、故障反馈和构建说明；不把未验收的悬浮窗行为写成已完成能力 |
+| MAINT-05 | P1 | TODO | MAINT-03/04 | GitHub 对应维护：先审查远程分支、tag、Release、Actions 产物和 README；任何远程删除/归档/资产操作先形成精确清单并复核，不重写历史、不移动已发布 tag |
+| MAINT-06 | P1 | TODO | MAINT-02/03/04/05 | 瘦身后的干净 checkout、完整验证、文档/远程状态闭环；确认正常使用不受影响后，才解除对 REFINE-13 的阻塞 |
+| REFINE-13 | P1 | TODO | MAINT-06 | Night Valley 单主题“计时”页重新复现并修复悬浮窗生命周期：开始后主界面隐藏、运行中可见且可用的再次进入入口、返回语义；必须用真实 Windows 原生证据覆盖，暂不扩展其他主题/页面 |
+| REL-12 | P1 | TODO | REFINE-13 | 仅当 REFINE-13 用户验收通过后，按版本同步、构建/打包、提交/推送、远程 CI、跨平台资产与 GitHub Release 闭环发布 |
 
 ### CORE-01 · 磁盘保存与恢复链（第一个执行任务）
 
@@ -571,6 +587,8 @@ NV-05 的具体键盘缺口：`CommandPalette.tsx` 声明 modal/listbox，但缺
 | 2026-09-11 | REL-09 证据跟随 | `0ec12d8`→`84cf823`；更新 `PROJECT_PLAN.md`、`docs/qa/REFINE-10-night-valley-timer-v2.10.6.md`、`docs/v2.10.6/RELEASE_NOTES.md` 的远程提交、流水线、Release 资产与 digest 证据；仅文档/计划同步，未改功能代码、未升版本；跟随提交 Checks `34559505218`、macOS Native Smoke `34559505258` 均 PASS；GitHub Release 说明已刷新 | REL-09 DONE；等待用户验收 |
 | 2026-09-11 | REFINE-11 / REL-10 | `aba70db`→`9f75902`；修改 `src/components/NightValleyViews.tsx`、`src/MainShell.tsx`、`tests/app.spec.mjs`，同步 v2.10.7 版本源、README、计划与发布说明；计时页改用与今日页一致的 `AnalyticsSnapshot.todaySessionCount`，新增当天已有记录而 `TimerSnapshot.completedFocusCount` 为 0 的回归；`pnpm check`、定向 Playwright 1/1、完整前端 66/66、Vite 2062 modules、cargo fmt/check/test locked（33/33）、`pnpm package:release`、`git diff --check` PASS；本地 Windows 三项 SHA 与远端四项资产 digest 已核对；Checks `34583376302`、macOS Native Smoke `34583376235`、Universal Release `34583470779` 均 PASS；`v2.10.7` tag 与 GitHub Release 已收口，证据见 `docs/qa/REFINE-11-night-valley-timer-daily-count-v2.10.7.md` | REFINE-11 REVIEW；REL-10 DONE；等待用户验收 |
 | 2026-09-11 | REFINE-12 / REL-11 | `9571b01`→`96c2291`（发布代码）→`a432daf`（文档证据跟随）；修改 `src/components/NightValleyViews.tsx`、`src/MainShell.tsx`、`src/App.css`、`tests/app.spec.mjs`，在已有计时进度的 Night Valley 计时卡片增加“进入悬浮窗”，并覆盖待开始状态与返回主界面后的回归；同步 v2.10.8 版本源、README、`docs/qa/REFINE-12-night-valley-focus-floating-reentry-v2.10.8.md` 与 `docs/v2.10.8/RELEASE_NOTES.md`；本地 `pnpm check`、定向 Playwright 1/1、完整前端 67/67、Vite 2062 modules、cargo fmt/check/test locked（33/33）、`pnpm package:release`、`git diff --check` PASS；发布代码 Checks `34589143406`、macOS Native Smoke `34589143413`、macOS Release `34589231576` 均 PASS；GitHub Release 四项资产 uploaded，远端 digest 已核对；文档跟随提交 Checks `34590720366`、macOS Native Smoke `34590720364` 均 PASS；证据见 `docs/qa/REFINE-12-night-valley-focus-floating-reentry-v2.10.8.md` | REFINE-12 REVIEW；REL-11 DONE；等待用户验收 |
+
+| 2026-09-11 | MAINT-01 | `3977cd6`→本轮计划文档工作树（待提交） | 只读核对当前用户纠正、Git/远程 main、分支/tag/Release/CI、工作区生成物、跟踪/忽略文件和静态引用；确认工作树干净，源码未改；新增 `docs/maintenance/PROJECT_SLIMMING_PLAN.md` 并同步本看板；未执行删除、README 重写、GitHub 变更、版本/打包/应用修复 | 只读盘点：跟踪文件 282；本地 `src-tauri/target` 约 85.9 GiB、`output` 约 363 MiB、`.playwright-cli` 约 41 MiB、`node_modules` 约 138 MiB；远程仓库公开、4 个分支、102 个 tag、无开放 PR，v2.10.8 四项资产仍完整；审计脚本在当前基线报告 derived 文件早于 `PROJECT_PLAN.md` 的 warning，无 canonical/event 错误 | 版本/Release 不变；当前 bug 未修复且按用户要求暂停 | MAINT-02（先复核计划再执行） |
 
 每条后续记录使用：`日期｜任务ID｜开始SHA→结束SHA｜修改文件｜验证命令与结果｜证据路径/链接｜版本/发布状态｜剩余问题｜下一ID`。没有执行的测试必须写“未执行”，不可复制上一版结果。
 
