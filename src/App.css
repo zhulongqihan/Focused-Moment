@@ -8364,3 +8364,76 @@ body,
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* v2.10.6 follow-up: preserve the natural height of every timer-card section.
+   Long readouts such as 01:00:00 must never be squeezed into the next section. */
+.minimal-app--cinematic[data-theme="night-valley"] .nv-focus-panel > * {
+  flex-shrink: 0;
+}
+
+.minimal-app--cinematic[data-theme="night-valley"] .nv-focus-panel__timer {
+  flex: 0 0 auto;
+}
+
+/* Keep a physically fullscreen window at common 125–150% display scaling
+   within one viewport while retaining readable, non-overlapping type. */
+@media (min-width: 821px) and (max-height: 960px) {
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-panel {
+    padding: 24px 28px 18px;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-panel__timer {
+    margin-top: 14px;
+    padding: 10px 0 10px;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-panel__timer > strong {
+    font-size: clamp(50px, 3.4vw, 58px);
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-panel__session-data {
+    gap: 14px;
+    margin-top: 9px;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-panel__status {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin: 10px 0;
+    line-height: 1.5;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-panel__status strong {
+    flex: 0 0 auto;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-mode-switcher {
+    margin-bottom: 8px;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-mode-switcher button {
+    min-height: 36px;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-field-grid {
+    gap: 10px 12px;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-field-grid .nv-field {
+    margin-top: 0;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-linked-todo-option {
+    margin-top: 10px;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-controls {
+    margin-top: 12px;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-reset {
+    min-height: 30px;
+    margin-top: 8px;
+  }
+}

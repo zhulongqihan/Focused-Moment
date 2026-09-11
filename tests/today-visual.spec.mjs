@@ -1197,3 +1197,76 @@ test("Night Valley timer fullscreen keeps the working workspace readable", async
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
   await page.screenshot({ path: "output/playwright/night-valley-timer-fullscreen.png", animations: "disabled" });
 });
+
+test("Night Valley timer keeps a one-hour readout separate from session facts", async ({ page }) => {
+  const viewport = { width: 2560, height: 1368 };
+  await page.setViewportSize(viewport);
+  await bootTodayReferenceMock(page, { recordCount: 7 });
+  await page.getByRole("button", { name: "计时", exact: true }).click();
+  await page.getByRole("button", { name: "60 分钟", exact: true }).click();
+
+  const timer = page.locator(".nv-focus-panel__timer");
+  await expect(timer).toContainText("01:00:00");
+  const metrics = await page.evaluate(() => {
+    const read = (selector) => {
+      const element = document.querySelector(selector);
+      const rect = element?.getBoundingClientRect();
+      return rect ? { top: rect.top, bottom: rect.bottom, height: rect.height } : null;
+    };
+    return {
+      timer: read(".nv-focus-panel__timer"),
+      readout: read(".nv-focus-panel__timer > strong"),
+      session: read(".nv-focus-panel__session-data"),
+      status: read(".nv-focus-panel__status"),
+    };
+  });
+
+  expect(metrics.timer).not.toBeNull();
+  expect(metrics.readout).not.toBeNull();
+  expect(metrics.session).not.toBeNull();
+  expect(metrics.status).not.toBeNull();
+  expect(metrics.readout.bottom).toBeLessThanOrEqual(metrics.session.top - 8);
+  expect(metrics.session.bottom).toBeLessThanOrEqual(metrics.status.top - 8);
+  await page.screenshot({ path: "output/playwright/night-valley-timer-one-hour.png", animations: "disabled" });
+});
+
+test("Night Valley timer survives a scaled fullscreen CSS viewport", async ({ page }) => {
+  // A 2560px physical fullscreen at 150% Windows scaling is about 1707 CSS px.
+  const viewport = { width: 1707, height: 912 };
+  await page.setViewportSize(viewport);
+  await bootTodayReferenceMock(page, { recordCount: 7 });
+  await page.getByRole("button", { name: "计时", exact: true }).click();
+  await page.getByRole("button", { name: "60 分钟", exact: true }).click();
+
+  const timer = page.locator(".nv-focus-panel__timer");
+  await expect(timer).toContainText("01:00:00");
+  const metrics = await page.evaluate(() => {
+    const read = (selector) => {
+      const element = document.querySelector(selector);
+      const rect = element?.getBoundingClientRect();
+      return rect ? { top: rect.top, bottom: rect.bottom, height: rect.height } : null;
+    };
+    return {
+      timer: read(".nv-focus-panel__timer"),
+      readout: read(".nv-focus-panel__timer > strong"),
+      session: read(".nv-focus-panel__session-data"),
+      status: read(".nv-focus-panel__status"),
+      panel: read(".nv-focus-panel"),
+      panelScroll: (() => {
+        const element = document.querySelector(".nv-focus-panel");
+        return element ? { clientHeight: element.clientHeight, scrollHeight: element.scrollHeight } : null;
+      })(),
+    };
+  });
+
+  expect(metrics.readout).not.toBeNull();
+  expect(metrics.session).not.toBeNull();
+  expect(metrics.status).not.toBeNull();
+  expect(metrics.panel).not.toBeNull();
+  expect(metrics.panelScroll).not.toBeNull();
+  expect(metrics.readout.bottom).toBeLessThanOrEqual(metrics.session.top - 8);
+  expect(metrics.session.bottom).toBeLessThanOrEqual(metrics.status.top - 8);
+  expect(metrics.panel.bottom).toBeLessThanOrEqual(viewport.height);
+  expect(metrics.panelScroll.scrollHeight).toBeLessThanOrEqual(metrics.panelScroll.clientHeight);
+  await page.screenshot({ path: "output/playwright/night-valley-timer-scaled-fullscreen.png", animations: "disabled" });
+});
