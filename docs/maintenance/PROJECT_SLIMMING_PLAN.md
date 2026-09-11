@@ -1,6 +1,6 @@
 # Focused Moment 项目瘦身与长期维护计划
 
-> 状态：`REVIEW`。本文件是计划与边界记录，不是本轮清理执行记录。
+> 状态：`DOING`。MAINT-01 对账、MAINT-02 可再生生成物清理、MAINT-03 内容审计、MAINT-04 README 重写与 MAINT-05 远程只读核对已完成，当前执行 MAINT-06 干净 checkout 验证；本文件仍是计划与边界记录，具体结果见各维护记录。
 >
 > 会话引用：`codex://threads/01a07e95-00d0-7691-81fd-61e313706eb2`
 >
@@ -41,16 +41,16 @@
 
 | 项目 | 当前事实 | 处理判断 |
 | --- | --- | --- |
-| 工作树 | `main` 干净；`HEAD` 与 `origin/main` 均为 `3977cd6`（完整 SHA 见根目录计划） | 保留为清理起点 |
+| 工作树 | `main` 干净；`HEAD` 与 `origin/main` 均为 `0bade57`（完整 SHA 见根目录计划） | 保留为清理起点 |
 | 发布基线 | v2.10.8 tag 的代码提交为 `96c2291`；GitHub Release 为正式 Release，EXE、Setup EXE、MSI、Universal DMG 四项资产均存在 | 只读保护，不删除/替换 |
-| Git 历史 | 全部 refs 约 242 个提交、102 个 tag；远程有 main 加 3 个非主分支 | 先列精确清单，再决定是否归档/删除 |
-| 跟踪文件 | 282 个；其中 152 个 Markdown、82 个 PNG | 逐类判定，不以数量为目标 |
+| Git 历史 | 全部 refs 约 242 个提交、本地 102 个 tag；远程 API 现有 104 个 tag（额外为 `v0.11.9`、`v0.2.1`）；远程有 main 加 3 个非主分支 | 先列精确清单，再决定是否归档/删除；不删除 tag |
+| 跟踪文件 | 283 个；其中 tracked/ignored 统计以本次清理 manifest 为准 | 逐类判定，不以数量为目标 |
 | 源码体量 | 当前 `src/App.css` 约 7,624 行，`src/MainShell.tsx` 约 2,201 行；这是维护风险信号，不是直接删除理由 | 后续只做有引用图和回归证据的有限收口 |
-| 本地生成物 | `src-tauri/target` 约 85.9 GiB，其中 debug 约 72.3 GiB、release 约 6.7 GiB；`output` 约 363 MiB；`.playwright-cli` 约 41 MiB；`node_modules` 约 138 MiB；`dist` 约 14 MiB | 首批清理候选，但要先确认可再生、无用户数据 |
+| 本地生成物 | `src-tauri/target` 文件长度合计约 79.002 GiB，其中 debug 约 72.282 GiB、release 约 6.713 GiB；另有 `target-hotfix` 约 4.854 GiB；`output` 约 363.1 MiB；`.playwright-cli` 约 40.9 MiB；`node_modules` 约 137.7 MiB；`dist` 约 14.0 MiB | 首批仅清理清单中已确认可再生、无用户数据且无活动进程占用的目录；output/Playwright 证据保留 |
 | 忽略内容 | 当前约 121,359 个被忽略项，主要来自 `src-tauri/target`、`node_modules`、`output`；另有 138 个被 `.gitignore` 隐藏的历史/分析文档 | 分开处理“本地缓存”和“仓库文档盲区” |
 | 根目录产物 | 有当前/旧版本 EXE、Setup EXE 及 5 张 README 预览图；`.release` 有发布元数据和旧版本辅助文件 | 当前安装包和用户预览先保留 |
 | 个人数据线索 | 根目录存在 `Focused Moment Backups`，含两个备份文件；本轮仅确认路径和文件存在，没有读取内容 | 永久保护，任何清理前单独确认 |
-| GitHub | 公开 MIT 仓库；无开放 PR；v2.10.8 为 Latest；最近 main 的 Checks 与 macOS Native Smoke 均成功 | 远程变更必须有精确清单和回滚边界 |
+| GitHub | 公开 MIT 仓库；无开放 PR；v2.10.8 为 Latest；针对 `0bade57` 的 Checks `34594860391` 与 macOS Native Smoke `34594860252` 均成功 | 远程变更必须有精确清单和回滚边界 |
 
 ### 已发现但不能直接删除的内容
 
@@ -82,12 +82,12 @@
 
 ## 5. 分阶段执行方案
 
-### MAINT-01：基线、引用图和清单（当前工作单元，`REVIEW`）
+### MAINT-01：基线、引用图和清单（已完成，`DONE`）
 
-- 已完成只读核对：工作树、main、tag、Release、Actions、跟踪/忽略文件、生成物体量、根目录特殊目录和静态引用。
+- 已完成只读核对：工作树、main、tag、Release、Actions、跟踪/忽略文件、生成物体量、根目录特殊目录和静态引用；实际 `HEAD`/`origin/main` 为 `0bade57`，修正了计划中残留的 `3977cd6`/`edb7c18` 基线。
 - 已记录用户最新失败实测，并将旧的“修复成功”降级为“历史测试结果”。
-- 已新增本文件并同步 `PROJECT_PLAN.md`。
-- 本阶段不删除、不移动、不改 README、不改 GitHub、不改代码。
+- 已新增本文件并同步 `PROJECT_PLAN.md`；清理前分类和保护边界见 `cleanup-manifest-20260911-2016.md`。
+- MAINT-01 对账完成；MAINT-02 已按 manifest 处理精确生成物目录，仍未修改计时/窗口代码、README 或 GitHub 远程对象。
 
 ### MAINT-02：先清理可再生工作区产物
 
@@ -98,9 +98,11 @@
 5. 从干净状态重新安装依赖并执行类型检查、构建、前端回归和 Rust 检查；若清理导致工具链不能重建，立即回滚。
 6. 记录清理前后空间、重建耗时和新生成物位置；不把“目录变小”写成产品性能改善。
 
+本轮执行结果：七个精确目录均已移动到 `F:\Focused Moment Maintenance Archive 20260911-2016`，没有不可逆删除；`pnpm install --frozen-lockfile`、`pnpm check`、`pnpm build`、`pnpm test:frontend -- --workers=1`（67/67）、`cargo fmt --check`、`cargo check --locked`、`cargo test --locked`（33/33）和 `git diff --check` 均通过。清理后的体量、备份保护和“应用启动尚待 MAINT-06/原生验证”的边界见 `cleanup-manifest-20260911-2016.md`。
+
 ### MAINT-03：精简仓库内容和维护结构
 
-- 对 282 个跟踪文件和 138 个被忽略文档做引用、导入、脚本、工作流、README 链接和历史证据审计。
+- 对基线 283 个跟踪文件和 138 个被忽略文档完成引用、导入、脚本、工作流、README 链接和历史证据审计；两份无引用脚手架 SVG 已列为删除候选并从工作树移除，最终验证门槛交给 MAINT-06。
 - `PROJECT_PLAN.md`、`AGENTS.md`、`PRODUCT.md`、`THEME_REFINEMENT_PROMPT.md`、当前 QA 证据、版本 Release notes、设计概念图和运行时素材先按 `KEEP` 保护。
 - 历史路线图、旧摘要、旧版本辅助说明与重复分析资料，先建立“保留/归档/删除候选”清单；不把历史内容悄悄改写成当前事实。
 - 对 `public/vite.svg`、`public/tauri.svg` 做无引用确认；若删除，必须通过干净 checkout 的构建、启动和页面回归。
@@ -120,6 +122,8 @@
 
 README 不写内部任务状态，不把当前尚未重新验收的悬浮窗生命周期写成已解决，不承诺没有证据的签名、公证或平台行为。重写后检查图片、Release、Issues、构建命令和相对路径链接。
 
+本轮结果：README 已按上述边界重写；9 个相对图片/文件链接目标全部存在，Windows/macOS 下载说明、数据迁移、隐私边界和计时页当前未验收状态均已核对。
+
 ### MAINT-05：GitHub 对应维护
 
 先只读收集远程对象，再生成精确操作清单：
@@ -130,6 +134,8 @@ README 不写内部任务状态，不把当前尚未重新验收的悬浮窗生�
 4. Actions：只清理明确的临时 artifact 或失败证据，并记录 run ID、文件范围和保留理由；Release 资产与 Actions artifact 分开处理。
 5. README：更新主线文档后检查 GitHub 首页渲染；如需刷新当前 Release 说明，做文档跟随提交，不制造没有应用变化的空版本。
 6. 所有远程删除、归档、资产清理操作都必须在执行前形成精确列表并复核；如果涉及不可逆删除，暂停等待用户确认。
+
+本轮结果：已核对公开仓库、默认分支、4 个远程分支、远程历史 tag、开放 PR、Actions 和 Release；无开放 PR，`v2.10.8` 仍为 Latest，四项资产均为 `uploaded`。未执行任何远程删除、归档、资产替换或历史改写，详见 `github-maintenance-audit-20260911.md`。
 
 ### MAINT-06：瘦身后的闭环
 
@@ -157,7 +163,7 @@ README 不写内部任务状态，不把当前尚未重新验收的悬浮窗生�
 - 工作树和个人备份未被改变，清理 manifest 与分类证据完整。
 - `pnpm install --frozen-lockfile`、`pnpm check`、`pnpm build`、`pnpm test:frontend` 通过。
 - `cargo fmt --check --manifest-path src-tauri/Cargo.toml`、`cargo check --locked --manifest-path src-tauri/Cargo.toml`、`cargo test --locked --manifest-path src-tauri/Cargo.toml` 通过。
-- 干净 checkout 可重建；脚本、Tauri capability、主题预览、素材和 README 链接不失效。
+- 干净 checkout 可重建；脚本、Tauri capability、主题预览、素材和 README 链接不失效。两个无引用 SVG 的删除候选必须在该 checkout 中完成最终门槛。
 - `git diff --check` 通过；提交只包含授权的清理/文档内容。
 
 ### 如果清理触及运行时代码或用户可见行为
@@ -176,12 +182,12 @@ README 不写内部任务状态，不把当前尚未重新验收的悬浮窗生�
 
 | 任务 | 状态 | 交付物 |
 | --- | --- | --- |
-| MAINT-01 | `REVIEW` | 本计划、只读基线、失败实测记录、初步候选和不删除边界 |
-| MAINT-02 | `TODO` | 工作区生成物清理 manifest、前后体量、重建与回归结果 |
-| MAINT-03 | `TODO` | KEEP/ARCHIVE/DELETE-CANDIDATE/REFACTOR-CANDIDATE/UNKNOWN 清单、引用审计和归档说明 |
-| MAINT-04 | `TODO` | 面向用户的 README、链接/图片/安装说明验证 |
-| MAINT-05 | `TODO` | GitHub 分支/tag/Release/Actions 操作清单、执行结果和回滚记录 |
-| MAINT-06 | `TODO` | 干净 checkout 验证、最终清理报告、计划同步和下一任务解锁结论 |
+| MAINT-01 | `DONE` | 本计划、实际 Git/远程只读基线、失败实测记录、初步候选和不删除边界；`cleanup-manifest-20260911-2016.md` |
+| MAINT-02 | `DONE` | 工作区生成物清理 manifest、前后体量、重建与回归结果 |
+| MAINT-03 | `DONE` | KEEP/ARCHIVE/DELETE-CANDIDATE/REFACTOR-CANDIDATE/UNKNOWN 清单、引用审计和归档说明；`repository-audit-20260911.md` |
+| MAINT-04 | `DONE` | 面向用户的 README、链接/图片/安装说明验证 |
+| MAINT-05 | `DONE` | GitHub 分支/tag/Release/Actions 操作清单、执行结果和回滚边界；`github-maintenance-audit-20260911.md` |
+| MAINT-06 | `DOING` | 干净 checkout 验证、最终清理报告、计划同步和下一任务解锁结论 |
 | REFINE-13 | `TODO` | 计时页原生复现、单页面修复和用户验收证据；本计划完成前不得开始 |
 
 ## 9. 当前暂停清单
@@ -192,4 +198,4 @@ README 不写内部任务状态，不把当前尚未重新验收的悬浮窗生�
 - 计时中再次进入悬浮窗的按钮/入口；
 - 计时页布局、文案、卡片、曲线、日期时间或其他 UI 调整；
 - 其他四套主题、其他 tab 页和批量视觉重做；
-- README 实际重写和 GitHub 远程删除/归档操作。
+- GitHub 远程删除/归档操作；README 已在 MAINT-04 完成重写并验证本地链接。

@@ -7,7 +7,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20x64%20%7C%20macOS%20Universal-173f2e?style=flat-square)](https://github.com/zhulongqihan/Focused-Moment/releases/latest)
 [![License](https://img.shields.io/badge/license-MIT-cb6d4b?style=flat-square)](https://github.com/zhulongqihan/Focused-Moment)
 
-Focused Moment 适合需要长期保留待办和专注记录、但不想使用复杂项目管理系统的人。它保持界面克制，把真正重要的路径连在一起：写下要做的事 → 开始专注 → 桌面上保持状态 → 完成后留下记录 → 回看自己的投入。
+Focused Moment 适合需要长期保留待办和专注记录、但不想使用复杂项目管理系统的人。它把路径压缩成几步：写下要做的事，开始专注，在桌面上保持状态，完成后留下记录，再回看自己的投入。
 
 ## 预览
 
@@ -19,79 +19,72 @@ Focused Moment 适合需要长期保留待办和专注记录、但不想使用�
 | --- | --- |
 | ![待办管理](./管理待办.png) | ![时间档案](./状态复盘.png) |
 
-## 核心能力
+## 主要功能
 
-- **今日驾驶舱**：打开应用就能看到当前状态、下一件事和今天已经留下的进展。
-- **待办闭环**：待办必须有截止日期，支持时间、重要程度、编辑、完成和撤销；可以直接带入专注。
-- **两种计时方式**：正向计时记录实际投入；倒计时支持 1–720 分钟，并在结束时提醒。
-- **悬浮工作台**：待办和当前计时在同一个置顶窗口中切换。有活动计时时自动显示“当前计时” Tab，没有计时时只显示待办。
-- **多通道提醒**：应用内弹窗、Windows 任务栏闪烁和声音提醒；支持导入本地自定义音效。
-- **时间档案**：连续投入、累计时长、活跃天数、最佳单日和最近 7 日节奏，全部基于真实记录生成。
-- **每日一句**：内置 1000 条带来源与许可信息的中文古典、英文公版语料，按日期稳定选取；英文条目同时展示中文译文。
-- **本地保护**：数据保存在本机，支持备份、恢复、导出备份目录和清空当前数据；旧版备份可以自动迁移。
-- **体验保护**：加载失败会明确提示；删除待办或记录后可以在短时间内撤销；支持键盘命令面板。
+- **今日**：查看当前状态、下一件待办和当天已经留下的进展。
+- **待办**：创建带截止日期的事项，设置时间和重要程度，编辑、完成、撤销或直接带入专注。
+- **计时**：支持正向计时和 1–720 分钟倒计时；可以开始、暂停、继续、重置，并在完成后保存记录。
+- **悬浮工作台**：把待办和当前计时放到桌面上的置顶窗口中，支持待办/当前计时 Tab、拖动和锁定操作。
+- **记录**：查看连续投入、累计时长、活跃天数、最佳单日和最近 7 日节奏。
+- **设置**：配置提醒方式、自定义声音、外观主题、本地备份与恢复。
+- **每日一句**：内置本地语料库，按日期稳定选择；英文条目附带中文译文与来源信息。
+- **本地优先**：待办、记录、运行态和设置留在本机，不要求注册账号。
+
+## 当前版本说明
+
+当前稳定版本是 [v2.10.8](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.10.8)。该版本的前端回归和发布资产已完成验证；但计时页悬浮窗的 Windows 原生生命周期仍在继续复现：用户反馈包含“开始后主界面没有自动隐藏”和“返回主界面后没有再次进入入口”。因此，README 不把这两个行为写成已经验收的保证；如果你依赖悬浮窗连续工作，请在升级前先保留本地备份，并在 [Issues](https://github.com/zhulongqihan/Focused-Moment/issues) 提供复现步骤。
 
 ## 下载与安装
 
-前往 [最新 Release](https://github.com/zhulongqihan/Focused-Moment/releases/latest)，按需要选择：
+前往 [最新 Release](https://github.com/zhulongqihan/Focused-Moment/releases/latest)，按平台选择：
 
 | 文件 | 适合谁 | 说明 |
 | --- | --- | --- |
-| `Focused.Moment.Setup.*.exe` | 大多数用户 | 推荐。标准 Windows 安装程序，安装后可从开始菜单启动。 |
+| `Focused.Moment.Setup.*.exe` | 大多数 Windows 用户 | 推荐的标准安装程序，安装后可从开始菜单启动。 |
 | `Focused.Moment_*.msi` | 企业部署或习惯 MSI 的用户 | Windows Installer 包。 |
 | `Focused.Moment.*.exe` | 便携使用 | 单文件版本，可直接运行，不需要安装。 |
 | `Focused.Moment_*_universal.dmg` | macOS 用户 | Universal 磁盘映像，同时支持 Apple 芯片和 Intel Mac。 |
 
-运行版已经包含应用所需的前端资源和 Rust 核心，普通用户不需要安装 Node.js、Rust、pnpm 或下载源码。当前 Release 同时提供 Windows x64 和 macOS Universal 版本。
+运行版已经包含前端资源和 Rust 核心，普通用户不需要安装 Node.js、Rust、pnpm 或下载源码。
 
-> 如果 Windows SmartScreen 对未签名程序显示提示，请确认文件来自本仓库的 [Release 页面](https://github.com/zhulongqihan/Focused-Moment/releases)，再按系统提示选择继续运行。
-
-> macOS 发布包目前未使用 Apple Developer 证书签名。首次打开时，如果系统阻止应用运行，请在 Finder 中按住 Control 点击应用，选择“打开”，再确认一次即可。
-
-## 新电脑能否获得同样体验？
-
-可以获得同样的功能和界面体验。安装包内已经包含：
-
-- 完整的今日、待办、计时、记录和设置页面；
-- 悬浮工作台、任务栏闪烁、声音提醒等应用能力；
-- 1000 条每日句子语料；
-- 应用启动所需的前端与后端运行内容。
-
-但新电脑不会自动拥有当前电脑的个人数据：待办、专注记录、当前未完成计时、自定义音效和历史备份都保存在本机。迁移方式：
-
-1. 在旧电脑的“设置”中导出本地备份。
-2. 将备份文件复制到新电脑。
-3. 在新电脑安装应用后，在“设置”中导入备份。
-
-应用数据由系统按平台保存在本机应用数据目录中，用户备份位于其中的 `Focused Moment Backups` 文件夹。迁移个人数据时，优先使用应用内备份/恢复，不建议手动修改 JSON 文件。
+如果 Windows SmartScreen 提示未签名，请先确认文件来自本仓库的 [Release 页面](https://github.com/zhulongqihan/Focused-Moment/releases)，再按系统提示继续。macOS 发布包目前未使用 Apple Developer 证书签名；首次打开被系统拦截时，在 Finder 中按住 Control 点击应用，选择“打开”并确认一次即可。
 
 ## 快速开始
 
 1. 在“待办”写下事项、截止日期和重要程度。
-2. 点击“专注”，选择正向计时或倒计时。
-3. 写下这一轮要完成的事，点击“开始”。
-4. 正向计时开始后，应用会自动打开悬浮工作台；你可以在“待办”和“当前计时”之间切换。
-5. 暂停、继续或完成后保存记录，在“记录”页面回看自己的节奏。
+2. 打开“计时”，选择正向计时或倒计时，填写本轮事项。
+3. 点击“开始”，按需要暂停、继续或完成。
+4. 完成后保存记录，在“记录”页面回看投入。
+5. 需要桌面陪伴时打开悬浮工作台，在“待办”和“当前计时”之间切换。
 
 ### 悬浮工作台
 
-- 顶部 Tab：**待办** / **当前计时**。
-- 有活动计时时，打开工作台会自动切到当前计时。
-- 点击锁图标后开启鼠标穿透；点击独立的小锁可以恢复操作。
-- 拖动标题区域可以移动悬浮窗口。
-- 点击“返回”可以回到主窗口；计时状态不会丢失。
+- 有活动计时时，工作台可以显示“当前计时”；没有活动计时时显示待办。
+- 顶部 Tab 用于切换待办和当前计时。
+- 拖动标题区域可以移动窗口。
+- 点击锁图标可开启鼠标穿透，再通过独立的小锁恢复操作。
+- 计时状态由应用运行态保存；关闭或返回行为请以当前版本的实际提示为准，计时页的 Windows 原生往返体验仍在修复验证中。
 
-## 数据与隐私
+## 数据、备份与隐私
 
-- 核心功能本地运行，不要求注册账号。
-- 待办、记录、计时状态和设置保存在当前 Windows 用户的本地应用目录。
-- 每日句子语料随应用发布，不依赖运行时网络请求。
-- 应用不会自动上传待办、专注记录或备份文件。
-- 自定义音效只保存在本机浏览器存储中，不会随安装包上传。
+Windows 使用 `%LOCALAPPDATA%\FocusedMoment`，macOS 使用 `~/Library/Application Support/FocusedMoment`。应用数据包括：
+
+- 待办、专注记录和运行中的计时状态；
+- `focused-moment-state.json`、`focused-moment-runtime.json` 及其快照备份；
+- “Focused Moment Backups” 文件夹中的应用内导出备份；
+- 自定义声音等本地设置。
+
+迁移到新电脑时，推荐使用应用内流程：
+
+1. 在旧电脑的“设置”中导出本地备份。
+2. 将备份 JSON 文件复制到新电脑。
+3. 安装应用后，在“设置”中导入备份。
+
+应用会在导入前保留回滚备份，并支持从旧格式迁移。不要手动修改 JSON；如果导入失败，保留原文件并先复制一份再重试。应用核心功能不要求网络，也不会自动上传待办、记录或备份；自定义声音只保存在本机。
 
 ## 从源码构建
 
-项目当前进度、整体验收与后续执行队列见根目录 [项目总览与持续执行计划](./PROJECT_PLAN.md)。继续开发前请先核对其中的基线和任务依赖。
+继续开发前请先阅读根目录的 [AGENTS.md](./AGENTS.md) 和 [项目总览与持续执行计划](./PROJECT_PLAN.md)。
 
 ### 环境要求
 
@@ -104,7 +97,7 @@ Focused Moment 适合需要长期保留待办和专注记录、但不想使用�
 ### 开发
 
 ```bash
-pnpm install
+pnpm install --frozen-lockfile
 pnpm dev
 ```
 
@@ -115,58 +108,53 @@ pnpm check
 pnpm build
 pnpm test:frontend
 cargo fmt --check --manifest-path src-tauri/Cargo.toml
-cargo check --manifest-path src-tauri/Cargo.toml
-cargo test --manifest-path src-tauri/Cargo.toml
+cargo check --locked --manifest-path src-tauri/Cargo.toml
+cargo test --locked --manifest-path src-tauri/Cargo.toml
 ```
 
-### 构建 Windows 安装包
+前端流程测试会启动本地 Vite 服务并运行 Playwright；完整回归覆盖今日、待办、计时、记录、设置、悬浮工作台和五套主题。
+
+### Windows 构建
 
 ```bash
 pnpm tauri build
 pnpm export:release
 ```
 
-构建结果位于 `src-tauri/target/release/bundle/`，导出的发布文件位于项目根目录。发布流程会同步版本号、生成安装包、创建 GitHub Tag 并上传 Release 资产。
+构建结果位于 `src-tauri/target/release/bundle/`，导出的版本化文件位于项目根目录。发布前还需要检查版本源、Release notes、Windows 资产和远程 CI，不要把本地构建直接当成已发布版本。
 
-### 构建 macOS Universal 安装包
+### macOS Universal 构建
 
 需要在 macOS 上执行：
 
 ```bash
-pnpm install
+pnpm install --frozen-lockfile
 rustup target add aarch64-apple-darwin x86_64-apple-darwin
 pnpm tauri build --target universal-apple-darwin
 ```
 
-macOS 发布包会由 GitHub Actions 在推送版本 tag 后自动构建，并上传到对应 Release。
+正式 macOS 资产会由 GitHub Actions 在版本 tag 推送后构建并上传到对应 Release。
 
 ## 项目结构
 
 ```text
-src/                    SolidJS 前端与页面交互
+src/                    SolidJS 前端与五套主题页面
 src/data/copy-library.json
                         每日一句本地语料库
 src-tauri/src/          Tauri 与 Rust 核心、计时引擎、本地存储
 tests/                  Playwright 前端流程测试
-scripts/                构建、导出与发布脚本
+scripts/                构建、导出、性能与发布脚本
+docs/                   QA、设计参考、版本记录与维护文档
 ```
 
-## 版本发布
+## 许可与反馈
 
-当前稳定版本：[v2.10.8](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.10.8)
-
-完整变更记录见 [`docs/`](./docs/) 下的版本发布说明。
-
-## 许可
-
-本项目使用 MIT License，详见 [`LICENSE`](./LICENSE)。每日一句语料条目单独记录来源、许可和来源链接，详见 [`src/data/copy-library.json`](./src/data/copy-library.json)。
-
-## 反馈
+本项目使用 MIT License，详见 [`LICENSE`](./LICENSE)。每日一句语料条目的来源与许可信息见 [`src/data/copy-library.json`](./src/data/copy-library.json) 和 [`docs/content/copy-library-sources.md`](./docs/content/copy-library-sources.md)。
 
 如果遇到安装、数据迁移或计时问题，欢迎在 [Issues](https://github.com/zhulongqihan/Focused-Moment/issues) 中提供：
 
-- Windows 版本；
+- Windows/macOS 版本；
 - Focused Moment 版本；
-- 可复现步骤；
-- 是否使用安装版或便携版；
+- 可复现步骤和出现在哪个页面/窗口；
+- 安装版还是便携版；
 - 必要时附上不含个人隐私的截图或日志。
