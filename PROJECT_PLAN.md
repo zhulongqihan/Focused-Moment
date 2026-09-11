@@ -7,20 +7,20 @@
 
 | 字段 | 当前值 |
 | --- | --- |
-| as_of / updated_at | 2026-09-11；根据最新截图反馈，Night Valley 第一套主题的“计时”页已定位并修复悬浮窗返回主界面后的再次进入缺口，v2.10.8 本地候选已完成，远程发布闭环待收口 |
+| as_of / updated_at | 2026-09-11；Night Valley 第一套主题的“计时”页已修复悬浮窗返回主界面后的再次进入缺口，v2.10.8 已完成版本同步、测试、打包、提交、推送、远程 CI、macOS Universal 与 GitHub Release 闭环，等待用户验收 |
 | 产品目标 | 本地优先的桌面专注工具：待办 → 专注 → 桌面提醒 → 保存记录 → 回看投入 → 可恢复地长期保留 |
-| 当前阶段 | 五套主题均已接入；v2.10.7 是线上基线；当前只处理第一套主题 Night Valley 的“计时”页，REFINE-12 已完成本地修复与验证，正在执行 v2.10.8 发布闭环，不自动展开其他主题或页面 |
-| 代码基线 | v2.10.7 发布提交为 `9f75902`（`9f7590215bdd0bfafece4cda697afecd05f8ca3f`），tag `v2.10.7` 已固定在同一提交；v2.10.6 tag 固定在 `0ec12d8`；旧 tag 未移动 |
-| 当前工作分支 | `main`；旧 CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06/DESK-01/DESK-02/DESK-03/ARCH-01/QA-01/PERF-01/TH-02/TH-03/TH-04/TH-05/DATA-01/REL-01 已完成；REFINE-03/REFINE-04/REFINE-05 DONE；REL-02/REL-03/REL-04 DONE；REFINE-06 REVIEW；REL-05 DONE；REFINE-07 REVIEW；REL-06 DONE；REFINE-08 REVIEW；REL-07 DONE；REFINE-09 REVIEW；REL-08 DONE；REFINE-10 REVIEW；REL-09 DONE；REFINE-11 REVIEW；REL-10 DONE |
-| 发布基线 | GitHub `v2.10.7`，tag peeled commit 为 `9f75902`；Checks `34583376302`、macOS Native Smoke `34583376235`、macOS Universal Release `34583470779` 均 PASS；Release 四项资产均为 uploaded，digest 见 `docs/v2.10.7/RELEASE_NOTES.md`；旧 tag 未移动 |
-| 远程 main | `origin/main` 当前为 `9571b015b689e0d2c07deb6b3e9f91e7efc364e7`（v2.10.7 发布证据跟随提交）；`v2.10.7` tag 与 GitHub Release 已收口；旧 tag 未移动 |
-| 本轮交付 | 已确认 Night Valley 计时页在返回主界面后缺少再次进入悬浮窗入口；已复用既有 `showFocusFloating` 动作，在已有计时进度时显示“进入悬浮窗”，并补充空状态与往返回归；本地前端 67/67、构建、Rust 33/33、Windows v2.10.8 候选包均已通过 |
-| 下一项 | 完成 v2.10.8 提交、推送、tag、远程 CI、macOS Universal 资产、GitHub Release 与 digest 核对；随后等待用户验收，仍按逐主题、逐界面处理 |
-| 当前执行人 / 在做任务 | Codex / REFINE-12 本地修复与验证已完成；正在执行 REL-11 v2.10.8 发布闭环 |
+| 当前阶段 | 五套主题均已接入；当前只处理第一套主题 Night Valley 的“计时”页；REFINE-12 与 REL-11 已完成，等待用户验收，不自动展开其他主题或页面 |
+| 代码基线 | v2.10.8 发布代码提交为 `96c2291`（`96c22914e393924b7f5d312b5ce37ab675c25111`），tag `v2.10.8` peeled commit 与其一致；v2.10.7 tag 固定在 `9f75902`；旧 tag 未移动 |
+| 当前工作分支 | `main`；旧 CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06/DESK-01/DESK-02/DESK-03/ARCH-01/QA-01/PERF-01/TH-02/TH-03/TH-04/TH-05/DATA-01/REL-01 已完成；REFINE-03/REFINE-04/REFINE-05 DONE；REL-02/REL-03/REL-04 DONE；REFINE-06 REVIEW；REL-05 DONE；REFINE-07 REVIEW；REL-06 DONE；REFINE-08 REVIEW；REL-07 DONE；REFINE-09 REVIEW；REL-08 DONE；REFINE-10 REVIEW；REL-09 DONE；REFINE-11 REVIEW；REL-10 DONE；REFINE-12 REVIEW；REL-11 DONE |
+| 发布基线 | GitHub `v2.10.8`，tag peeled commit 为 `96c2291`；Checks `34589143406`、macOS Native Smoke `34589143413`、macOS Release `34589231576` 均 PASS；Release 四项资产均为 uploaded，digest 见 `docs/v2.10.8/RELEASE_NOTES.md`；旧 tag 未移动 |
+| 远程 main | `origin/main` 已包含发布代码提交 `96c22914e393924b7f5d312b5ce37ab675c25111`；v2.10.8 tag、GitHub Release 与四项资产已收口；文档证据跟随提交将在本次收口后同步 |
+| 本轮交付 | 已确认 Night Valley 计时页在返回主界面后缺少再次进入悬浮窗入口；已复用既有 `showFocusFloating` 动作，在已有计时进度时显示“进入悬浮窗”，并补充空状态与往返回归；本地前端 67/67、构建、Rust 33/33、Windows v2.10.8 候选包、远程三条工作流与四项 Release 资产均已通过/核对 |
+| 下一项 | 等待用户验收；继续按逐主题、逐界面处理，不批量展开其他页面 |
+| 当前执行人 / 在做任务 | Codex / REFINE-12 修复与 REL-11 v2.10.8 发布闭环已完成，当前等待用户验收 |
 | 首套验收结论 | **Windows 原生核心闭环、编辑态计时刷新、主题渲染边界、QA-01 回退回归、五套主题 25 页前端回归、Editorial 长历史性能专项、v2.6.10/v2.7.0/v2.8.0/v2.9.0/v2.9.1 Windows 与 macOS 资产发布、CORE-03 macOS 原生数据目录与迁移、DESK-02 macOS 第二实例/托盘/浮窗/隔离安装启动、DATA-01 备份范围/隔离跨目录搬移/素材清单已通过**；资源出处补录缺口已在清单中保留为后续治理事项 |
 | source | 本轮用户说明；当前源码与测试；Git 提交/远程 refs；GitHub Release/Actions；本轮命令结果 |
 | supersedes | 旧文档中的 v1.4.1/v1.5.x/v1.10.0/v2.0 当前进度，以及 2026-09-06 摘要中的“其他四页未实现、主题注册未建立” |
-| pending | REFINE-12 / REL-11 本地候选待远程发布闭环与用户验收；REFINE-11/REFINE-10/REFINE-09/REFINE-08/REFINE-07 历史页面仍按既有验收状态保留；资源出处补录缺口仍按既有清单保留为后续治理事项 |
+| pending | REFINE-12 用户验收；REFINE-11/REFINE-10/REFINE-09/REFINE-08/REFINE-07 历史页面仍按既有验收状态保留；资源出处补录缺口仍按既有清单保留为后续治理事项 |
 
 ### 最新用户纠正与主题精修阶段（2026-09-09）
 
@@ -196,8 +196,8 @@ CORE-03、DESK-02 为 macOS 下一次发布门槛，可与 Windows 首套验收�
 | REL-09 | P1 | DONE | REFINE-10 | v2.10.6 Night Valley Timer 全屏排版修复发布闭环：版本同步、Windows 包、远程 main/CI、macOS Universal、GitHub Release 与四项资产 digest 已完成 |
 | REFINE-11 | P1 | REVIEW | REL-09 | Night Valley 计时页第七轮数据一致性修复：将“今天已记录/今日已完成”统一接入按日期汇总的 `todaySessionCount`，覆盖已有记录但计时运行态为 0 的场景；v2.10.7 已发布，待用户验收 |
 | REL-10 | P1 | DONE | REFINE-11 | v2.10.7 Night Valley Timer 今日记录数修复发布闭环：版本同步、完整验证、Windows/macOS 资产、远程 main/CI、GitHub Release 与 digest 核对已完成 |
-| REFINE-12 | P1 | DOING | REL-10 | Night Valley 计时页第八轮交互修复：修复从专注悬浮窗返回主界面后没有再次进入入口的问题，在已有进度时增加“进入悬浮窗”，并覆盖空状态与往返回归；v2.10.8 本地候选已完成，待发布闭环 |
-| REL-11 | P1 | DOING | REFINE-12 | v2.10.8 Night Valley Timer 悬浮窗往返入口发布闭环：版本同步、完整本地验证与 Windows 候选包已完成，待提交、推送、远程 CI、macOS 资产、GitHub Release 与 digest 核对 |
+| REFINE-12 | P1 | REVIEW | REL-10 | Night Valley 计时页第八轮交互修复：修复从专注悬浮窗返回主界面后没有再次进入入口的问题，在已有进度时增加“进入悬浮窗”，并覆盖空状态与往返回归；v2.10.8 已发布，待用户验收 |
+| REL-11 | P1 | DONE | REFINE-12 | v2.10.8 Night Valley Timer 悬浮窗往返入口发布闭环：版本同步、完整本地验证、Windows 包、远程 main/tag/CI、macOS Universal、GitHub Release 与四项资产 digest 已完成 |
 
 ### CORE-01 · 磁盘保存与恢复链（第一个执行任务）
 
@@ -570,6 +570,7 @@ NV-05 的具体键盘缺口：`CommandPalette.tsx` 声明 modal/listbox，但缺
 | 2026-09-11 | REFINE-10 / REL-09 | `eab77a1`→`0ec12d8`；修改 `src/App.css`、`tests/today-visual.spec.mjs`，同步 v2.10.6 版本源，新增 `docs/qa/REFINE-10-night-valley-timer-v2.10.6.md` 与 `docs/v2.10.6/RELEASE_NOTES.md`；修复 60 分钟 `01:00:00` 在 Windows 高 DPI 全屏 CSS 视口下被卡片 flex 收缩而与统计区重叠，收紧低高度桌面间距并断言卡片内容完整；`pnpm check`、`pnpm build`（2062 modules）、前端 65/65、定向 10/10、cargo fmt/check/test locked（33/33）、`pnpm package:release`、`git diff --check` PASS；本地 Windows 三项 SHA 与远端四项资产 digest 已核对；Checks `34558337330`、macOS Native Smoke `34558337332`、macOS Universal Release `34558410140` 均 PASS；`v2.10.6` tag、GitHub Release 已收口，证据见 `docs/qa/REFINE-10-night-valley-timer-v2.10.6.md` | REFINE-10 REVIEW；REL-09 DONE；等待用户验收 |
 | 2026-09-11 | REL-09 证据跟随 | `0ec12d8`→`84cf823`；更新 `PROJECT_PLAN.md`、`docs/qa/REFINE-10-night-valley-timer-v2.10.6.md`、`docs/v2.10.6/RELEASE_NOTES.md` 的远程提交、流水线、Release 资产与 digest 证据；仅文档/计划同步，未改功能代码、未升版本；跟随提交 Checks `34559505218`、macOS Native Smoke `34559505258` 均 PASS；GitHub Release 说明已刷新 | REL-09 DONE；等待用户验收 |
 | 2026-09-11 | REFINE-11 / REL-10 | `aba70db`→`9f75902`；修改 `src/components/NightValleyViews.tsx`、`src/MainShell.tsx`、`tests/app.spec.mjs`，同步 v2.10.7 版本源、README、计划与发布说明；计时页改用与今日页一致的 `AnalyticsSnapshot.todaySessionCount`，新增当天已有记录而 `TimerSnapshot.completedFocusCount` 为 0 的回归；`pnpm check`、定向 Playwright 1/1、完整前端 66/66、Vite 2062 modules、cargo fmt/check/test locked（33/33）、`pnpm package:release`、`git diff --check` PASS；本地 Windows 三项 SHA 与远端四项资产 digest 已核对；Checks `34583376302`、macOS Native Smoke `34583376235`、Universal Release `34583470779` 均 PASS；`v2.10.7` tag 与 GitHub Release 已收口，证据见 `docs/qa/REFINE-11-night-valley-timer-daily-count-v2.10.7.md` | REFINE-11 REVIEW；REL-10 DONE；等待用户验收 |
+| 2026-09-11 | REFINE-12 / REL-11 | `9571b01`→`96c2291`（发布代码；本轮文档证据随后跟随）；修改 `src/components/NightValleyViews.tsx`、`src/MainShell.tsx`、`src/App.css`、`tests/app.spec.mjs`，在已有计时进度的 Night Valley 计时卡片增加“进入悬浮窗”，并覆盖待开始状态与返回主界面后的回归；同步 v2.10.8 版本源、README、`docs/qa/REFINE-12-night-valley-focus-floating-reentry-v2.10.8.md` 与 `docs/v2.10.8/RELEASE_NOTES.md`；本地 `pnpm check`、定向 Playwright 1/1、完整前端 67/67、Vite 2062 modules、cargo fmt/check/test locked（33/33）、`pnpm package:release`、`git diff --check` PASS；Checks `34589143406`、macOS Native Smoke `34589143413`、macOS Release `34589231576` 均 PASS；GitHub Release 四项资产 uploaded，远端 digest 已核对，证据见 `docs/qa/REFINE-12-night-valley-focus-floating-reentry-v2.10.8.md` | REFINE-12 REVIEW；REL-11 DONE；等待用户验收 |
 
 每条后续记录使用：`日期｜任务ID｜开始SHA→结束SHA｜修改文件｜验证命令与结果｜证据路径/链接｜版本/发布状态｜剩余问题｜下一ID`。没有执行的测试必须写“未执行”，不可复制上一版结果。
 

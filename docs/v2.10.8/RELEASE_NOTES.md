@@ -1,6 +1,6 @@
 # v2.10.8 · Night Valley 计时页悬浮窗往返入口修复
 
-发布日期：待远程发布闭环
+发布日期：2026-09-11
 
 ## 重点更新
 
@@ -45,4 +45,18 @@
 
 ## 发布状态
 
-本地 v2.10.8 候选已完成版本同步、构建、测试、截图复核和 Windows 打包；远程提交、CI、macOS Universal 资产、GitHub Release 与 digest 核对待发布闭环完成后补录。
+发布代码提交为 `96c22914e393924b7f5d312b5ce37ab675c25111`，`v2.10.8` 为不可移动 annotated tag，peeled commit 与发布代码一致。主 Checks、macOS Native Smoke、macOS Release 均已通过；GitHub Release 已正式发布并包含四项资产。
+
+## 远程验证与发布资产
+
+- [GitHub Release v2.10.8](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.10.8)
+- [Checks · 34589143406](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34589143406)：PASS，前端流程 67/67，Rust format/check/test 全部通过。
+- [macOS Native Smoke · 34589143413](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34589143413)：PASS。
+- [macOS Release · 34589231576](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34589231576)：PASS，Universal DMG 构建并上传成功。
+
+| GitHub Release 资产 | 大小 | 远端 SHA-256 |
+| --- | ---: | --- |
+| `Focused.Moment.v2.10.8.exe` | 23,733,248 bytes | `dab65cefb611785d4238ef6e322f7469fcb615be09f6b1dc17c568e55c22b782` |
+| `Focused.Moment.Setup.v2.10.8.exe` | 16,129,531 bytes | `d7fca7086b31c97b1546f4fde39e90c62442a4a6964c425675b1ac5c841bba23` |
+| `Focused.Moment_2.10.8_x64_en-US.msi` | 17,104,896 bytes | `e1f5a4ea58c08b4dd7dd84d795f01e5019efd0b6459b4fab848368d2e645d9e1` |
+| `Focused.Moment_2.10.8_universal.dmg` | 34,262,466 bytes | `d4eb4b6e8d9678ec18346ef5449a52f24b52e6158cfee12cd87e691b7cb32692` |
