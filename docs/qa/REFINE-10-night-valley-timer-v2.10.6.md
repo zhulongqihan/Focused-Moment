@@ -72,7 +72,7 @@
 
 | 项目 | 结果 |
 | --- | --- |
-| 发布提交 | `0ec12d810a88516e6db8bbe4b587d100af82627f` 已推送至 `origin/main` |
+| 发布提交 | `0ec12d810a88516e6db8bbe4b587d100af82627f` 已推送至 `origin/main`；最终证据跟随提交为 `84cf82324ba3cb3d577e0e2308ca5914a91278ad` |
 | tag | `v2.10.6` 已创建并固定在发布提交 |
 | GitHub Checks | [34558337330](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34558337330)，PASS；前端与 Rust 共 65 项通过 |
 | macOS Native Smoke | [34558337332](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34558337332)，PASS |
