@@ -35,12 +35,14 @@
 | `pnpm build` | PASS，2062 modules |
 | `pnpm package:release` | PASS，生成 v2.10.7 Windows EXE / NSIS / MSI |
 | `git diff --check` | PASS |
-| 远程 Checks / macOS Native Smoke / Universal Release | 待执行 |
-| GitHub Release 与四项资产 digest | 待执行 |
+| 远程 Checks | PASS，run `34583376302` |
+| 远程 macOS Native Smoke | PASS，run `34583376235` |
+| 远程 macOS Universal Release | PASS，run `34583470779` |
+| GitHub Release 与四项资产 digest | PASS，正式 Release，四项资产均 uploaded |
 
 ## 发布状态
 
-本地版本同步、构建、测试和打包已完成；待提交、推送 v2.10.7 tag，并完成远程 CI、GitHub Release 与资产 digest 核对。
+v2.10.7 已完成版本同步、本地构建/测试/打包、提交、推送、远程 CI、GitHub Release 与四项资产 digest 核对。
 
 ## 本地 Windows 产物
 
@@ -49,3 +51,18 @@
 | `Focused Moment v2.10.7.exe` | 23,733,248 bytes | `91a2a774e068d281f5bad396d07f43e8fa2bc645813e18ada9853ae0e0cad46d` |
 | `Focused Moment Setup v2.10.7.exe` | 16,130,946 bytes | `77085edd6288ce50dbbf1651ffa1638ffae9ecacbfe9b8808427c0063b550ae7` |
 | `Focused Moment_2.10.7_x64_en-US.msi` | 17,113,088 bytes | `67a1d078b366354e7e63ca9787263f14410b4e1cad880959c6d0f920bdc47207` |
+
+## 远程发布事实
+
+- 发布提交：`9f7590215bdd0bfafece4cda697afecd05f8ca3f`；`v2.10.7` annotated tag 已固定到该提交。
+- `origin/main` 已更新到该提交；旧 v2.10.6 tag 未移动。
+- GitHub Release：[v2.10.7](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.10.7)，正式 Release，地址已可用。
+
+| GitHub Release 资产 | 大小 | 远端 SHA-256 |
+| --- | ---: | --- |
+| `Focused.Moment.v2.10.7.exe` | 23,733,248 bytes | `91a2a774e068d281f5bad396d07f43e8fa2bc645813e18ada9853ae0e0cad46d` |
+| `Focused.Moment.Setup.v2.10.7.exe` | 16,130,946 bytes | `77085edd6288ce50dbbf1651ffa1638ffae9ecacbfe9b8808427c0063b550ae7` |
+| `Focused.Moment_2.10.7_x64_en-US.msi` | 17,113,088 bytes | `67a1d078b366354e7e63ca9787263f14410b4e1cad880959c6d0f920bdc47207` |
+| `Focused.Moment_2.10.7_universal.dmg` | 34,260,780 bytes | `f1593a7bc435bac225c855c5aa795f60f71110a6a836cf94d31214eec06cd6e0` |
+
+Checks 记录 65 个最终通过用例，并将 1 个 Today 窄宽度用例标为 flaky（首跑失败、重试通过）；本地完整前端回归为 66/66。远程流程另有 Node.js 20 弃用提示，不影响成功结论。

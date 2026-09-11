@@ -13,7 +13,8 @@
 - 完整前端回归：PASS，66/66。
 - Rust 格式、编译和测试：PASS；33/33 library tests。
 - Vite 构建：PASS，2062 modules；Windows 正式打包：PASS。
-- 远程 CI、macOS 资产和 GitHub Release digest：待发布闭环完成后补录。
+- 远程 Checks：PASS，run `34583376302`；macOS Native Smoke：PASS，run `34583376235`；macOS Universal Release：PASS，run `34583470779`。
+- GitHub Release：PASS，正式 Release，四项资产均 uploaded。
 
 ## 资产
 
@@ -24,5 +25,6 @@
 | `Focused Moment v2.10.7.exe` | 23,733,248 bytes | `91a2a774e068d281f5bad396d07f43e8fa2bc645813e18ada9853ae0e0cad46d` |
 | `Focused Moment Setup v2.10.7.exe` | 16,130,946 bytes | `77085edd6288ce50dbbf1651ffa1638ffae9ecacbfe9b8808427c0063b550ae7` |
 | `Focused Moment_2.10.7_x64_en-US.msi` | 17,113,088 bytes | `67a1d078b366354e7e63ca9787263f14410b4e1cad880959c6d0f920bdc47207` |
+| `Focused.Moment_2.10.7_universal.dmg` | 34,260,780 bytes | `f1593a7bc435bac225c855c5aa795f60f71110a6a836cf94d31214eec06cd6e0` |
 
-macOS Universal DMG、GitHub Release 地址和远程 digest 待发布闭环完成后补录。
+GitHub Release：[v2.10.7](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.10.7)。发布提交 `9f7590215bdd0bfafece4cda697afecd05f8ca3f`，`v2.10.7` tag 固定于该提交；远端 digest 与本地 Windows 三项 SHA 一致。Checks 另有 1 个 Today 窄宽度用例首跑失败、重试通过并标为 flaky，整体为成功。
