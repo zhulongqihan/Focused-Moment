@@ -32,6 +32,18 @@
 - 普通窗口、最大化、无边框全屏几何均通过 native 窗口矩形与 WebView2 CSS 视口核对；Night Valley 没有独立 F11 命令，因此全屏结论限定为无边框全屏几何和 2560/1707 CSS 全屏布局。
 - 证据报告：`docs/qa/REFINE-13-night-valley-focus-floating-v2.10.9.md`；自动化定向入口 1/1、Night Valley timer fullscreen 3/3、`pnpm check`、`pnpm build`、`pnpm tauri build --debug`、`pnpm tauri build` 均通过。版本源已同步到 2.10.9，Windows bundle 已生成，REL-12 尚未完成。
 
+## 1.3 REL-12 发布准备（2026-09-11 23:08，Asia/Shanghai）
+
+- 版本源已统一到 `2.10.9`，最终本地全套回归与 `pnpm tauri build` 均通过；Windows 三项 bundle 已复制到隔离暂存目录并完成 SHA-256 核对。
+- 当前工作树以 `804de40` 为基线，包含 Night Valley 修复、版本同步、README、QA/Release notes 和状态文档；当时尚未创建 `v2.10.9` tag、推送或修改任何 GitHub Release。
+- 下一步是提交并正常推送 main，创建并推送 `v2.10.9`，创建新 Release 上传三项 Windows 资产，等待 tag 触发 macOS Universal workflow，再核对四项远端资产及 CI 结果；v2.10.8 全部保护对象不变。
+
+## 1.4 REL-12 发布收口（2026-09-11 23:27，Asia/Shanghai）
+
+- 发布代码 `4115899a34b949d1cca031aa39f3f288d9fde521` 已提交并正常推送到 main；`v2.10.9` annotated tag 已推送并指向该提交。
+- Checks `34614788873`、macOS Native Smoke `34614788868`、macOS Release `34614841778` 均 PASS；GitHub Release `v2.10.9` 已正式发布，四项资产均 `uploaded`，大小和 digest 见 `docs/v2.10.9/RELEASE_NOTES.md`。
+- 维护阶段和 REFINE-13/REL-12 已收口；v2.10.8 tag、Release、四项资产、`Focused Moment Backups` 和用户数据未被修改。
+
 ## 2. 目标与明确不做
 
 ### 目标
@@ -162,7 +174,7 @@ README 不写内部任务状态，不把当前尚未重新验收的悬浮窗生�
 
 本轮结果：在 `F:\Focused Moment Clean Checkout 20260911-2028` 的 `ae6ac45` detached checkout 中完成依赖重装、类型检查、构建、67 项前端回归、Rust fmt/check/test、debug bundle 和隔离 `LOCALAPPDATA` 的真实 Windows 启动；启动获得真实窗口句柄/标题，关闭后 worktree clean，工作区备份仍为 2 个文件。MAINT-06 已完成，细节见 `cleanup-manifest-20260911-2016.md`。
 
-### REFINE-13：回到计时问题（已通过 native 验收，等待 REL-12 发布收口）
+### REFINE-13：回到计时问题（已通过 native 验收并完成 REL-12 发布收口）
 
 清理闭环后，重新在当前 Windows 原生环境复现，并只处理 Night Valley 的“计时”页：
 
@@ -173,7 +185,7 @@ README 不写内部任务状态，不把当前尚未重新验收的悬浮窗生�
 - 浏览器 mock 只作为辅助证据，不能替代原生窗口证据；
 - 仍遵守一个主题、一个界面、一次反馈闭环，不批量改其他页面。
 
-本轮结果：已完成上述最小入口布局修复和 native 状态闭环；完整证据见 `docs/qa/REFINE-13-night-valley-focus-floating-v2.10.9.md`。下一步不是继续扩展 UI，而是执行最终全套回归、版本同步、打包、提交、正常推送、远程 CI 和新 Release；在此之前不修改 v2.10.8 的 tag、Release 或资产。
+本轮结果：已完成上述最小入口布局修复和 native 状态闭环；完整证据见 `docs/qa/REFINE-13-night-valley-focus-floating-v2.10.9.md`。最终全套回归、版本同步、打包、提交、正常推送、远程 CI 和新 Release 均已完成；后续不得修改 v2.10.8 的 tag、Release 或资产。
 
 ## 6. 验收门槛
 

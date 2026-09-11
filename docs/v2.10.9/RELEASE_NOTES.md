@@ -34,9 +34,9 @@
 - `cargo test --locked --manifest-path src-tauri/Cargo.toml`：PASS，33/33 library tests。
 - Windows native 隔离验收：普通窗口、最大化、无边框全屏几何、未开始、运行中、暂停/继续、完成、悬浮窗往返、Tab 切换、重启读记录均通过；证据见 `docs/qa/REFINE-13-night-valley-focus-floating-v2.10.9.md`。
 
-## Windows 发布候选资产
+## Windows 发布资产
 
-Windows release bundle 已生成并复制到隔离发布暂存目录；macOS Universal DMG 由 tag 对应的 GitHub Actions workflow 构建并上传。
+Windows release bundle 已生成并复制到隔离发布暂存目录；macOS Universal DMG 已由 tag 对应的 GitHub Actions workflow 构建并上传。
 
 | 产物 | 大小 | SHA-256 |
 | --- | ---: | --- |
@@ -46,4 +46,21 @@ Windows release bundle 已生成并复制到隔离发布暂存目录；macOS Uni
 
 ## 发布状态
 
-本地版本源已统一到 `2.10.9`，Windows 正式包已生成并完成本地 SHA-256 核对。提交、tag、正常推送、远程 CI、macOS Universal DMG 和 GitHub Release 资产 digest 尚待本轮发布闭环完成。v2.10.8 tag、Release 和四项既有资产保持不变。
+本地版本源已统一到 `2.10.9`，Windows 正式包已生成并完成本地 SHA-256 核对；提交、tag、正常推送、远程 CI、macOS Universal DMG 和 GitHub Release 资产 digest 均已完成。v2.10.8 tag、Release 和四项既有资产保持不变。
+
+## 远程验证与发布资产
+
+- 发布代码提交：`4115899a34b949d1cca031aa39f3f288d9fde521`；`v2.10.9` annotated tag 已推送，未移动 `v2.10.8`。
+- [Checks · 34614788873](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34614788873)：PASS，前端 67/67，Rust fmt/check/test 和验证摘要均通过。
+- [macOS Native Smoke · 34614788868](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34614788868)：PASS。
+- [macOS Release · 34614841778](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34614841778)：PASS，Universal DMG 已构建并上传。
+
+| GitHub Release 资产 | 大小 | 远端 SHA-256 |
+| --- | ---: | --- |
+| `Focused.Moment.Setup.v2.10.9.exe` | 16,127,518 bytes | `f8c74c7635bfe0246cb3c28eb123b193c36430ccdb715fa5377842fe3b82e5a4` |
+| `Focused.Moment.v2.10.9.exe` | 23,731,200 bytes | `6e8890fcd7fe33aa09bd72da6ea38a88caaddc7d8c728f305c4970a347f43baa` |
+| `Focused.Moment_2.10.9_universal.dmg` | 34,261,804 bytes | `07f98c727f55262087027fb3189424684ffde84ed42599ebfe747b5ddde13cb7` |
+| `Focused.Moment_2.10.9_x64_en-US.msi` | 17,108,992 bytes | `3499ac6e745177629e7a5d0d9a49534af22c77075548aa93f0d1acf336f1b5a8` |
+
+- [GitHub Release v2.10.9](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.10.9)：正式 Release，四项资产均为 `uploaded`，非 Draft、非 Pre-release。
+- 发布闭环已完成；v2.10.8 tag、Release 和四项既有资产的 digest 未被修改。

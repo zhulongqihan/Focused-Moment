@@ -65,5 +65,12 @@ Night Valley 当前没有独立的 F11/全屏产品命令；主窗口是无装�
 
 ## 发布边界
 
-- 2.10.9 版本源已同步；当前尚未创建新 tag、未修改 GitHub Release。v2.10.8 tag、Release 和四项资产保持只读保护。
-- 在 Windows 打包、正常推送、远程 CI 和新 Release 完成前，本报告只表示 REFINE-13 修复已通过当前 native 验收和本地回归，不表示 v2.10.9 已发布。
+- 2.10.9 版本源、Windows 包、tag、正常推送、远程 CI 和 GitHub Release 均已完成；v2.10.8 tag、Release 和四项资产保持只读保护。
+
+## 发布闭环
+
+- 发布代码提交：`4115899a34b949d1cca031aa39f3f288d9fde521`；main 和 `v2.10.9` tag 已推送。
+- [Checks · 34614788873](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34614788873)：PASS。
+- [macOS Native Smoke · 34614788868](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34614788868)：PASS。
+- [macOS Release · 34614841778](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34614841778)：PASS，Universal DMG 已上传。
+- [GitHub Release v2.10.9](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.10.9)：四项资产均为 `uploaded`；Windows 三项远端 digest 与本地 SHA-256 一致，DMG digest 由 GitHub Release API 核对。
