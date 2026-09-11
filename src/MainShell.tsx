@@ -2222,6 +2222,7 @@ function MainShell() {
             }}
             focus={{
               timer: () => timer(),
+              todaySessionCount: () => analytics()?.todaySessionCount ?? 0,
               timerPreferences: () => timerPreferences(),
               todos: () => todos(),
               pendingTodos,

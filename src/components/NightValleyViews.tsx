@@ -39,6 +39,7 @@ function currentDateLabel() {
 
 export interface NightValleyFocusProps {
   timer: Accessor<TimerSnapshot>;
+  todaySessionCount: Accessor<number>;
   timerPreferences: Accessor<TimerPreferences>;
   todos: Accessor<TodoItem[]>;
   pendingTodos: Accessor<TodoItem[]>;
@@ -203,7 +204,7 @@ export function NightValleyFocus(props: NightValleyFocusProps) {
           <h2>准备开始下一次专注</h2>
           <p>写下要做的事，选择时长，然后开始。完成后会自动留下记录。</p>
           <div class="nv-focus-brief__stats">
-            <div><span>今天已记录</span><strong>{props.timer().completedFocusCount} 段</strong></div>
+            <div><span>今天已记录</span><strong>{props.todaySessionCount()} 段</strong></div>
             <div><span>当前模式</span><strong>{modeLabel()}</strong></div>
           </div>
           <div class="nv-focus-quick" aria-label="常用专注时长">
@@ -239,7 +240,7 @@ export function NightValleyFocus(props: NightValleyFocusProps) {
           </div>
           <div class="nv-focus-panel__session-data">
             <div><span>目标时长</span><strong>{targetDurationLabel()}</strong></div>
-            <div><span>今日已完成</span><strong>{props.timer().completedFocusCount} 段</strong></div>
+            <div><span>今日已完成</span><strong>{props.todaySessionCount()} 段</strong></div>
           </div>
           <p class="nv-focus-panel__status" aria-live="polite">
             <strong>{visualState().label}</strong>

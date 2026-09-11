@@ -743,6 +743,17 @@ test("stopwatch shows a clear target duration instead of a one-minute target", a
   await expect(page.locator(".timer-readout")).not.toContainText("1 分钟");
 });
 
+test("timer page uses the current day's saved session count", async ({ page }) => {
+  await bootWithTauriMock(page, { includeRecords: true });
+
+  await page.getByRole("button", { name: "计时", exact: true }).click();
+
+  await expect(page.locator(".nv-focus-brief__stats")).toContainText("今天已记录1 段");
+  await expect(page.locator(".nv-focus-panel__session-data")).toContainText("今日已完成1 段");
+  await expect(page.locator(".nv-focus-brief__stats")).not.toContainText("0 段");
+  await expect(page.locator(".nv-focus-panel__session-data")).not.toContainText("0 段");
+});
+
 test("timer workspace keeps only actionable controls and state copy", async ({ page }) => {
   await bootWithTauriMock(page, { pausedFocus: true });
 
