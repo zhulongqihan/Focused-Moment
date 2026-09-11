@@ -7,16 +7,16 @@
 
 | 字段 | 当前值 |
 | --- | --- |
-| as_of / updated_at | 2026-09-11 23:27（Asia/Shanghai）；REFINE-13 native 与最终本地回归已通过，2.10.9 已完成版本同步、Windows 打包、提交、正常推送、tag、远程 CI、macOS Universal DMG 和 GitHub Release；当前工作树以发布代码 `4115899a34b949d1cca031aa39f3f288d9fde521` 为基线，包含待推送的最终证据文档更新 |
+| as_of / updated_at | 2026-09-11 23:33（Asia/Shanghai）；REFINE-13 native 与最终本地回归已通过，2.10.9 已完成版本同步、Windows 打包、提交、正常推送、tag、远程 CI、macOS Universal DMG 和 GitHub Release；最终证据文档已随 `9e7091bc33cbdaef40aeddade86123b57683f658` 正常推送，工作树干净 |
 | 产品目标 | 本地优先的桌面专注工具：待办 → 专注 → 桌面提醒 → 保存记录 → 回看投入 → 可恢复地长期保留 |
 | 当前阶段 | 五套主题均已接入；MAINT-01 至 MAINT-06 瘦身、文档、远程审计和干净 checkout 验证已完成；REFINE-13 的 Night Valley“计时”页修复、Windows native 验收和 REL-12 v2.10.9 发布闭环均已完成；不扩展其他主题/页面 |
 | 代码基线 | v2.10.9 发布代码提交为 `4115899a34b949d1cca031aa39f3f288d9fde521`，tag `v2.10.9` peeled commit 与其一致；v2.10.8 发布代码为 `96c22914e393924b7f5d312b5ce37ab675c25111`，旧 tag 未移动 |
-| 当前工作分支 | `main`；旧 CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06/DESK-01/DESK-02/DESK-03/ARCH-01/QA-01/PERF-01/TH-02/TH-03/TH-04/TH-05/DATA-01/REL-01 已完成；REFINE-03/REFINE-04/REFINE-05 DONE；REL-02/REL-03/REL-04 DONE；REFINE-06 REVIEW；REL-05 DONE；REFINE-07 REVIEW；REL-06 DONE；REFINE-08 REVIEW；REL-07 DONE；REFINE-09 REVIEW；REL-08 DONE；REFINE-10 REVIEW；REL-09 DONE；REFINE-11 REVIEW；REL-10 DONE；REFINE-12 REVIEW；REL-11 DONE；MAINT-01 至 MAINT-06 DONE；REFINE-13 DONE；REL-12 DONE；最终证据文档待跟随提交 |
+| 当前工作分支 | `main`；旧 CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06/DESK-01/DESK-02/DESK-03/ARCH-01/QA-01/PERF-01/TH-02/TH-03/TH-04/TH-05/DATA-01/REL-01 已完成；REFINE-03/REFINE-04/REFINE-05 DONE；REL-02/REL-03/REL-04 DONE；REFINE-06 REVIEW；REL-05 DONE；REFINE-07 REVIEW；REL-06 DONE；REFINE-08 REVIEW；REL-07 DONE；REFINE-09 REVIEW；REL-08 DONE；REFINE-10 REVIEW；REL-09 DONE；REFINE-11 REVIEW；REL-10 DONE；REFINE-12 REVIEW；REL-11 DONE；MAINT-01 至 MAINT-06 DONE；REFINE-13 DONE；REL-12 DONE；最终证据文档已随 `9e7091bc33cbdaef40aeddade86123b57683f658` 推送 |
 | 发布基线 | GitHub `v2.10.9`，tag peeled commit 为 `4115899`；Checks `34614788873`、macOS Native Smoke `34614788868`、macOS Release `34614841778` 均 PASS；Release 四项资产均为 uploaded，digest 见 `docs/v2.10.9/RELEASE_NOTES.md`；v2.10.8 tag/Release/资产未修改 |
-| 远程 main | `origin/main` 已包含 v2.10.9 发布代码提交 `4115899a34b949d1cca031aa39f3f288d9fde521`；GitHub Release `v2.10.9` 已正式发布并有四项资产；最终证据文档正在做正常推送跟随，v2.10.8 tag、GitHub Release 与四项资产未触碰 |
+| 远程 main | `origin/main` 已包含 v2.10.9 发布代码提交 `4115899a34b949d1cca031aa39f3f288d9fde521` 及最终证据文档跟随提交 `9e7091bc33cbdaef40aeddade86123b57683f658`；GitHub Release `v2.10.9` 已正式发布并有四项资产；v2.10.8 tag、GitHub Release 与四项资产未触碰 |
 | 本轮交付 | 已完成 MAINT-02 清理与重建；MAINT-03 对 283 个清理前 tracked 文件、ignored 历史资料、素材、组件、依赖、脚本和 workflow 做引用审计，明确删除候选仅为无引用 `public/vite.svg`、`public/tauri.svg` 并从工作树移除；MAINT-04 重写 README 并验证全部本地链接/图片；MAINT-05 核对远程分支、tag、Release、资产和 Actions，未执行远程删除；MAINT-06 在 `ae6ac45` 干净 checkout 完成 install/check/build、前端 67/67、Rust 33/33、debug bundle、真实 Windows 启动与隔离数据验证；维护结果经 `804de40` 正常推送；REFINE-13 仅修改 Night Valley 计时页现有入口布局与对应回归断言，native/布局与最终回归完成；2.10.9 Windows 三项 bundle 与 macOS Universal DMG 已发布并核对 digest；v2.10.8 Release 未触碰 |
 | 下一项 | 本轮发布无阻塞；后续若继续迭代，必须从新版本任务开始。当前明确边界是 Night Valley 没有独立 F11 命令，以及资源出处补录缺口仍按既有清单保留 |
-| 当前执行人 / 在做任务 | Codex / REL-12 v2.10.9 发布闭环已完成，正在推送最终证据文档；修复范围只限第一套主题计时页 |
+| 当前执行人 / 在做任务 | Codex / REL-12 v2.10.9 发布闭环与最终证据收口均已完成；修复范围只限第一套主题计时页 |
 | 首套验收结论 | **Windows 原生核心闭环、编辑态计时刷新、主题渲染边界、QA-01 回退回归、五套主题 25 页前端回归、Editorial 长历史性能专项、v2.6.10/v2.7.0/v2.8.0/v2.9.0/v2.9.1 Windows 与 macOS 资产发布、CORE-03 macOS 原生数据目录与迁移、DESK-02 macOS 第二实例/托盘/浮窗/隔离安装启动、DATA-01 备份范围/隔离跨目录搬移/素材清单已通过**；资源出处补录缺口已在清单中保留为后续治理事项 |
 | source | 本轮用户说明；当前源码与测试；Git 提交/远程 refs；GitHub Release/Actions；本轮命令结果 |
 | supersedes | 旧文档中的 v1.4.1/v1.5.x/v1.10.0/v2.0 当前进度，以及 2026-09-06 摘要中的“其他四页未实现、主题注册未建立” |
@@ -48,7 +48,7 @@
 - 发布代码提交 `4115899a34b949d1cca031aa39f3f288d9fde521` 已正常推送到 main；`v2.10.9` annotated tag 已正常推送并指向该提交。`v2.10.8` peeled commit 仍为 `96c22914e393924b7f5d312b5ce37ab675c25111`。
 - GitHub Actions：Checks `34614788873` PASS（前端 67/67、Rust fmt/check/test）；macOS Native Smoke `34614788868` PASS；macOS Release `34614841778` PASS。
 - GitHub Release `v2.10.9` 已正式发布，四项资产均 `uploaded`：Windows portable `6e8890...`、Setup `f8c74c...`、MSI `3499ac...`，macOS Universal DMG `07f98c...`；完整大小和 digest 见 `docs/v2.10.9/RELEASE_NOTES.md`。
-- REL-12 与 REFINE-13 均收口为 DONE；最终证据文档需跟随提交推送，之后本目标完成。v2.10.8 Release/tag/资产继续只读保护。
+- REL-12 与 REFINE-13 均收口为 DONE；最终证据文档已随 `9e7091bc33cbdaef40aeddade86123b57683f658` 正常推送，本目标完成。v2.10.8 Release/tag/资产继续只读保护。
 
 ### 最新用户纠正与主题精修阶段（2026-09-09）
 

@@ -8,7 +8,7 @@
 
 ## 1. 当前结论
 
-维护阶段已经收口，当前 `REFINE-13` 已完成 Night Valley 第一套主题“计时”页的最小悬浮窗入口修复和 Windows native 验收，下一步进入 `REL-12` 发布闭环。用户最新实测取代此前“v2.10.8 修复可验收”的判断：
+维护阶段已经收口；`REFINE-13` 的 Night Valley 第一套主题“计时”页最小悬浮窗入口修复、Windows native 验收、`REL-12` v2.10.9 发布闭环及最终证据文档收口均已完成。以下保留修复前的用户实测作为问题来源记录：
 
 - 点击“开始”后，专注悬浮窗会弹出；
 - 主界面没有自动隐藏，这是当前回归；
@@ -43,6 +43,7 @@
 - 发布代码 `4115899a34b949d1cca031aa39f3f288d9fde521` 已提交并正常推送到 main；`v2.10.9` annotated tag 已推送并指向该提交。
 - Checks `34614788873`、macOS Native Smoke `34614788868`、macOS Release `34614841778` 均 PASS；GitHub Release `v2.10.9` 已正式发布，四项资产均 `uploaded`，大小和 digest 见 `docs/v2.10.9/RELEASE_NOTES.md`。
 - 维护阶段和 REFINE-13/REL-12 已收口；v2.10.8 tag、Release、四项资产、`Focused Moment Backups` 和用户数据未被修改。
+- 最终证据文档已随 `9e7091bc33cbdaef40aeddade86123b57683f658` 正常推送；当前工作树干净，后续用户可见迭代须新建版本任务。
 
 ## 2. 目标与明确不做
 
@@ -68,7 +69,7 @@
 
 | 项目 | 当前事实 | 处理判断 |
 | --- | --- | --- |
-| 工作树 | 清理起点为 `main` 干净、`HEAD`/`origin/main` 为 `0bade57`；当前维护收口后 `HEAD`/`origin/main` 为 `804de40` | 保留历史起点，并以当前 SHA 继续执行 |
+| 工作树 | 清理起点为 `main` 干净、`HEAD`/`origin/main` 为 `0bade57`；维护阶段代码收口为 `804de40`，REFINE-13/REL-12 及最终证据文档完成后 `HEAD`/`origin/main` 为 `9e7091bc` | 保留历史起点，并以最终 SHA 作为当前基线 |
 | 发布基线 | v2.10.8 tag 的代码提交为 `96c2291`；GitHub Release 为正式 Release，EXE、Setup EXE、MSI、Universal DMG 四项资产均存在 | 只读保护，不删除/替换 |
 | Git 历史 | 全部 refs 约 242 个提交、本地 102 个 tag；远程 API 现有 104 个 tag（额外为 `v0.11.9`、`v0.2.1`）；远程有 main 加 3 个非主分支 | 先列精确清单，再决定是否归档/删除；不删除 tag |
 | 跟踪文件 | 283 个；其中 tracked/ignored 统计以本次清理 manifest 为准 | 逐类判定，不以数量为目标 |
@@ -77,7 +78,7 @@
 | 忽略内容 | 当前约 121,359 个被忽略项，主要来自 `src-tauri/target`、`node_modules`、`output`；另有 138 个被 `.gitignore` 隐藏的历史/分析文档 | 分开处理“本地缓存”和“仓库文档盲区” |
 | 根目录产物 | 有当前/旧版本 EXE、Setup EXE 及 5 张 README 预览图；`.release` 有发布元数据和旧版本辅助文件 | 当前安装包和用户预览先保留 |
 | 个人数据线索 | 根目录存在 `Focused Moment Backups`，含两个备份文件；本轮仅确认路径和文件存在，没有读取内容 | 永久保护，任何清理前单独确认 |
-| GitHub | 公开 MIT 仓库；无开放 PR；v2.10.8 为 Latest；`804de40` 的 macOS Native Smoke `34605645643` 与 Windows Checks `34605645681` 均已成功 | 远程变更必须有精确清单和回滚边界 |
+| GitHub | 公开 MIT 仓库；无开放 PR；v2.10.9 为 Latest；`804de40` 的 macOS Native Smoke `34605645643`、Windows Checks `34605645681`，以及 `4115899` 发布链路的 Checks `34614788873`、macOS Native Smoke `34614788868`、macOS Release `34614841778` 均已成功 | 远程变更必须有精确清单和回滚边界 |
 
 ### 已发现但不能直接删除的内容
 
