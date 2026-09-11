@@ -7,20 +7,41 @@
 
 | 字段 | 当前值 |
 | --- | --- |
-| as_of / updated_at | 2026-09-11；用户最新实测确认 v2.10.8 的悬浮窗修复未通过：点击开始会打开悬浮窗，但主界面没有自动隐藏，运行中也找不到再次进入悬浮窗入口。计时修复已暂停，当前按目标文件执行项目瘦身与维护计划；本次复核确认实际 `HEAD`/`origin/main` 为 `0bade576f1aa9e48a4f7e783c06ea270078b3b32` |
+| as_of / updated_at | 2026-09-11 23:08（Asia/Shanghai）；REFINE-13 native 与最终本地回归已通过，2.10.9 版本源已同步，Windows release bundle 已生成并完成 SHA-256 核对；当前工作树为 `804de40f90fb8eb21ac2200b209ed0f36e7d026a` 加待提交修复/版本/证据，尚未创建新 tag 或 GitHub Release |
 | 产品目标 | 本地优先的桌面专注工具：待办 → 专注 → 桌面提醒 → 保存记录 → 回看投入 → 可恢复地长期保留 |
-| 当前阶段 | 五套主题均已接入；MAINT-01 至 MAINT-06 瘦身、文档、远程审计和干净 checkout 验证已完成，当前进入 REFINE-13：只在第一套主题 Night Valley 的“计时”页重新复现悬浮窗生命周期问题；修复前不扩展其他主题/页面 |
+| 当前阶段 | 五套主题均已接入；MAINT-01 至 MAINT-06 瘦身、文档、远程审计和干净 checkout 验证已完成；REFINE-13 的 Night Valley“计时”页修复与 Windows native 验收已完成，当前进入 REL-12 发布闭环；不扩展其他主题/页面 |
 | 代码基线 | v2.10.8 发布代码提交为 `96c2291`（`96c22914e393924b7f5d312b5ce37ab675c25111`），tag `v2.10.8` peeled commit 与其一致；v2.10.7 tag 固定在 `9f75902`；旧 tag 未移动 |
-| 当前工作分支 | `main`；旧 CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06/DESK-01/DESK-02/DESK-03/ARCH-01/QA-01/PERF-01/TH-02/TH-03/TH-04/TH-05/DATA-01/REL-01 已完成；REFINE-03/REFINE-04/REFINE-05 DONE；REL-02/REL-03/REL-04 DONE；REFINE-06 REVIEW；REL-05 DONE；REFINE-07 REVIEW；REL-06 DONE；REFINE-08 REVIEW；REL-07 DONE；REFINE-09 REVIEW；REL-08 DONE；REFINE-10 REVIEW；REL-09 DONE；REFINE-11 REVIEW；REL-10 DONE；REFINE-12 REVIEW；REL-11 DONE |
+| 当前工作分支 | `main`；旧 CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06/DESK-01/DESK-02/DESK-03/ARCH-01/QA-01/PERF-01/TH-02/TH-03/TH-04/TH-05/DATA-01/REL-01 已完成；REFINE-03/REFINE-04/REFINE-05 DONE；REL-02/REL-03/REL-04 DONE；REFINE-06 REVIEW；REL-05 DONE；REFINE-07 REVIEW；REL-06 DONE；REFINE-08 REVIEW；REL-07 DONE；REFINE-09 REVIEW；REL-08 DONE；REFINE-10 REVIEW；REL-09 DONE；REFINE-11 REVIEW；REL-10 DONE；REFINE-12 REVIEW；REL-11 DONE；MAINT-01 至 MAINT-06 DONE；REFINE-13 REVIEW；REL-12 DOING；维护文档跟随提交为 `804de40` |
 | 发布基线 | GitHub `v2.10.8`，tag peeled commit 为 `96c2291`；Checks `34589143406`、macOS Native Smoke `34589143413`、macOS Release `34589231576` 均 PASS；Release 四项资产均为 uploaded，digest 见 `docs/v2.10.8/RELEASE_NOTES.md`；旧 tag 未移动 |
-| 远程 main | `origin/main` 与当前工作树已复核为 `0bade576f1aa9e48a4f7e783c06ea270078b3b32`；v2.10.8 发布代码提交为 `96c22914e393924b7f5d312b5ce37ab675c25111`，tag、GitHub Release 与四项资产已收口；计划收口提交的 Checks `34594860391` 与 macOS Native Smoke `34594860252` 均 PASS |
-| 本轮交付 | 已完成 MAINT-02 清理与重建；MAINT-03 对 283 个 tracked 文件、ignored 历史资料、素材、组件、依赖、脚本和 workflow 做引用审计，明确删除候选仅为无引用 `public/vite.svg`、`public/tauri.svg` 并从工作树移除；MAINT-04 重写 README 并验证全部本地链接/图片；MAINT-05 核对远程分支、tag、Release、资产和 Actions，未执行远程删除；MAINT-06 在 `ae6ac45` 干净 checkout 完成 install/check/build、前端 67/67、Rust 33/33、debug bundle、真实 Windows 启动与隔离数据验证；计时/窗口代码未改，v2.10.8 Release 未触碰 |
-| 下一项 | 按用户反馈结构重新复现 REFINE-13：先观察现有 Night Valley 计时页与真实 Windows 主/悬浮窗口状态，再提出最小生命周期修复；通过原生验收后才进入版本与发布闭环 |
-| 当前执行人 / 在做任务 | Codex / REFINE-13 Night Valley 计时页悬浮窗原生复现；MAINT-06 已完成，修复范围仍只限第一套主题计时页 |
+| 远程 main | `origin/main` 与当前工作树已复核为 `804de40f90fb8eb21ac2200b209ed0f36e7d026a`；其中 `ae6ac45` 为维护实现提交，`804de40` 为 MAINT-06 文档/状态收口提交；v2.10.8 发布代码提交为 `96c22914e393924b7f5d312b5ce37ab675c25111`，tag、GitHub Release 与四项资产未触碰；`804de40` 的 macOS Native Smoke `34605645643` 与 Windows Checks `34605645681` 均已 PASS |
+| 本轮交付 | 已完成 MAINT-02 清理与重建；MAINT-03 对 283 个清理前 tracked 文件、ignored 历史资料、素材、组件、依赖、脚本和 workflow 做引用审计，明确删除候选仅为无引用 `public/vite.svg`、`public/tauri.svg` 并从工作树移除；MAINT-04 重写 README 并验证全部本地链接/图片；MAINT-05 核对远程分支、tag、Release、资产和 Actions，未执行远程删除；MAINT-06 在 `ae6ac45` 干净 checkout 完成 install/check/build、前端 67/67、Rust 33/33、debug bundle、真实 Windows 启动与隔离数据验证；维护结果经 `804de40` 正常推送；REFINE-13 仅修改 Night Valley 计时页现有入口布局与对应回归断言，native/布局与最终回归已完成；2.10.9 版本已同步，Windows 三项 release bundle 已生成；v2.10.8 Release 未触碰 |
+| 下一项 | 将当前候选提交并正常推送 main，创建不可移动 `v2.10.9` tag 和 GitHub Release，等待 Windows/macOS CI 与 macOS Universal 资产，再核对四项远端 digest；继续保护 v2.10.8 |
+| 当前执行人 / 在做任务 | Codex / REL-12 v2.10.9 发布闭环；修复范围仍只限第一套主题计时页 |
 | 首套验收结论 | **Windows 原生核心闭环、编辑态计时刷新、主题渲染边界、QA-01 回退回归、五套主题 25 页前端回归、Editorial 长历史性能专项、v2.6.10/v2.7.0/v2.8.0/v2.9.0/v2.9.1 Windows 与 macOS 资产发布、CORE-03 macOS 原生数据目录与迁移、DESK-02 macOS 第二实例/托盘/浮窗/隔离安装启动、DATA-01 备份范围/隔离跨目录搬移/素材清单已通过**；资源出处补录缺口已在清单中保留为后续治理事项 |
 | source | 本轮用户说明；当前源码与测试；Git 提交/远程 refs；GitHub Release/Actions；本轮命令结果 |
 | supersedes | 旧文档中的 v1.4.1/v1.5.x/v1.10.0/v2.0 当前进度，以及 2026-09-06 摘要中的“其他四页未实现、主题注册未建立” |
-| pending | REFINE-12 实测未通过：主界面未自动隐藏、运行中无再次进入悬浮窗入口；维护提交 `ae6ac45` 尚待正常推送和远程 CI 收口；REFINE-13 原生复现与修复尚未完成，不能把现有 mock/Playwright 通过当作用户验收；REFINE-11/REFINE-10/REFINE-09/REFINE-08/REFINE-07 历史页面仍按既有验收状态保留；资源出处补录缺口仍按既有清单保留 |
+| pending | REL-12 发布闭环尚未完成：需要提交、2.10.9 tag、正常推送、远程 CI、GitHub Release、macOS Universal DMG 与资产 digest 核对；REFINE-13 native 验收和最终本地回归已完成但在发布闭环结束前不能称为最终已发布；Night Valley 当前没有独立 F11/全屏产品命令，本轮只验证无边框全屏几何和 CSS 全屏布局；REFINE-11/REFINE-10/REFINE-09/REFINE-08/REFINE-07 历史页面仍按既有验收状态保留；资源出处补录缺口仍按既有清单保留 |
+
+### 2026-09-11 21:49 断点复核
+
+- canonical：本文件；当前有效提交为 `804de40f90fb8eb21ac2200b209ed0f36e7d026a`，工作树干净，`main` 与 `origin/main` 对齐。
+- 已应用的新事实：维护提交已正常推送；`804de40` 的 macOS Native Smoke `34605645643` 已成功；Windows Checks `34605645681` 仍在运行；外部隔离进程 PID 8304 正在运行 `ae6ac45` 干净 checkout 的 v2.10.8 debug EXE，用于真实计时复现。
+- 未决及影响：原生计时生命周期尚未验证，不能修改版本或进入 REL-12；继续只限 Night Valley 的“计时”页，其他主题和页面不动。
+
+### 2026-09-11 22:50 REFINE-13 原生验收断点
+
+- 根因已由 native 复现确认：返回主界面后入口并非计时状态丢失，而是原入口位于可滚动计时卡片主操作区之后，按钮可能在首屏之外；修复仅将已有入口移动到计时卡片 header actions，保留进度条件、忙碌态禁用和既有 `onShowFocusFloating` 动作。
+- 当前源码改动仅涉及 `src/components/NightValleyViews.tsx`、`src/App.css`、`tests/app.spec.mjs`；未修改 Rust 计时引擎、数据格式、其他主题或其他页面。证据报告为 `docs/qa/REFINE-13-night-valley-focus-floating-v2.10.9.md`。
+- Windows native 当前代码隔离运行已验证：启动后 main 隐藏/focus-float 显示；返回后 main 恢复且 header 入口 `inViewport=true`；入口可再次打开悬浮窗；暂停/继续、完成保存、待办→记录→设置→今日→计时、重启读已有记录均通过。普通窗口、最大化和无边框全屏几何均无裁切；测试进程 PID 11292/6364 已安全关闭。
+- 自动化：`pnpm check` PASS；入口回归 1/1 PASS；`tests/today-visual.spec.mjs -g "Night Valley timer"` 3/3 PASS；`pnpm build` 与 `pnpm tauri build --debug` PASS。维护阶段的完整前端 67/67、Rust 33/33、干净 checkout 和 `804de40` 远程 CI 证据继续有效；最终全套回归和发布闭环仍未执行。
+- 当前判断：REFINE-13=`REVIEW`，可以进入 REL-12；版本仍为 2.10.8，v2.10.8 tag/Release/资产未触碰。Night Valley 无独立 F11 命令，报告将全屏结论限定为无边框全屏几何与 CSS 全屏布局。
+
+### 2026-09-11 23:08 REL-12 发布准备断点
+
+- 版本源已统一到 `2.10.9`：`package.json`、`src-tauri/Cargo.toml`、`Cargo.lock`、`tauri.conf.json`、`runtime.rs`、README 和 `docs/v2.10.9/RELEASE_NOTES.md` 均已更新；新的 QA 报告为 `docs/qa/REFINE-13-night-valley-focus-floating-v2.10.9.md`。
+- 最终本地验证已完成：完整前端 `67/67`、Night Valley timer fullscreen 定向 `3/3`、悬浮窗返回入口定向 `1/1`、`pnpm check`、`pnpm build`（2062 modules）、Rust fmt/check/test（33/33）、`pnpm tauri build` 均 PASS。
+- Windows 暂存产物已核对：`Focused.Moment.v2.10.9.exe` `6e8890fcd7fe33aa09bd72da6ea38a88caaddc7d8c728f305c4970a347f43baa`；Setup `f8c74c7635bfe0246cb3c28eb123b193c36430ccdb715fa5377842fe3b82e5a4`；MSI `3499ac6e745177629e7a5d0d9a49534af22c77075548aa93f0d1acf336f1b5a8`。旧 v2.10.8 根目录 EXE 哈希保持不变。
+- 当前仍未执行提交、tag、推送、远程 CI 或新 Release；下一步进入 REL-12 远程发布。v2.10.8 tag、Release 和四项资产继续只读保护。
 
 ### 最新用户纠正与主题精修阶段（2026-09-09）
 
@@ -212,8 +233,8 @@ CORE-03、DESK-02 为 macOS 下一次发布门槛，可与 Windows 首套验收�
 | MAINT-04 | P1 | DONE | MAINT-02/03 | 面向用户重写 README：只保留准确的安装、使用、数据迁移、隐私、故障反馈和构建说明；明确标注未验收的悬浮窗行为 |
 | MAINT-05 | P1 | DONE | MAINT-03/04 | GitHub 对应维护：已审查远程分支、tag、Release、Actions 产物和 README；没有远程删除/归档/资产操作，不重写历史、不移动已发布 tag |
 | MAINT-06 | P1 | DONE | MAINT-02/03/04/05 | 瘦身后的干净 checkout、完整验证、文档/远程状态闭环；`ae6ac45` checkout 已完成重建、页面回归、debug bundle、隔离数据启动和备份保护核对，解除 REFINE-13 阻塞 |
-| REFINE-13 | P1 | DOING | MAINT-06 | Night Valley 单主题“计时”页重新复现并修复悬浮窗生命周期：开始后主界面隐藏、运行中可见且可用的再次进入入口、返回语义；必须用真实 Windows 原生证据覆盖，暂不扩展其他主题/页面 |
-| REL-12 | P1 | TODO | REFINE-13 | 仅当 REFINE-13 用户验收通过后，按版本同步、构建/打包、提交/推送、远程 CI、跨平台资产与 GitHub Release 闭环发布 |
+| REFINE-13 | P1 | REVIEW | MAINT-06 | Night Valley 单主题“计时”页已完成最小入口布局修复；开始后主界面隐藏、运行中可见且可用的再次进入入口、返回语义、普通/最大化/无边框全屏几何及状态闭环已由 Windows native/CDP 覆盖；待 REL-12 发布收口，不扩展其他主题/页面 |
+| REL-12 | P1 | DOING | REFINE-13 | 已达到进入发布闭环条件；继续完成最终全套本地回归、2.10.9 版本同步、Windows 正式包、提交/正常推送、远程 CI、跨平台资产与 GitHub Release digest 核对 |
 
 ### CORE-01 · 磁盘保存与恢复链（第一个执行任务）
 

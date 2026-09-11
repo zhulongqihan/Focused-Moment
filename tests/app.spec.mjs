@@ -824,6 +824,7 @@ test("timer page can reopen the focus floating window after returning to main", 
   const floatingButton = page.getByRole("button", { name: "进入悬浮窗", exact: true });
   await expect(floatingButton).toBeVisible();
   await expect(floatingButton).toBeEnabled();
+  await expect(floatingButton).toBeInViewport();
 
   await floatingButton.click();
 

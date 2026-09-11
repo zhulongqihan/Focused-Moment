@@ -8,14 +8,29 @@
 
 ## 1. 当前结论
 
-本轮先暂停 Night Valley 第一套主题“计时”页的修复。用户最新实测取代此前“v2.10.8 修复可验收”的判断：
+维护阶段已经收口，当前 `REFINE-13` 已完成 Night Valley 第一套主题“计时”页的最小悬浮窗入口修复和 Windows native 验收，下一步进入 `REL-12` 发布闭环。用户最新实测取代此前“v2.10.8 修复可验收”的判断：
 
 - 点击“开始”后，专注悬浮窗会弹出；
 - 主界面没有自动隐藏，这是当前回归；
 - 返回主界面后，运行中的计时页仍找不到再次打开悬浮窗的入口；
-- 当前不修改计时、窗口生命周期、按钮显示或任何前端页面；这些问题在瘦身闭环后作为 `REFINE-13` 单独重新复现。
+- `MAINT-02` 至 `MAINT-06` 已完成并由 `804de40` 正常推送；REFINE-13 只修改了上述计时页入口布局和对应回归断言，仍未扩展到其他主题或页面。
 
 此前的本地 mock、Playwright、Windows 包和远程 CI 通过结果只能证明当时测试路径通过，不能推翻用户最新的实际使用结果。v2.10.8 的 tag、Release 和四项资产保留，不在本计划中删除或覆盖。
+
+## 1.1 断点复核（2026-09-11 21:49，Asia/Shanghai）
+
+- 当前 `main` 与 `origin/main` 均为 `804de40f90fb8eb21ac2200b209ed0f36e7d026a`，工作树干净。
+- `804de40` 的 macOS Native Smoke `34605645643` 与 Windows Checks `34605645681` 均已 PASS，结果已回补根目录计划。
+- 外部隔离运行中的 Windows debug EXE PID 为 8304，数据目录为 `F:\Focused Moment Native Timer Repro 20260911-2028`；该目录不属于用户备份，也不替代正式原生验收。该进程后续已关闭。
+- v2.10.8 tag、Release 和四项资产仍是只读保护对象；当时 REFINE-13 尚未升版本、未打包、未提交功能代码。
+
+## 1.2 REFINE-13 验收断点（2026-09-11 22:50，Asia/Shanghai）
+
+- 根因已在真实 Windows native 环境复现：原有“进入悬浮窗”按钮在可滚动计时卡片的主操作区之后，返回主界面时可能存在于 DOM 但不在首屏；不是计时引擎或持久化状态丢失。
+- 最小改动只涉及 `src/components/NightValleyViews.tsx`、`src/App.css` 和 `tests/app.spec.mjs`：将已有入口放到计时卡片 header actions，保留进度条件、忙碌态禁用和既有窗口动作。
+- 隔离 native 进程使用 `F:\Focused Moment Native Timer Repro 20260911-2222`、CDP `9223`，PID `11292`/`6364` 已安全关闭。开始后 main 隐藏/focus-float 显示，返回后 main 恢复且入口在视口内，可再次打开；暂停/继续、完成保存、Tab 切换和重启读记录均通过。
+- 普通窗口、最大化、无边框全屏几何均通过 native 窗口矩形与 WebView2 CSS 视口核对；Night Valley 没有独立 F11 命令，因此全屏结论限定为无边框全屏几何和 2560/1707 CSS 全屏布局。
+- 证据报告：`docs/qa/REFINE-13-night-valley-focus-floating-v2.10.9.md`；自动化定向入口 1/1、Night Valley timer fullscreen 3/3、`pnpm check`、`pnpm build`、`pnpm tauri build --debug`、`pnpm tauri build` 均通过。版本源已同步到 2.10.9，Windows bundle 已生成，REL-12 尚未完成。
 
 ## 2. 目标与明确不做
 
@@ -26,9 +41,9 @@
 3. 形成一个可信的用户 README，以及可追溯的 GitHub 分支、tag、Release 和 Actions 维护记录。
 4. 让下一次计时修复从干净、可复现的基线开始，而不是继续叠加临时覆盖。
 
-### 本轮和清理前置阶段明确不做
+### 清理阶段已明确不做（现已收口）
 
-- 不修复当前悬浮窗回归，不重构计时页，不做任何主题或界面设计调整。
+- 清理阶段不修复当前悬浮窗回归、不重构计时页、不做主题或界面设计调整；这些事项现由 REFINE-13 单独承接。
 - 不批量重做其他主题或页面，不把“瘦身”变成前端重写。
 - 不凭文件名、文件年龄、文件大小或重复哈希直接删除内容。
 - 不触碰 `Focused Moment Backups`、真实用户数据、应用数据目录或备份 JSON 内容。
@@ -41,7 +56,7 @@
 
 | 项目 | 当前事实 | 处理判断 |
 | --- | --- | --- |
-| 工作树 | `main` 干净；`HEAD` 与 `origin/main` 均为 `0bade57`（完整 SHA 见根目录计划） | 保留为清理起点 |
+| 工作树 | 清理起点为 `main` 干净、`HEAD`/`origin/main` 为 `0bade57`；当前维护收口后 `HEAD`/`origin/main` 为 `804de40` | 保留历史起点，并以当前 SHA 继续执行 |
 | 发布基线 | v2.10.8 tag 的代码提交为 `96c2291`；GitHub Release 为正式 Release，EXE、Setup EXE、MSI、Universal DMG 四项资产均存在 | 只读保护，不删除/替换 |
 | Git 历史 | 全部 refs 约 242 个提交、本地 102 个 tag；远程 API 现有 104 个 tag（额外为 `v0.11.9`、`v0.2.1`）；远程有 main 加 3 个非主分支 | 先列精确清单，再决定是否归档/删除；不删除 tag |
 | 跟踪文件 | 283 个；其中 tracked/ignored 统计以本次清理 manifest 为准 | 逐类判定，不以数量为目标 |
@@ -50,7 +65,7 @@
 | 忽略内容 | 当前约 121,359 个被忽略项，主要来自 `src-tauri/target`、`node_modules`、`output`；另有 138 个被 `.gitignore` 隐藏的历史/分析文档 | 分开处理“本地缓存”和“仓库文档盲区” |
 | 根目录产物 | 有当前/旧版本 EXE、Setup EXE 及 5 张 README 预览图；`.release` 有发布元数据和旧版本辅助文件 | 当前安装包和用户预览先保留 |
 | 个人数据线索 | 根目录存在 `Focused Moment Backups`，含两个备份文件；本轮仅确认路径和文件存在，没有读取内容 | 永久保护，任何清理前单独确认 |
-| GitHub | 公开 MIT 仓库；无开放 PR；v2.10.8 为 Latest；针对 `0bade57` 的 Checks `34594860391` 与 macOS Native Smoke `34594860252` 均成功 | 远程变更必须有精确清单和回滚边界 |
+| GitHub | 公开 MIT 仓库；无开放 PR；v2.10.8 为 Latest；`804de40` 的 macOS Native Smoke `34605645643` 与 Windows Checks `34605645681` 均已成功 | 远程变更必须有精确清单和回滚边界 |
 
 ### 已发现但不能直接删除的内容
 
@@ -147,7 +162,7 @@ README 不写内部任务状态，不把当前尚未重新验收的悬浮窗生�
 
 本轮结果：在 `F:\Focused Moment Clean Checkout 20260911-2028` 的 `ae6ac45` detached checkout 中完成依赖重装、类型检查、构建、67 项前端回归、Rust fmt/check/test、debug bundle 和隔离 `LOCALAPPDATA` 的真实 Windows 启动；启动获得真实窗口句柄/标题，关闭后 worktree clean，工作区备份仍为 2 个文件。MAINT-06 已完成，细节见 `cleanup-manifest-20260911-2016.md`。
 
-### REFINE-13：回到计时问题（当前执行）
+### REFINE-13：回到计时问题（已通过 native 验收，等待 REL-12 发布收口）
 
 清理闭环后，重新在当前 Windows 原生环境复现，并只处理 Night Valley 的“计时”页：
 
@@ -157,6 +172,8 @@ README 不写内部任务状态，不把当前尚未重新验收的悬浮窗生�
 - 关闭/恢复/暂停/完成和异常路径是否保持一致；
 - 浏览器 mock 只作为辅助证据，不能替代原生窗口证据；
 - 仍遵守一个主题、一个界面、一次反馈闭环，不批量改其他页面。
+
+本轮结果：已完成上述最小入口布局修复和 native 状态闭环；完整证据见 `docs/qa/REFINE-13-night-valley-focus-floating-v2.10.9.md`。下一步不是继续扩展 UI，而是执行最终全套回归、版本同步、打包、提交、正常推送、远程 CI 和新 Release；在此之前不修改 v2.10.8 的 tag、Release 或资产。
 
 ## 6. 验收门槛
 
@@ -194,10 +211,8 @@ README 不写内部任务状态，不把当前尚未重新验收的悬浮窗生�
 
 ## 9. 当前暂停清单
 
-以下项目明确留到 MAINT-06 之后，不在本计划文档提交中处理：
+以下项目不属于当前 REFINE-13 的范围：
 
-- 主界面自动隐藏的回归；
-- 计时中再次进入悬浮窗的按钮/入口；
-- 计时页布局、文案、卡片、曲线、日期时间或其他 UI 调整；
 - 其他四套主题、其他 tab 页和批量视觉重做；
+- 与悬浮窗生命周期无关的计时页布局、文案、卡片、曲线或日期时间重设计；
 - GitHub 远程删除/归档操作；README 已在 MAINT-04 完成重写并验证本地链接。

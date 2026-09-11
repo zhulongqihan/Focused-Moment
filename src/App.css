@@ -7663,6 +7663,15 @@ body,
     min-width: 0;
   }
 
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-panel__header-actions {
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-end;
+    flex: 0 0 auto;
+    gap: 8px;
+    min-width: 0;
+  }
+
   .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-panel__header .nv-panel-kicker {
     display: flex;
     align-items: center;
@@ -7676,7 +7685,7 @@ body,
     font: 400 24px/1.22 "Source Han Serif SC", "Noto Serif CJK SC", "Songti SC", SimSun, serif;
   }
 
-  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-panel__header > span {
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-panel__header-actions > span {
     flex: 0 0 auto;
     margin-top: 3px;
     padding: 5px 7px;
@@ -7686,6 +7695,15 @@ body,
     font-size: 9px;
     line-height: 1;
     white-space: nowrap;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-floating-link--header {
+    flex: 0 0 auto;
+    min-height: 30px;
+    margin: 0;
+    padding: 0 9px;
+    gap: 6px;
+    font-size: 11px;
   }
 
   .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-panel__timer {
@@ -8272,6 +8290,13 @@ body,
 
   .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-reset:hover:not(:disabled) {
     color: #e5d08e;
+  }
+
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-panel__header-actions .nv-focus-floating-link--header:hover:not(:disabled),
+  .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-panel__header-actions .nv-focus-floating-link--header:focus-visible {
+    border-color: rgba(196, 237, 211, 0.62);
+    color: #e4f2df;
+    background: rgba(9, 34, 39, 0.56);
   }
 }
 

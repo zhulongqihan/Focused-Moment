@@ -232,7 +232,20 @@ export function NightValleyFocus(props: NightValleyFocusProps) {
               <div class="nv-panel-kicker"><span class="nv-live-dot" /> 本次专注</div>
               <h2>{currentLabel()}</h2>
             </div>
-            <span data-focus-state={visualState().key}>{visualState().label}</span>
+            <div class="nv-focus-panel__header-actions">
+              <span data-focus-state={visualState().key}>{visualState().label}</span>
+              <Show when={props.timerHasProgress()}>
+                <button
+                  type="button"
+                  class="secondary-button nv-focus-floating-link nv-focus-floating-link--header"
+                  disabled={props.busy()}
+                  title="隐藏主窗口，回到悬浮计时"
+                  onClick={() => void props.onShowFocusFloating()}
+                >
+                  进入悬浮窗 <ArrowUpRight size={15} strokeWidth={1.8} aria-hidden="true" />
+                </button>
+              </Show>
+            </div>
           </div>
           <div class="timer-readout nv-focus-panel__timer" role="timer" aria-label="这次专注计时">
             <span>{visualState().label}</span>
@@ -363,17 +376,6 @@ export function NightValleyFocus(props: NightValleyFocusProps) {
               </button>
             </Show>
           </div>
-          <Show when={props.timerHasProgress()}>
-            <button
-              type="button"
-              class="secondary-button nv-focus-floating-link"
-              disabled={props.busy()}
-              title="隐藏主窗口，回到悬浮计时"
-              onClick={() => void props.onShowFocusFloating()}
-            >
-              进入悬浮窗 <ArrowUpRight size={15} strokeWidth={1.8} aria-hidden="true" />
-            </button>
-          </Show>
           <button
             type="button"
             class="text-button nv-focus-reset"
