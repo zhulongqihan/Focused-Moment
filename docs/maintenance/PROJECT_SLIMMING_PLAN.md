@@ -1,6 +1,6 @@
 # Focused Moment 项目瘦身与长期维护计划
 
-> 状态：`DOING`。MAINT-01 对账、MAINT-02 可再生生成物清理、MAINT-03 内容审计、MAINT-04 README 重写与 MAINT-05 远程只读核对已完成，当前执行 MAINT-06 干净 checkout 验证；本文件仍是计划与边界记录，具体结果见各维护记录。
+> 状态：`DONE`。MAINT-01 至 MAINT-06 已完成；瘦身、文档、远程保护审计和干净 checkout 验证已收口，计时问题转入单独的 REFINE-13 原生复现阶段；本文件仍是维护边界与证据索引。
 >
 > 会话引用：`codex://threads/01a07e95-00d0-7691-81fd-61e313706eb2`
 >
@@ -145,7 +145,9 @@ README 不写内部任务状态，不把当前尚未重新验收的悬浮窗生�
 - 文档/计划-only 变更不升应用版本；若清理过程中改变运行时行为，则另开版本化任务，按完整 Release 纪律执行。
 - 更新 `PROJECT_PLAN.md`、清单、README/GitHub 证据和下一任务；只有本阶段通过，才解除 `REFINE-13` 的依赖。
 
-### REFINE-13：回到计时问题（暂不执行）
+本轮结果：在 `F:\Focused Moment Clean Checkout 20260911-2028` 的 `ae6ac45` detached checkout 中完成依赖重装、类型检查、构建、67 项前端回归、Rust fmt/check/test、debug bundle 和隔离 `LOCALAPPDATA` 的真实 Windows 启动；启动获得真实窗口句柄/标题，关闭后 worktree clean，工作区备份仍为 2 个文件。MAINT-06 已完成，细节见 `cleanup-manifest-20260911-2016.md`。
+
+### REFINE-13：回到计时问题（当前执行）
 
 清理闭环后，重新在当前 Windows 原生环境复现，并只处理 Night Valley 的“计时”页：
 
@@ -187,8 +189,8 @@ README 不写内部任务状态，不把当前尚未重新验收的悬浮窗生�
 | MAINT-03 | `DONE` | KEEP/ARCHIVE/DELETE-CANDIDATE/REFACTOR-CANDIDATE/UNKNOWN 清单、引用审计和归档说明；`repository-audit-20260911.md` |
 | MAINT-04 | `DONE` | 面向用户的 README、链接/图片/安装说明验证 |
 | MAINT-05 | `DONE` | GitHub 分支/tag/Release/Actions 操作清单、执行结果和回滚边界；`github-maintenance-audit-20260911.md` |
-| MAINT-06 | `DOING` | 干净 checkout 验证、最终清理报告、计划同步和下一任务解锁结论 |
-| REFINE-13 | `TODO` | 计时页原生复现、单页面修复和用户验收证据；本计划完成前不得开始 |
+| MAINT-06 | `DONE` | 干净 checkout 验证、最终清理报告、计划同步和下一任务解锁结论 |
+| REFINE-13 | `DOING` | 计时页原生复现、单页面修复和用户验收证据；当前只限 Night Valley 计时页 |
 
 ## 9. 当前暂停清单
 

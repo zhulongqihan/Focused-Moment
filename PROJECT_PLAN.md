@@ -9,18 +9,18 @@
 | --- | --- |
 | as_of / updated_at | 2026-09-11；用户最新实测确认 v2.10.8 的悬浮窗修复未通过：点击开始会打开悬浮窗，但主界面没有自动隐藏，运行中也找不到再次进入悬浮窗入口。计时修复已暂停，当前按目标文件执行项目瘦身与维护计划；本次复核确认实际 `HEAD`/`origin/main` 为 `0bade576f1aa9e48a4f7e783c06ea270078b3b32` |
 | 产品目标 | 本地优先的桌面专注工具：待办 → 专注 → 桌面提醒 → 保存记录 → 回看投入 → 可恢复地长期保留 |
-| 当前阶段 | 五套主题均已接入；Night Valley 的“计时”页问题按用户要求暂停修复，MAINT-01 对账、MAINT-02 生成物清理、MAINT-03 内容审计、MAINT-04 README 重写与 MAINT-05 远程只读核对已完成，当前执行 MAINT-06 干净 checkout 验证 |
+| 当前阶段 | 五套主题均已接入；MAINT-01 至 MAINT-06 瘦身、文档、远程审计和干净 checkout 验证已完成，当前进入 REFINE-13：只在第一套主题 Night Valley 的“计时”页重新复现悬浮窗生命周期问题；修复前不扩展其他主题/页面 |
 | 代码基线 | v2.10.8 发布代码提交为 `96c2291`（`96c22914e393924b7f5d312b5ce37ab675c25111`），tag `v2.10.8` peeled commit 与其一致；v2.10.7 tag 固定在 `9f75902`；旧 tag 未移动 |
 | 当前工作分支 | `main`；旧 CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06/DESK-01/DESK-02/DESK-03/ARCH-01/QA-01/PERF-01/TH-02/TH-03/TH-04/TH-05/DATA-01/REL-01 已完成；REFINE-03/REFINE-04/REFINE-05 DONE；REL-02/REL-03/REL-04 DONE；REFINE-06 REVIEW；REL-05 DONE；REFINE-07 REVIEW；REL-06 DONE；REFINE-08 REVIEW；REL-07 DONE；REFINE-09 REVIEW；REL-08 DONE；REFINE-10 REVIEW；REL-09 DONE；REFINE-11 REVIEW；REL-10 DONE；REFINE-12 REVIEW；REL-11 DONE |
 | 发布基线 | GitHub `v2.10.8`，tag peeled commit 为 `96c2291`；Checks `34589143406`、macOS Native Smoke `34589143413`、macOS Release `34589231576` 均 PASS；Release 四项资产均为 uploaded，digest 见 `docs/v2.10.8/RELEASE_NOTES.md`；旧 tag 未移动 |
 | 远程 main | `origin/main` 与当前工作树已复核为 `0bade576f1aa9e48a4f7e783c06ea270078b3b32`；v2.10.8 发布代码提交为 `96c22914e393924b7f5d312b5ce37ab675c25111`，tag、GitHub Release 与四项资产已收口；计划收口提交的 Checks `34594860391` 与 macOS Native Smoke `34594860252` 均 PASS |
-| 本轮交付 | 已完成 MAINT-02 清理与重建；MAINT-03 对 283 个 tracked 文件、ignored 历史资料、素材、组件、依赖、脚本和 workflow 做引用审计，明确删除候选仅为无引用 `public/vite.svg`、`public/tauri.svg` 并从工作树移除；MAINT-04 重写 README 并验证全部本地链接/图片；MAINT-05 核对远程分支、tag、Release、资产和 Actions，未执行远程删除；计时/窗口代码未改，v2.10.8 Release 未触碰 |
-| 下一项 | 完成 MAINT-06 干净 checkout 的安装、构建、启动与页面回归；通过后提交/正常推送维护变更，再进入 REFINE-13 原生复现 |
-| 当前执行人 / 在做任务 | Codex / MAINT-06 干净 checkout 验证与维护闭环；计时修复暂停，不领取 REFINE-13 |
+| 本轮交付 | 已完成 MAINT-02 清理与重建；MAINT-03 对 283 个 tracked 文件、ignored 历史资料、素材、组件、依赖、脚本和 workflow 做引用审计，明确删除候选仅为无引用 `public/vite.svg`、`public/tauri.svg` 并从工作树移除；MAINT-04 重写 README 并验证全部本地链接/图片；MAINT-05 核对远程分支、tag、Release、资产和 Actions，未执行远程删除；MAINT-06 在 `ae6ac45` 干净 checkout 完成 install/check/build、前端 67/67、Rust 33/33、debug bundle、真实 Windows 启动与隔离数据验证；计时/窗口代码未改，v2.10.8 Release 未触碰 |
+| 下一项 | 按用户反馈结构重新复现 REFINE-13：先观察现有 Night Valley 计时页与真实 Windows 主/悬浮窗口状态，再提出最小生命周期修复；通过原生验收后才进入版本与发布闭环 |
+| 当前执行人 / 在做任务 | Codex / REFINE-13 Night Valley 计时页悬浮窗原生复现；MAINT-06 已完成，修复范围仍只限第一套主题计时页 |
 | 首套验收结论 | **Windows 原生核心闭环、编辑态计时刷新、主题渲染边界、QA-01 回退回归、五套主题 25 页前端回归、Editorial 长历史性能专项、v2.6.10/v2.7.0/v2.8.0/v2.9.0/v2.9.1 Windows 与 macOS 资产发布、CORE-03 macOS 原生数据目录与迁移、DESK-02 macOS 第二实例/托盘/浮窗/隔离安装启动、DATA-01 备份范围/隔离跨目录搬移/素材清单已通过**；资源出处补录缺口已在清单中保留为后续治理事项 |
 | source | 本轮用户说明；当前源码与测试；Git 提交/远程 refs；GitHub Release/Actions；本轮命令结果 |
 | supersedes | 旧文档中的 v1.4.1/v1.5.x/v1.10.0/v2.0 当前进度，以及 2026-09-06 摘要中的“其他四页未实现、主题注册未建立” |
-| pending | REFINE-12 实测未通过且暂停：主界面未自动隐藏、运行中无再次进入悬浮窗入口；MAINT-06 干净 checkout 的安装、启动和页面回归尚未完成，两个无引用 SVG 的最终提交门槛尚未解除；维护变更尚未推送；REFINE-11/REFINE-10/REFINE-09/REFINE-08/REFINE-07 历史页面仍按既有验收状态保留；资源出处补录缺口仍按既有清单保留 |
+| pending | REFINE-12 实测未通过：主界面未自动隐藏、运行中无再次进入悬浮窗入口；维护提交 `ae6ac45` 尚待正常推送和远程 CI 收口；REFINE-13 原生复现与修复尚未完成，不能把现有 mock/Playwright 通过当作用户验收；REFINE-11/REFINE-10/REFINE-09/REFINE-08/REFINE-07 历史页面仍按既有验收状态保留；资源出处补录缺口仍按既有清单保留 |
 
 ### 最新用户纠正与主题精修阶段（2026-09-09）
 
@@ -211,8 +211,8 @@ CORE-03、DESK-02 为 macOS 下一次发布门槛，可与 Windows 首套验收�
 | MAINT-03 | P1 | DONE | MAINT-02 | 仓库内容精简：按引用图、构建脚本、历史证据和发布依赖整理 docs、设计资料、素材、脚本、依赖和候选死代码；明确删除候选仅两份无引用脚手架 SVG，最终验证门槛留给 MAINT-06 |
 | MAINT-04 | P1 | DONE | MAINT-02/03 | 面向用户重写 README：只保留准确的安装、使用、数据迁移、隐私、故障反馈和构建说明；明确标注未验收的悬浮窗行为 |
 | MAINT-05 | P1 | DONE | MAINT-03/04 | GitHub 对应维护：已审查远程分支、tag、Release、Actions 产物和 README；没有远程删除/归档/资产操作，不重写历史、不移动已发布 tag |
-| MAINT-06 | P1 | DOING | MAINT-02/03/04/05 | 瘦身后的干净 checkout、完整验证、文档/远程状态闭环；确认正常使用不受影响后，才解除对 REFINE-13 的阻塞 |
-| REFINE-13 | P1 | TODO | MAINT-06 | Night Valley 单主题“计时”页重新复现并修复悬浮窗生命周期：开始后主界面隐藏、运行中可见且可用的再次进入入口、返回语义；必须用真实 Windows 原生证据覆盖，暂不扩展其他主题/页面 |
+| MAINT-06 | P1 | DONE | MAINT-02/03/04/05 | 瘦身后的干净 checkout、完整验证、文档/远程状态闭环；`ae6ac45` checkout 已完成重建、页面回归、debug bundle、隔离数据启动和备份保护核对，解除 REFINE-13 阻塞 |
+| REFINE-13 | P1 | DOING | MAINT-06 | Night Valley 单主题“计时”页重新复现并修复悬浮窗生命周期：开始后主界面隐藏、运行中可见且可用的再次进入入口、返回语义；必须用真实 Windows 原生证据覆盖，暂不扩展其他主题/页面 |
 | REL-12 | P1 | TODO | REFINE-13 | 仅当 REFINE-13 用户验收通过后，按版本同步、构建/打包、提交/推送、远程 CI、跨平台资产与 GitHub Release 闭环发布 |
 
 ### CORE-01 · 磁盘保存与恢复链（第一个执行任务）
@@ -593,6 +593,7 @@ NV-05 的具体键盘缺口：`CommandPalette.tsx` 声明 modal/listbox，但缺
 | 2026-09-11 | MAINT-01 reconciliation / MAINT-02 | `0bade57`→工作树 | 重新读取目标文件、AGENTS、PROJECT_PLAN、THEME_REFINEMENT_PROMPT 和瘦身计划；`git fetch --prune origin` 后确认 `main`、`HEAD` 与 `origin/main` 均为 `0bade576f1aa9e48a4f7e783c06ea270078b3b32`，版本源仍为 2.10.8；生成 `docs/maintenance/cleanup-manifest-20260911-2016.md`；关闭本项目 Vite/pnpm dev 进程；未修改计时/窗口代码，未触碰备份、Release、output 或 Playwright 状态 | 实际 tracked 283、untracked 0、ignored 121,359；`src-tauri/target` 文件长度合计约 79.002 GiB，`target-hotfix` 约 4.854 GiB，node_modules 约 137.7 MiB，dist 约 14.0 MiB；GitHub 公开仓库、无开放 PR、远程 104 个 tag、v2.10.8 四项资产均 uploaded；针对 `0bade57` 的 Checks `34594860391` 与 macOS Native Smoke `34594860252` PASS；状态审计已识别并应用目标文件这一最新事件，旧计划基线不再作为当前事实 | 版本/Release 不变；计时问题仍按用户反馈暂停；MAINT-02 仅清理 manifest 明列的生成物 | MAINT-02（执行精确清理后重装依赖和验证） |
 | 2026-09-11 | MAINT-02 | `0bade57`→工作树 | 按清单将 `src-tauri/target`、3 个临时 target、`node_modules`、`dist`、`test-results` 移入外部可恢复归档；归档后重装依赖并完成 `pnpm check`、`pnpm build`、`pnpm test:frontend -- --workers=1`、Cargo fmt/check/test locked、`git diff --check`；更新清理 manifest；未修改计时/窗口代码，未触碰 `Focused Moment Backups`、output、Playwright 状态、`.release` 或根目录 EXE | 前端 67/67 PASS；Rust 33/33 PASS，doc-tests 0；重建目录体量与保护核对见 `docs/maintenance/cleanup-manifest-20260911-2016.md`；应用独立启动尚未作为本工作单元的结论，留给 MAINT-06/原生验证 | 版本/Release 不变；v2.10.8 未移动/删除；当前工作树仅有计划与 manifest 相关文档变更 | MAINT-03（跟踪内容引用审计） |
 | 2026-09-11 | MAINT-03/04/05 | `0bade57`→工作树 | 完成 tracked/ignored 内容、素材、组件、依赖、脚本、workflow 和发布依赖审计；删除工作树中的 `public/vite.svg`、`public/tauri.svg` 候选；新增 `repository-audit-20260911.md`、`github-maintenance-audit-20260911.md`；重写 README 并验证 9 个本地链接/图片目标；只读核对 GitHub 分支/tag/Release/Actions，未做远程删除或 v2.10.8 资产操作 | `pnpm check`、`pnpm build` PASS；无引用扫描未命中两份 SVG；远程 v2.10.8 四项资产均 uploaded，Checks `34594860391`、macOS Native Smoke `34594860252` PASS；完整删除候选验证、应用启动和页面回归仍待 MAINT-06 | 版本/Release 不变；当前工作树待干净 checkout 验证后再提交/推送；计时问题仍暂停 | MAINT-06（干净 checkout 验证） |
+| 2026-09-11 | MAINT-06 | `ae6ac45`→工作树 | 在 `F:\Focused Moment Clean Checkout 20260911-2028` 以 detached `ae6ac45` 重装依赖，完成 `pnpm check`、`pnpm build`、前端 67/67、Cargo fmt/check/test（33/33）、`pnpm tauri build --debug`；以隔离 `LOCALAPPDATA` 启动真实 `focused-moment.exe`，获得窗口句柄/标题并关闭；刷新后 worktree clean；工作区备份仍 2 个文件 | 证据见 `docs/maintenance/cleanup-manifest-20260911-2016.md`；干净构建输出未包含两个已删除 SVG；启动只证明窗口可创建/关闭，不推断计时浮窗生命周期已修复 | 版本/Release 不变；v2.10.8 未移动/删除；维护提交 `ae6ac45` 待推送/CI；维护阶段解除 REFINE-13 | REFINE-13（真实 Windows 原生复现） |
 
 每条后续记录使用：`日期｜任务ID｜开始SHA→结束SHA｜修改文件｜验证命令与结果｜证据路径/链接｜版本/发布状态｜剩余问题｜下一ID`。没有执行的测试必须写“未执行”，不可复制上一版结果。
 

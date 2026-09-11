@@ -81,3 +81,19 @@
 | 保护核对 | `Focused Moment Backups/` 仍在原路径，2 个文件，仅核对属性/数量；`output/`、`.playwright-cli/`、`.release/`、根目录 v2.10.8/旧版本 EXE 未纳入本次清理 |
 
 结论：MAINT-02 的可再生目录清理、依赖重建、前端与 Rust 验证门槛已满足；应用启动复核仍作为 MAINT-06/后续原生验证单独记录，不能从构建通过推断启动行为已验收。
+
+## MAINT-06 干净 checkout 验证
+
+| 项目 | 结果 |
+| --- | --- |
+| checkout | 外部 detached worktree `F:\Focused Moment Clean Checkout 20260911-2028`，提交 `ae6ac45`，初始无未提交变更 |
+| 干净重建 | `pnpm install --frozen-lockfile`、`pnpm check`、`pnpm build`：均退出码 0；Vite 2062 modules transformed |
+| 干净前端回归 | `pnpm test:frontend -- --workers=1`：67 passed，0 failed，退出码 0，约 4.4 分钟 |
+| 干净 Rust 验证 | `cargo fmt --check`、`cargo check --locked`、`cargo test --locked` 均退出码 0；33 passed，doc-tests 0 |
+| 干净打包 | `pnpm tauri build --debug`：成功生成 `target/debug/focused-moment.exe`、x64 MSI 和 NSIS bundle |
+| 原生启动 | 使用隔离 `F:\Focused Moment Native Smoke Data 20260911-2028` 注入 `LOCALAPPDATA`；进程启动后 `HasExited=False`、真实 `MainWindowHandle=983426`、标题为 `Focused Moment`，人工 `CloseMainWindow` 后退出；退出码 `-1` 仅记录为关闭路径，不把它解释为独立的正常退出码验收 |
+| 应用数据隔离 | 隔离目录生成了独立 `FocusedMoment/focused-moment-state.json` 与 `focused-moment-runtime.json`；没有在隔离目录创建备份文件夹 |
+| 原工作区保护 | `F:\Focused Moment\Focused Moment Backups` 仍为 2 个文件；未读取或修改内容；根目录 v2.10.8/旧版本 EXE、`.release`、`output`、`.playwright-cli` 均未纳入 checkout 清理 |
+| 最终状态 | 干净 worktree 在刷新文件索引后 `git status --short --branch` 无变更；两个 SVG 删除候选在该 checkout 构建/启动/页面回归中未引入失败 |
+
+结论：MAINT-06 的“干净 checkout 可重建、应用可启动、页面回归通过、数据/发布保护不受影响”门槛已满足；当前解除维护阶段对 REFINE-13 的阻塞。原生计时浮窗行为仍未修复或验收，不能从本记录推断其生命周期正确。
