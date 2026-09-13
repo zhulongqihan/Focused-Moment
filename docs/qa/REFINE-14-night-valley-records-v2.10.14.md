@@ -25,7 +25,7 @@
 - `pnpm test:frontend -- tests/today-visual.spec.mjs -g "Night Valley (baseline records|pages expose|secondary widths|pressure widths|records explain)" --workers=1`：PASS，5/5。
 - `pnpm test:frontend -- --workers=1`：PASS，71/71。
 - `pnpm package:release`：PASS，生成 v2.10.14 Windows portable、NSIS Setup、MSI。
-- `git diff --check`：PASS（版本文档加入前已检查；发布提交前会再次检查）。
+- `git diff --check`：PASS。
 
 ## 关键回归
 
@@ -36,6 +36,8 @@
 
 ## 发布状态
 
-- 本地代码基线：`eaa1fc4`。
+- 本地代码基线：`eaa1fc4`；发布代码提交：`fb1e03eb248e8415e2e29bc688cd756458b427b5`，`v2.10.14` tag peeled commit 一致。
 - Windows 资产 SHA-256 已记录在 `docs/v2.10.14/RELEASE_NOTES.md`。
-- 当前文档生成时尚未执行 commit、push、tag、远程 Windows Checks 或 GitHub Release；完成这些步骤后回填提交、run、Release 链接与远端资产 digest。
+- Windows Checks：[`34756725964`](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34756725964) PASS；远程前端 `71/71`，Rust fmt/check/test 全部通过。
+- GitHub Release：[`v2.10.14`](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.10.14) 已正式发布；portable、NSIS Setup、MSI 三项资产均为 `uploaded`，远端 digest 与本地 SHA-256 一致。
+- 本轮不构建、不上传、不运行 macOS 版本链路；v2.10.11 仍是最后一个包含 macOS 资产的版本。

@@ -34,4 +34,9 @@
 | `Focused Moment Setup v2.10.14.exe`（NSIS） | 16,177,459 | `A253D8FD657F6B2E193966CDA54F7DC9B2655AC40AC7C3CE687EF252CBC93701` |
 | `Focused Moment_2.10.14_x64_en-US.msi`（MSI） | 17,162,240 | `C50F07ADE5F3D02714F8000FB57FC556F2D9502E49EB1C633D2775525CC9ADFE` |
 
-本地与 GitHub Release 资产核对将在 Windows 远程发布完成后补录远端状态与 digest。
+本地与 GitHub Release 资产核对：三项资产均为 `uploaded`，远端 digest 与上述本地 SHA-256 一致。
+
+- Release：[v2.10.14](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.10.14)
+- commit：`fb1e03eb248e8415e2e29bc688cd756458b427b5`
+- Windows Checks：[`34756725964`](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34756725964)，远程前端 `71/71`、Rust fmt/check/test 全部通过。
+- Release asset names：`Focused.Moment.v2.10.14.exe`、`Focused.Moment.Setup.v2.10.14.exe`、`Focused.Moment_2.10.14_x64_en-US.msi`。
