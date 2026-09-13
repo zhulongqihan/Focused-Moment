@@ -8,8 +8,8 @@
 
 ## Release discipline
 
-- Every user-facing change that is considered complete should be treated as a release candidate, not left only in the local workspace.
-- After finishing a releasable change, default to:
+- The push/release unit is a complete interface fix, not an individual small bug. Keep related small fixes for the same interface local while iterating and validating; do not push or release after each small bug.
+- After the whole interface fix is complete and its acceptance criteria pass, treat the batch as one release candidate and default to:
   1. build verification
   2. package verification
   3. commit

@@ -7,13 +7,14 @@
 
 | 字段 | 当前值 |
 | --- | --- |
-| as_of / updated_at | 2026-09-13 16:45（Asia/Shanghai）；UX-AUDIT-01 已完成 25 页 × 3 轮 = 75 轮真实浏览器体验、50 组紧凑密度专项、20 个设置锚点检查和人工视觉复核；本地旧归档与生成物清理已按用户授权完成；REL-14 v2.10.11 五套主题“今日一句”已完成构建、提交、正常推送、tag、GitHub Release、远程 Checks、macOS Native Smoke、Universal DMG 和四项资产 digest 核对；新增用户决策：暂时冻结 macOS 版本更新，直到用户明确授权恢复；REL-15 v2.10.12 Windows-only 对齐修复已完成本地验证、打包、提交、推送、tag、Release、远程 Checks 和三项资产 digest 核对，证据见 `docs/v2.10.12/RELEASE_NOTES.md` 与 `docs/maintenance/destructive-cleanup-manifest-20260912.md` |
+| as_of / updated_at | 2026-09-13 17:00（Asia/Shanghai）；UX-AUDIT-01 已完成 25 页 × 3 轮 = 75 轮真实浏览器体验、50 组紧凑密度专项、20 个设置锚点检查和人工视觉复核；本地旧归档与生成物清理已按用户授权完成；REL-14 v2.10.11 五套主题“今日一句”已完成构建、提交、正常推送、tag、GitHub Release、远程 Checks、macOS Native Smoke、Universal DMG 和四项资产 digest 核对；新增用户决策：暂时冻结 macOS 版本更新，直到用户明确授权恢复；REL-15 v2.10.12 Windows-only 对齐修复已完成本地验证、打包、提交、推送、tag、Release、远程 Checks 和三项资产 digest 核对；新增用户决策：同一界面内的小修复先本地合并验证，界面整体完成后再一次性提交、推送和发布，不按单个小 bug 推送，证据见 `docs/v2.10.12/RELEASE_NOTES.md` 与 `docs/maintenance/destructive-cleanup-manifest-20260912.md` |
 | 产品目标 | 本地优先的桌面专注工具：待办 → 专注 → 桌面提醒 → 保存记录 → 回看投入 → 可恢复地长期保留 |
 | 当前阶段 | 五套主题均已接入；MAINT-01 至 MAINT-06 瘦身、文档、远程审计和干净 checkout 验证已完成；REFINE-13 的 Night Valley“计时”页修复、Windows native 验收和 REL-12 v2.10.9 发布闭环均已完成；2026-09-12 本地旧归档与可再生生成物清理已完成；UX-AUDIT-01 全主题逐页体验精修已完成；REL-13 v2.10.10、REL-14 v2.10.11 与 REL-15 v2.10.12 Windows-only 发布闭环均已完成 |
 | 代码基线 | v2.10.12 发布代码提交为 `77b5b66dbde53b976a1f4b2ef3e3582d4f3fd7d5`，tag `v2.10.12` peeled commit 与其一致；v2.10.11 发布代码提交为 `d83444b7d861730a7bd6b22e448b4000ccdec5b3`；当前 `main` 由 v2.10.12 发布代码及本轮最终证据跟随文档组成；旧版本 tag 未移动 |
 | 当前工作分支 | `main`；旧 CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06/DESK-01/DESK-02/DESK-03/ARCH-01/QA-01/PERF-01/TH-02/TH-03/TH-04/TH-05/DATA-01/REL-01 已完成；REFINE-03/REFINE-04/REFINE-05 DONE；REL-02/REL-03/REL-04 DONE；REFINE-06 REVIEW；REL-05 DONE；REFINE-07 REVIEW；REL-06 DONE；REFINE-08 REVIEW；REL-07 DONE；REFINE-09 REVIEW；REL-08 DONE；REFINE-10 REVIEW；REL-09 DONE；REFINE-11 REVIEW；REL-10 DONE；REFINE-12 REVIEW；REL-11 DONE；MAINT-01 至 MAINT-06 DONE；REFINE-13 DONE；REL-12 DONE；本地旧归档清理 DONE；UX-AUDIT-01 DONE；REL-13 DONE；REL-14 DONE；REL-15 DONE |
 | 发布基线 | GitHub `v2.10.12`，tag peeled commit 为 `77b5b66`；Windows Checks `34747904315` PASS，远程前端 `69/69`、Rust fmt/check/test 均 PASS；Release 三项 Windows 资产均为 uploaded，digest 见 `docs/v2.10.12/RELEASE_NOTES.md`；v2.10.11 仍是最后一个包含 macOS 资产的版本；v2.10.8/v2.10.9/v2.10.10 tag、Release、资产未修改 |
 | 后续发布策略 | **macOS 暂停更新，直到用户明确要求恢复**；v2.10.11 是当前最后一个同时发布 Windows 与 macOS 资产的版本。后续普通用户可见变更默认只走 Windows 构建/验证/发布，不构建或上传新的 macOS Universal DMG，不运行 macOS Release 与 macOS Native Smoke；共享源码可能仍包含 macOS 可用逻辑，但不视为 macOS 版本发布 |
+| 推送节奏 | 用户明确决定：同一界面内的多个小 bug 先在本地集中修复和验证；只有该界面整体修复完成并满足验收标准后，才一次性 commit、push 和 release，不按单个小 bug 推送；流程文档同步本身不触发应用版本、打包或 CI |
 | 远程 main | `origin/main` 已包含 v2.10.12 发布代码提交 `77b5b66dbde53b976a1f4b2ef3e3582d4f3fd7d5` 和本轮 macOS 冻结策略；GitHub Release [v2.10.12](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.10.12) 已正式发布并有三项 Windows 资产；v2.10.11 Release 仍有四项资产且是最后一个 macOS 发布版本；v2.10.8/v2.10.9/v2.10.10 tag、GitHub Release 与资产未触碰 |
 | 本轮交付 | 已完成 MAINT-02 清理与重建；MAINT-03 对 283 个清理前 tracked 文件、ignored 历史资料、素材、组件、依赖、脚本和 workflow 做引用审计，明确删除候选仅为无引用 `public/vite.svg`、`public/tauri.svg` 并从工作树移除；MAINT-04 重写 README 并验证全部本地链接/图片；MAINT-05 核对远程分支、tag、Release、资产和 Actions，未执行远程删除；MAINT-06 在 `ae6ac45` 干净 checkout 完成 install/check/build、前端 67/67、Rust 33/33、debug bundle、真实 Windows 启动与隔离数据验证；维护结果经 `804de40` 正常推送；REFINE-13 仅修改 Night Valley 计时页现有入口布局与对应回归断言，native/布局与最终回归完成；2.10.9 Windows 三项 bundle 与 macOS Universal DMG 已发布并核对 digest；本轮另按清单删除约 95.25 GiB 本地旧归档/生成物和无引用 ignored 旧副本；UX-AUDIT-01 完成五套主题 25 页三轮真实体验，修复跨 Tab 滚动、无效记录占位、移动导航、图表日期点和过期设置说明等问题；REL-13 完成 v2.10.10 Windows/macOS 发布闭环；REL-14 完成五套主题 Today 的稳定每日一句、主题化布局、共享样式、跨主题同日断言、v2.10.11 本地 68/68/build/Rust 验证、Windows 三项打包、远程 Checks/Native Smoke/Universal DMG 发布闭环；REL-15 已完成 Night Valley 计时页记录入口文字几何居中、跨桌面/窄屏断言、v2.10.12 Windows-only 版本同步、Windows 构建与三项打包、远程 69/69 与 Rust 检查；macOS workflow 已改为仅手动触发；v2.10.8/v2.10.9/v2.10.10 Release 未触碰 |
 | 下一项 | 用户安装/启动 v2.10.12 并验收按钮视觉居中；后续普通变更默认只发布 Windows，macOS 保持冻结，直到用户明确授权 |
@@ -84,6 +85,12 @@
 - 同步完成 `package.json`、`src-tauri/Cargo.toml`、`Cargo.lock`、`tauri.conf.json`、`runtime.rs`、README 与 `docs/v2.10.12/RELEASE_NOTES.md`；v2.10.12 是 Windows-only 发布。`.github/workflows/macos-native.yml` 与 `release-macos.yml` 已改为仅 `workflow_dispatch`，防止普通 push/tag 自动触发 macOS 构建；macOS 对外发布版本仍为 v2.10.11。
 - 远程收口：发布代码提交 `77b5b66dbde53b976a1f4b2ef3e3582d4f3fd7d5`，`v2.10.12` tag peeled commit 与其一致；Windows Checks `34747904315` PASS（远程前端 `69/69`，Rust fmt/check/test 全部通过，约 12 分钟）；GitHub Release [v2.10.12](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.10.12) 三项资产均 `uploaded`，远端 digest 与本地 SHA-256 一致。
 - 当前结论：REL-15 与 v2.10.12 发布已收口；用户后续只需安装/启动 Windows v2.10.12 验收按钮视觉中心。macOS 不构建、不上传、不运行 Native Smoke，直到用户明确授权恢复。
+
+### 2026-09-13 用户决策：按界面批量推送
+
+- 用户明确要求保留推送，但将推送单位从“单个小 bug”调整为“一个界面整体修复”：同一界面的问题先在本地累计修改、定向验证和统一验收，界面修复完整后再一次性提交、推送和发布。
+- 后续小问题不会各自触发远程 CI、GitHub Release 或版本发布；如果用户明确要求立即推送，则按用户的明确指令执行。macOS 更新冻结规则继续有效。
+- 本次仅同步 `AGENTS.md`、`PROJECT_PLAN.md`、README 和 v2.10.12 发布说明，不修改应用代码、不升版本、不打包、不触发 CI。
 
 ### 最新用户纠正与主题精修阶段（2026-09-09）
 

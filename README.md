@@ -34,7 +34,7 @@ Focused Moment 适合需要长期保留待办和专注记录、但不想使用�
 
 当前稳定版本是 [v2.10.12](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.10.12)（Windows-only，2026-09-13 发布）。本版本修复 Night Valley 计时页“查看专注记录”按钮的文字居中问题；v2.10.11 接入的本地“每日一句”仍保持同一天跨主题同句，并分别以夜谷注脚、纸页页边手记、控制台讯息条、潮汐寄语和书签纸条呈现。全屏说明限定为无边框窗口的全屏几何与布局适配，当前没有独立的 F11 切换命令。
 
-当前发布策略：v2.10.11 是最后一个当前双平台发布版本。v2.10.12 起的普通变更默认只更新和发布 Windows 版本；macOS 版本、Universal DMG、macOS Release 与 macOS Native Smoke 暂停，直到用户明确要求恢复。共享源码仍保持跨平台设计，但不会因此自动生成新的 macOS 发布资产。
+当前发布策略：v2.10.11 是最后一个当前双平台发布版本。v2.10.12 起的普通变更默认只更新和发布 Windows 版本；macOS 版本、Universal DMG、macOS Release 与 macOS Native Smoke 暂停，直到用户明确要求恢复。共享源码仍保持跨平台设计，但不会因此自动生成新的 macOS 发布资产。同一界面内的多个小修复先本地集中验证，界面整体完成后再一次性提交、推送和发布，不按单个小 bug 推送。
 
 ## 下载与安装
 
