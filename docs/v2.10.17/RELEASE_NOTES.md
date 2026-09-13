@@ -19,7 +19,7 @@
 - `cargo check --locked --manifest-path src-tauri/Cargo.toml`
 - `cargo test --locked --manifest-path src-tauri/Cargo.toml`
 - `pnpm package:release`
-- Windows 远程 Checks 与三项 Release 资产 SHA-256 核对
+- Windows 远程 Checks [`34770039344`](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34770039344) 与三项 Release 资产 SHA-256 核对
 
 ## Windows 资产
 
@@ -28,3 +28,5 @@
 | `Focused.Moment.v2.10.17.exe` | 23,798,272 | `36b8d181a73920d6d796214866ca105b83c94c9e782f4358187cc8c7d8de6a62` |
 | `Focused.Moment.Setup.v2.10.17.exe` | 16,180,664 | `e35f92efdd70988154fa1e2a5cc79933dc56bdffd7a0963f248d19722d9a0e90` |
 | `Focused.Moment_2.10.17_x64_en-US.msi` | 17,158,144 | `3466cba5fbf774f7e9aa62fd5a5140fb37cf21c9721a78921cae0d86500dfdb2` |
+
+GitHub Release：[v2.10.17](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.10.17)。三项资产均已 uploaded，远端 digest 与上表本地 SHA-256 一致；发布代码提交为 `67104979f79591125cda32f5506836911b0279e1`，tag `v2.10.17` 指向同一提交。macOS 资产与 workflow 继续冻结。

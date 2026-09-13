@@ -20,4 +20,10 @@
 - 560×860 窄视口：三列和下一步卡片按顺序堆叠，添加入口与完成记录可见，页面无横向溢出。
 - 右上角最小化、最大化/还原、关闭控件保持可点击，且不触发顶栏拖拽。
 - 本地定向待办/逾期/窗口控件回归：9/9 PASS；Night Valley 尺寸与安全可达性回归：3/3 PASS；完整前端回归：75/75 PASS；`pnpm check`：PASS。
-- `pnpm build`（2066 modules）、Rust fmt/check/test（34/34）和 `pnpm package:release` 已通过；三项 Windows 资产的本地大小与 SHA-256 已记录在 `docs/v2.10.17/RELEASE_NOTES.md`，远程 Checks 与 Release digest 待发布闭环后补录。
+- `pnpm build`（2066 modules）、Rust fmt/check/test（34/34）和 `pnpm package:release` 已通过；三项 Windows 资产的本地大小与 SHA-256 已记录在 `docs/v2.10.17/RELEASE_NOTES.md`。Windows 远程 Checks [`34770039344`](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34770039344) 通过，远程 Release 三项资产均 uploaded 且 digest 与本地一致。
+
+## 发布结果
+
+- 发布代码：`67104979f79591125cda32f5506836911b0279e1`；tag：`v2.10.17`。
+- GitHub Release：[v2.10.17](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.10.17)。
+- 平台边界：仅 Windows；macOS 继续按用户决定冻结。
