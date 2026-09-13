@@ -19,7 +19,10 @@
 - 五套主题的 Today 页面截图与压力宽度专项：通过。
 - pnpm build：通过，2066 个模块。
 - Windows release bundle：通过，EXE、Setup 和 MSI 均生成且文件版本为 2.10.11。
-- 远程 Checks 与 macOS Native Smoke：待发布闭环完成后回填。
+- Rust 本地验证：fmt、check、33/33 tests 均通过。
+- 远程 Checks：通过，[run 34743633071](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34743633071)。
+- macOS Native Smoke：通过，[run 34743633053](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34743633053)。
+- macOS Universal Release：通过，[run 34743647454](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34743647454)。
 
 ## 资产校验
 
@@ -28,5 +31,6 @@
 | Focused Moment v2.10.11.exe | 23,774,720 | f96a2db97311eb916cd6d5e2ec006ab27988814050584480563e6f13e814b7e3 |
 | Focused Moment Setup v2.10.11.exe | 16,172,199 | 4c1a19849e1bf2052a6e92ecc55ebbc220c92206afdf7edba15fa212effda325 |
 | Focused Moment_2.10.11_x64_en-US.msi | 17,149,952 | 73813b6ee49c6fb4e3c53f285405d2f8e67b5ee3009b299dec55f25eea51bbb7 |
+| Focused Moment_2.10.11_universal.dmg | 34,346,733 | 7df332324074dfd63f7d422fbed2df7f5aa62534123e4e52b875c949119fa6cb |
 
-GitHub Actions、macOS Universal DMG 和正式 Release 链接在发布闭环完成后回填。
+正式 [GitHub Release v2.10.11](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.10.11) 已发布，Windows portable、Windows Setup、Windows MSI 和 macOS Universal DMG 四项资产均为 `uploaded`。
