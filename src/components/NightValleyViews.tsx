@@ -529,6 +529,17 @@ export function NightValleyTodo(props: NightValleyTodoProps) {
       </Show>
 
       <section class="todo-board nv-todo-board" aria-label="待办看板">
+        <div class="nv-todo-board__header">
+          <div class="nv-todo-board__header-copy">
+            <span class="nv-section-kicker">TODAY'S ROUTE / 今日路径</span>
+            <strong>{props.todos().length ? "把今天的下一步排出来" : "今天还没有要推进的事项"}</strong>
+            <small>{props.completedTodos().length} / {props.todos().length} 项已完成 · 先从一件最清楚的事开始</small>
+          </div>
+          <div class="nv-todo-board__progress" aria-label={`今日完成度 ${completionPercent()}%`}>
+            <span><i style={{ width: `${completionPercent()}%` }} /></span>
+            <strong>{completionPercent()}%</strong>
+          </div>
+        </div>
         <section class="todo-column nv-todo-column nv-todo-column--start">
           <div class="nv-todo-column__heading"><span class="nv-column-index">01</span><div><h2>待开始</h2><small>{startItems().length} 项 · 先做最清楚的一件</small></div></div>
           <div class="nv-todo-column__list">

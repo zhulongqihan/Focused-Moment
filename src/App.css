@@ -9305,3 +9305,782 @@ body,
     font-size: 10px;
   }
 }
+
+/* v2.10.17 Todo workspace: keep the route in document flow so every state
+   has a readable home, then use the unused rail for the next real action. */
+.minimal-app--todos {
+  height: auto;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.minimal-app--todos .minimal-workspace {
+  height: auto;
+  min-height: 100dvh;
+  align-items: start;
+}
+
+.minimal-app--todos .minimal-content {
+  height: auto;
+  min-height: 100dvh;
+  overflow: visible;
+}
+
+.minimal-app--todos .nv-todo-page {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(250px, 300px);
+  grid-template-areas:
+    "heading summary"
+    "create create"
+    "board focus"
+    "footer footer";
+  gap: 20px 24px;
+  width: min(1280px, calc(100% - 84px));
+  min-height: calc(100dvh - 48px);
+  margin: 0 auto;
+  padding: 74px 0 50px;
+  overflow: visible;
+}
+
+.minimal-app--todos .nv-todo-heading {
+  position: static;
+  grid-area: heading;
+  display: grid;
+  align-content: start;
+  gap: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.minimal-app--todos .nv-todo-heading .nv-page-heading__date {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: rgba(225, 219, 193, 0.86);
+  font-size: 14px;
+}
+
+.minimal-app--todos .nv-todo-heading .nv-page-heading__clock {
+  color: var(--nv-gold);
+  font-size: 12px;
+}
+
+.minimal-app--todos .nv-todo-heading h1 {
+  margin: 15px 0 0;
+  color: #eee6cf;
+  font-size: clamp(44px, 5vw, 64px);
+  letter-spacing: 0.015em;
+  line-height: 1;
+}
+
+.minimal-app--todos .nv-todo-heading h1::after {
+  display: block;
+  width: 74px;
+  height: 2px;
+  margin-top: 16px;
+  background: linear-gradient(90deg, var(--nv-gold), transparent);
+  box-shadow: 0 0 14px rgba(239, 185, 103, 0.35);
+  content: "";
+}
+
+.minimal-app--todos .nv-todo-heading p {
+  margin: 13px 0 0;
+  color: rgba(217, 217, 199, 0.68);
+  font-size: 14px;
+  letter-spacing: 0.06em;
+}
+
+.minimal-app--todos .nv-todo-summary {
+  position: static;
+  grid-area: summary;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-self: end;
+  gap: 0;
+  min-width: 0;
+  padding: 0 0 4px;
+  color: rgba(225, 218, 190, 0.66);
+  font-size: 11px;
+}
+
+.minimal-app--todos .nv-todo-summary span {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  padding: 0 10px;
+  border-left: 1px solid rgba(190, 224, 210, 0.18);
+  white-space: nowrap;
+}
+
+.minimal-app--todos .nv-todo-summary span:first-child { padding-left: 0; border-left: 0; }
+
+.minimal-app--todos .nv-todo-summary strong {
+  margin: 0;
+  color: var(--nv-mint);
+  font: 26px/1 "Cascadia Mono", Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.minimal-app--todos .nv-todo-summary span:nth-child(3) strong { color: var(--nv-gold); }
+
+.minimal-app--todos .nv-todo-create-trigger {
+  position: static;
+  grid-area: create;
+  justify-self: end;
+  display: inline-flex;
+  width: auto;
+  min-width: 158px;
+  height: 48px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 16px;
+  border: 1px solid rgba(218, 172, 93, 0.68);
+  border-radius: 9px;
+  background: linear-gradient(135deg, rgba(53, 43, 29, 0.66), rgba(5, 18, 24, 0.62));
+  color: rgba(239, 229, 202, 0.92);
+  font-size: 13px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.2);
+}
+
+.minimal-app--todos .nv-todo-create-trigger:hover {
+  border-color: rgba(231, 193, 117, 0.94);
+  background: linear-gradient(135deg, rgba(84, 63, 36, 0.8), rgba(16, 42, 42, 0.72));
+  color: #fff0c7;
+  transform: translateY(-1px);
+}
+
+.minimal-app--todos .nv-todo-create {
+  position: static;
+  grid-area: create;
+  display: grid;
+  width: 100%;
+  height: auto;
+  min-height: 68px;
+  grid-template-columns: 118px minmax(0, 1fr) 148px 106px 106px auto auto;
+  gap: 9px;
+  align-items: center;
+  padding: 13px 14px;
+  border: 1px solid rgba(218, 172, 93, 0.48);
+  border-radius: 11px;
+  background: linear-gradient(135deg, rgba(42, 34, 26, 0.78), rgba(5, 22, 29, 0.78));
+  box-shadow: inset 0 1px 0 rgba(255, 222, 164, 0.08), 0 15px 32px rgba(0, 0, 0, 0.2);
+}
+
+.minimal-app--todos .nv-todo-create__label {
+  min-width: 0;
+  color: rgba(229, 222, 193, 0.88);
+  font-size: 12px;
+}
+
+.minimal-app--todos .nv-todo-create input,
+.minimal-app--todos .nv-todo-create select {
+  width: 100%;
+  height: 38px;
+  padding: 0 9px;
+  font-size: 11px;
+}
+
+.minimal-app--todos .nv-todo-create__button {
+  min-width: 72px;
+  min-height: 38px !important;
+  padding: 0 12px !important;
+  font-size: 12px;
+}
+
+.minimal-app--todos .nv-todo-create__close {
+  position: static;
+  min-height: 32px;
+  padding: 0 5px;
+  color: rgba(225, 210, 181, 0.7);
+  font-size: 11px;
+}
+
+.minimal-app--todos .nv-todo-board {
+  position: static !important;
+  grid-area: board;
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: auto 1fr;
+  gap: 12px;
+  width: auto !important;
+  height: auto !important;
+  min-height: 0;
+  margin: 0;
+  padding: 17px;
+  border: 1px solid rgba(157, 186, 169, 0.25);
+  border-radius: 14px;
+  background:
+    linear-gradient(145deg, rgba(33, 42, 37, 0.62), rgba(3, 15, 22, 0.9)),
+    radial-gradient(circle at 47% 34%, rgba(198, 156, 79, 0.12), transparent 42%);
+  box-shadow: inset 0 0 52px rgba(173, 203, 172, 0.04), 0 20px 45px rgba(0, 0, 0, 0.22);
+}
+
+.minimal-app--todos .nv-todo-board::before { display: none; }
+
+.nv-todo-board__header {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: end;
+  justify-content: space-between;
+  gap: 18px;
+  min-width: 0;
+  padding: 1px 3px 14px;
+  border-bottom: 1px solid rgba(196, 218, 197, 0.14);
+}
+
+.nv-todo-board__header-copy {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.nv-todo-board__header-copy .nv-section-kicker { color: rgba(218, 201, 157, 0.72); }
+
+.nv-todo-board__header-copy strong {
+  overflow: hidden;
+  color: rgba(237, 232, 211, 0.92);
+  font: 400 18px/1.2 "Source Han Serif SC", "Noto Serif CJK SC", "Songti SC", SimSun, serif;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nv-todo-board__header-copy small {
+  color: rgba(201, 218, 204, 0.56);
+  font-size: 10px;
+}
+
+.nv-todo-board__progress {
+  display: grid;
+  grid-template-columns: minmax(90px, 150px) auto;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+.nv-todo-board__progress > span {
+  display: block;
+  width: 100%;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: rgba(197, 215, 196, 0.16);
+}
+
+.nv-todo-board__progress > span > i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--nv-gold), var(--nv-mint));
+  box-shadow: 0 0 10px rgba(196, 237, 211, 0.34);
+  transition: width 220ms ease-out;
+}
+
+.nv-todo-board__progress > strong {
+  color: var(--nv-mint);
+  font: 15px/1 "Cascadia Mono", Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.minimal-app--todos .nv-todo-column,
+.minimal-app--todos .nv-todo-column:nth-child(1),
+.minimal-app--todos .nv-todo-column:nth-child(2),
+.minimal-app--todos .nv-todo-column:nth-child(3),
+.minimal-app--todos .nv-todo-column:nth-child(4) {
+  position: relative !important;
+  top: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  left: auto !important;
+  display: flex;
+  width: auto !important;
+  height: auto !important;
+  min-width: 0;
+  min-height: 320px;
+  flex-direction: column;
+  padding: 16px;
+  border: 1px solid rgba(169, 198, 177, 0.2);
+  border-radius: 10px;
+  background: rgba(4, 17, 22, 0.5);
+}
+
+.minimal-app--todos .nv-todo-column--start { border-top-color: rgba(224, 177, 92, 0.42); }
+.minimal-app--todos .nv-todo-column--focus { border-top-color: rgba(181, 229, 194, 0.52); }
+.minimal-app--todos .nv-todo-column--done { border-top-color: rgba(196, 218, 197, 0.34); }
+
+.minimal-app--todos .nv-todo-column__heading,
+.minimal-app--todos .nv-todo-column:nth-child(2) .nv-todo-column__heading,
+.minimal-app--todos .nv-todo-column:nth-child(3) .nv-todo-column__heading,
+.minimal-app--todos .nv-todo-column:nth-child(4) .nv-todo-column__heading {
+  position: static !important;
+  display: flex;
+  width: auto !important;
+  height: auto !important;
+  min-height: 50px;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 0 0 13px;
+  border: 0;
+  border-bottom: 1px solid rgba(196, 218, 197, 0.13);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.minimal-app--todos .nv-todo-column__heading h2 { font-size: 20px; }
+.minimal-app--todos .nv-todo-column__heading small { display: block; }
+
+.minimal-app--todos .nv-todo-column__list {
+  position: static !important;
+  flex: 1 1 auto;
+  width: auto !important;
+  height: auto !important;
+  min-height: 0;
+  max-height: none;
+  padding-top: 12px;
+  overflow: visible;
+}
+
+.minimal-app--todos .nv-todo-column--done .nv-todo-column__list {
+  max-height: 352px;
+  padding-right: 4px;
+  overflow: auto;
+}
+
+.minimal-app--todos .nv-todo-card {
+  display: grid;
+  grid-template-columns: 27px minmax(0, 1fr);
+  gap: 10px;
+  min-height: 0;
+  padding: 14px 12px;
+  border-radius: 9px;
+}
+
+.minimal-app--todos .nv-todo-card__copy strong {
+  overflow: hidden;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.minimal-app--todos .nv-todo-card__copy small {
+  white-space: normal;
+  line-height: 1.5;
+}
+
+.minimal-app--todos .nv-todo-card__actions {
+  grid-column: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 11px;
+  margin-top: 5px;
+}
+
+.minimal-app--todos .nv-todo-card__actions .row-action {
+  min-height: 23px;
+  font-size: 11px;
+}
+
+.minimal-app--todos .nv-todo-empty-card {
+  min-height: 178px;
+  padding: 22px 15px;
+  border-radius: 9px;
+  background: rgba(13, 37, 37, 0.2);
+}
+
+.minimal-app--todos .nv-todo-empty-card__orb { width: 42px; height: 42px; }
+
+.minimal-app--todos .nv-todo-column--start > .nv-todo-column__list > .empty-copy,
+.minimal-app--todos .nv-todo-column--done > .nv-todo-column__list > .empty-copy {
+  margin: 0;
+  padding: 35px 14px;
+  border: 1px dashed rgba(188, 211, 190, 0.24);
+  border-radius: 9px;
+  color: rgba(214, 217, 198, 0.58);
+  font-size: 12px;
+  line-height: 1.7;
+  text-align: center;
+}
+
+.minimal-app--todos .nv-overdue-section {
+  position: static;
+  width: auto;
+  margin-top: 14px;
+  padding: 13px 0 0;
+}
+
+.minimal-app--todos .nv-todo-column__signal {
+  position: static;
+  margin-top: auto;
+  padding-top: 14px;
+  color: rgba(222, 224, 201, 0.68);
+  font-size: 11px;
+}
+
+.minimal-app--todos .nv-todo-column__signal .nv-live-dot { margin-right: 7px; }
+
+.minimal-app--todos .nv-completed-row {
+  grid-template-columns: 24px minmax(0, 1fr) auto auto auto;
+  gap: 8px;
+  min-width: 0;
+  align-items: center;
+  padding: 12px 0;
+}
+
+.minimal-app--todos .nv-completed-row .completed-row__title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.minimal-app--todos .nv-completed-row .row-action {
+  min-height: 24px;
+  padding: 0 2px;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.minimal-app--todos .nv-todo-focus-panel {
+  position: relative !important;
+  top: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  left: auto !important;
+  grid-area: focus;
+  display: flex;
+  width: auto !important;
+  height: auto !important;
+  min-height: 320px;
+  flex-direction: column;
+  padding: 23px 22px;
+  border: 1px solid rgba(191, 164, 103, 0.42);
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 85% 17%, rgba(221, 176, 92, 0.16), transparent 25%),
+    linear-gradient(180deg, rgba(8, 27, 31, 0.92), rgba(4, 13, 18, 0.82));
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.26), inset 0 0 28px rgba(155, 207, 177, 0.05);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+
+.minimal-app--todos .nv-todo-focus-panel h2 {
+  max-width: 15ch;
+  margin: 24px 0 8px;
+  color: rgba(238, 229, 203, 0.94);
+  font-size: 25px;
+  line-height: 1.25;
+}
+
+.minimal-app--todos .nv-todo-focus-panel p {
+  min-height: 42px;
+  margin: 0 0 18px;
+  color: rgba(211, 216, 195, 0.62);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.minimal-app--todos .nv-todo-focus-panel button {
+  width: 100%;
+  margin-top: 3px;
+}
+
+.minimal-app--todos .nv-todo-focus-panel__meter {
+  position: static;
+  width: 100%;
+  height: auto;
+  margin-top: auto;
+  padding-top: 28px;
+  background: transparent;
+}
+
+.minimal-app--todos .nv-todo-focus-panel__meter::before {
+  display: block;
+  width: 100%;
+  height: 3px;
+  margin-bottom: 10px;
+  background: rgba(198, 206, 184, 0.2);
+  content: "";
+}
+
+.minimal-app--todos .nv-todo-focus-panel__meter span {
+  position: relative;
+  display: block;
+  width: 0;
+  height: 3px;
+  margin-top: -13px;
+  background: linear-gradient(90deg, var(--nv-gold), var(--nv-mint));
+}
+
+.minimal-app--todos .nv-todo-focus-panel__meter small {
+  display: block;
+  margin-top: 12px;
+  color: rgba(215, 214, 192, 0.58);
+  font-size: 10px;
+  text-align: right;
+}
+
+.minimal-app--todos .nv-todo-footer {
+  position: static;
+  grid-area: footer;
+  display: grid;
+  width: auto;
+  height: auto;
+  min-height: 92px;
+  grid-template-columns: 180px 190px minmax(0, 1fr);
+  align-items: center;
+  padding: 15px 0 0;
+  border-top: 1px solid rgba(196, 190, 163, 0.2);
+  background: transparent;
+  pointer-events: auto;
+}
+
+.minimal-app--todos .nv-todo-footer > div {
+  min-width: 0;
+  padding: 0 20px;
+}
+
+.minimal-app--todos .nv-todo-footer > div:first-child { padding-left: 0; }
+.minimal-app--todos .nv-todo-footer__hint { font-size: 15px; }
+
+@media (min-width: 821px) {
+  .minimal-app--todos .minimal-nav {
+    position: sticky;
+    top: 0;
+    height: 100dvh;
+    min-height: 100dvh;
+    align-self: start;
+  }
+}
+
+@media (min-width: 821px) and (max-width: 1160px) {
+  .minimal-app--todos .nv-todo-page {
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+    width: calc(100% - 48px);
+    padding-top: 62px;
+  }
+
+  .minimal-app--todos .nv-todo-board { grid-column: 1 / -1; }
+  .minimal-app--todos .nv-todo-focus-panel { grid-column: 1 / -1; }
+  .minimal-app--todos .nv-todo-create { grid-template-columns: 108px minmax(0, 1fr) 130px 100px 100px auto auto; }
+  .minimal-app--todos .nv-todo-column { min-height: 300px; }
+}
+
+@media (max-width: 820px) {
+  .minimal-app--todos { overflow: visible; }
+
+  .minimal-app--todos .minimal-workspace {
+    display: block;
+    height: auto;
+    min-height: 100dvh;
+  }
+
+  .minimal-app--todos .minimal-nav {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    width: 100%;
+    height: 66px;
+    min-height: 66px;
+  }
+
+  .minimal-app--todos .minimal-content {
+    height: auto;
+    min-height: calc(100dvh - 66px);
+  }
+
+  .minimal-app--todos .nv-todo-page {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "heading"
+      "summary"
+      "create"
+      "board"
+      "focus"
+      "footer";
+    gap: 17px;
+    width: auto;
+    min-height: 0;
+    margin: 0;
+    padding: 38px 22px 44px;
+  }
+
+  .minimal-app--todos .nv-todo-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    padding-top: 3px;
+  }
+
+  .minimal-app--todos .nv-todo-create-trigger { width: 100%; }
+
+  .minimal-app--todos .nv-todo-create {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 9px;
+  }
+
+  .minimal-app--todos .nv-todo-create__label,
+  .minimal-app--todos .nv-todo-create > label:first-of-type {
+    grid-column: 1 / -1;
+  }
+
+  .minimal-app--todos .nv-todo-create__button,
+  .minimal-app--todos .nv-todo-create__close { min-height: 38px; }
+
+  .minimal-app--todos .nv-todo-board {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto;
+    padding: 14px;
+  }
+
+  .minimal-app--todos .nv-todo-column { min-height: 230px; }
+  .minimal-app--todos .nv-todo-column--done .nv-todo-column__list { max-height: 360px; }
+
+  .minimal-app--todos .nv-todo-focus-panel { min-height: 290px; }
+
+  .minimal-app--todos .nv-todo-footer {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    min-height: 0;
+    padding-top: 16px;
+  }
+
+  .minimal-app--todos .nv-todo-footer__hint {
+    grid-column: 1 / -1;
+    margin-top: 16px;
+    padding-left: 0;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 560px) {
+  .minimal-app--todos .nv-todo-page { padding-right: 14px; padding-left: 14px; }
+
+  .minimal-app--todos .nv-todo-summary {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .minimal-app--todos .nv-todo-summary span,
+  .minimal-app--todos .nv-todo-summary span:first-child {
+    grid-template-columns: 42px minmax(0, 1fr);
+    align-items: center;
+    gap: 9px;
+    padding: 7px 0;
+    border-left: 0;
+    border-bottom: 1px solid rgba(190, 224, 210, 0.12);
+  }
+
+  .minimal-app--todos .nv-todo-summary span:last-child { border-bottom: 0; }
+  .minimal-app--todos .nv-todo-summary strong { font-size: 22px; }
+
+  .minimal-app--todos .nv-todo-create { grid-template-columns: 1fr; }
+  .minimal-app--todos .nv-todo-create__label,
+  .minimal-app--todos .nv-todo-create > label:first-of-type { grid-column: auto; }
+
+  .nv-todo-board__header {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .nv-todo-board__header-copy strong { white-space: normal; }
+  .nv-todo-board__progress { grid-template-columns: minmax(0, 1fr) auto; }
+  .minimal-app--todos .nv-todo-column { padding: 13px; }
+
+  .minimal-app--todos .nv-completed-row {
+    grid-template-columns: 24px minmax(0, 1fr) auto;
+  }
+
+  .minimal-app--todos .nv-completed-row .completed-row__label { display: none; }
+  .minimal-app--todos .nv-completed-row .row-action--danger { grid-column: 3; grid-row: 2; }
+  .minimal-app--todos .nv-completed-row .row-action:not(.row-action--danger) { grid-column: 2; grid-row: 2; justify-self: start; }
+}
+
+/* Match the specificity of the legacy measured page selector. */
+.minimal-app--cinematic.minimal-app--todos .minimal-content .nv-todo-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(250px, 300px);
+  grid-template-areas:
+    "heading summary"
+    "create create"
+    "board focus"
+    "footer footer";
+  width: min(1280px, calc(100% - 84px));
+  height: auto;
+  min-height: calc(100dvh - 48px);
+  margin: 0 auto;
+  padding: 74px 0 50px;
+  overflow: visible;
+}
+
+@media (min-width: 821px) and (max-width: 1160px) {
+  .minimal-app--cinematic.minimal-app--todos .minimal-content .nv-todo-page {
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+    grid-template-areas:
+      "heading summary"
+      "create create"
+      "board board"
+      "focus focus"
+      "footer footer";
+    width: calc(100% - 48px);
+    padding-top: 62px;
+  }
+}
+
+@media (max-width: 820px) {
+  .minimal-app--cinematic.minimal-app--todos .minimal-content .nv-todo-page {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "heading"
+      "summary"
+      "create"
+      "board"
+      "focus"
+      "footer";
+    width: auto;
+    height: auto;
+    min-height: 0;
+    margin: 0;
+    padding: 38px 22px 44px;
+  }
+}
+
+@media (max-width: 560px) {
+  .minimal-app--cinematic.minimal-app--todos .minimal-content .nv-todo-page { padding-right: 14px; padding-left: 14px; }
+}
+
+/* The older cinematic page rule also includes the trail pseudo-class in its
+   specificity.  Keep this final guard equal to it so the new grid is the
+   actual desktop layout at every viewport. */
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--todos .minimal-content .nv-todo-page {
+  display: grid;
+  width: min(1280px, calc(100% - 84px));
+  max-width: none;
+  height: auto;
+  min-height: calc(100dvh - 48px);
+  margin: 0 auto;
+  padding: 74px 0 50px;
+  overflow: visible;
+}
+
+@media (min-width: 821px) and (max-width: 1160px) {
+  .minimal-app--cinematic:not(.minimal-app--trail).minimal-app--todos .minimal-content .nv-todo-page {
+    width: calc(100% - 48px);
+    padding-top: 62px;
+  }
+}
+
+@media (max-width: 820px) {
+  .minimal-app--cinematic:not(.minimal-app--trail).minimal-app--todos .minimal-content .nv-todo-page {
+    width: auto;
+    min-height: 0;
+    margin: 0;
+    padding: 38px 22px 44px;
+  }
+}
+
+@media (max-width: 560px) {
+  .minimal-app--cinematic:not(.minimal-app--trail).minimal-app--todos .minimal-content .nv-todo-page { padding-right: 14px; padding-left: 14px; }
+}

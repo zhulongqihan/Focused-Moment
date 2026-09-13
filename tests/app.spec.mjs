@@ -8,8 +8,8 @@ function localDate() {
   return `${year}-${month}-${day}`;
 }
 
-async function bootWithTauriMock(page, { includeOverdue = false, includeRecords = false, windowLabel = "main", pausedFocus = false, completedCountdown = false, initialLoadError = false, todayRecordCount = includeRecords ? 1 : 0, todayTodoCount = 1, historyDayCount = 0 } = {}) {
-  await page.addInitScript(({ today, includeOverdue, includeRecords, windowLabel, pausedFocus, completedCountdown, initialLoadError, todayRecordCount, todayTodoCount, historyDayCount }) => {
+async function bootWithTauriMock(page, { includeOverdue = false, includeRecords = false, windowLabel = "main", pausedFocus = false, completedCountdown = false, initialLoadError = false, todayRecordCount = includeRecords ? 1 : 0, todayTodoCount = 1, completedTodoCount = 0, historyDayCount = 0 } = {}) {
+  await page.addInitScript(({ today, includeOverdue, includeRecords, windowLabel, pausedFocus, completedCountdown, initialLoadError, todayRecordCount, todayTodoCount, completedTodoCount, historyDayCount }) => {
     const yesterday = new Date(`${today}T00:00:00`);
     yesterday.setDate(yesterday.getDate() - 1);
     const dateKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -127,6 +127,16 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
         isCompleted: false,
         scheduledDate: today,
         scheduledTime: `${String(15 + Math.floor(index / 2)).padStart(2, "0")}:${index % 2 ? "30" : "00"}`,
+        importanceKey: "medium",
+      });
+    }
+    for (let index = 0; index < completedTodoCount; index += 1) {
+      todos.push({
+        id: 600 + index,
+        title: `已完成事项 ${index + 1}`,
+        isCompleted: true,
+        scheduledDate: today,
+        scheduledTime: "",
         importanceKey: "medium",
       });
     }
@@ -417,7 +427,7 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
         }
       },
     };
-  }, { today: localDate(), includeOverdue, includeRecords, windowLabel, pausedFocus, completedCountdown, initialLoadError, todayRecordCount, todayTodoCount, historyDayCount });
+  }, { today: localDate(), includeOverdue, includeRecords, windowLabel, pausedFocus, completedCountdown, initialLoadError, todayRecordCount, todayTodoCount, completedTodoCount, historyDayCount });
 
   await page.goto("/");
   if (windowLabel === "main") {
@@ -1109,6 +1119,86 @@ test("completing a todo keeps it visible in the completed section", async ({ pag
   await expect(completedRow.locator(".completed-row__marker")).toHaveText("✓");
   await expect(completedRow.locator(".completed-row__title")).toHaveCSS("text-decoration-line", "none");
   await expect(page.locator(".app-message")).toContainText("已完成“写完产品复盘”");
+});
+
+test("todo board keeps completed actions aligned and scrollable", async ({ page }) => {
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootWithTauriMock(page, { todayTodoCount: 0, completedTodoCount: 9 });
+
+  await page.getByRole("button", { name: /^待办/ }).click();
+
+  const layout = await page.evaluate(() => {
+    const board = document.querySelector(".nv-todo-board");
+    const columns = [...document.querySelectorAll(".nv-todo-column")];
+    const completedList = document.querySelector(".nv-todo-column--done .nv-todo-column__list");
+    const completedRow = document.querySelector(".nv-completed-row");
+    const title = completedRow?.querySelector(".completed-row__title");
+    const actions = completedRow ? [...completedRow.querySelectorAll(".row-action")].map((element) => element.getBoundingClientRect()) : [];
+    const rect = (element) => {
+      if (!element) return null;
+      const value = element.getBoundingClientRect();
+      return { left: value.left, right: value.right, top: value.top, bottom: value.bottom, width: value.width, height: value.height };
+    };
+    return {
+      board: rect(board),
+      columns: columns.map(rect),
+      completedList: completedList ? { clientHeight: completedList.clientHeight, scrollHeight: completedList.scrollHeight } : null,
+      completedRow: rect(completedRow),
+      title: rect(title),
+      actions: actions.map((value) => ({ left: value.left, right: value.right, top: value.top, bottom: value.bottom })),
+      scrollWidth: document.documentElement.scrollWidth,
+    };
+  });
+
+  expect(layout.board?.width).toBeGreaterThan(700);
+  expect(layout.columns).toHaveLength(3);
+  expect(layout.columns[0].right).toBeLessThanOrEqual(layout.columns[1].left + 0.5);
+  expect(layout.columns[1].right).toBeLessThanOrEqual(layout.columns[2].left + 0.5);
+  expect(layout.completedList?.scrollHeight).toBeGreaterThan(layout.completedList?.clientHeight ?? 0);
+  expect(layout.title?.right).toBeLessThanOrEqual(layout.actions[0].left + 1);
+  expect(Math.abs(layout.actions[0].top - layout.actions[1].top)).toBeLessThan(2);
+  expect(layout.scrollWidth).toBeLessThanOrEqual(1487);
+  await expect(page.locator(".completed-row")).toHaveCount(9);
+  await expect(page.getByRole("button", { name: "恢复" })).toHaveCount(9);
+  await page.screenshot({ path: "output/playwright/night-valley-todo-completed-layout.png", animations: "disabled", fullPage: true });
+});
+
+test("todo workspace stacks cleanly on a phone viewport", async ({ page }) => {
+  await page.setViewportSize({ width: 560, height: 860 });
+  await bootWithTauriMock(page, { todayTodoCount: 0, completedTodoCount: 3 });
+
+  await page.getByRole("button", { name: /^待办/ }).click();
+
+  const layout = await page.evaluate(() => {
+    const rect = (selector) => {
+      const element = document.querySelector(selector);
+      if (!element) return null;
+      const value = element.getBoundingClientRect();
+      return { left: value.left, right: value.right, top: value.top, bottom: value.bottom };
+    };
+    return {
+      page: rect(".nv-todo-page"),
+      board: rect(".nv-todo-board"),
+      focus: rect(".nv-todo-focus-panel"),
+      columns: [...document.querySelectorAll(".nv-todo-column")].map((element) => {
+        const value = element.getBoundingClientRect();
+        return { left: value.left, right: value.right, top: value.top, bottom: value.bottom };
+      }),
+      scrollWidth: document.documentElement.scrollWidth,
+    };
+  });
+
+  expect(layout.scrollWidth).toBeLessThanOrEqual(560);
+  expect(layout.page?.left).toBeGreaterThanOrEqual(0);
+  expect(layout.page?.right).toBeLessThanOrEqual(560);
+  expect(layout.board?.left).toBeGreaterThanOrEqual(layout.page?.left ?? 0);
+  expect(layout.board?.right).toBeLessThanOrEqual(layout.page?.right ?? 560);
+  expect(layout.columns[0].bottom).toBeLessThanOrEqual(layout.columns[1].top + 1);
+  expect(layout.columns[1].bottom).toBeLessThanOrEqual(layout.columns[2].top + 1);
+  expect(layout.board?.bottom).toBeLessThanOrEqual(layout.focus?.top ?? 0);
+  await expect(page.getByRole("button", { name: "添加待办" })).toBeVisible();
+  await expect(page.locator(".completed-row")).toHaveCount(3);
+  await page.screenshot({ path: "output/playwright/night-valley-todo-phone-layout.png", animations: "disabled", fullPage: true });
 });
 
 test("overdue todos are shown in their own status section", async ({ page }) => {
