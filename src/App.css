@@ -8125,12 +8125,7 @@ body,
   }
 
   .minimal-app--cinematic[data-theme="night-valley"] .nv-focus-records-link {
-    display: inline-flex;
-    width: fit-content;
-    min-height: 38px;
-    gap: 9px;
     margin-top: 34px;
-    padding: 0 12px;
     border-color: rgba(196, 237, 211, 0.28);
     color: rgba(216, 237, 218, 0.78);
     background: rgba(4, 17, 23, 0.28);
@@ -8483,4 +8478,21 @@ body,
     min-height: 30px;
     margin-top: 8px;
   }
+}
+
+/* v2.10.12: keep the records-link label centered at every timer breakpoint;
+   the directional icon is a visual cue, not part of the label's center of mass. */
+.minimal-app--cinematic[data-theme="night-valley"] .nv-focus-records-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  min-height: 38px;
+  padding: 0 36px;
+}
+
+.minimal-app--cinematic[data-theme="night-valley"] .nv-focus-records-link > svg {
+  position: absolute;
+  right: 12px;
 }

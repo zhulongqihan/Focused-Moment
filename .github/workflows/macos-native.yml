@@ -1,10 +1,7 @@
 name: macOS Native Smoke
 
+# macOS publishing and native smoke are frozen until explicitly re-enabled.
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
   workflow_dispatch:
 
 permissions:

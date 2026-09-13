@@ -1,9 +1,7 @@
 name: macOS Release
 
+# macOS publishing is frozen until explicitly re-enabled.
 on:
-  push:
-    tags:
-      - "v*"
   workflow_dispatch:
     inputs:
       tag:

@@ -222,7 +222,8 @@ export function NightValleyFocus(props: NightValleyFocusProps) {
             </div>
           </div>
           <button type="button" class="secondary-button nv-focus-records-link" onClick={props.onOpenRecords}>
-            查看专注记录 <ArrowUpRight size={15} strokeWidth={1.8} aria-hidden="true" />
+            <span>查看专注记录</span>
+            <ArrowUpRight size={15} strokeWidth={1.8} aria-hidden="true" />
           </button>
         </section>
 

@@ -1229,6 +1229,45 @@ test("Night Valley timer fullscreen keeps the working workspace readable", async
   await page.screenshot({ path: "output/playwright/night-valley-timer-fullscreen.png", animations: "disabled" });
 });
 
+test("Night Valley timer centers the records link label across viewport sizes", async ({ page }) => {
+  await bootTodayReferenceMock(page, { recordCount: 7 });
+  await page.getByRole("button", { name: "计时", exact: true }).click();
+
+  for (const viewport of [
+    { width: 2560, height: 1368 },
+    { width: 1024, height: 768 },
+    { width: 540, height: 900 },
+  ]) {
+    await page.setViewportSize(viewport);
+    const metrics = await page.evaluate(() => {
+      const button = document.querySelector(".nv-focus-records-link");
+      const label = button?.querySelector("span");
+      const icon = button?.querySelector("svg");
+      const read = (element) => {
+        const rect = element?.getBoundingClientRect();
+        return rect ? { left: rect.left, right: rect.right, center: rect.left + rect.width / 2 } : null;
+      };
+      const buttonRect = read(button);
+      const labelRect = read(label);
+      const iconRect = read(icon);
+      return buttonRect && labelRect && iconRect
+        ? {
+            button: buttonRect,
+            label: labelRect,
+            icon: iconRect,
+            labelOffset: Math.abs(labelRect.center - buttonRect.center),
+          }
+        : null;
+    });
+
+    expect(metrics).not.toBeNull();
+    expect(metrics.labelOffset, JSON.stringify({ viewport, metrics })).toBeLessThanOrEqual(1);
+    expect(metrics.icon.left).toBeGreaterThan(metrics.label.right);
+    expect(metrics.icon.right).toBeLessThanOrEqual(metrics.button.right - 10);
+    expect(metrics.button.right).toBeLessThanOrEqual(viewport.width);
+  }
+});
+
 test("Night Valley timer keeps a one-hour readout separate from session facts", async ({ page }) => {
   const viewport = { width: 2560, height: 1368 };
   await page.setViewportSize(viewport);
