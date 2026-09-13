@@ -136,6 +136,9 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
     window.__floatingTodosShown = false;
     window.__focusFloatingUnlocked = false;
     window.__mainWindowDragged = false;
+    window.__minimizeMainWindowCalls = 0;
+    window.__toggleMaximizeMainWindowCalls = 0;
+    window.__closeMainWindowCalls = 0;
     window.__flashMainWindowAttention = false;
     window.__completedFocusCalls = 0;
     window.__resetTimerCalls = 0;
@@ -352,6 +355,15 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
           case "start_dragging_main_window":
             window.__mainWindowDragged = true;
             return null;
+          case "minimize_main_window":
+            window.__minimizeMainWindowCalls += 1;
+            return null;
+          case "toggle_maximize_main_window":
+            window.__toggleMaximizeMainWindowCalls += 1;
+            return false;
+          case "close_main_window":
+            window.__closeMainWindowCalls += 1;
+            return null;
           case "flash_main_window_attention":
             window.__flashMainWindowAttention = true;
             return null;
@@ -567,6 +579,32 @@ test("main window keeps its top bar available while scrolling and exposes a drag
 
   await page.locator(".app-bar").click({ position: { x: 220, y: 24 } });
   await expect.poll(() => page.evaluate(() => window.__mainWindowDragged)).toBe(true);
+});
+
+test("records page keeps all three native window controls clickable", async ({ page }) => {
+  await bootWithTauriMock(page, { includeRecords: true });
+
+  await page.getByRole("button", { name: "记录", exact: true }).click();
+  const controls = page.locator(".window-control");
+  await expect(controls).toHaveCount(3);
+
+  const hitTargets = await controls.evaluateAll((buttons) => buttons.map((button) => {
+    const rect = button.getBoundingClientRect();
+    const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+    return hit === button || hit?.closest(".window-control") === button;
+  }));
+  expect(hitTargets).toEqual([true, true, true]);
+
+  await controls.nth(0).click();
+  await controls.nth(1).click();
+  await controls.nth(2).click();
+
+  await expect.poll(() => page.evaluate(() => ({
+    minimize: window.__minimizeMainWindowCalls,
+    maximize: window.__toggleMaximizeMainWindowCalls,
+    close: window.__closeMainWindowCalls,
+    dragged: window.__mainWindowDragged,
+  }))).toEqual({ minimize: 1, maximize: 1, close: 1, dragged: false });
 });
 
 test("countdown duration keeps the user value while timer snapshots refresh", async ({ page }) => {

@@ -720,3 +720,11 @@ NV-05 的具体键盘缺口：`CommandPalette.tsx` 声明 modal/listbox，但缺
 ### 本文件维护约定
 
 每次只更新变化的看板字段、任务状态和日志，保留历史证据；不要整篇重写导致丢失未完成项。若用户调整目标，先记录新要求及取代项，再重排依赖。没有变化不产生重复状态报告；本文件是人工/模型维护的持续文档，不代表已设置自动监控。
+
+### 2026-09-13 REFINE-16 / REL-19 Night Valley 记录页窗口控件回归（进行中）
+
+- **用户反馈**：记录页修复后，右上角最小化、最大化/还原和关闭三个控件无法使用，影响继续检查页面。
+- **现场核对**：源码记录页中三个控件均可命中并发出对应 Tauri 命令；当前机器仍运行 `F:\Focused Moment\Focused Moment v2.10.14.exe`（PID 27996），直接启动 v2.10.15 会被 Windows 单实例互斥锁转回旧进程。该用户进程保持运行，未被停止。
+- **修复**：顶栏拖拽判断排除 `.window-controls`，控件容器停止 `mousedown` 冒泡；新增三控件命中、命令调用及不触发拖拽的前端回归测试。版本已同步至 v2.10.16，Windows-only 打包已完成，待提交、推送、远程 Checks 与 Release 收口。
+- **本地证据**：`pnpm check`、完整前端 73/73、Vite build（2066 modules）、Rust fmt/check/test（34/34）和 `pnpm package:release` 均通过；三项 v2.10.16 Windows 资产已生成并完成本地 SHA-256 记录。
+- **当前状态**：REFINE-16 REVIEW；REL-19 REVIEW；macOS 继续冻结；旧 v2.10.14 用户进程不做终止操作。

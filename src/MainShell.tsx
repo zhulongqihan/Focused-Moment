@@ -2008,7 +2008,7 @@ function MainShell() {
     }
 
     const target = event.target as HTMLElement;
-    if (target.closest("button, input, select, a")) {
+    if (target.closest("button, input, select, a, .window-controls")) {
       return;
     }
 
@@ -2061,7 +2061,11 @@ function MainShell() {
           >
             悬浮工作台
           </button>
-          <div class="window-controls" aria-label="窗口控制">
+          <div
+            class="window-controls"
+            aria-label="窗口控制"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
             <button
               type="button"
               class="window-control"
