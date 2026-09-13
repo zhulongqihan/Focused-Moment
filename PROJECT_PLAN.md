@@ -7,22 +7,22 @@
 
 | 字段 | 当前值 |
 | --- | --- |
-| as_of / updated_at | 2026-09-13 18:08（Asia/Shanghai）；UX-AUDIT-01 已完成 25 页 × 3 轮 = 75 轮真实浏览器体验、50 组紧凑密度专项、20 个设置锚点检查和人工视觉复核；本地旧归档与生成物清理已按用户授权完成；REL-14 v2.10.11 五套主题“今日一句”已完成构建、提交、正常推送、tag、GitHub Release、远程 Checks、macOS Native Smoke、Universal DMG 和四项资产 digest 核对；新增用户决策：暂时冻结 macOS 版本更新，直到用户明确授权恢复；REL-15 v2.10.12 Windows-only 对齐修复已完成本地验证、打包、提交、推送、tag、Release、远程 Checks 和三项资产 digest 核对；新增用户决策：同一界面内的小修复先本地合并验证，界面整体完成后再一次性提交、推送和发布，不按单个小 bug 推送；`TRAY-01` 第一批 Windows 通知区域托盘快速操作已完成实现，正在进行最终 native/打包验收，证据见 `docs/v2.10.13/RELEASE_NOTES.md` 与 `docs/qa/TRAY-01-windows-tray-menu-v2.10.13.md` |
+| as_of / updated_at | 2026-09-13 19:10（Asia/Shanghai）；UX-AUDIT-01 已完成 25 页 × 3 轮 = 75 轮真实浏览器体验、50 组紧凑密度专项、20 个设置锚点检查和人工视觉复核；本地旧归档与生成物清理已按用户授权完成；REL-14 v2.10.11 五套主题“今日一句”已完成构建、提交、正常推送、tag、GitHub Release、远程 Checks、macOS Native Smoke、Universal DMG 和四项资产 digest 核对；新增用户决策：暂时冻结 macOS 版本更新，直到用户明确授权恢复；REL-15 v2.10.12 Windows-only 对齐修复已完成本地验证、打包、提交、推送、tag、Release、远程 Checks 和三项资产 digest 核对；新增用户决策：同一界面内的小修复先本地合并验证，界面整体完成后再一次性提交、推送和发布，不按单个小 bug 推送；`TRAY-01/REL-16` v2.10.13 Windows 通知区域托盘快速操作已实现、完成本地和远程 Windows 验收，并完成 Windows-only Release，证据见 `docs/v2.10.13/RELEASE_NOTES.md` 与 `docs/qa/TRAY-01-windows-tray-menu-v2.10.13.md` |
 | 产品目标 | 本地优先的桌面专注工具：待办 → 专注 → 桌面提醒 → 保存记录 → 回看投入 → 可恢复地长期保留 |
-| 当前阶段 | 五套主题均已接入；MAINT-01 至 MAINT-06 瘦身、文档、远程审计和干净 checkout 验证已完成；REFINE-13 的 Night Valley“计时”页修复、Windows native 验收和 REL-12 v2.10.9 发布闭环均已完成；2026-09-12 本地旧归档与可再生生成物清理已完成；UX-AUDIT-01 全主题逐页体验精修已完成；REL-13 v2.10.10、REL-14 v2.10.11 与 REL-15 v2.10.12 Windows-only 发布闭环均已完成；当前为 `TRAY-01`：Windows 通知区域托盘快速操作实现与验收，macOS 仍冻结 |
-| 代码基线 | v2.10.12 发布代码提交为 `77b5b66dbde53b976a1f4b2ef3e3582d4f3fd7d5`，tag `v2.10.12` peeled commit 与其一致；v2.10.11 发布代码提交为 `d83444b7d861730a7bd6b22e448b4000ccdec5b3`；当前 `main` 由 v2.10.12 发布代码及本轮最终证据跟随文档组成；旧版本 tag 未移动 |
-| 当前工作分支 | `main`；旧 CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06/DESK-01/DESK-02/DESK-03/ARCH-01/QA-01/PERF-01/TH-02/TH-03/TH-04/TH-05/DATA-01/REL-01 已完成；REFINE-03/REFINE-04/REFINE-05 DONE；REL-02/REL-03/REL-04 DONE；REFINE-06 REVIEW；REL-05 DONE；REFINE-07 REVIEW；REL-06 DONE；REFINE-08 REVIEW；REL-07 DONE；REFINE-09 REVIEW；REL-08 DONE；REFINE-10 REVIEW；REL-09 DONE；REFINE-11 REVIEW；REL-10 DONE；REFINE-12 REVIEW；REL-11 DONE；MAINT-01 至 MAINT-06 DONE；REFINE-13 DONE；REL-12 DONE；本地旧归档清理 DONE；UX-AUDIT-01 DONE；REL-13 DONE；REL-14 DONE；REL-15 DONE |
-| 发布基线 | GitHub `v2.10.12`，tag peeled commit 为 `77b5b66`；Windows Checks `34747904315` PASS，远程前端 `69/69`、Rust fmt/check/test 均 PASS；Release 三项 Windows 资产均为 uploaded，digest 见 `docs/v2.10.12/RELEASE_NOTES.md`；v2.10.11 仍是最后一个包含 macOS 资产的版本；v2.10.8/v2.10.9/v2.10.10 tag、Release、资产未修改 |
+| 当前阶段 | 五套主题均已接入；MAINT-01 至 MAINT-06 瘦身、文档、远程审计和干净 checkout 验证已完成；REFINE-13 的 Night Valley“计时”页修复、Windows native 验收和 REL-12 v2.10.9 发布闭环均已完成；2026-09-12 本地旧归档与可再生生成物清理已完成；UX-AUDIT-01 全主题逐页体验精修已完成；REL-13 v2.10.10、REL-14 v2.10.11、REL-15 v2.10.12 与 `TRAY-01/REL-16` v2.10.13 Windows-only 发布闭环均已完成；macOS 仍冻结 |
+| 代码基线 | v2.10.13 发布代码提交为 `28b354e6bead620db11c5cb5c01b6ad1a16ec2ac`，tag `v2.10.13` peeled commit 与其一致；v2.10.12 发布代码提交为 `77b5b66dbde53b976a1f4b2ef3e3582d4f3fd7d5`；v2.10.11 发布代码提交为 `d83444b7d861730a7bd6b22e448b4000ccdec5b3`；旧版本 tag 未移动 |
+| 当前工作分支 | `main`；旧 CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06/DESK-01/DESK-02/DESK-03/ARCH-01/QA-01/PERF-01/TH-02/TH-03/TH-04/TH-05/DATA-01/REL-01 已完成；REFINE-03/REFINE-04/REFINE-05 DONE；REL-02/REL-03/REL-04 DONE；REFINE-06 REVIEW；REL-05 DONE；REFINE-07 REVIEW；REL-06 DONE；REFINE-08 REVIEW；REL-07 DONE；REFINE-09 REVIEW；REL-08 DONE；REFINE-10 REVIEW；REL-09 DONE；REFINE-11 REVIEW；REL-10 DONE；REFINE-12 REVIEW；REL-11 DONE；MAINT-01 至 MAINT-06 DONE；REFINE-13 DONE；REL-12 DONE；本地旧归档清理 DONE；UX-AUDIT-01 DONE；REL-13 DONE；REL-14 DONE；REL-15 DONE；TRAY-01 DONE；REL-16 DONE |
+| 发布基线 | GitHub `v2.10.13`，tag peeled commit 为 `28b354e`；Windows Checks `34753128877` PASS，远程前端 `70/70`、Rust fmt/check/test 均 PASS；Release 三项 Windows 资产均为 uploaded，远端 digest 与本地 SHA-256 一致，详见 `docs/v2.10.13/RELEASE_NOTES.md`；v2.10.11 仍是最后一个包含 macOS 资产的版本；v2.10.8/v2.10.9/v2.10.10 tag、Release、资产未修改 |
 | 后续发布策略 | **macOS 暂停更新，直到用户明确要求恢复**；v2.10.11 是当前最后一个同时发布 Windows 与 macOS 资产的版本。后续普通用户可见变更默认只走 Windows 构建/验证/发布，不构建或上传新的 macOS Universal DMG，不运行 macOS Release 与 macOS Native Smoke；共享源码可能仍包含 macOS 可用逻辑，但不视为 macOS 版本发布 |
 | 推送节奏 | 用户明确决定：同一界面内的多个小 bug 先在本地集中修复和验证；只有该界面整体修复完成并满足验收标准后，才一次性 commit、push 和 release，不按单个小 bug 推送；流程文档同步本身不触发应用版本、打包或 CI |
-| 远程 main | `origin/main` 已包含 v2.10.12 发布代码提交 `77b5b66dbde53b976a1f4b2ef3e3582d4f3fd7d5` 和本轮 macOS 冻结策略；GitHub Release [v2.10.12](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.10.12) 已正式发布并有三项 Windows 资产；v2.10.11 Release 仍有四项资产且是最后一个 macOS 发布版本；v2.10.8/v2.10.9/v2.10.10 tag、GitHub Release 与资产未触碰 |
+| 远程 main | `origin/main` 已包含 v2.10.13 发布代码提交 `28b354e6bead620db11c5cb5c01b6ad1a16ec2ac` 和 macOS 冻结策略；GitHub Release [v2.10.13](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.10.13) 已正式发布并有三项 Windows 资产；v2.10.11 Release 仍有四项资产且是最后一个 macOS 发布版本；v2.10.8/v2.10.9/v2.10.10 tag、GitHub Release 与资产未触碰 |
 | 本轮交付 | 已完成 MAINT-02 清理与重建；MAINT-03 对 283 个清理前 tracked 文件、ignored 历史资料、素材、组件、依赖、脚本和 workflow 做引用审计，明确删除候选仅为无引用 `public/vite.svg`、`public/tauri.svg` 并从工作树移除；MAINT-04 重写 README 并验证全部本地链接/图片；MAINT-05 核对远程分支、tag、Release、资产和 Actions，未执行远程删除；MAINT-06 在 `ae6ac45` 干净 checkout 完成 install/check/build、前端 67/67、Rust 33/33、debug bundle、真实 Windows 启动与隔离数据验证；维护结果经 `804de40` 正常推送；REFINE-13 仅修改 Night Valley 计时页现有入口布局与对应回归断言，native/布局与最终回归完成；2.10.9 Windows 三项 bundle 与 macOS Universal DMG 已发布并核对 digest；本轮另按清单删除约 95.25 GiB 本地旧归档/生成物和无引用 ignored 旧副本；UX-AUDIT-01 完成五套主题 25 页三轮真实体验，修复跨 Tab 滚动、无效记录占位、移动导航、图表日期点和过期设置说明等问题；REL-13 完成 v2.10.10 Windows/macOS 发布闭环；REL-14 完成五套主题 Today 的稳定每日一句、主题化布局、共享样式、跨主题同日断言、v2.10.11 本地 68/68/build/Rust 验证、Windows 三项打包、远程 Checks/Native Smoke/Universal DMG 发布闭环；REL-15 已完成 Night Valley 计时页记录入口文字几何居中、跨桌面/窄屏断言、v2.10.12 Windows-only 版本同步、Windows 构建与三项打包、远程 69/69 与 Rust 检查；macOS workflow 已改为仅手动触发；v2.10.8/v2.10.9/v2.10.10 Release 未触碰 |
-| 下一项 | 完成 Windows native/Release 验收后，将 `TRAY-01` 作为一个完整交互单元一次性提交、推送并发布 v2.10.13；普通变更默认只发布 Windows，macOS 保持冻结，直到用户明确授权 |
-| 当前执行人 / 在做任务 | Codex / `TRAY-01` 第一批托盘快速操作实现、验证与 v2.10.13 Windows-only 发布收口 |
+| 下一项 | 继续按界面批量收集和修复下一个用户可见问题；普通变更默认只发布 Windows，macOS 保持冻结，直到用户明确授权 |
+| 当前执行人 / 在做任务 | Codex / `TRAY-01` 与 REL-16 已完成；等待下一项界面级问题，继续遵守批量推送与 macOS 冻结策略 |
 | 首套验收结论 | **Windows 原生核心闭环、编辑态计时刷新、主题渲染边界、QA-01 回退回归、五套主题 25 页前端回归、Editorial 长历史性能专项、v2.6.10/v2.7.0/v2.8.0/v2.9.0/v2.9.1 Windows 与 macOS 资产发布、CORE-03 macOS 原生数据目录与迁移、DESK-02 macOS 第二实例/托盘/浮窗/隔离安装启动、DATA-01 备份范围/隔离跨目录搬移/素材清单已通过**；资源出处补录缺口已在清单中保留为后续治理事项 |
 | source | 本轮用户说明；当前源码与测试；Git 提交/远程 refs；GitHub Release/Actions；本轮命令结果 |
 | supersedes | 旧文档中的 v1.4.1/v1.5.x/v1.10.0/v2.0 当前进度，以及 2026-09-06 摘要中的“其他四页未实现、主题注册未建立” |
-| pending | `TRAY-01` 正在做 Windows native/Release 验收；暂无实现阻塞；macOS 版本更新冻结，恢复前需用户明确授权；GitHub Actions 有 Node.js 20 弃用提示，但本轮检查成功且提示来自现有 action 版本；Night Valley 当前没有独立 F11/全屏产品命令，本轮结论限定为无边框窗口的全屏几何和 CSS 全屏布局；资源出处补录缺口仍按既有清单保留 |
+| pending | 暂无本轮技术阻塞；macOS 版本更新冻结，恢复前需用户明确授权；GitHub Actions 有 Node.js 20 弃用提示，但本轮检查成功且提示来自现有 action 版本；Night Valley 当前没有独立 F11/全屏产品命令，本轮结论限定为无边框窗口的全屏几何和 CSS 全屏布局；资源出处补录缺口仍按既有清单保留 |
 
 ### 2026-09-11 21:49 断点复核
 
@@ -92,7 +92,7 @@
 - 后续小问题不会各自触发远程 CI、GitHub Release 或版本发布；如果用户明确要求立即推送，则按用户的明确指令执行。macOS 更新冻结规则继续有效。
 - 本次仅同步 `AGENTS.md`、`PROJECT_PLAN.md`、README 和 v2.10.12 发布说明，不修改应用代码、不升版本、不打包、不触发 CI。
 
-### 2026-09-13 TRAY-01 任务托盘菜单实现与验收（待发布）
+### 2026-09-13 TRAY-01 / REL-16 任务托盘菜单实现与 Windows-only 发布（已完成）
 
 - **入口边界**：本轮实现的是 `src-tauri/src/runtime.rs` 的 Tauri 原生通知区域托盘菜单，对应 Windows 右下角托盘图标。主窗口底部任务栏按钮的右键菜单仍由 Windows 外壳管理，当前项目不自定义该菜单。
 - **产品目标**：托盘菜单作为“快速恢复和控制当前专注”的轻量入口，不把完整页面搬进原生菜单；保留原生菜单的键盘导航、清晰状态和低误触成本。
@@ -105,8 +105,9 @@
   6. 保留“显示主界面”和底部独立的“退出应用”。
 - **第一批暂不加入**：直接“开始专注”、完成当前专注、重置计时、删除任务、开机启动、检查更新和数据导出。前两项涉及标题/记录写入或不可逆进度操作，后几项当前没有足够的托盘级后端契约；导向主界面可降低误操作和实现复杂度。
 - **实现结果**：Windows 菜单与同一份 `TimerSnapshot` 同步，状态/事项使用只读菜单项，运行中显示暂停、暂停后显示继续；悬浮窗入口复用已有窗口；四个页面入口通过 `tray-navigate` 事件桥接前端 `changeView`。菜单覆盖无计时、运行、暂停、已结束倒计时、主窗口隐藏和任务标题换行/超长等状态。
-- **验证结果**：Rust `fmt/check/test --locked` 通过，`tray_menu_presentation_reflects_timer_state` 覆盖状态文案与禁用规则；`pnpm check`、Vite build、前端托盘导航回归通过；完整前端首轮并发压力下 60 项通过，受本机 Chromium 资源影响的 10 项已用单 worker 串行复跑并 10/10 通过。Windows native 启动与 release 资产信息待本次打包完成后回填。
-- **发布边界**：`TRAY-01` 的多个托盘/快速操作问题集中为一个交互单元，整体验收通过后一次性 Windows-only 发布 v2.10.13；macOS 相关 workflow、构建、Native Smoke 和 Release 继续冻结。
+- **验证结果**：Rust `fmt/check/test --locked` 通过，`tray_menu_presentation_reflects_timer_state` 覆盖状态文案与禁用规则；`pnpm check`、Vite build、前端托盘导航回归通过；完整前端首轮并发压力下 60 项通过，受本机 Chromium 资源影响的 10 项已用单 worker 串行复跑并 10/10 通过；Windows debug native smoke 启动、runtime/state 隔离数据和 `tray_icon_app` 托盘宿主注册通过。
+- **发布结果**：代码提交 `28b354e6bead620db11c5cb5c01b6ad1a16ec2ac` 已推送到 `main`，`v2.10.13` annotated tag 已推送且 peeled commit 一致；Windows Checks `34753128877` PASS（远程前端 70/70、Rust fmt/check/test 全部通过）。GitHub Release [v2.10.13](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.10.13) 已正式发布，portable、Setup、MSI 三项资产均 uploaded，远端 digest 与本地 SHA-256 一致，详见 `docs/v2.10.13/RELEASE_NOTES.md`。
+- **发布边界**：`TRAY-01` 的多个托盘/快速操作问题已集中为一个交互单元并一次性 Windows-only 发布 v2.10.13；macOS 相关 workflow、构建、Native Smoke 和 Release 继续冻结，v2.10.11 仍为最后一个 macOS 发布版本。
 
 ### 最新用户纠正与主题精修阶段（2026-09-09）
 
@@ -300,8 +301,8 @@ CORE-03、DESK-02 为 macOS 下一次发布门槛，可与 Windows 首套验收�
 | MAINT-06 | P1 | DONE | MAINT-02/03/04/05 | 瘦身后的干净 checkout、完整验证、文档/远程状态闭环；`ae6ac45` checkout 已完成重建、页面回归、debug bundle、隔离数据启动和备份保护核对，解除 REFINE-13 阻塞 |
 | REFINE-13 | P1 | DONE | MAINT-06 | Night Valley 单主题“计时”页最小入口布局修复已完成；开始后主界面隐藏、运行中可见且可用的再次进入入口、返回语义、普通/最大化/无边框全屏几何及状态闭环已由 Windows native/CDP 覆盖；不扩展其他主题/页面 |
 | REL-12 | P1 | DONE | REFINE-13 | v2.10.9 已完成版本同步、Windows 正式包、提交/正常推送、不可移动 tag、远程 Checks/macOS Native Smoke/macOS Universal Release、GitHub Release 与四项资产 digest 核对 |
-| TRAY-01 | P1 | DOING | REL-15 | Windows 通知区域托盘快速操作：动态计时/事项状态、暂停/继续、专注悬浮窗、今日/计时/待办/记录快速跳转；原生菜单与主窗口事件桥接；完成 Windows native/前端/Rust 回归与证据 |
-| REL-16 | P1 | TODO | TRAY-01 | v2.10.13 Windows-only 发布：版本同步、Windows 构建/打包、提交、推送、远程 Checks、GitHub Release 与三项资产 digest 核对；不触碰 macOS 版本、workflow 和资产 |
+| TRAY-01 | P1 | DONE | REL-15 | Windows 通知区域托盘快速操作已完成：动态计时/事项状态、暂停/继续、专注悬浮窗、今日/计时/待办/记录快速跳转；原生菜单与主窗口事件桥接；Windows native/前端/Rust 回归与证据已收口 |
+| REL-16 | P1 | DONE | TRAY-01 | v2.10.13 Windows-only 发布已完成：版本同步、Windows 构建/打包、提交、推送、远程 Checks、GitHub Release 与三项资产 digest 核对；未触碰 macOS 版本、workflow 和资产 |
 
 ### CORE-01 · 磁盘保存与恢复链（第一个执行任务）
 

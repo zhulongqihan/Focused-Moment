@@ -39,7 +39,8 @@
 - smoke 使用独立数据目录 `output/qa/TRAY-01/native-20260913-final`；测试进程已关闭。用户正在使用的 `Focused Moment v2.10.12.exe` PID 27160 在整个过程中保持运行且未被停止。
 - 菜单状态、禁用规则、事项标题清洗/截断由 Rust 单元测试覆盖；页面跳转由前端事件桥接回归覆盖。当前 Tauri 2/tray-icon API 没有提供可脱离用户桌面坐标的 Windows 菜单弹出接口，因此 native smoke 只记录真实托盘宿主注册，不把坐标点击结果冒充为菜单内容验证。
 - `pnpm package:release`：PASS；本地 Windows 资产已生成：portable `23,794,176` 字节，Setup `16,176,642` 字节，MSI `17,158,144` 字节；完整 SHA-256 见 `docs/v2.10.13/RELEASE_NOTES.md`。
-- 远程 Windows Checks、GitHub Release 资产状态和远端 digest：待提交、推送与发布闭环完成后回填。
+- 远程 Windows Checks：[`34753128877`](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34753128877) PASS；远程前端 `70/70`，Rust fmt/check/test 全部通过。
+- GitHub Release：[`v2.10.13`](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.10.13) 已正式发布；portable、Setup、MSI 三项资产均为 `uploaded`，远端 digest 与本地 SHA-256 一致。
 
 ## 平台保护
 
