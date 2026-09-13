@@ -485,6 +485,19 @@ test("Night Valley records explain the natural seven-day range and averages", as
   await expect(page.getByRole("button", { name: "导出记录", exact: true })).toHaveCount(0);
   await expect(page.locator(".nv-records-trend h2")).toHaveText("最近 7 天，平均每天 00:45:00。");
   await expect(page.locator(".records-archive__stats")).toContainText("活跃日平均 00:35:00");
+
+  const archiveLayout = await page.locator(".records-archive__summary, .records-archive__timeline, .records-archive__stats, .records-archive__body").evaluateAll((elements) => elements.map((element) => {
+    const rect = element.getBoundingClientRect();
+    const style = getComputedStyle(element);
+    return {
+      width: rect.width,
+      height: rect.height,
+      opacity: style.opacity,
+      visibility: style.visibility,
+    };
+  }));
+  expect(archiveLayout).toHaveLength(4);
+  expect(archiveLayout.every((section) => section.width > 0 && section.height > 0 && section.opacity !== "0" && section.visibility !== "hidden")).toBe(true);
 });
 
 test("Night Valley keeps one shared brand mark across every page", async ({ page }) => {

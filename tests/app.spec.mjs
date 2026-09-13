@@ -8,8 +8,8 @@ function localDate() {
   return `${year}-${month}-${day}`;
 }
 
-async function bootWithTauriMock(page, { includeOverdue = false, includeRecords = false, windowLabel = "main", pausedFocus = false, completedCountdown = false, initialLoadError = false, todayRecordCount = includeRecords ? 1 : 0, todayTodoCount = 1 } = {}) {
-  await page.addInitScript(({ today, includeOverdue, includeRecords, windowLabel, pausedFocus, completedCountdown, initialLoadError, todayRecordCount, todayTodoCount }) => {
+async function bootWithTauriMock(page, { includeOverdue = false, includeRecords = false, windowLabel = "main", pausedFocus = false, completedCountdown = false, initialLoadError = false, todayRecordCount = includeRecords ? 1 : 0, todayTodoCount = 1, historyDayCount = 0 } = {}) {
+  await page.addInitScript(({ today, includeOverdue, includeRecords, windowLabel, pausedFocus, completedCountdown, initialLoadError, todayRecordCount, todayTodoCount, historyDayCount }) => {
     const yesterday = new Date(`${today}T00:00:00`);
     yesterday.setDate(yesterday.getDate() - 1);
     const dateKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -100,6 +100,25 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
         completedTime: `${hour}:00`,
       });
     }
+    for (let index = 0; index < historyDayCount; index += 1) {
+      const historyDate = new Date(`${today}T00:00:00`);
+      historyDate.setDate(historyDate.getDate() - index - 2);
+      const historyDateKey = dateKey(historyDate);
+      focusRecords.push({
+        id: 5000 + index,
+        title: `历史归档 ${index + 1}`,
+        durationMs: 30 * 60 * 1000,
+        durationLabel: "00:30:00",
+        modeKey: "stopwatch",
+        modeLabel: "正向计时",
+        phaseLabel: "正向计时",
+        linkedTodoId: null,
+        linkedTodoTitle: null,
+        completedAt: `${historyDateKey}T09:00:00`,
+        completedDate: historyDateKey,
+        completedTime: "09:00",
+      });
+    }
     const existingTodayTodoCount = todos.filter((item) => item.scheduledDate === today).length;
     for (let index = existingTodayTodoCount; index < todayTodoCount; index += 1) {
       todos.push({
@@ -165,39 +184,55 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
         timer.isRunning || timer.elapsedMs > 0 || timer.recoveredFromLastSession
       );
     };
+    const formatDuration = (durationMs) => {
+      const totalSeconds = Math.round(Math.max(0, durationMs) / 1000);
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+      return [hours, minutes, seconds].map((part) => String(part).padStart(2, "0")).join(":");
+    };
+    const recordsByDate = new Map();
+    for (const record of focusRecords) {
+      const current = recordsByDate.get(record.completedDate) ?? {
+        date: record.completedDate,
+        totalDurationMs: 0,
+        sessionCount: 0,
+        linkedSessionCount: 0,
+        independentSessionCount: 0,
+      };
+      current.totalDurationMs += record.durationMs;
+      current.sessionCount += 1;
+      if (record.linkedTodoId === null) {
+        current.independentSessionCount += 1;
+      } else {
+        current.linkedSessionCount += 1;
+      }
+      recordsByDate.set(record.completedDate, current);
+    }
+    const dailyBreakdown = Array.from(recordsByDate.values())
+      .sort((left, right) => left.date.localeCompare(right.date))
+      .map((day) => ({ ...day, totalDurationLabel: formatDuration(day.totalDurationMs) }));
+    const totalFocusDurationMs = focusRecords.reduce((total, record) => total + record.durationMs, 0);
+    const activeDays = dailyBreakdown.filter((day) => day.totalDurationMs > 0).length;
+    const todayRecords = focusRecords.filter((record) => record.completedDate === today);
+    const todayFocusDurationMs = todayRecords.reduce((total, record) => total + record.durationMs, 0);
+    const bestDay = dailyBreakdown.reduce((best, day) => !best || day.totalDurationMs > best.totalDurationMs ? day : best, null);
     const analytics = {
-      totalFocusDurationMs: focusRecords.reduce((total, record) => total + record.durationMs, 0),
-      totalFocusDurationLabel: includeRecords ? "01:30:00" : "0 分钟",
+      totalFocusDurationMs,
+      totalFocusDurationLabel: totalFocusDurationMs > 0 ? formatDuration(totalFocusDurationMs) : "0 分钟",
       sessionCount: focusRecords.length,
-      linkedSessionCount: includeRecords ? 1 : 0,
-      independentSessionCount: includeRecords ? 2 : 0,
+      linkedSessionCount: focusRecords.filter((record) => record.linkedTodoId !== null).length,
+      independentSessionCount: focusRecords.filter((record) => record.linkedTodoId === null).length,
       pendingTodoCount: todos.length,
       completedTodoCount: 0,
-      activeDays: includeRecords ? 2 : 0,
-      averageDailyDurationLabel: includeRecords ? "00:45:00" : "0 分钟",
-      todayFocusDurationLabel: includeRecords ? "00:45:00" : "0 分钟",
-      todaySessionCount: includeRecords ? 1 : 0,
-      currentStreakDays: includeRecords ? 2 : 0,
-      bestFocusDate: includeRecords ? today : null,
-      bestFocusDurationLabel: includeRecords ? "00:45:00" : null,
-      dailyBreakdown: includeRecords ? [
-        {
-          date: today,
-          totalDurationMs: 45 * 60 * 1000,
-          totalDurationLabel: "00:45:00",
-          sessionCount: 1,
-          linkedSessionCount: 1,
-          independentSessionCount: 0,
-        },
-        {
-          date: yesterdayDate,
-          totalDurationMs: 45 * 60 * 1000,
-          totalDurationLabel: "00:45:00",
-          sessionCount: 2,
-          linkedSessionCount: 0,
-          independentSessionCount: 2,
-        },
-      ] : [],
+      activeDays,
+      averageDailyDurationLabel: activeDays > 0 ? formatDuration(totalFocusDurationMs / activeDays) : "0 分钟",
+      todayFocusDurationLabel: todayFocusDurationMs > 0 ? formatDuration(todayFocusDurationMs) : "0 分钟",
+      todaySessionCount: todayRecords.length,
+      currentStreakDays: activeDays > 0 ? Math.min(activeDays, historyDayCount + (includeRecords ? 2 : 0)) : 0,
+      bestFocusDate: bestDay?.date ?? null,
+      bestFocusDurationLabel: bestDay?.totalDurationLabel ?? null,
+      dailyBreakdown,
     };
 
     window.__TAURI_INTERNALS__ = {
@@ -370,7 +405,7 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
         }
       },
     };
-  }, { today: localDate(), includeOverdue, includeRecords, windowLabel, pausedFocus, completedCountdown, initialLoadError, todayRecordCount, todayTodoCount });
+  }, { today: localDate(), includeOverdue, includeRecords, windowLabel, pausedFocus, completedCountdown, initialLoadError, todayRecordCount, todayTodoCount, historyDayCount });
 
   await page.goto("/");
   if (windowLabel === "main") {
@@ -681,6 +716,36 @@ test("records page turns a long history into a selectable archive trail", async 
     scrollWidth: document.documentElement.scrollWidth,
   }));
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.viewport);
+});
+
+test("records page keeps a long archive inside a bounded history viewport", async ({ page }) => {
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootWithTauriMock(page, { includeRecords: true, historyDayCount: 28 });
+
+  await page.getByRole("button", { name: "记录", exact: true }).click();
+
+  const recordDays = page.locator(".record-day");
+  await expect(recordDays).toHaveCount(30);
+
+  const historyViewport = await page.locator(".record-list").evaluate((element) => ({
+    clientHeight: element.clientHeight,
+    scrollHeight: element.scrollHeight,
+    scrollWidth: element.scrollWidth,
+    clientWidth: element.clientWidth,
+  }));
+  expect(historyViewport.scrollHeight).toBeGreaterThan(historyViewport.clientHeight);
+  expect(historyViewport.clientHeight).toBeLessThanOrEqual(520);
+  expect(historyViewport.scrollWidth).toBeLessThanOrEqual(historyViewport.clientWidth);
+
+  const historyList = page.locator(".record-list");
+  await historyList.scrollIntoViewIfNeeded();
+  await historyList.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
+  await recordDays.last().locator("summary").scrollIntoViewIfNeeded();
+  await recordDays.last().locator("summary").evaluate((element) => element.click());
+  await expect(recordDays.last().locator(".record-row")).toBeVisible();
+  await expect(recordDays.last()).toContainText("历史归档 28");
 });
 
 test("records page keeps empty seven-day data at zero", async ({ page }) => {

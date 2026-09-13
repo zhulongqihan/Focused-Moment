@@ -707,7 +707,7 @@ export function NightValleyRecords(props: NightValleyRecordsProps) {
       <section class="records-trend nv-records-trend" aria-label="最近趋势"><div><span class="nv-section-kicker">TREND / RECENT RHYTHM</span><h2>最近 7 天，平均每天 {recentWeekAverageDurationLabel()}。</h2></div><div class="records-trend__rail"><span style={{ width: `${Math.round((props.recentWeekActiveDays() / 7) * 100)}%` }} /><i style={{ left: `${Math.round((props.recentWeekActiveDays() / 7) * 100)}%` }} /></div><small>不需要一次走很远，只要继续回来。</small></section>
 
       <section class="record-history nv-record-history" aria-label="全部专注记录">
-        <div class="record-history__heading"><div><h2>全部记录</h2><span>按日期收纳，想回看时再展开</span></div><strong>{props.records().length} 轮</strong></div>
+        <div class="record-history__heading"><div><h2>全部记录</h2><span>按日期收纳 · 在列表内滚动回看</span></div><strong>{props.records().length} 轮</strong></div>
         <div class="record-list">
           <Show when={!props.ready()}><p class="load-copy">正在读取专注记录…</p></Show>
           <Show when={props.ready() && props.records().length > 0}>
