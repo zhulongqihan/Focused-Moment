@@ -39,4 +39,4 @@
 
 ## 发布状态
 
-代码提交、Windows-only tag/Release、远程 Checks 和 Release 资产 digest 尚未在本报告创建时完成，完成后回填链接和提交号；macOS workflow 不执行。
+代码提交 `6e8a076e9864a19a8e390e432ff8384aef0e5462`、Windows-only tag `v2.10.18` 和 GitHub Release 已完成。远程 [Checks 34774739411](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34774739411) PASS；[Release v2.10.18](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.10.18) 的 portable、Setup、MSI 三项资产均为 `uploaded`，远端 digest 与本地 SHA-256 一致。macOS workflow 未执行，macOS 更新继续冻结。
