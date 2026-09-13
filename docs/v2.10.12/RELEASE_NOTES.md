@@ -21,6 +21,13 @@
 - Windows MSI `Focused Moment_2.10.12_x64_en-US.msi`：17,149,952 bytes；SHA-256 `3617446c71fe65b874a0c505e8ac89c5f079ebc51f0002f75edac78c02a8d798`。
 - macOS Universal DMG、macOS Release 和 macOS Native Smoke：按用户决策冻结，本版本不执行。
 
+## 远程发布
+
+- 发布代码提交：`77b5b66dbde53b976a1f4b2ef3e3582d4f3fd7d5`；`v2.10.12` tag 指向同一提交。
+- Windows Checks：[`34747904315`](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34747904315)，成功；远程前端 `69/69`，Rust fmt/check/test 全部通过。
+- GitHub Release：<https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.10.12>；三项 Windows 资产状态均为 `uploaded`，远端 digest 与本地 SHA-256 一致。
+- 本版本没有 macOS Release、macOS Native Smoke 或 macOS 资产；v2.10.11 仍是最后一个包含 macOS 资产的版本。
+
 ## 发布策略
 
 除非用户明确要求恢复，后续普通变更默认只做 Windows 版本同步、构建、验证和发布；macOS 版本保持 v2.10.11，不构建或上传新的 macOS 发布资产。macOS workflow 已改为仅保留手动触发入口。
