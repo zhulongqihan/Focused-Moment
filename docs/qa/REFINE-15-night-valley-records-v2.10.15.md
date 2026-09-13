@@ -43,4 +43,9 @@
 | `Focused Moment Setup v2.10.15.exe` | 16,178,693 | `3515510FE2A1269C6E83F1F2B17799909681E97855890F28FFED1C10AB1DF5C5` |
 | `Focused Moment_2.10.15_x64_en-US.msi` | 17,158,144 | `BBF56187A7B5FF85369C267D773AC91B1E109E72CA5204CDE1D9C845B66B2372` |
 
-远程 main Checks、tag 和 GitHub Release 在推送后补录；macOS 资产和 workflow 未触碰。
+## 发布状态
+
+- 发布代码提交：`88d97ad120024e63407e2702bee7359ba68cfa25`；`v2.10.15` tag peeled commit 一致。
+- Windows Checks：[`34763893913`](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34763893913) PASS；远程前端步骤记录为 71 passed + 1 flaky（既有“每日一句”跨主题测试的 Chromium 资源波动，workflow 总体 success），Rust format/check/test 全部 PASS。
+- GitHub Release：[`v2.10.15`](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.10.15) 已正式发布；portable、NSIS Setup、MSI 三项资产均为 `uploaded`，远端 digest 与本地 SHA-256 一致。
+- 本轮不构建、不上传、不运行 macOS 版本链路；v2.10.11 仍是最后一个包含 macOS 资产的版本。

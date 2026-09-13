@@ -34,4 +34,9 @@
 | `Focused Moment Setup v2.10.15.exe`（NSIS） | 16,178,693 | `3515510FE2A1269C6E83F1F2B17799909681E97855890F28FFED1C10AB1DF5C5` |
 | `Focused Moment_2.10.15_x64_en-US.msi`（MSI） | 17,158,144 | `BBF56187A7B5FF85369C267D773AC91B1E109E72CA5204CDE1D9C845B66B2372` |
 
-远程 Release 与 Windows Checks 将在本轮代码提交、推送和 tag 完成后补录；不构建、不上传、不运行 macOS 版本链路。
+## 发布结果
+
+- 发布代码提交：`88d97ad120024e63407e2702bee7359ba68cfa25`；`v2.10.15` annotated tag 已推送，peeled commit 与发布代码一致。
+- Windows Checks：[`34763893913`](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34763893913) 成功；TypeScript、Vite、Rust format/check/test 均通过。远程前端步骤记录为 71 passed + 1 flaky，flaky 是既有“每日一句”跨主题测试的 Chromium 资源波动，workflow 总体成功。
+- GitHub Release：[`v2.10.15`](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.10.15) 已正式发布，三项 Windows 资产均为 `uploaded`。
+- 远端资产 digest 与上表本地 SHA-256 一致；不构建、不上传、不运行 macOS 版本链路。
