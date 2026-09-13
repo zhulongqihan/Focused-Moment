@@ -18,6 +18,7 @@ import {
 import type { AlertSoundKey, AnalyticsSnapshot, FocusRecord, TodoImportance, TodoItem, TimerSnapshot } from "../lib/contracts";
 import { themes } from "../lib/themes";
 import type { TodayDashboardProps } from "./TodayDashboard";
+import DailyFocusLine from "./DailyFocusLine";
 import type {
   NightValleyFocusProps,
   NightValleyRecordsProps,
@@ -140,6 +141,7 @@ export function AuroraOceanToday(props: TodayDashboardProps) {
           <h2 class="ao-surface-title">TIDE / 潮汐轨迹</h2>
           <h1>让注意力<br /><em>浮向下一束光。</em></h1>
           <p>把今天的事项放进潮汐轨道，光会告诉你下一步应该落在哪里。</p>
+          <DailyFocusLine date={props.todayDate} theme="aurora-ocean" />
           <div class="ao-intro-actions">
             <Show when={nextTodo()} fallback={<button type="button" class="ao-aqua-button" onClick={props.onOpenTodos}><Plus size={16} aria-hidden="true" /> START / 开始专注</button>}>
               {(item) => <button type="button" class="ao-aqua-button" disabled={props.busy() || props.timerHasProgress()} onClick={() => props.onUseTodo(item())}><Play size={16} fill="currentColor" aria-hidden="true" /> START / 开始专注 <ArrowRight size={15} aria-hidden="true" /></button>}

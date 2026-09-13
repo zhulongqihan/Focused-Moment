@@ -1,0 +1,297 @@
+.daily-focus-line {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.daily-focus-line__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.daily-focus-line__eyebrow,
+.daily-focus-line__context,
+.daily-focus-line__attribution,
+.daily-focus-line__original {
+  overflow-wrap: anywhere;
+}
+
+.daily-focus-line__eyebrow {
+  font-size: 0.62rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.daily-focus-line__context {
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+.daily-focus-line__quote {
+  max-width: 60ch;
+  margin: 0;
+  font-size: clamp(0.98rem, 1.35vw, 1.22rem);
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+
+.daily-focus-line__original {
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.daily-focus-line__attribution {
+  font-size: 0.68rem;
+  line-height: 1.4;
+}
+
+.minimal-app--trail .daily-focus-line {
+  max-width: min(100%, 440px);
+  padding: 12px 0 13px;
+  border-top: 1px solid rgba(190, 220, 207, 0.2);
+  border-bottom: 1px solid rgba(190, 220, 207, 0.12);
+}
+
+.minimal-app--trail .daily-focus-line__eyebrow {
+  color: #e6bd76;
+}
+
+.minimal-app--trail .daily-focus-line__context,
+.minimal-app--trail .daily-focus-line__attribution {
+  color: #819b97;
+}
+
+.minimal-app--trail .daily-focus-line__quote {
+  color: #e4eee5;
+  font-family: Georgia, "Noto Serif SC", serif;
+  font-size: clamp(1rem, 1.45vw, 1.28rem);
+  letter-spacing: -0.01em;
+}
+
+.minimal-app--trail .daily-focus-line__original {
+  color: #a9beb6;
+  font-family: Georgia, "Times New Roman", serif;
+  font-style: italic;
+}
+
+.minimal-app[data-theme="editorial-paper"] .daily-focus-line {
+  margin-top: 18px;
+  padding: 14px 6px 13px;
+  border-top: 1px solid var(--ep-line);
+  border-bottom: 1px dashed var(--ep-line);
+}
+
+.minimal-app[data-theme="editorial-paper"] .daily-focus-line__eyebrow {
+  color: var(--ep-rust);
+}
+
+.minimal-app[data-theme="editorial-paper"] .daily-focus-line__context,
+.minimal-app[data-theme="editorial-paper"] .daily-focus-line__attribution {
+  color: var(--ep-muted);
+}
+
+.minimal-app[data-theme="editorial-paper"] .daily-focus-line__quote {
+  color: var(--ep-green);
+  font-family: var(--ep-display);
+  font-size: clamp(1.05rem, 1.5vw, 1.32rem);
+}
+
+.minimal-app[data-theme="editorial-paper"] .daily-focus-line__original {
+  color: var(--ep-muted);
+  font-family: var(--ep-body);
+  font-style: italic;
+}
+
+.minimal-app[data-theme="graphite-console"] .daily-focus-line {
+  display: grid;
+  grid-template-columns: minmax(150px, auto) minmax(0, 1fr) minmax(120px, auto);
+  column-gap: 18px;
+  align-items: center;
+  width: 100%;
+  max-width: 100%;
+  padding: 11px 14px;
+  border: 1px solid var(--gc-line);
+  border-left: 2px solid var(--gc-orange);
+  background: linear-gradient(105deg, rgba(26, 34, 33, 0.96), rgba(12, 17, 18, 0.96));
+}
+
+.minimal-app[data-theme="graphite-console"] .daily-focus-line__head {
+  display: grid;
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  gap: 5px;
+  align-self: stretch;
+  align-content: center;
+}
+
+.minimal-app[data-theme="graphite-console"] .daily-focus-line__eyebrow {
+  color: var(--gc-orange);
+}
+
+.minimal-app[data-theme="graphite-console"] .daily-focus-line__context,
+.minimal-app[data-theme="graphite-console"] .daily-focus-line__attribution {
+  color: var(--gc-muted);
+}
+
+.minimal-app[data-theme="graphite-console"] .daily-focus-line__quote {
+  grid-column: 2;
+  grid-row: 1;
+  color: var(--gc-text);
+  font-family: "Microsoft YaHei UI", sans-serif;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.minimal-app[data-theme="graphite-console"] .daily-focus-line__original {
+  grid-column: 2;
+  grid-row: 2;
+  color: var(--gc-muted);
+  font-family: "Cascadia Mono", "Segoe UI Mono", monospace;
+  font-size: 0.62rem;
+}
+
+.minimal-app[data-theme="graphite-console"] .daily-focus-line__attribution {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  align-self: end;
+  text-align: right;
+}
+
+.minimal-app.minimal-app--cinematic[data-theme="aurora-ocean"] .daily-focus-line {
+  max-width: 370px;
+  margin-top: 22px;
+  padding: 13px 16px 14px;
+  border: 1px solid rgba(132, 240, 220, 0.22);
+  border-radius: 18px 14px 20px 12px;
+  background: rgba(9, 42, 59, 0.54);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.08), 0 12px 28px rgba(0, 0, 0, 0.12);
+}
+
+.minimal-app.minimal-app--cinematic[data-theme="aurora-ocean"] .daily-focus-line__eyebrow {
+  color: var(--ao-aqua);
+}
+
+.minimal-app.minimal-app--cinematic[data-theme="aurora-ocean"] .daily-focus-line__context,
+.minimal-app.minimal-app--cinematic[data-theme="aurora-ocean"] .daily-focus-line__attribution {
+  color: var(--ao-muted);
+}
+
+.minimal-app.minimal-app--cinematic[data-theme="aurora-ocean"] .daily-focus-line__quote {
+  color: var(--ao-text);
+  font-family: "Noto Serif SC", Georgia, serif;
+}
+
+.minimal-app.minimal-app--cinematic[data-theme="aurora-ocean"] .daily-focus-line__original {
+  color: var(--ao-muted);
+  font-family: Georgia, "Times New Roman", serif;
+  font-style: italic;
+}
+
+.minimal-app.minimal-app--cinematic[data-theme="botanical-library"] .daily-focus-line {
+  position: relative;
+  max-width: 370px;
+  margin-top: 22px;
+  padding: 16px 18px 17px;
+  border: 1px solid rgba(154, 111, 69, 0.18);
+  background: var(--bl-paper-light);
+  box-shadow: 5px 6px 0 rgba(61, 50, 32, 0.13);
+  color: var(--bl-ink);
+  transform: rotate(-1deg);
+}
+
+.minimal-app.minimal-app--cinematic[data-theme="botanical-library"] .daily-focus-line::before {
+  position: absolute;
+  top: -6px;
+  left: 25px;
+  width: 42px;
+  height: 12px;
+  background: rgba(198, 164, 106, 0.55);
+  content: "";
+  transform: rotate(-3deg);
+}
+
+.minimal-app.minimal-app--cinematic[data-theme="botanical-library"] .daily-focus-line__eyebrow {
+  color: var(--bl-clay);
+}
+
+.minimal-app.minimal-app--cinematic[data-theme="botanical-library"] .daily-focus-line__context,
+.minimal-app.minimal-app--cinematic[data-theme="botanical-library"] .daily-focus-line__attribution {
+  color: var(--bl-muted);
+}
+
+.minimal-app.minimal-app--cinematic[data-theme="botanical-library"] .daily-focus-line__quote {
+  color: var(--bl-ink);
+  font-family: var(--bl-display);
+  font-size: clamp(1.02rem, 1.45vw, 1.24rem);
+}
+
+.minimal-app.minimal-app--cinematic[data-theme="botanical-library"] .daily-focus-line__original {
+  color: var(--bl-muted);
+  font-family: Georgia, "Times New Roman", serif;
+  font-style: italic;
+}
+
+@media (max-width: 820px) {
+  .daily-focus-line__quote {
+    font-size: 1rem;
+  }
+
+  .minimal-app--trail .daily-focus-line {
+    max-width: 100%;
+  }
+
+  .minimal-app[data-theme="graphite-console"] .daily-focus-line {
+    grid-template-columns: minmax(0, 1fr) auto;
+    row-gap: 6px;
+  }
+
+  .minimal-app[data-theme="graphite-console"] .daily-focus-line__head {
+    grid-column: 1 / -1;
+    grid-row: auto;
+  }
+
+  .minimal-app[data-theme="graphite-console"] .daily-focus-line__quote {
+    grid-column: 1 / -1;
+    grid-row: auto;
+  }
+
+  .minimal-app[data-theme="graphite-console"] .daily-focus-line__original {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .minimal-app[data-theme="graphite-console"] .daily-focus-line__attribution {
+    grid-column: 2;
+    grid-row: auto;
+    align-self: end;
+    text-align: right;
+  }
+
+  .minimal-app.minimal-app--cinematic[data-theme="aurora-ocean"] .daily-focus-line,
+  .minimal-app.minimal-app--cinematic[data-theme="botanical-library"] .daily-focus-line {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 540px) {
+  .daily-focus-line__head {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .minimal-app[data-theme="graphite-console"] .daily-focus-line {
+    grid-template-columns: 1fr;
+  }
+
+  .minimal-app[data-theme="graphite-console"] .daily-focus-line__attribution {
+    grid-column: 1;
+    text-align: left;
+  }
+}

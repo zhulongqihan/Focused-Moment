@@ -18,6 +18,7 @@ import {
 import type { AlertSoundKey, AnalyticsSnapshot, FocusRecord, TodoImportance, TodoItem, TimerSnapshot } from "../lib/contracts";
 import { themes } from "../lib/themes";
 import type { TodayDashboardProps } from "./TodayDashboard";
+import DailyFocusLine from "./DailyFocusLine";
 import type {
   NightValleyFocusProps,
   NightValleyRecordsProps,
@@ -114,6 +115,7 @@ export function GraphiteConsoleToday(props: TodayDashboardProps) {
         <div class="gc-head-readout"><span>STREAK</span><strong>{String(streak()).padStart(2, "0")}</strong><small>DAYS <i class="gc-led gc-led--lime" /></small></div>
       </header>
 
+      <DailyFocusLine date={props.todayDate} theme="graphite-console" />
       <div class="gc-today-layout">
         <GcPanel title="DAY SEQUENCE MATRIX" code="GRID REF. / T-0905" class="gc-sequence-panel">
           <div class="gc-time-ruler"><span>00</span><span>03</span><span>06</span><span>09</span><span>12</span><span>15</span><span>18</span><span>21</span><span>24</span></div>

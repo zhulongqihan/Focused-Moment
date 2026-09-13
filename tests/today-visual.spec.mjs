@@ -218,6 +218,36 @@ test("Today reference composition stays aligned at the concept viewport", async 
   await page.screenshot({ path: "output/playwright/today-after.png", animations: "disabled" });
 });
 
+test("Every theme carries one stable daily focus line on Today", async ({ page }) => {
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page);
+
+  const themeHeadings = [
+    ["night-valley", "今天，从一件事开始"],
+    ["editorial-paper", "今日节奏"],
+    ["graphite-console", "TODAY / 节奏调度"],
+    ["aurora-ocean", "TIDE / 潮汐轨迹"],
+    ["botanical-library", "GROWTH / 今日生长"],
+  ];
+  const copyIds = [];
+
+  for (const [theme, heading] of themeHeadings) {
+    await page.evaluate((selectedTheme) => {
+      localStorage.setItem("focused-moment.theme", selectedTheme);
+    }, theme);
+    await page.reload();
+    await expect(page.getByRole("heading", { name: heading })).toBeVisible();
+
+    const line = page.locator(".daily-focus-line--" + theme);
+    await expect(line).toHaveCount(1);
+    await expect(line).toHaveAttribute("data-copy-id", /^copy-/);
+    await expect(line.locator("blockquote")).toHaveText(/\S/);
+    copyIds.push(await line.getAttribute("data-copy-id"));
+  }
+
+  expect(new Set(copyIds).size).toBe(1);
+});
+
 test("Today fullscreen keeps the summary visible and uses a smooth winding route", async ({ page }) => {
   await page.setViewportSize({ width: 2560, height: 1368 });
   await bootTodayReferenceMock(page, { recordCount: 1, includeTodo: false });

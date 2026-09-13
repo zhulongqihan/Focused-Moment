@@ -16,6 +16,7 @@ import {
 import type { AlertSoundKey, AnalyticsSnapshot, FocusRecord, TodoImportance, TodoItem, TimerSnapshot } from "../lib/contracts";
 import { themes } from "../lib/themes";
 import type { TodayDashboardProps } from "./TodayDashboard";
+import DailyFocusLine from "./DailyFocusLine";
 import type {
   NightValleyFocusProps,
   NightValleyRecordsProps,
@@ -88,6 +89,7 @@ export function EditorialPaperToday(props: TodayDashboardProps) {
             <span>日</span>
           </div>
         </div>
+        <DailyFocusLine date={props.todayDate} theme="editorial-paper" />
       </header>
 
       <div class="ep-today-grid">

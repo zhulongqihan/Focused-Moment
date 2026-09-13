@@ -9,6 +9,7 @@ import {
   Plus,
 } from "lucide-solid";
 import type { AnalyticsSnapshot, FocusRecord, TodoImportance, TodoItem, TimerSnapshot } from "../lib/contracts";
+import DailyFocusLine from "./DailyFocusLine";
 import { NightValleyClock } from "./NightValleyDateStamp";
 
 export interface TodayDashboardProps {
@@ -477,6 +478,7 @@ export default function TodayDashboard(props: TodayDashboardProps) {
         </div>
         <h1 aria-label="今天，从一件事开始">今日路径</h1>
         <p>专注让时间更清晰，你正在走出属于自己的节奏。</p>
+        <DailyFocusLine date={props.todayDate} theme="night-valley" />
       </header>
 
       <div class="trail-page__headline-actions">
