@@ -7,6 +7,9 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 #[cfg(windows)]
+use std::sync::OnceLock;
+
+#[cfg(windows)]
 use std::mem::size_of;
 
 use chrono::{Duration as ChronoDuration, Local, NaiveDate, NaiveDateTime, NaiveTime};
@@ -15,9 +18,14 @@ use storage::{
     AppBackupFile, PersistedRuntimeState, PersistedState, PersistenceStore,
     CURRENT_STORAGE_SCHEMA_VERSION,
 };
+#[cfg(windows)]
+use tauri::menu::{Menu, MenuItem};
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, Window, WindowEvent};
+
+#[cfg(windows)]
+use tauri::Wry;
 
 #[cfg(target_os = "macos")]
 use objc2::{rc::Retained, MainThreadMarker};
@@ -29,6 +37,24 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
 
 const TRAY_SHOW_ID: &str = "tray_show_main";
 const TRAY_QUIT_ID: &str = "tray_quit_app";
+#[cfg(windows)]
+const TRAY_STATUS_ID: &str = "tray_status";
+#[cfg(windows)]
+const TRAY_TASK_ID: &str = "tray_task";
+#[cfg(windows)]
+const TRAY_TIMER_ACTION_ID: &str = "tray_timer_action";
+#[cfg(windows)]
+const TRAY_FOCUS_FLOATING_ID: &str = "tray_open_focus_floating";
+#[cfg(windows)]
+const TRAY_OPEN_FOCUS_ID: &str = "tray_open_focus";
+#[cfg(windows)]
+const TRAY_OPEN_TODAY_ID: &str = "tray_open_today";
+#[cfg(windows)]
+const TRAY_OPEN_TODOS_ID: &str = "tray_open_todos";
+#[cfg(windows)]
+const TRAY_OPEN_RECORDS_ID: &str = "tray_open_records";
+#[cfg(windows)]
+const TRAY_NAVIGATE_EVENT: &str = "tray-navigate";
 
 const DEFAULT_POMODORO_FOCUS_MINUTES: u64 = 25;
 const DEFAULT_POMODORO_BREAK_MINUTES: u64 = 5;
@@ -44,8 +70,8 @@ const DEFAULT_COUNTDOWN_MINUTES: u64 = 25;
 const MIN_COUNTDOWN_MINUTES: u64 = 1;
 const MAX_COUNTDOWN_MINUTES: u64 = 12 * 60;
 const MAX_TODO_TITLE_CHARS: usize = 200;
-const APP_VERSION: &str = "2.10.12";
-const APP_MILESTONE: &str = "v2.10.12 center Night Valley timer records link; Windows-only release";
+const APP_VERSION: &str = "2.10.13";
+const APP_MILESTONE: &str = "v2.10.13 Windows tray quick actions; Windows-only release";
 const APP_BACKUP_KIND: &str = "focused-moment-backup";
 const APP_BACKUP_FORMAT_VERSION: u64 = 2;
 const FLOATING_WORKSPACE_SYNC_EVENT: &str = "floating-workspace-sync";
@@ -108,6 +134,7 @@ struct TimerSnapshot {
     remaining_ms: Option<u64>,
     secondary_label: &'static str,
     can_complete_session: bool,
+    has_unsubmitted_progress: bool,
     active_task_title: String,
     linked_todo_id: Option<u64>,
     complete_linked_todo_on_finish: bool,
@@ -122,6 +149,17 @@ struct TimerSnapshot {
     alert_title: Option<&'static str>,
     alert_message: Option<String>,
 }
+
+#[cfg(windows)]
+struct TrayMenuState {
+    status_item: MenuItem<Wry>,
+    task_item: MenuItem<Wry>,
+    timer_action_item: MenuItem<Wry>,
+    focus_floating_item: MenuItem<Wry>,
+}
+
+#[cfg(windows)]
+static TRAY_MENU_STATE: OnceLock<TrayMenuState> = OnceLock::new();
 
 #[derive(Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -1422,6 +1460,7 @@ impl TimerEngine {
             remaining_ms: None,
             secondary_label: "\u{5df2}\u{7d2f}\u{8ba1}\u{4e13}\u{6ce8}\u{65f6}\u{957f}",
             can_complete_session: true,
+            has_unsubmitted_progress: self.has_unsubmitted_progress(),
             active_task_title: self.current_task_title.clone(),
             linked_todo_id: self.linked_todo_id,
             complete_linked_todo_on_finish: self.complete_linked_todo_on_finish,
@@ -1470,6 +1509,7 @@ impl TimerEngine {
             remaining_ms: Some(remaining_ms),
             secondary_label: "本轮剩余时间",
             can_complete_session: true,
+            has_unsubmitted_progress: self.has_unsubmitted_progress(),
             active_task_title: self.current_task_title.clone(),
             linked_todo_id: self.linked_todo_id,
             complete_linked_todo_on_finish: self.complete_linked_todo_on_finish,
@@ -1536,6 +1576,7 @@ impl TimerEngine {
             secondary_label,
             can_complete_session: self.pending_pomodoro_record_ms.is_some()
                 || self.pomodoro_phase == PomodoroPhase::Focus,
+            has_unsubmitted_progress: self.has_unsubmitted_progress(),
             active_task_title: self.current_task_title.clone(),
             linked_todo_id: self.linked_todo_id,
             complete_linked_todo_on_finish: self.complete_linked_todo_on_finish,
@@ -2224,7 +2265,9 @@ fn bootstrap_shell() -> ShellSnapshot {
 
 #[tauri::command]
 fn get_timer_snapshot(state: tauri::State<'_, TimerEngineState>) -> Result<TimerSnapshot, String> {
-    with_timer_engine(&state, |engine| Ok(engine.snapshot()))
+    let snapshot = with_timer_engine(&state, |engine| Ok(engine.snapshot()))?;
+    refresh_system_tray_menu(&snapshot);
+    Ok(snapshot)
 }
 
 #[tauri::command]
@@ -2236,6 +2279,7 @@ fn acknowledge_timer_alert(
         Ok(engine.snapshot())
     })?;
     state.persist_runtime()?;
+    refresh_system_tray_menu(&snapshot);
     Ok(snapshot)
 }
 
@@ -2312,6 +2356,7 @@ fn update_timer_context(
     })?;
 
     state.persist_runtime()?;
+    refresh_system_tray_menu(&snapshot);
     Ok(snapshot)
 }
 
@@ -2329,6 +2374,7 @@ fn switch_timer_mode(
         Ok(engine.snapshot())
     })?;
     state.persist_runtime()?;
+    refresh_system_tray_menu(&snapshot);
     Ok(snapshot)
 }
 
@@ -2345,6 +2391,7 @@ fn set_countdown_minutes(
         Ok(engine.snapshot())
     })?;
     state.persist_runtime()?;
+    refresh_system_tray_menu(&snapshot);
     Ok(snapshot)
 }
 
@@ -2766,6 +2813,7 @@ fn start_timer(state: tauri::State<'_, TimerEngineState>) -> Result<TimerSnapsho
         Ok(engine.snapshot())
     })?;
     state.persist_runtime()?;
+    refresh_system_tray_menu(&snapshot);
     Ok(snapshot)
 }
 
@@ -2776,6 +2824,7 @@ fn pause_timer(state: tauri::State<'_, TimerEngineState>) -> Result<TimerSnapsho
         Ok(engine.snapshot())
     })?;
     state.persist_runtime()?;
+    refresh_system_tray_menu(&snapshot);
     Ok(snapshot)
 }
 
@@ -2786,6 +2835,7 @@ fn reset_timer(state: tauri::State<'_, TimerEngineState>) -> Result<TimerSnapsho
         Ok(engine.snapshot())
     })?;
     state.persist_runtime()?;
+    refresh_system_tray_menu(&snapshot);
     Ok(snapshot)
 }
 
@@ -2880,6 +2930,7 @@ fn complete_focus_session(
     state.persist_all()?;
 
     let timer_snapshot = with_timer_engine(&state, |engine| Ok(engine.snapshot()))?;
+    refresh_system_tray_menu(&timer_snapshot);
 
     Ok(CompletionPayload {
         timer_snapshot,
@@ -2906,7 +2957,144 @@ fn hide_main_window(window: &Window) -> Result<(), String> {
     window.hide().map_err(|error| error.to_string())
 }
 
-fn build_system_tray(app: &AppHandle) -> Result<(), String> {
+fn snapshot_from_timer_state(state: &TimerEngineState) -> Result<TimerSnapshot, String> {
+    state.ensure_ready()?;
+    let mut engine = state
+        .timer
+        .lock()
+        .map_err(|_| "计时引擎状态锁定失败".to_string())?;
+    Ok(engine.snapshot())
+}
+
+#[cfg(windows)]
+fn tray_has_progress(snapshot: &TimerSnapshot) -> bool {
+    snapshot.has_unsubmitted_progress
+}
+
+#[cfg(windows)]
+fn tray_can_continue(snapshot: &TimerSnapshot) -> bool {
+    tray_has_progress(snapshot)
+        && !(snapshot.mode_key == "countdown" && snapshot.remaining_ms == Some(0))
+}
+
+#[cfg(windows)]
+fn tray_status_text(snapshot: &TimerSnapshot) -> String {
+    let duration = if tray_has_progress(snapshot) {
+        match snapshot.mode_key {
+            "stopwatch" => format!(" · 已用 {}", snapshot.elapsed_label),
+            _ => format!(" · 剩余 {}", snapshot.elapsed_label),
+        }
+    } else {
+        String::new()
+    };
+
+    format!("当前状态：{}{}", snapshot.status, duration)
+}
+
+#[cfg(windows)]
+fn tray_task_text(snapshot: &TimerSnapshot) -> String {
+    let normalized: String = snapshot
+        .active_task_title
+        .chars()
+        .map(|character| match character {
+            '\r' | '\n' | '\t' => ' ',
+            _ => character,
+        })
+        .collect();
+    let trimmed = normalized.trim();
+    let mut characters = trimmed.chars();
+    let clipped: String = characters.by_ref().take(36).collect();
+    let title = if characters.next().is_some() {
+        format!("{clipped}…")
+    } else if clipped.is_empty() {
+        "尚未指定".to_string()
+    } else {
+        clipped
+    };
+
+    format!("当前事项：{title}")
+}
+
+#[cfg(windows)]
+fn tray_timer_action(snapshot: &TimerSnapshot) -> (&'static str, bool) {
+    if snapshot.is_running {
+        ("暂停计时", true)
+    } else if tray_can_continue(snapshot) {
+        ("继续计时", true)
+    } else if tray_has_progress(snapshot) && snapshot.remaining_ms == Some(0) {
+        ("计时已结束，请打开计时页", false)
+    } else {
+        ("没有可继续的计时", false)
+    }
+}
+
+#[cfg(windows)]
+fn refresh_system_tray_menu(snapshot: &TimerSnapshot) {
+    let Some(menu_state) = TRAY_MENU_STATE.get() else {
+        return;
+    };
+
+    let (timer_action, timer_action_enabled) = tray_timer_action(snapshot);
+    let _ = menu_state.status_item.set_text(tray_status_text(snapshot));
+    let _ = menu_state.task_item.set_text(tray_task_text(snapshot));
+    let _ = menu_state.timer_action_item.set_text(timer_action);
+    let _ = menu_state
+        .timer_action_item
+        .set_enabled(timer_action_enabled);
+    let _ = menu_state
+        .focus_floating_item
+        .set_enabled(tray_has_progress(snapshot));
+}
+
+#[cfg(not(windows))]
+fn refresh_system_tray_menu(_snapshot: &TimerSnapshot) {}
+
+#[cfg(windows)]
+fn default_tray_snapshot() -> TimerSnapshot {
+    let mut engine = TimerEngine::default();
+    engine.snapshot()
+}
+
+#[cfg(windows)]
+fn initial_tray_snapshot(app: &AppHandle) -> TimerSnapshot {
+    app.try_state::<TimerEngineState>()
+        .and_then(|state| snapshot_from_timer_state(&state).ok())
+        .unwrap_or_else(default_tray_snapshot)
+}
+
+#[cfg(windows)]
+fn build_windows_tray_menu(app: &AppHandle) -> Result<Menu<Wry>, String> {
+    let snapshot = initial_tray_snapshot(app);
+    let (timer_action, timer_action_enabled) = tray_timer_action(&snapshot);
+
+    let status_item = MenuItemBuilder::with_id(TRAY_STATUS_ID, tray_status_text(&snapshot))
+        .enabled(false)
+        .build(app)
+        .map_err(|error| error.to_string())?;
+    let task_item = MenuItemBuilder::with_id(TRAY_TASK_ID, tray_task_text(&snapshot))
+        .enabled(false)
+        .build(app)
+        .map_err(|error| error.to_string())?;
+    let timer_action_item = MenuItemBuilder::with_id(TRAY_TIMER_ACTION_ID, timer_action)
+        .enabled(timer_action_enabled)
+        .build(app)
+        .map_err(|error| error.to_string())?;
+    let focus_floating_item = MenuItemBuilder::with_id(TRAY_FOCUS_FLOATING_ID, "打开专注悬浮窗")
+        .enabled(tray_has_progress(&snapshot))
+        .build(app)
+        .map_err(|error| error.to_string())?;
+    let open_focus_item = MenuItemBuilder::with_id(TRAY_OPEN_FOCUS_ID, "打开计时页")
+        .build(app)
+        .map_err(|error| error.to_string())?;
+    let open_today_item = MenuItemBuilder::with_id(TRAY_OPEN_TODAY_ID, "打开今日")
+        .build(app)
+        .map_err(|error| error.to_string())?;
+    let open_todos_item = MenuItemBuilder::with_id(TRAY_OPEN_TODOS_ID, "打开待办")
+        .build(app)
+        .map_err(|error| error.to_string())?;
+    let open_records_item = MenuItemBuilder::with_id(TRAY_OPEN_RECORDS_ID, "打开记录")
+        .build(app)
+        .map_err(|error| error.to_string())?;
     let show_item = MenuItemBuilder::with_id(TRAY_SHOW_ID, "显示主界面")
         .build(app)
         .map_err(|error| error.to_string())?;
@@ -2915,11 +3103,89 @@ fn build_system_tray(app: &AppHandle) -> Result<(), String> {
         .map_err(|error| error.to_string())?;
 
     let menu = MenuBuilder::new(app)
+        .item(&status_item)
+        .item(&task_item)
+        .separator()
+        .item(&timer_action_item)
+        .item(&focus_floating_item)
+        .separator()
+        .item(&open_focus_item)
+        .item(&open_today_item)
+        .item(&open_todos_item)
+        .item(&open_records_item)
+        .separator()
         .item(&show_item)
         .separator()
         .item(&quit_item)
         .build()
         .map_err(|error| error.to_string())?;
+
+    TRAY_MENU_STATE
+        .set(TrayMenuState {
+            status_item,
+            task_item,
+            timer_action_item,
+            focus_floating_item,
+        })
+        .map_err(|_| "托盘菜单重复初始化".to_string())?;
+
+    Ok(menu)
+}
+
+#[cfg(windows)]
+fn toggle_timer_from_tray(app: &AppHandle) -> Result<(), String> {
+    let state = app
+        .try_state::<TimerEngineState>()
+        .ok_or_else(|| "找不到计时状态".to_string())?;
+    let snapshot = {
+        state.ensure_ready()?;
+        let mut engine = state
+            .timer
+            .lock()
+            .map_err(|_| "计时引擎状态锁定失败".to_string())?;
+        let current = engine.snapshot();
+        if current.is_running {
+            engine.pause();
+        } else if tray_can_continue(&current) {
+            engine.start();
+        } else {
+            return Err("当前没有可继续的计时，请打开计时页检查当前状态。".to_string());
+        }
+        engine.snapshot()
+    };
+
+    state.persist_runtime()?;
+    refresh_system_tray_menu(&snapshot);
+    Ok(())
+}
+
+#[cfg(windows)]
+fn navigate_from_tray(app: &AppHandle, view: &str) -> Result<(), String> {
+    show_main_window(app)?;
+    app.emit_to("main", TRAY_NAVIGATE_EVENT, view)
+        .map_err(|error| error.to_string())
+}
+
+fn build_system_tray(app: &AppHandle) -> Result<(), String> {
+    #[cfg(windows)]
+    let menu = build_windows_tray_menu(app)?;
+
+    #[cfg(not(windows))]
+    let menu = {
+        let show_item = MenuItemBuilder::with_id(TRAY_SHOW_ID, "显示主界面")
+            .build(app)
+            .map_err(|error| error.to_string())?;
+        let quit_item = MenuItemBuilder::with_id(TRAY_QUIT_ID, "退出应用")
+            .build(app)
+            .map_err(|error| error.to_string())?;
+
+        MenuBuilder::new(app)
+            .item(&show_item)
+            .separator()
+            .item(&quit_item)
+            .build()
+            .map_err(|error| error.to_string())?
+    };
 
     let mut tray_builder = TrayIconBuilder::with_id("focused-moment-tray")
         .menu(&menu)
@@ -2937,6 +3203,43 @@ fn build_system_tray(app: &AppHandle) -> Result<(), String> {
                     }
                 }
             }
+            #[cfg(windows)]
+            TRAY_TIMER_ACTION_ID => {
+                if let Err(error) = toggle_timer_from_tray(app) {
+                    eprintln!("FOCUSED_MOMENT_TRAY_TIMER_ACTION=error:{error}");
+                }
+            }
+            #[cfg(windows)]
+            TRAY_FOCUS_FLOATING_ID => match show_focus_floating(app.clone()) {
+                Ok(()) => eprintln!("FOCUSED_MOMENT_TRAY_FOCUS_FLOATING=ok"),
+                Err(error) => {
+                    eprintln!("FOCUSED_MOMENT_TRAY_FOCUS_FLOATING=error:{error}")
+                }
+            },
+            #[cfg(windows)]
+            TRAY_OPEN_FOCUS_ID => {
+                if let Err(error) = navigate_from_tray(app, "focus") {
+                    eprintln!("FOCUSED_MOMENT_TRAY_NAVIGATE=focus:error:{error}");
+                }
+            }
+            #[cfg(windows)]
+            TRAY_OPEN_TODAY_ID => {
+                if let Err(error) = navigate_from_tray(app, "today") {
+                    eprintln!("FOCUSED_MOMENT_TRAY_NAVIGATE=today:error:{error}");
+                }
+            }
+            #[cfg(windows)]
+            TRAY_OPEN_TODOS_ID => {
+                if let Err(error) = navigate_from_tray(app, "todos") {
+                    eprintln!("FOCUSED_MOMENT_TRAY_NAVIGATE=todos:error:{error}");
+                }
+            }
+            #[cfg(windows)]
+            TRAY_OPEN_RECORDS_ID => {
+                if let Err(error) = navigate_from_tray(app, "records") {
+                    eprintln!("FOCUSED_MOMENT_TRAY_NAVIGATE=records:error:{error}");
+                }
+            }
             TRAY_QUIT_ID => {
                 if let Some(state) = app.try_state::<AppLifecycleState>() {
                     state.mark_quitting();
@@ -2945,15 +3248,27 @@ fn build_system_tray(app: &AppHandle) -> Result<(), String> {
             }
             _ => {}
         })
-        .on_tray_icon_event(|tray: &TrayIcon<_>, event| {
-            if let TrayIconEvent::Click {
+        .on_tray_icon_event(|tray: &TrayIcon<_>, event| match event {
+            TrayIconEvent::Click {
                 button: MouseButton::Left,
                 button_state: MouseButtonState::Up,
                 ..
-            } = event
-            {
+            } => {
                 let _ = show_main_window(tray.app_handle());
             }
+            #[cfg(windows)]
+            TrayIconEvent::Click {
+                button: MouseButton::Right,
+                button_state: MouseButtonState::Up,
+                ..
+            } => {
+                if let Some(state) = tray.app_handle().try_state::<TimerEngineState>() {
+                    if let Ok(snapshot) = snapshot_from_timer_state(&state) {
+                        refresh_system_tray_menu(&snapshot);
+                    }
+                }
+            }
+            _ => {}
         });
 
     #[cfg(target_os = "macos")]
@@ -3319,6 +3634,52 @@ fn start_dragging_main_window(window: tauri::Window) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(windows)]
+    #[test]
+    fn tray_menu_presentation_reflects_timer_state() {
+        let mut timer = TimerEngine::default();
+        let initial = timer.snapshot();
+
+        assert!(!initial.has_unsubmitted_progress);
+        assert_eq!(tray_status_text(&initial), "当前状态：未开始");
+        assert_eq!(tray_task_text(&initial), "当前事项：尚未指定");
+        assert_eq!(tray_timer_action(&initial), ("没有可继续的计时", false));
+
+        timer.update_context("整理 Windows 托盘".to_string(), None, false);
+        timer.start();
+        let running = timer.snapshot();
+        assert!(running.has_unsubmitted_progress);
+        assert_eq!(tray_timer_action(&running), ("暂停计时", true));
+
+        timer.pause();
+        timer.stopwatch_elapsed_ms = 125_000;
+        let paused = timer.snapshot();
+        assert_eq!(
+            tray_status_text(&paused),
+            "当前状态：已暂停 · 已用 00:02:05"
+        );
+        assert_eq!(tray_task_text(&paused), "当前事项：整理 Windows 托盘");
+        assert_eq!(tray_timer_action(&paused), ("继续计时", true));
+
+        timer.update_context(format!("{}\n下一行", "a".repeat(40)), None, false);
+        let long_title = tray_task_text(&timer.snapshot());
+        assert!(!long_title.contains('\n'));
+        assert!(long_title.ends_with('…'));
+
+        let mut completed_countdown = TimerEngine {
+            mode: TimerMode::Countdown,
+            countdown_duration_ms: 60_000,
+            countdown_elapsed_ms: 60_000,
+            ..TimerEngine::default()
+        };
+        let completed = completed_countdown.snapshot();
+        assert_eq!(
+            tray_timer_action(&completed),
+            ("计时已结束，请打开计时页", false)
+        );
+        assert!(tray_has_progress(&completed));
+    }
 
     fn isolated_root() -> std::path::PathBuf {
         let suffix = SystemTime::now()

@@ -28,6 +28,7 @@ export interface TimerSnapshot {
   remainingMs: number | null;
   secondaryLabel: string;
   canCompleteSession: boolean;
+  hasUnsubmittedProgress: boolean;
   activeTaskTitle: string;
   linkedTodoId: number | null;
   completeLinkedTodoOnFinish: boolean;

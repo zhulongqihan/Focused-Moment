@@ -12,12 +12,19 @@ mod single_instance {
     };
 
     const APP_MUTEX_NAME: &str = "Local\\FocusedMomentSingleton";
+    const APP_NATIVE_SMOKE_MUTEX_NAME: &str = "Local\\FocusedMomentNativeSmokeSingleton";
     const APP_WINDOW_TITLE: &str = "Focused Moment";
 
     static INSTANCE_GUARD: OnceLock<SingleInstanceGuard> = OnceLock::new();
 
     pub fn ensure_single_instance() -> bool {
-        match SingleInstanceGuard::acquire(APP_MUTEX_NAME) {
+        let mutex_name = if std::env::var_os("FOCUSED_MOMENT_NATIVE_SMOKE").is_some() {
+            APP_NATIVE_SMOKE_MUTEX_NAME
+        } else {
+            APP_MUTEX_NAME
+        };
+
+        match SingleInstanceGuard::acquire(mutex_name) {
             Some(guard) => {
                 let _ = INSTANCE_GUARD.set(guard);
                 true

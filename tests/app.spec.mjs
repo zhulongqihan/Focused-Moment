@@ -144,6 +144,7 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
       remainingMs: completedCountdown ? 0 : null,
       secondaryLabel: completedCountdown ? "本轮剩余时间" : "已累计时长",
       canCompleteSession: true,
+      hasUnsubmittedProgress: completedCountdown || pausedFocus,
       activeTaskTitle: pausedFocus ? "写完产品复盘" : "",
       linkedTodoId: null,
       completeLinkedTodoOnFinish: false,
@@ -160,6 +161,9 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
     };
     window.__replaceTimer = (patch) => {
       timer = { ...timer, ...patch };
+      timer.hasUnsubmittedProgress = Boolean(
+        timer.isRunning || timer.elapsedMs > 0 || timer.recoveredFromLastSession
+      );
     };
     const analytics = {
       totalFocusDurationMs: focusRecords.reduce((total, record) => total + record.durationMs, 0),
@@ -202,7 +206,11 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
         currentWebview: { label: windowLabel },
       },
       transformCallback: (callback) => {
-        window.__floatingWorkspaceEventCallback = callback;
+        if (windowLabel === "main") {
+          window.__trayNavigationCallback = callback;
+        } else {
+          window.__floatingWorkspaceEventCallback = callback;
+        }
         return 1;
       },
       invoke: async (command, args = {}) => {
@@ -282,6 +290,7 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
               isRunning: false,
               elapsedMs: 0,
               elapsedLabel: "00:00:00",
+              hasUnsubmittedProgress: false,
               remainingMs: timer.modeKey === "countdown" ? timer.targetDurationMs : null,
               activeTaskTitle: "",
               linkedTodoId: null,
@@ -294,7 +303,7 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
             return { timerSnapshot: timer, records: focusRecords, todoItems: todos };
           }
           case "start_timer":
-            timer = { ...timer, isRunning: true, status: "正向计时中" };
+            timer = { ...timer, isRunning: true, hasUnsubmittedProgress: true, status: "正向计时中" };
             return timer;
           case "show_focus_floating":
             window.__focusFloatingShown = true;
@@ -325,6 +334,7 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
               isRunning: false,
               elapsedMs: 0,
               elapsedLabel: "00:00:00",
+              hasUnsubmittedProgress: false,
               remainingMs: timer.modeKey === "countdown" ? timer.targetDurationMs : null,
               activeTaskTitle: "",
               linkedTodoId: null,
@@ -441,6 +451,17 @@ test("command palette can open the floating workspace", async ({ page }) => {
   await page.keyboard.press("Enter");
 
   await expect.poll(() => page.evaluate(() => window.__floatingTodosShown)).toBe(true);
+});
+
+test("native tray navigation event switches the main window view", async ({ page }) => {
+  await bootWithTauriMock(page);
+
+  await expect.poll(() => page.evaluate(() => Boolean(window.__trayNavigationCallback))).toBe(true);
+  await page.evaluate(() => window.__trayNavigationCallback({ payload: "records" }));
+  await expect(page.getByRole("heading", { name: "专注记录" })).toBeVisible();
+
+  await page.evaluate(() => window.__trayNavigationCallback({ payload: "todos" }));
+  await expect(page.getByRole("button", { name: /^待办/ })).toHaveClass(/active/);
 });
 
 test("initial data errors stay visible and recover through the retry action", async ({ page }) => {

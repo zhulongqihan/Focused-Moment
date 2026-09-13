@@ -91,6 +91,7 @@ async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一
       remainingMs: 45 * 60 * 1000,
       secondaryLabel: "本轮剩余时间",
       canCompleteSession: false,
+      hasUnsubmittedProgress: false,
       activeTaskTitle: "",
       linkedTodoId: null,
       completeLinkedTodoOnFinish: false,
@@ -171,7 +172,7 @@ async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一
             };
             return timer;
           case "start_timer":
-            timer = { ...timer, isRunning: true, status: "倒计时中", canCompleteSession: true };
+            timer = { ...timer, isRunning: true, hasUnsubmittedProgress: true, status: "倒计时中", canCompleteSession: true };
             return timer;
           case "pause_timer":
             timer = { ...timer, isRunning: false, status: "已暂停" };

@@ -121,6 +121,7 @@ const emptyTimerSnapshot: TimerSnapshot = {
   remainingMs: null,
   secondaryLabel: "已累计时长",
   canCompleteSession: true,
+  hasUnsubmittedProgress: false,
   activeTaskTitle: "",
   linkedTodoId: null,
   completeLinkedTodoOnFinish: false,
@@ -155,6 +156,7 @@ const minFloatingOpacity = 45;
 const alertClaimKeyPrefix = "focused-moment.alert-claimed.";
 const maxCustomAlertSoundBytes = 5 * 1024 * 1024;
 const floatingWorkspaceSyncEvent = "floating-workspace-sync";
+const trayNavigateEvent = "tray-navigate";
 const themeStorageKey = "focused-moment.theme";
 const visualIntensityKey = "focused-moment.visual-intensity";
 const motionIntensityKey = "focused-moment.motion-intensity";
@@ -162,6 +164,10 @@ const densityKey = "focused-moment.density";
 
 function readLocalStorageValue(key: string) {
   return readStoredLocalStorageValue(key) ?? "";
+}
+
+function isAppView(value: unknown): value is AppView {
+  return value === "today" || value === "focus" || value === "todos" || value === "records" || value === "settings";
 }
 
 function readStoredLocalStorageValue(key: string): string | null {
@@ -642,7 +648,7 @@ function MainShell() {
     todos().find((item) => item.id === linkedTodoId() && !item.isCompleted) ?? null;
   const activeTitle = () =>
     sessionTitle().trim() || selectedTodo()?.title || timer().activeTaskTitle.trim() || "未命名事项";
-  const timerHasProgress = () => timer().isRunning || timer().elapsedMs > 0;
+  const timerHasProgress = () => timer().hasUnsubmittedProgress;
   const timerCanContinue = () =>
     timerHasProgress() && !(timer().modeKey === "countdown" && timer().remainingMs === 0);
   const canFinish = () => timer().elapsedMs > 0 && timer().canCompleteSession;
@@ -778,16 +784,14 @@ function MainShell() {
 
   function applyTimerSnapshot(next: TimerSnapshot) {
     setTimer(next);
-    if (next.isRunning || next.elapsedMs > 0 || next.recoveredFromLastSession) {
+    if (next.hasUnsubmittedProgress) {
       setSavedConfirmation(false);
     }
     const hasCommittedContext =
-      next.isRunning ||
-      next.elapsedMs > 0 ||
-      next.recoveredFromLastSession ||
+      next.hasUnsubmittedProgress ||
       next.activeTaskTitle.trim().length > 0;
 
-    if (next.isRunning || next.elapsedMs > 0 || next.recoveredFromLastSession) {
+    if (next.hasUnsubmittedProgress) {
       setCompleteLinkedTodo(next.completeLinkedTodoOnFinish);
     }
     if (next.modeKey === "countdown" && next.targetDurationMs !== null && !countdownDraftDirty()) {
@@ -1468,6 +1472,8 @@ function MainShell() {
     let interval: number | undefined;
     let floatingSyncActive = true;
     let floatingSyncUnlisten: (() => void) | undefined;
+    let trayNavigationActive = true;
+    let trayNavigationUnlisten: (() => void) | undefined;
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
@@ -1525,6 +1531,22 @@ function MainShell() {
         .catch(() => undefined);
     }
 
+    if (currentWindowLabel === "main") {
+      void listen<string>(trayNavigateEvent, ({ payload }) => {
+        if (isAppView(payload)) {
+          changeView(payload);
+        }
+      })
+        .then((unlisten) => {
+          if (trayNavigationActive) {
+            trayNavigationUnlisten = unlisten;
+          } else {
+            void unlisten();
+          }
+        })
+        .catch(() => undefined);
+    }
+
     if (!isUnlockWindow && !isFocusUnlockWindow) {
       void loadFromStorage().catch((error) => {
         showMessage(getErrorMessage(error), "error");
@@ -1574,6 +1596,10 @@ function MainShell() {
       floatingSyncActive = false;
       if (floatingSyncUnlisten) {
         void floatingSyncUnlisten();
+      }
+      trayNavigationActive = false;
+      if (trayNavigationUnlisten) {
+        void trayNavigationUnlisten();
       }
       if (undoTimer !== undefined) {
         window.clearTimeout(undoTimer);
