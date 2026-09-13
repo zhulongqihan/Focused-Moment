@@ -591,8 +591,18 @@ test("main window keeps its top bar available while scrolling and exposes a drag
   await expect.poll(() => page.evaluate(() => window.__mainWindowDragged)).toBe(true);
 });
 
-test("records page keeps all three native window controls clickable", async ({ page }) => {
+test("records and settings pages keep all three native window controls clickable", async ({ page }) => {
   await bootWithTauriMock(page, { includeRecords: true });
+
+  await page.getByRole("button", { name: "设置", exact: true }).click();
+  const settingsControls = page.locator(".window-control");
+  await expect(settingsControls).toHaveCount(3);
+  const settingsHitTargets = await settingsControls.evaluateAll((buttons) => buttons.map((button) => {
+    const rect = button.getBoundingClientRect();
+    const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+    return hit === button || hit?.closest(".window-control") === button;
+  }));
+  expect(settingsHitTargets).toEqual([true, true, true]);
 
   await page.getByRole("button", { name: "记录", exact: true }).click();
   const controls = page.locator(".window-control");
@@ -709,7 +719,7 @@ test("completed countdown clearly offers to save the focus record", async ({ pag
   await expect(page.getByRole("button", { name: "稍后处理" })).toBeVisible();
 });
 
-test("reminder settings expose popup, taskbar and custom sound controls", async ({ page }) => {
+test("reminder settings expose popup, taskbar and a palette of sound controls", async ({ page }) => {
   await bootWithTauriMock(page);
 
   await page.getByRole("button", { name: "设置", exact: true }).click();
@@ -718,9 +728,10 @@ test("reminder settings expose popup, taskbar and custom sound controls", async 
   await expect(page.getByRole("checkbox", { name: /应用内弹窗/ })).toBeChecked();
   await expect(page.getByRole("checkbox", { name: /任务栏闪烁/ })).toBeChecked();
   await expect(page.getByRole("checkbox", { name: /声音提醒/ })).toBeChecked();
-  await expect(page.locator('select[name="alertSoundKey"]')).toHaveValue("soft_chime");
-  await expect(page.locator('select[name="alertSoundKey"] option[value="viral_quote"]')).toHaveText("胆子真是肥嘟嘟的（老牧师原声）");
-  await page.locator('select[name="alertSoundKey"]').selectOption("viral_quote");
+  await expect(page.locator(".nv-sound-option")).toHaveCount(7);
+  await expect(page.locator(".nv-sound-option.is-selected")).toHaveCount(1);
+  await expect(page.getByRole("button", { name: /老牧师原声/ })).toBeVisible();
+  await page.getByRole("button", { name: /老牧师原声/ }).click();
   await expect.poll(() => page.evaluate(() => window.__TAURI_INTERNALS__.invoke("get_timer_preferences"))).toMatchObject({
     alertSoundKey: "viral_quote",
   });

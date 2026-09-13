@@ -162,6 +162,17 @@ const visualIntensityKey = "focused-moment.visual-intensity";
 const motionIntensityKey = "focused-moment.motion-intensity";
 const densityKey = "focused-moment.density";
 
+type SynthAlertSoundKey = Exclude<AlertSoundKey, "custom" | "viral_quote">;
+
+const synthAlertSoundProfiles: Record<SynthAlertSoundKey, { frequencies: number[]; oscillator: OscillatorType; spacing: number; peak: number; release: number }> = {
+  soft_chime: { frequencies: [660, 880], oscillator: "triangle", spacing: 0.13, peak: 0.18, release: 0.36 },
+  bright_bell: { frequencies: [880, 1174, 1568], oscillator: "triangle", spacing: 0.13, peak: 0.18, release: 0.36 },
+  deep_pulse: { frequencies: [220, 330], oscillator: "sine", spacing: 0.16, peak: 0.2, release: 0.42 },
+  wooden_tick: { frequencies: [294], oscillator: "square", spacing: 0, peak: 0.13, release: 0.16 },
+  glass_ping: { frequencies: [1047, 1568, 2093], oscillator: "sine", spacing: 0.1, peak: 0.14, release: 0.52 },
+  morning_chord: { frequencies: [523, 659, 784], oscillator: "triangle", spacing: 0.08, peak: 0.13, release: 0.48 },
+};
+
 function readLocalStorageValue(key: string) {
   return readStoredLocalStorageValue(key) ?? "";
 }
@@ -275,26 +286,22 @@ function playAlertSound(soundKey: AlertSoundKey) {
 
   const context = new AudioContextConstructor();
   const now = context.currentTime;
-  const tones = soundKey === "bright_bell"
-    ? [880, 1174, 1568]
-    : soundKey === "deep_pulse"
-      ? [220, 330]
-      : [660, 880];
-  tones.forEach((frequency, index) => {
+  const profile = synthAlertSoundProfiles[soundKey as SynthAlertSoundKey] ?? synthAlertSoundProfiles.soft_chime;
+  profile.frequencies.forEach((frequency, index) => {
     const oscillator = context.createOscillator();
     const gain = context.createGain();
-    const start = now + index * 0.13;
-    oscillator.type = soundKey === "deep_pulse" ? "sine" : "triangle";
+    const start = now + index * profile.spacing;
+    oscillator.type = profile.oscillator;
     oscillator.frequency.value = frequency;
     gain.gain.setValueAtTime(0.0001, start);
-    gain.gain.exponentialRampToValueAtTime(0.18, start + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.36);
+    gain.gain.exponentialRampToValueAtTime(profile.peak, start + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + profile.release);
     oscillator.connect(gain);
     gain.connect(context.destination);
     oscillator.start(start);
-    oscillator.stop(start + 0.38);
+    oscillator.stop(start + profile.release + 0.02);
   });
-  window.setTimeout(() => void context.close(), 900);
+  window.setTimeout(() => void context.close(), Math.ceil((profile.release + profile.spacing * profile.frequencies.length + 0.2) * 1000));
 }
 
 function getToday() {
@@ -702,6 +709,32 @@ function MainShell() {
       return;
     }
     setThemeId(theme.id);
+    if (writeLocalStorageValue(themeStorageKey, theme.id)) {
+      showMessage(`已切换至${theme.name}主题，设置会自动保留。`, "success");
+    } else {
+      showMessage("主题已应用，但本地保存失败；重启后不会保留本次修改，请检查存储权限后重试。", "error");
+    }
+  }
+
+  function updateVisualIntensity(value: number) {
+    setVisualIntensity(value);
+    if (!writeLocalStorageValue(visualIntensityKey, String(value))) {
+      showMessage("外观已应用，但本地保存失败；重启后不会保留本次修改，请检查存储权限后重试。", "error");
+    }
+  }
+
+  function updateMotionIntensity(value: number) {
+    setMotionIntensity(value);
+    if (!writeLocalStorageValue(motionIntensityKey, String(value))) {
+      showMessage("外观已应用，但本地保存失败；重启后不会保留本次修改，请检查存储权限后重试。", "error");
+    }
+  }
+
+  function updateDensity(value: "roomy" | "compact") {
+    setDensity(value);
+    if (!writeLocalStorageValue(densityKey, value)) {
+      showMessage("外观已应用，但本地保存失败；重启后不会保留本次修改，请检查存储权限后重试。", "error");
+    }
   }
 
   function saveVisualSettings() {
@@ -2359,9 +2392,9 @@ function MainShell() {
               motionIntensity: () => motionIntensity(),
               density: () => density(),
               onThemeSelect: selectTheme,
-              onVisualIntensityChange: setVisualIntensity,
-              onMotionIntensityChange: setMotionIntensity,
-              onDensityChange: setDensity,
+              onVisualIntensityChange: updateVisualIntensity,
+              onMotionIntensityChange: updateMotionIntensity,
+              onDensityChange: updateDensity,
               onSaveVisualSettings: saveVisualSettings,
               onSaveTimerPreferences: saveTimerPreferences,
               onPreviewAlertSound: previewAlertSound,

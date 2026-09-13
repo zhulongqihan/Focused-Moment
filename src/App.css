@@ -10065,6 +10065,676 @@ body,
   overflow: visible;
 }
 
+/* v2.10.18 Settings workspace: every control gets a measured home, while
+   the right rail explains the active theme instead of showing a static image. */
+.minimal-app--settings {
+  height: auto;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.minimal-app--settings .minimal-workspace,
+.minimal-app--settings .minimal-content {
+  height: auto;
+  min-height: 100dvh;
+  overflow: visible;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-settings-page {
+  display: block;
+  width: min(1280px, calc(100% - 84px));
+  height: auto;
+  min-height: calc(100dvh - 48px);
+  margin: 0 auto;
+  padding: 66px 0 64px;
+  overflow: visible;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-settings-heading {
+  position: relative;
+  top: auto;
+  left: auto;
+  margin: 0;
+  padding: 0;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-settings-heading h1 {
+  margin: 15px 0 0;
+  font-size: clamp(48px, 5vw, 64px);
+  line-height: 0.98;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-settings-heading p {
+  margin: 14px 0 0;
+  font-size: 15px;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-settings-layout {
+  display: grid;
+  grid-template-columns: 184px minmax(0, 1fr) 304px;
+  gap: 20px;
+  align-items: start;
+  min-height: 0;
+  margin-top: 34px;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-settings-subnav {
+  position: sticky;
+  top: 76px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-auto-rows: auto;
+  width: auto;
+  height: auto;
+  min-width: 0;
+  align-content: start;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid rgba(199, 163, 90, 0.42);
+  border-radius: 8px;
+  background: rgba(8, 12, 12, 0.74);
+  box-shadow: inset 0 0 26px rgba(213, 166, 83, 0.04), 0 18px 40px rgba(0, 0, 0, 0.22);
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-settings-subnav a {
+  display: flex;
+  min-width: 0;
+  height: 66px;
+  align-items: center;
+  gap: 13px;
+  padding: 0 17px;
+  border-bottom: 1px solid rgba(206, 186, 143, 0.14);
+  color: rgba(220, 214, 190, 0.64);
+  font: 11px/1 "Cascadia Mono", Consolas, monospace;
+  text-decoration: none;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-settings-subnav a span {
+  min-width: 0;
+  overflow: hidden;
+  color: rgba(232, 224, 201, 0.84);
+  font-family: "Source Han Serif SC", "Noto Serif CJK SC", "Songti SC", SimSun, serif;
+  font-size: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-settings-subnav a:first-child {
+  color: var(--nv-gold);
+  background: rgba(193, 149, 71, 0.14);
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-settings-subnav a:last-child {
+  border-bottom: 0;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-settings-panels {
+  position: relative;
+  inset: auto;
+  display: grid;
+  width: auto;
+  min-width: 0;
+  gap: 18px;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-settings-panel {
+  position: relative;
+  width: auto;
+  min-width: 0;
+  height: auto !important;
+  min-height: 0;
+  margin: 0;
+  padding: 24px 26px;
+  overflow: visible;
+  border: 1px solid rgba(207, 169, 97, 0.42);
+  border-radius: 9px;
+  background: linear-gradient(135deg, rgba(21, 22, 19, 0.86), rgba(8, 14, 15, 0.83));
+  box-shadow: 0 15px 36px rgba(0, 0, 0, 0.27), inset 0 0 26px rgba(216, 176, 92, 0.03);
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-settings-panel .settings-section__heading {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-settings-panel .settings-section__heading h2 {
+  margin: 0;
+  color: rgba(235, 224, 192, 0.9);
+  font: 400 25px/1.16 "Source Han Serif SC", "Noto Serif CJK SC", "Songti SC", SimSun, serif;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-settings-panel .settings-section__heading p {
+  margin: 0;
+  color: rgba(214, 215, 194, 0.58);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-settings-panel--appearance {
+  min-height: 245px;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-settings-panel--behavior {
+  min-height: 174px;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-settings-panel--audio {
+  min-height: 286px;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-theme-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 9px;
+  margin-top: 20px;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-theme-card {
+  height: 98px;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-setting-sliders,
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-density-choice {
+  display: none !important;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-toggle-row {
+  position: relative;
+  inset: auto;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-toggle-row label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  height: auto;
+  align-items: start;
+  gap: 9px;
+  min-width: 0;
+  padding: 12px 11px;
+  border: 1px solid rgba(198, 205, 184, 0.15);
+  border-radius: 6px;
+  background: rgba(4, 11, 14, 0.42);
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-toggle-row label > span {
+  grid-column: auto;
+  grid-row: auto;
+  min-width: 0;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-toggle-row input[type="checkbox"] {
+  grid-column: auto;
+  grid-row: auto;
+  margin: 3px 0 0;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-toggle-row strong,
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-toggle-row small {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-toggle-row strong {
+  color: rgba(225, 220, 194, 0.82);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-toggle-row small {
+  display: block;
+  margin-top: 5px;
+  color: rgba(212, 215, 195, 0.48);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-sound-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-sound-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  column-gap: 8px;
+  align-items: center;
+  min-width: 0;
+  min-height: 55px;
+  padding: 10px 9px;
+  border: 1px solid rgba(198, 205, 184, 0.18);
+  border-radius: 6px;
+  background: rgba(4, 11, 14, 0.46);
+  color: rgba(228, 222, 199, 0.78);
+  text-align: left;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-sound-option:hover {
+  border-color: rgba(224, 184, 103, 0.56);
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-sound-option.is-selected {
+  border-color: rgba(191, 231, 201, 0.76);
+  background: linear-gradient(135deg, rgba(104, 156, 132, 0.22), rgba(4, 18, 20, 0.62));
+  box-shadow: 0 0 0 1px rgba(191, 231, 201, 0.08);
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-sound-option__dot {
+  grid-row: 1 / -1;
+  width: 8px;
+  height: 8px;
+  border: 1px solid rgba(224, 184, 103, 0.72);
+  border-radius: 50%;
+  background: rgba(224, 184, 103, 0.2);
+  box-shadow: 0 0 8px rgba(224, 184, 103, 0.16);
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-sound-option.is-selected .nv-sound-option__dot {
+  border-color: var(--nv-mint);
+  background: var(--nv-mint);
+  box-shadow: 0 0 10px rgba(191, 231, 201, 0.62);
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-sound-option strong,
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-sound-option small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-sound-option strong {
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-sound-option small {
+  margin-top: 3px;
+  color: rgba(211, 215, 194, 0.46);
+  font-size: 9px;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-audio-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 15px;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-audio-actions button {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 5px;
+  padding: 0 11px;
+  font-size: 10px;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-settings-panel--backup,
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-settings-panel--restore,
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-settings-panel--danger {
+  min-height: 0;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-settings-panel--backup {
+  margin-top: 0;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 18px;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .settings-actions button {
+  min-height: 36px;
+  font-size: 11px;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-settings-panel--restore .settings-select {
+  display: grid;
+  gap: 6px;
+  margin-top: 15px;
+  color: rgba(220, 216, 192, 0.56);
+  font-size: 10px;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-settings-panel--restore select {
+  height: 36px;
+  padding: 0 9px;
+  font-size: 11px;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .backup-preview {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  margin: 13px 0;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .backup-preview > div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid rgba(195, 207, 187, 0.13);
+  border-radius: 5px;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .backup-preview span,
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .backup-preview strong {
+  overflow-wrap: anywhere;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .backup-preview span {
+  color: rgba(211, 214, 194, 0.45);
+  font-size: 9px;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .backup-preview strong {
+  color: rgba(225, 221, 198, 0.72);
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-settings-theme-lab {
+  position: sticky;
+  top: 76px;
+  right: auto;
+  left: auto;
+  inset-inline: auto;
+  display: grid;
+  align-content: start;
+  gap: 18px;
+  width: auto;
+  height: auto;
+  min-height: 0;
+  padding: 18px;
+  border: 1px solid rgba(207, 169, 97, 0.42);
+  border-radius: 9px;
+  background: linear-gradient(180deg, rgba(5, 18, 24, 0.92), rgba(5, 12, 17, 0.84));
+  box-shadow: 0 18px 43px rgba(0, 0, 0, 0.28), inset 0 0 32px rgba(147, 200, 175, 0.04);
+}
+
+.nv-theme-lab__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: rgba(217, 195, 147, 0.7);
+  font: 9px/1.4 "Cascadia Mono", Consolas, monospace;
+  letter-spacing: 0.11em;
+}
+
+.nv-theme-lab__header strong {
+  color: var(--nv-mint);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+}
+
+.nv-theme-lab__core {
+  position: relative;
+  min-height: 248px;
+  overflow: hidden;
+  border: 1px solid rgba(170, 201, 187, 0.22);
+  border-radius: 7px;
+  background: radial-gradient(circle at 50% 42%, rgba(185, 223, 193, 0.12), transparent 30%), linear-gradient(160deg, rgba(8, 36, 48, 0.92), rgba(11, 23, 30, 0.98));
+}
+
+.nv-theme-lab__core::before,
+.nv-theme-lab__core::after {
+  content: "";
+  position: absolute;
+  border: 1px solid rgba(219, 174, 88, 0.28);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.nv-theme-lab__core::before {
+  top: 43%;
+  left: 50%;
+  width: 174px;
+  height: 174px;
+}
+
+.nv-theme-lab__core::after {
+  top: 43%;
+  left: 50%;
+  width: 112px;
+  height: 112px;
+  border-color: rgba(191, 231, 201, 0.34);
+}
+
+.nv-theme-lab__orbit {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.nv-theme-lab__orbit::before {
+  content: "";
+  position: absolute;
+  top: 43%;
+  left: 50%;
+  width: 15px;
+  height: 15px;
+  border: 1px solid var(--nv-gold);
+  border-radius: 50%;
+  background: #e2ad60;
+  box-shadow: 0 0 24px rgba(225, 167, 71, 0.72);
+  transform: translate(-50%, -50%);
+}
+
+.nv-theme-lab__orbit i {
+  position: absolute;
+  display: block;
+  width: 7px;
+  height: 7px;
+  border: 1px solid rgba(217, 238, 205, 0.86);
+  border-radius: 50%;
+  background: #c7e8cf;
+  box-shadow: 0 0 12px rgba(196, 235, 205, 0.7);
+}
+
+.nv-theme-lab__orbit i:nth-child(1) { top: 18%; left: 30%; }
+.nv-theme-lab__orbit i:nth-child(2) { top: 48%; right: 18%; }
+.nv-theme-lab__orbit i:nth-child(3) { bottom: 18%; left: 20%; }
+.nv-theme-lab__orbit b { position: absolute; top: 43%; left: 50%; width: 214px; height: 1px; background: linear-gradient(90deg, transparent, rgba(219, 174, 88, 0.46), transparent); transform: translate(-50%, -50%) rotate(-22deg); }
+
+.nv-theme-lab__copy {
+  position: absolute;
+  right: 17px;
+  bottom: 16px;
+  left: 17px;
+  z-index: 1;
+  display: grid;
+  gap: 5px;
+  padding: 12px;
+  border: 1px solid rgba(210, 178, 111, 0.34);
+  border-radius: 6px;
+  background: rgba(3, 14, 21, 0.78);
+}
+
+.nv-theme-lab__copy small,
+.nv-theme-lab__copy span { color: rgba(223, 201, 155, 0.64); font: 9px/1.35 "Cascadia Mono", Consolas, monospace; }
+.nv-theme-lab__copy strong { color: rgba(235, 225, 199, 0.9); font: 400 21px/1.12 "Source Han Serif SC", "Noto Serif CJK SC", "Songti SC", SimSun, serif; }
+.nv-theme-lab__copy p { margin: 2px 0 0; color: rgba(199, 222, 199, 0.62); font-size: 10px; line-height: 1.5; }
+
+.nv-theme-lab__signals {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.nv-theme-lab__signals div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 9px 8px;
+  border: 1px solid rgba(198, 205, 184, 0.15);
+  border-radius: 5px;
+  background: rgba(4, 11, 14, 0.4);
+}
+
+.nv-theme-lab__signals span { color: rgba(211, 214, 194, 0.44); font-size: 9px; }
+.nv-theme-lab__signals b { overflow: hidden; color: rgba(220, 231, 211, 0.78); font-size: 10px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+
+.nv-theme-lab__footer {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: rgba(204, 222, 195, 0.62);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.nv-theme-lab__footer span { flex: 0 0 auto; width: 6px; height: 6px; margin-top: 4px; border-radius: 50%; background: var(--nv-mint); box-shadow: 0 0 8px rgba(191, 231, 201, 0.62); }
+
+@media (min-width: 821px) and (max-width: 1160px) {
+  .minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-settings-page {
+    width: calc(100% - 48px);
+    padding-top: 58px;
+  }
+
+  .minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-settings-layout {
+    grid-template-columns: 174px minmax(0, 1fr);
+  }
+
+  .minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-settings-theme-lab {
+    position: relative;
+    top: auto;
+    grid-column: 1 / -1;
+    margin-top: 2px;
+  }
+
+  .minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-theme-lab__core {
+    min-height: 220px;
+  }
+}
+
+@media (max-width: 820px) {
+  .minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-settings-page {
+    width: auto;
+    min-height: 0;
+    margin: 0;
+    padding: 38px 22px 50px;
+  }
+
+  .minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-settings-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    margin-top: 28px;
+  }
+
+  .minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-settings-subnav,
+  .minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-settings-theme-lab {
+    position: relative;
+    top: auto;
+  }
+
+  .minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-settings-subnav {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-settings-subnav a {
+    height: 50px;
+    justify-content: center;
+    gap: 5px;
+    padding: 0 5px;
+  }
+
+  .minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-settings-subnav a span {
+    font-size: 12px;
+  }
+
+  .minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-settings-panels {
+    gap: 14px;
+  }
+
+  .minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-settings-panel {
+    padding: 21px 20px;
+  }
+
+  .minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-theme-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-toggle-row {
+    grid-template-columns: 1fr;
+  }
+
+  .minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-sound-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-theme-lab__core {
+    min-height: 270px;
+  }
+}
+
+@media (max-width: 560px) {
+  .minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-settings-page {
+    padding-right: 14px;
+    padding-left: 14px;
+  }
+
+  .minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-settings-heading h1 {
+    font-size: clamp(44px, 14vw, 56px);
+  }
+
+  .minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-settings-heading p {
+    font-size: 13px;
+  }
+
+  .minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-settings-layout {
+    margin-top: 22px;
+  }
+
+  .minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-settings-subnav a {
+    height: 46px;
+    font-size: 9px;
+  }
+
+  .minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-settings-subnav a span {
+    font-size: 11px;
+  }
+
+  .minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-settings-panel {
+    padding: 19px 16px;
+  }
+
+  .minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-theme-grid,
+  .minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-sound-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-theme-card {
+    height: 94px;
+  }
+
+  .minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .backup-preview {
+    grid-template-columns: 1fr;
+  }
+
+  .minimal-app--cinematic:not(.minimal-app--trail).minimal-app--settings .minimal-content .nv-theme-lab__core {
+    min-height: 244px;
+  }
+
+  .nv-theme-lab__signals {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (min-width: 821px) and (max-width: 1160px) {
   .minimal-app--cinematic:not(.minimal-app--trail).minimal-app--todos .minimal-content .nv-todo-page {
     width: calc(100% - 48px);

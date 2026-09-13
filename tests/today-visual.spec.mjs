@@ -1026,58 +1026,39 @@ test("PERF-01 measures synthetic Editorial Paper history rendering", async ({ pa
   }
 });
 
-test("Night Valley appearance settings apply live and persist after explicit save", async ({ page }) => {
+test("Night Valley settings use a clear layout and auto-save useful choices", async ({ page }) => {
   await page.setViewportSize({ width: 1487, height: 1058 });
   await bootTodayReferenceMock(page);
   await page.getByRole("button", { name: "设置", exact: true }).click();
 
-  const app = page.locator(".minimal-app");
-  await expect(page.getByLabel("视觉强调")).toHaveValue("72");
-  await expect(page.getByLabel("动效强度")).toHaveValue("44");
-  await expect(app).toHaveAttribute("data-density", "roomy");
-  await expect(app).toHaveAttribute("data-motion", "subtle");
-
-  for (const [label, value] of [["视觉强调", "20"], ["动效强度", "0"]]) {
-    await page.getByLabel(label).evaluate((input, nextValue) => {
-      input.value = nextValue;
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-    }, value);
-  }
-  await page.getByRole("button", { name: "紧凑", exact: true }).click();
-
-  await expect(app).toHaveAttribute("data-density", "compact");
-  await expect(app).toHaveAttribute("data-motion", "off");
-  const liveStyle = await app.evaluate((element) => {
-    const style = getComputedStyle(element);
-    return {
-      intensity: style.getPropertyValue("--nv-visual-intensity").trim(),
-      opacity: Number(style.getPropertyValue("--nv-visual-opacity").trim()),
+  await expect(page.locator(".nv-settings-subnav a")).toHaveCount(4);
+  await expect(page.locator(".nv-setting-sliders")).toHaveCount(0);
+  await expect(page.locator(".nv-density-choice")).toHaveCount(0);
+  await expect(page.locator("#nv-shortcuts")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "快捷键" })).toHaveCount(0);
+  await expect(page.locator(".nv-settings-theme-lab")).toContainText("主题观测站");
+  await expect(page.locator(".nv-sound-option")).toHaveCount(7);
+  const toggleMetrics = await page.locator(".nv-toggle-row label").evaluateAll((labels) => labels.map((label) => {
+    const input = label.querySelector("input");
+    const copy = label.querySelector("span");
+    const note = label.querySelector("small");
+    const rect = (element) => {
+      const box = element?.getBoundingClientRect();
+      return box ? { left: box.left, right: box.right, top: box.top, bottom: box.bottom, height: box.height } : null;
     };
-  });
-  expect(Number(liveStyle.intensity)).toBeCloseTo(0.2, 3);
-  expect(liveStyle.opacity).toBeCloseTo(0.64, 3);
+    return { label: rect(label), input: rect(input), copy: rect(copy), note: rect(note), noteDisplay: note ? getComputedStyle(note).display : "" };
+  }));
+  expect(toggleMetrics.every((metric) => metric.noteDisplay === "block" && (metric.note?.height ?? 0) > 0)).toBe(true);
+  expect(toggleMetrics.every((metric) => (metric.input?.right ?? 0) <= (metric.label?.right ?? 0) && (metric.copy?.right ?? 0) <= (metric.label?.right ?? 0))).toBe(true);
 
-  await page.getByRole("button", { name: "保存外观设置", exact: true }).click();
-  await expect(page.locator(".app-message--success")).toContainText("下次启动会继续使用");
-  await expect.poll(() => page.evaluate(() => ({
-    theme: window.localStorage.getItem("focused-moment.theme"),
-    visual: window.localStorage.getItem("focused-moment.visual-intensity"),
-    motion: window.localStorage.getItem("focused-moment.motion-intensity"),
-    density: window.localStorage.getItem("focused-moment.density"),
-  }))).toEqual({
-    theme: "night-valley",
-    visual: "20",
-    motion: "0",
-    density: "compact",
-  });
+  await page.locator(".nv-theme-card").filter({ hasText: "编辑纸页" }).click({ force: true });
+  await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "editorial-paper");
+  await expect(page.locator(".app-message--success")).toContainText("自动保留");
+  await expect.poll(() => page.evaluate(() => window.localStorage.getItem("focused-moment.theme"))).toBe("editorial-paper");
 
   await page.reload();
-  await expect(page.getByRole("heading", { name: "今天，从一件事开始" })).toBeVisible();
-  await page.getByRole("button", { name: "设置", exact: true }).click();
-  await expect(page.getByLabel("视觉强调")).toHaveValue("20");
-  await expect(page.getByLabel("动效强度")).toHaveValue("0");
-  await expect(page.locator(".minimal-app")).toHaveAttribute("data-density", "compact");
-  await expect(page.locator(".minimal-app")).toHaveAttribute("data-motion", "off");
+  await expect(page.getByRole("heading", { name: "今日节奏" })).toBeVisible();
+  await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "editorial-paper");
 });
 
 test("Night Valley appearance settings explain when local saving fails", async ({ page }) => {
@@ -1089,7 +1070,7 @@ test("Night Valley appearance settings explain when local saving fails", async (
   await page.setViewportSize({ width: 1487, height: 1058 });
   await bootTodayReferenceMock(page);
   await page.getByRole("button", { name: "设置", exact: true }).click();
-  await page.getByRole("button", { name: "保存外观设置", exact: true }).click();
+  await page.locator(".nv-theme-card").filter({ hasText: "夜谷" }).click({ force: true });
 
   await expect(page.locator(".app-message--error")).toContainText("本地保存失败");
   await expect(page.locator(".app-message--error")).toContainText("重启后不会保留");

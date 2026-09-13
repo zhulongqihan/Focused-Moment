@@ -54,7 +54,7 @@ export interface TimerPreferences {
   alertSoundKey: AlertSoundKey;
 }
 
-export type AlertSoundKey = "soft_chime" | "bright_bell" | "deep_pulse" | "viral_quote" | "custom";
+export type AlertSoundKey = "soft_chime" | "bright_bell" | "deep_pulse" | "wooden_tick" | "glass_ping" | "morning_chord" | "viral_quote" | "custom";
 
 export interface FocusRecord {
   id: number;

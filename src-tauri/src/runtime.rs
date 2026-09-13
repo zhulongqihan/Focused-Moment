@@ -70,8 +70,8 @@ const DEFAULT_COUNTDOWN_MINUTES: u64 = 25;
 const MIN_COUNTDOWN_MINUTES: u64 = 1;
 const MAX_COUNTDOWN_MINUTES: u64 = 12 * 60;
 const MAX_TODO_TITLE_CHARS: usize = 200;
-const APP_VERSION: &str = "2.10.17";
-const APP_MILESTONE: &str = "v2.10.17 Night Valley todo workspace; Windows-only release";
+const APP_VERSION: &str = "2.10.18";
+const APP_MILESTONE: &str = "v2.10.18 Night Valley settings workspace; Windows-only release";
 const APP_BACKUP_KIND: &str = "focused-moment-backup";
 const APP_BACKUP_FORMAT_VERSION: u64 = 2;
 const FLOATING_WORKSPACE_SYNC_EVENT: &str = "floating-workspace-sync";
@@ -181,6 +181,9 @@ enum AlertSoundKey {
     SoftChime,
     BrightBell,
     DeepPulse,
+    WoodenTick,
+    GlassPing,
+    MorningChord,
     ViralQuote,
     Custom,
 }
@@ -227,6 +230,9 @@ impl AlertSoundKey {
             Self::SoftChime => "soft_chime",
             Self::BrightBell => "bright_bell",
             Self::DeepPulse => "deep_pulse",
+            Self::WoodenTick => "wooden_tick",
+            Self::GlassPing => "glass_ping",
+            Self::MorningChord => "morning_chord",
             Self::ViralQuote => "viral_quote",
             Self::Custom => "custom",
         }
@@ -3634,6 +3640,28 @@ fn start_dragging_main_window(window: tauri::Window) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn alert_sound_keys_round_trip_through_runtime_preferences() {
+        for raw_key in [
+            "soft_chime",
+            "bright_bell",
+            "deep_pulse",
+            "wooden_tick",
+            "glass_ping",
+            "morning_chord",
+            "viral_quote",
+            "custom",
+        ] {
+            let parsed: AlertSoundKey =
+                serde_json::from_str(&format!("\"{raw_key}\"")).expect("valid alert sound key");
+            assert_eq!(parsed.key(), raw_key);
+            assert_eq!(
+                serde_json::to_string(&parsed).expect("serialize alert sound key"),
+                format!("\"{raw_key}\"")
+            );
+        }
+    }
 
     #[cfg(windows)]
     #[test]
