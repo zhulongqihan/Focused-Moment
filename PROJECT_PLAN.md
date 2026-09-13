@@ -7,20 +7,21 @@
 
 | 字段 | 当前值 |
 | --- | --- |
-| as_of / updated_at | 2026-09-13（Asia/Shanghai）；UX-AUDIT-01 已完成 25 页 × 3 轮 = 75 轮真实浏览器体验、50 组紧凑密度专项、20 个设置锚点检查和人工视觉复核；本地旧归档与生成物清理已按用户授权完成；REL-14 v2.10.11 五套主题“今日一句”已完成构建、提交、正常推送、tag、GitHub Release、远程 Checks、macOS Native Smoke、Universal DMG 和四项资产 digest 核对，证据见 `docs/v2.10.11/RELEASE_NOTES.md` 与 `docs/maintenance/destructive-cleanup-manifest-20260912.md` |
+| as_of / updated_at | 2026-09-13 15:28（Asia/Shanghai）；UX-AUDIT-01 已完成 25 页 × 3 轮 = 75 轮真实浏览器体验、50 组紧凑密度专项、20 个设置锚点检查和人工视觉复核；本地旧归档与生成物清理已按用户授权完成；REL-14 v2.10.11 五套主题“今日一句”已完成构建、提交、正常推送、tag、GitHub Release、远程 Checks、macOS Native Smoke、Universal DMG 和四项资产 digest 核对；新增用户决策：暂时冻结 macOS 版本更新，直到用户明确授权恢复，证据见 `docs/v2.10.11/RELEASE_NOTES.md` 与 `docs/maintenance/destructive-cleanup-manifest-20260912.md` |
 | 产品目标 | 本地优先的桌面专注工具：待办 → 专注 → 桌面提醒 → 保存记录 → 回看投入 → 可恢复地长期保留 |
 | 当前阶段 | 五套主题均已接入；MAINT-01 至 MAINT-06 瘦身、文档、远程审计和干净 checkout 验证已完成；REFINE-13 的 Night Valley“计时”页修复、Windows native 验收和 REL-12 v2.10.9 发布闭环均已完成；2026-09-12 本地旧归档与可再生生成物清理已完成；UX-AUDIT-01 全主题逐页真实体验精修已完成；REL-13 v2.10.10 发布闭环已完成；REL-14 v2.10.11“今日一句”发布闭环已完成 |
 | 代码基线 | v2.10.11 发布代码提交为 `d83444b7d861730a7bd6b22e448b4000ccdec5b3`，tag `v2.10.11` peeled commit 与其一致；v2.10.10 发布代码为 `46f42e293ee36c3c8706b4b4c4b98f46d36ea084`；旧版本 tag 未移动 |
 | 当前工作分支 | `main`；旧 CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06/DESK-01/DESK-02/DESK-03/ARCH-01/QA-01/PERF-01/TH-02/TH-03/TH-04/TH-05/DATA-01/REL-01 已完成；REFINE-03/REFINE-04/REFINE-05 DONE；REL-02/REL-03/REL-04 DONE；REFINE-06 REVIEW；REL-05 DONE；REFINE-07 REVIEW；REL-06 DONE；REFINE-08 REVIEW；REL-07 DONE；REFINE-09 REVIEW；REL-08 DONE；REFINE-10 REVIEW；REL-09 DONE；REFINE-11 REVIEW；REL-10 DONE；REFINE-12 REVIEW；REL-11 DONE；MAINT-01 至 MAINT-06 DONE；REFINE-13 DONE；REL-12 DONE；本地旧归档清理 DONE；UX-AUDIT-01 DONE；REL-13 DONE；REL-14 DONE |
 | 发布基线 | GitHub `v2.10.11`，tag peeled commit 为 `d83444b`；Checks `34743633071`、macOS Native Smoke `34743633053`、macOS Release `34743647454` 均 PASS；Release 四项资产均为 uploaded，digest 见 `docs/v2.10.11/RELEASE_NOTES.md`；v2.10.8/v2.10.9/v2.10.10 tag、Release、资产未修改 |
+| 后续发布策略 | **macOS 暂停更新，直到用户明确要求恢复**；v2.10.11 是当前最后一个同时发布 Windows 与 macOS 资产的版本。后续普通用户可见变更默认只走 Windows 构建/验证/发布，不构建或上传新的 macOS Universal DMG，不运行 macOS Release 与 macOS Native Smoke；共享源码可能仍包含 macOS 可用逻辑，但不视为 macOS 版本发布 |
 | 远程 main | `origin/main` 已包含 v2.10.11 发布代码提交 `d83444b7d861730a7bd6b22e448b4000ccdec5b3`；GitHub Release [v2.10.11](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.10.11) 已正式发布并有四项资产；v2.10.8/v2.10.9/v2.10.10 tag、GitHub Release 与资产未触碰 |
 | 本轮交付 | 已完成 MAINT-02 清理与重建；MAINT-03 对 283 个清理前 tracked 文件、ignored 历史资料、素材、组件、依赖、脚本和 workflow 做引用审计，明确删除候选仅为无引用 `public/vite.svg`、`public/tauri.svg` 并从工作树移除；MAINT-04 重写 README 并验证全部本地链接/图片；MAINT-05 核对远程分支、tag、Release、资产和 Actions，未执行远程删除；MAINT-06 在 `ae6ac45` 干净 checkout 完成 install/check/build、前端 67/67、Rust 33/33、debug bundle、真实 Windows 启动与隔离数据验证；维护结果经 `804de40` 正常推送；REFINE-13 仅修改 Night Valley 计时页现有入口布局与对应回归断言，native/布局与最终回归完成；2.10.9 Windows 三项 bundle 与 macOS Universal DMG 已发布并核对 digest；本轮另按清单删除约 95.25 GiB 本地旧归档/生成物和无引用 ignored 旧副本；UX-AUDIT-01 完成五套主题 25 页三轮真实体验，修复跨 Tab 滚动、无效记录占位、移动导航、图表日期点和过期设置说明等问题；REL-13 完成 v2.10.10 Windows/macOS 发布闭环；REL-14 完成五套主题 Today 的稳定每日一句、主题化布局、共享样式、跨主题同日断言、v2.10.11 本地 68/68/build/Rust 验证、Windows 三项打包、远程 Checks/Native Smoke/Universal DMG 发布闭环；v2.10.8/v2.10.9/v2.10.10 Release 未触碰 |
-| 下一项 | 用户关闭旧 v2.10.10 进程并安装/启动 v2.10.11，验收五套主题 Today 页面中每日一句的实际位置；若无新反馈，进入常规维护，不继续无边界改动 |
-| 当前执行人 / 在做任务 | Codex / REL-14 已完成；等待用户验收 v2.10.11，不重复清理、旧版本发布或 Night Valley 已完成的原生修复 |
+| 下一项 | 用户关闭旧 v2.10.10 进程并安装/启动 v2.10.11，验收五套主题 Today 页面中每日一句的实际位置；后续普通变更默认只发布 Windows，macOS 保持冻结，直到用户明确授权 |
+| 当前执行人 / 在做任务 | Codex / REL-14 已完成；等待用户验收 v2.10.11，并遵守 macOS 发布冻结，不重复清理或旧版本发布 |
 | 首套验收结论 | **Windows 原生核心闭环、编辑态计时刷新、主题渲染边界、QA-01 回退回归、五套主题 25 页前端回归、Editorial 长历史性能专项、v2.6.10/v2.7.0/v2.8.0/v2.9.0/v2.9.1 Windows 与 macOS 资产发布、CORE-03 macOS 原生数据目录与迁移、DESK-02 macOS 第二实例/托盘/浮窗/隔离安装启动、DATA-01 备份范围/隔离跨目录搬移/素材清单已通过**；资源出处补录缺口已在清单中保留为后续治理事项 |
 | source | 本轮用户说明；当前源码与测试；Git 提交/远程 refs；GitHub Release/Actions；本轮命令结果 |
 | supersedes | 旧文档中的 v1.4.1/v1.5.x/v1.10.0/v2.0 当前进度，以及 2026-09-06 摘要中的“其他四页未实现、主题注册未建立” |
-| pending | 暂无本轮技术阻塞；等待用户验收 v2.10.11；Night Valley 当前没有独立 F11/全屏产品命令，本轮结论限定为无边框窗口的全屏几何和 CSS 全屏布局；资源出处补录缺口仍按既有清单保留 |
+| pending | 暂无本轮技术阻塞；等待用户验收 v2.10.11；macOS 版本更新冻结，恢复前需用户明确授权；Night Valley 当前没有独立 F11/全屏产品命令，本轮结论限定为无边框窗口的全屏几何和 CSS 全屏布局；资源出处补录缺口仍按既有清单保留 |
 
 ### 2026-09-11 21:49 断点复核
 
@@ -66,6 +67,14 @@
 - 发布代码提交为 `d83444b7d861730a7bd6b22e448b4000ccdec5b3`，已正常推送到 `main`；`v2.10.11` annotated tag 已正常推送并指向该提交。Checks `34743633071`、macOS Native Smoke `34743633053`、macOS Release `34743647454` 均 PASS；GitHub Release 四项资产均 `uploaded`，完整大小与 digest 见 `docs/v2.10.11/RELEASE_NOTES.md`。
 - 首次 macOS Release 因 tag 推送时 Release 尚未创建而按 workflow 设计等待超时；创建正式 Release、补传 Windows MSI 后重新运行成功。该次顺序性失败不影响最终资产和代码结果。
 - 下一步仅是用户关闭旧 v2.10.10 进程，安装/启动 v2.10.11 后验收五套主题的实际显示位置；本轮功能与发布技术任务已收口。
+
+### 2026-09-13 15:28 用户决策：暂时冻结 macOS 版本更新
+
+- 用户指出上一轮大部分等待时间消耗在 macOS 版本上，并明确要求：之后暂时不更新 macOS 版本，直到用户明确要求恢复。
+- 耗时说明基于 v2.10.11 实际 Actions：macOS Universal Release 成功 run `34743647454` 用时 8 分 41 秒；macOS Native Smoke 成功 run `34743633053` 用时约 3 分 42 秒；两者分别涉及双架构 Universal 构建/DMG 上传，以及独立 debug macOS 构建、原生存储与窗口冒烟。另有一次 macOS Release 因 tag 已推送但正式 Release 尚未创建，按 workflow 等待超时后重跑，增加了无效等待。
+- Checks run `34743633071` 用时约 11 分 13 秒，包含前端 68 项流程、Rust fmt/check/test，是跨平台主线验证，不能把全部时间归因于 macOS；但 macOS 专项确实是发布闭环中额外增加的两条耗时链路。
+- 持久策略：v2.10.11 保留为最后一个当前双平台发布版本；之后普通用户可见变更默认只做 Windows 版本号、Windows 打包、Windows 远程 Checks 和必要的 Windows 原生验证，不构建/上传 macOS DMG，不运行 macOS Release 或 macOS Native Smoke。共享源码仍可保持跨平台可编译设计，但不产生新的 macOS 发布资产。
+- 只有用户明确说“更新 macOS / 恢复 macOS 发布 / 做双平台发布”等同等明确指令时，才重新启用 macOS 版本同步、Universal DMG、macOS Release 和 Native Smoke。
 
 ### 最新用户纠正与主题精修阶段（2026-09-09）
 

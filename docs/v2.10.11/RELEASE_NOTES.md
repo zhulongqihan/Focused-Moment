@@ -34,3 +34,7 @@
 | Focused Moment_2.10.11_universal.dmg | 34,346,733 | 7df332324074dfd63f7d422fbed2df7f5aa62534123e4e52b875c949119fa6cb |
 
 正式 [GitHub Release v2.10.11](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.10.11) 已发布，Windows portable、Windows Setup、Windows MSI 和 macOS Universal DMG 四项资产均为 `uploaded`。
+
+## 后续发布策略
+
+v2.10.11 是当前最后一个同时发布 Windows 与 macOS 资产的版本。后续普通变更默认只更新和发布 Windows；macOS 版本、Universal DMG、macOS Release 与 macOS Native Smoke 暂停，直到用户明确要求恢复。共享源码仍保持跨平台设计，但不会自动生成新的 macOS 发布资产。
