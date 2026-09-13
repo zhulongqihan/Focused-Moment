@@ -26,6 +26,7 @@
 - 发布代码提交：`77b5b66dbde53b976a1f4b2ef3e3582d4f3fd7d5`；`v2.10.12` tag 指向同一提交。
 - Windows Checks：[`34747904315`](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34747904315)，成功；远程前端 `69/69`，Rust fmt/check/test 全部通过。
 - GitHub Release：<https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.10.12>；三项 Windows 资产状态均为 `uploaded`，远端 digest 与本地 SHA-256 一致。
+- 最终证据核对时间：2026-09-13 16:45（Asia/Shanghai）。
 - 本版本没有 macOS Release、macOS Native Smoke 或 macOS 资产；v2.10.11 仍是最后一个包含 macOS 资产的版本。
 
 ## 发布策略
