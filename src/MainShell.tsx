@@ -544,7 +544,7 @@ function createArchivePath(days: AnalyticsSnapshot["dailyBreakdown"]) {
     return `M 0 ${points[0].y + 18} C 20 ${points[0].y + 18}, 34 ${points[0].y}, ${points[0].x} ${points[0].y}`;
   }
 
-  let path = `M ${points[0].x - 8} ${points[0].y + 8}`;
+  let path = `M ${points[0].x - 8} ${points[0].y + 8} C ${points[0].x - 4} ${points[0].y + 4}, ${points[0].x - 2} ${points[0].y}, ${points[0].x} ${points[0].y}`;
   for (let index = 1; index < points.length; index += 1) {
     const previous = points[index - 1];
     const current = points[index];

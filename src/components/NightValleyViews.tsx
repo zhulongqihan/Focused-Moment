@@ -596,6 +596,61 @@ interface RecordGroupShape {
   totalDurationMs: number;
 }
 
+interface FocusTimeBand {
+  key: "late-night" | "morning" | "afternoon" | "evening";
+  label: string;
+  rangeLabel: string;
+  totalDurationMs: number;
+  sessionCount: number;
+  heightPercent: number;
+}
+
+const focusTimeBandSeeds: Array<Pick<FocusTimeBand, "key" | "label" | "rangeLabel">> = [
+  { key: "late-night", label: "凌晨", rangeLabel: "00–05 点" },
+  { key: "morning", label: "上午", rangeLabel: "06–11 点" },
+  { key: "afternoon", label: "下午", rangeLabel: "12–17 点" },
+  { key: "evening", label: "晚间", rangeLabel: "18–23 点" },
+];
+
+function recordCompletedHour(record: FocusRecord) {
+  const timeMatch = record.completedTime.trim().match(/^(\d{1,2})(?::\d{2})?/);
+  if (timeMatch) {
+    const hour = Number(timeMatch[1]);
+    if (Number.isInteger(hour) && hour >= 0 && hour <= 23) {
+      return hour;
+    }
+  }
+
+  const timestamp = Date.parse(record.completedAt);
+  if (!Number.isNaN(timestamp)) {
+    return new Date(timestamp).getHours();
+  }
+
+  return null;
+}
+
+function focusTimeBandIndex(hour: number) {
+  if (hour < 6) return 0;
+  if (hour < 12) return 1;
+  if (hour < 18) return 2;
+  return 3;
+}
+
+function formatDistributionDuration(durationMs: number) {
+  const totalMinutes = Math.round(Math.max(0, durationMs) / 60_000);
+  if (totalMinutes === 0) {
+    return "0 分钟";
+  }
+
+  if (totalMinutes < 60) {
+    return `${totalMinutes} 分钟`;
+  }
+
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return minutes === 0 ? `${hours} 小时` : `${hours} 小时 ${minutes} 分钟`;
+}
+
 export interface NightValleyRecordsProps {
   analytics: Accessor<AnalyticsSnapshot | null>;
   records: Accessor<FocusRecord[]>;
@@ -626,14 +681,31 @@ export interface NightValleyRecordsProps {
 
 export function NightValleyRecords(props: NightValleyRecordsProps) {
   const recentWeekAverageDurationLabel = () => props.formatDurationMs(props.recentWeekDurationMs() / 7);
-  const distributionBarHeight = (day: ArchiveDayShape) => {
-    if (day.totalDurationMs === 0) {
-      return 0;
+  const focusTimeBands = createMemo<FocusTimeBand[]>(() => {
+    const bands = focusTimeBandSeeds.map((band) => ({
+      ...band,
+      totalDurationMs: 0,
+      sessionCount: 0,
+      heightPercent: 0,
+    }));
+
+    for (const record of props.records()) {
+      const hour = recordCompletedHour(record);
+      if (hour === null) continue;
+
+      const band = bands[focusTimeBandIndex(hour)];
+      band.totalDurationMs += Math.max(0, record.durationMs);
+      band.sessionCount += 1;
     }
 
-    const maxDurationMs = Math.max(1, ...props.archiveDays().map((item) => item.totalDurationMs));
-    return Math.max(10, Math.round((day.totalDurationMs / maxDurationMs) * 100));
-  };
+    const maxDurationMs = Math.max(1, ...bands.map((band) => band.totalDurationMs));
+    return bands.map((band) => ({
+      ...band,
+      heightPercent: band.totalDurationMs === 0
+        ? 0
+        : Math.max(12, Math.round((band.totalDurationMs / maxDurationMs) * 100)),
+    }));
+  });
 
   return (
     <section class="nv-page nv-records-page records-page" aria-label="专注记录">
@@ -669,7 +741,13 @@ export function NightValleyRecords(props: NightValleyRecordsProps) {
                 return (
                   <button
                     type="button"
-                    classList={{ "records-archive__node": true, "records-archive__node--selected": props.selectedArchiveDate() === day.date, "records-archive__node--empty": day.totalDurationMs === 0 }}
+                    classList={{
+                      "records-archive__node": true,
+                      "records-archive__node--first": index() === 0,
+                      "records-archive__node--last": index() === props.archiveDays().length - 1,
+                      "records-archive__node--selected": props.selectedArchiveDate() === day.date,
+                      "records-archive__node--empty": day.totalDurationMs === 0,
+                    }}
                     style={{ left: `${left}%`, top: `${top}%` }}
                     onClick={() => props.onSelectDate(day.date)}
                     aria-label={`${props.formatAnalyticsDate(day.date)} · ${day.totalDurationLabel}`}
@@ -699,7 +777,30 @@ export function NightValleyRecords(props: NightValleyRecordsProps) {
             <div class="records-hero__dial" aria-label={`已完成 ${props.selectedArchiveDay()?.sessionCount ?? 0} 段专注`}><div class="records-hero__dial-ring records-hero__dial-ring--outer" /><div class="records-hero__dial-ring records-hero__dial-ring--inner" /><div class="records-hero__dial-core"><span>FOCUS LOG</span><strong>{props.selectedArchiveDay()?.sessionCount ?? 0}</strong><small>段专注</small></div><i class="records-hero__dial-marker" aria-hidden="true" /></div>
             <button type="button" class="records-archive__detail-action" disabled={props.selectedArchiveRecords().length === 0} onClick={() => document.querySelector(".record-history")?.scrollIntoView({ behavior: "smooth", block: "start" })}>查看这一天的记录 <ArrowUpRight size={15} strokeWidth={1.8} aria-hidden="true" /></button>
           </aside>
-          <section class="nv-records-distribution" aria-label="专注分布"><span class="nv-section-kicker">DISTRIBUTION / 分布</span><h2>把时间留给真正重要的事。</h2><div class="nv-records-distribution__bars"><For each={props.archiveDays()}>{(day) => <span title={`${props.formatAnalyticsDate(day.date)} ${day.totalDurationLabel}`} style={{ height: `${distributionBarHeight(day)}%` }} />}</For></div><small>节点高度按当天真实投入时长变化。</small></section>
+          <section class="nv-records-distribution" aria-label="一天中的专注时段">
+            <div class="nv-records-distribution__heading">
+              <span class="nv-section-kicker">FOCUS HOURS / 专注时段</span>
+              <h2>你通常在什么时候进入状态？</h2>
+              <p>按每段专注的完成时间归类，看看投入最常出现在哪个时段。</p>
+            </div>
+            <div class="nv-records-distribution__bars" role="list" aria-label="按一天时段统计的专注时长">
+              <For each={focusTimeBands()}>
+                {(band) => (
+                  <div
+                    class="nv-records-distribution__band"
+                    role="listitem"
+                    title={`${band.label} · ${formatDistributionDuration(band.totalDurationMs)} · ${band.sessionCount} 段`}
+                  >
+                    <strong>{formatDistributionDuration(band.totalDurationMs)}</strong>
+                    <div class="nv-records-distribution__track" aria-hidden="true"><span style={{ height: `${band.heightPercent}%` }} /></div>
+                    <b>{band.label}</b>
+                    <small>{band.rangeLabel} · {band.sessionCount} 段</small>
+                  </div>
+                )}
+              </For>
+            </div>
+            <small class="nv-records-distribution__note">只统计已保存记录 · 共 {props.records().length} 段</small>
+          </section>
         </div>
 
       </section>
@@ -707,13 +808,13 @@ export function NightValleyRecords(props: NightValleyRecordsProps) {
       <section class="records-trend nv-records-trend" aria-label="最近趋势"><div><span class="nv-section-kicker">TREND / RECENT RHYTHM</span><h2>最近 7 天，平均每天 {recentWeekAverageDurationLabel()}。</h2></div><div class="records-trend__rail"><span style={{ width: `${Math.round((props.recentWeekActiveDays() / 7) * 100)}%` }} /><i style={{ left: `${Math.round((props.recentWeekActiveDays() / 7) * 100)}%` }} /></div><small>不需要一次走很远，只要继续回来。</small></section>
 
       <section class="record-history nv-record-history" aria-label="全部专注记录">
-        <div class="record-history__heading"><div><h2>全部记录</h2><span>按日期收纳 · 在列表内滚动回看</span></div><strong>{props.records().length} 轮</strong></div>
+        <div class="record-history__heading"><div><h2>全部记录</h2><span>按日期展开 · 在列表内滚动回看</span></div><strong>{props.records().length} 轮</strong></div>
         <div class="record-list">
           <Show when={!props.ready()}><p class="load-copy">正在读取专注记录…</p></Show>
           <Show when={props.ready() && props.records().length > 0}>
             <For each={props.recordGroups()}>
-              {(group, groupIndex) => (
-                <details class="record-day" open={groupIndex() === 0}>
+              {(group) => (
+                <details class="record-day" open>
                   <summary class="record-day__summary"><span class="record-day__date"><strong>{props.formatRecordDay(group.date)}</strong><small>{group.records.length} 轮 · {props.formatDurationMs(group.totalDurationMs)}</small></span><span class="record-day__chevron" aria-hidden="true">⌄</span></summary>
                   <div class="record-day__items">
                     <For each={group.records}>

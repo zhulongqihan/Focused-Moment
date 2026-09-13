@@ -706,6 +706,10 @@ test("records page turns a long history into a selectable archive trail", async 
   const recordDays = page.locator(".record-day");
   await expect(recordDays).toHaveCount(2);
   await expect(recordDays.first()).toHaveAttribute("open", "");
+  await expect(recordDays.nth(1)).toHaveAttribute("open", "");
+  await expect(recordDays.nth(1).locator(".record-row").first()).toBeVisible();
+
+  await recordDays.nth(1).locator("summary").click();
   await expect(recordDays.nth(1).locator(".record-row").first()).toBeHidden();
 
   await recordDays.nth(1).locator("summary").click();
@@ -743,9 +747,62 @@ test("records page keeps a long archive inside a bounded history viewport", asyn
     element.scrollTop = element.scrollHeight;
   });
   await recordDays.last().locator("summary").scrollIntoViewIfNeeded();
+  await expect(recordDays.last().locator(".record-row").first()).toBeVisible();
+  await recordDays.last().locator("summary").evaluate((element) => element.click());
+  await expect(recordDays.last().locator(".record-row").first()).toBeHidden();
   await recordDays.last().locator("summary").evaluate((element) => element.click());
   await expect(recordDays.last().locator(".record-row")).toBeVisible();
   await expect(recordDays.last()).toContainText("历史归档 28");
+});
+
+test("records page aligns route points and explains focus hours", async ({ page }) => {
+  await bootWithTauriMock(page, { includeRecords: true });
+
+  await page.getByRole("button", { name: "记录", exact: true }).click();
+
+  await expect(page.locator(".nv-records-distribution__heading h2")).toHaveText("你通常在什么时候进入状态？");
+  await expect(page.locator(".nv-records-distribution")).toContainText("上午");
+  await expect(page.locator(".nv-records-distribution")).toContainText("晚间");
+  await expect(page.locator(".nv-records-distribution")).toContainText("45 分钟");
+  await expect(page.locator(".nv-records-distribution")).not.toContainText("节点高度按当天真实投入时长变化");
+
+  const distributionHeights = await page.locator(".nv-records-distribution__track > span").evaluateAll((bars) => bars.map((bar) => bar.style.height));
+  expect(distributionHeights).toEqual(["0%", "100%", "0%", "100%"]);
+
+  const chartGeometry = await page.locator(".records-archive__map").evaluate((map) => {
+    const mapRect = map.getBoundingClientRect();
+    const svg = map.querySelector("svg");
+    const path = map.querySelector(".records-archive__route-line");
+    if (!svg || !path) throw new Error("archive chart is incomplete");
+
+    const svgRect = svg.getBoundingClientRect();
+    const nodes = Array.from(map.querySelectorAll(".records-archive__node"));
+    const nodePoints = nodes.map((node) => {
+      const rect = node.getBoundingClientRect();
+      return {
+        x: ((rect.left + rect.width / 2 - mapRect.left) / mapRect.width) * 100,
+        y: ((rect.top + rect.height / 2 - mapRect.top) / mapRect.height) * 100,
+      };
+    });
+    const totalLength = path.getTotalLength();
+    const samples = Array.from({ length: 500 }, (_, index) => path.getPointAtLength((totalLength * index) / 499));
+    const distances = nodePoints.map((point) => Math.min(...samples.map((sample) => Math.hypot(sample.x - point.x, sample.y - point.y))));
+
+    return {
+      map: { width: mapRect.width, height: mapRect.height },
+      svg: { left: svgRect.left - mapRect.left, top: svgRect.top - mapRect.top, width: svgRect.width, height: svgRect.height },
+      nodePoints,
+      distances,
+    };
+  });
+
+  expect(Math.abs(chartGeometry.svg.left)).toBeLessThan(0.5);
+  expect(Math.abs(chartGeometry.svg.top)).toBeLessThan(0.5);
+  expect(Math.abs(chartGeometry.svg.width - chartGeometry.map.width)).toBeLessThan(0.5);
+  expect(Math.abs(chartGeometry.svg.height - chartGeometry.map.height)).toBeLessThan(1.5);
+  expect(chartGeometry.nodePoints[0].x).toBeCloseTo(7, 0);
+  expect(chartGeometry.nodePoints.at(-1).x).toBeCloseTo(93, 0);
+  expect(chartGeometry.distances.every((distance) => distance < 1.5)).toBe(true);
 });
 
 test("records page keeps empty seven-day data at zero", async ({ page }) => {
@@ -755,10 +812,7 @@ test("records page keeps empty seven-day data at zero", async ({ page }) => {
 
   await expect(page.locator(".nv-records-trend h2")).toHaveText("最近 7 天，平均每天 00:00:00。");
   await expect(page.locator(".records-archive__stats")).toContainText("活跃日平均 0 分钟");
-  await expect.poll(() => page.locator(".nv-records-distribution__bars span").evaluateAll((bars) => bars.map((bar) => bar.style.height))).toEqual([
-    "0%",
-    "0%",
-    "0%",
+  await expect.poll(() => page.locator(".nv-records-distribution__track > span").evaluateAll((bars) => bars.map((bar) => bar.style.height))).toEqual([
     "0%",
     "0%",
     "0%",
