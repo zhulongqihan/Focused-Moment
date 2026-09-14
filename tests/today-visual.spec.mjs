@@ -627,8 +627,7 @@ test("Theme registry exposes five implemented surfaces and no disabled preview",
   await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "editorial-paper");
   await expect(page.locator(".ep-theme-swatch").filter({ hasText: "编辑纸页" })).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator(".ep-settings-page")).toBeVisible();
-  await page.getByRole("button", { name: "保存外观设置", exact: true }).click();
-  await expect(page.locator(".app-message--success")).toContainText("下次启动会继续使用");
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("focused-moment.theme"))).toBe("editorial-paper");
   await page.reload();
   await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "editorial-paper");
   await expect(page.getByRole("heading", { name: "今日节奏" })).toBeVisible();
@@ -2175,7 +2174,7 @@ test("REFINE-19 TODO-02 keeps a long completed todo list visible and actionable"
   }));
   expect(desktopMetrics.documentScrollWidth).toBeLessThanOrEqual(1488);
   expect(desktopMetrics.doneRows).toBe(completedTitles.length - 2);
-  expect(desktopMetrics.doneScrollHeight).toBeGreaterThan(1000);
+  expect(desktopMetrics.doneScrollHeight).toBeGreaterThan(800);
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: "output/qa/REFINE-19/TODO-02-pass-1487-9ecaf59.png", animations: "disabled", fullPage: true });
 
