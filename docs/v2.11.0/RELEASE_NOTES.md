@@ -35,7 +35,13 @@
 
 本地导出路径：`Focused Moment v2.11.0.exe`、`Focused Moment Setup v2.11.0.exe`、`src-tauri/target/release/bundle/msi/Focused Moment_2.11.0_x64_en-US.msi`。
 
-Windows Checks、GitHub Release 和远端资产 digest 在本次提交推送后回填。
+## 发布闭环
+
+- 产品提交：`600501a5b98a7e502bfbe629735888b56496f0cb`；`v2.11.0` tag 固定指向该产品提交，未移动。
+- Windows Checks：[`34838375564`](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34838375564) PASS，前端与 Rust 检查报告 `123 passed`。Node.js 20 弃用提示为 GitHub Actions 注记，不影响本次验证。
+- GitHub Release：[`v2.11.0`](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.11.0) 已正式发布，portable、Setup/NSIS、MSI 三项 Windows x64 资产状态均为 `uploaded`。
+- 远端资产 digest 与上表本地 SHA-256 完全一致。
+- `v2.10.19` 历史 tag、Release 和资产未移动或覆盖；本版本不执行任何 macOS workflow；当前用户进程 PID `12200` 保持运行。
 
 ## 保护边界
 

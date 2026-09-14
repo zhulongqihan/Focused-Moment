@@ -1,6 +1,6 @@
 # REFINE-19：编辑纸页主题逐问题核查与修复执行计划
 
-状态：逐条核查与修复已完成；REL-23 正在将当前界面切换版本同步为 v2.11.0 并完成 Windows-only 发布收口
+状态：逐条核查、修复与 v2.11.0 Windows-only 发布收口已完成；v2.10.19 仅作为历史版本保留
 版本纠正：2026-09-14 19:15 用户明确指出本轮发生了界面切换，当前版本应为 `2.11.0`；本页逐条核查结果不变，`v2.10.19` 仅作为此前已发布历史记录保留，当前版本同步与新发布目标以 `v2.11.0` 为准。
 主题：Editorial Paper / 编辑纸页
 目标：逐条检查第一主题 Night Valley 历史上出现过的问题，在编辑纸页中只修复真实复现的同类问题
@@ -1323,3 +1323,12 @@
 - **资产 digest**：portable `5bd4b8446959ea344a8cda6a9e67a7546408f3ea7fcdccd526235e1921b3d425`；Setup `4946c57cdd805db75754207ec838e16a4084de442cd3483a8389ad5bfb19f6f0`；MSI `f7f3c4a7da411bd3cc442cd2859aca920c95bdb1b1cad2dfee0b911c4dd5ea27`。
 - **保护边界**：未运行或修改任何 macOS workflow；未停止用户进程；PID `23304` 及其 WebView2 子进程保持运行，旧 v2.10.18 文件因占用警告按要求保留。
 - **最终状态**：REFINE-19 与 REL-22 均 DONE；顺序 `TODAY-01～11 → TIMER-01～21 → TODO-01～03 → RECORDS-01～07 → SETTINGS-01～06` 的 48 个编号均已逐条填写并完成核验。
+
+## 9. v2.11.0 版本纠正发布证据（2026-09-14）
+
+- **纠正依据**：用户明确指出本轮切换了一个界面，应使用 `2.11.0`；此前 `v2.10.19` 发布事实保留为历史记录，未被重写。
+- **版本与提交**：产品提交 `600501a5b98a7e502bfbe629735888b56496f0cb`；`v2.11.0` tag peeled commit 与产品提交一致。
+- **远程 Windows Checks**：[`34838375564`](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34838375564) PASS；前端与 Rust 检查报告 `123 passed`。
+- **GitHub Release**：[`v2.11.0`](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.11.0) 正式发布；portable、Setup/NSIS、MSI 三项资产均 `uploaded`，远端 digest 与本地 SHA-256 完全一致。
+- **资产 digest**：portable `fd319f13eaf0e4c9a6a737c7dafac3ab19df4fd969dc9ea8a90c1aa929df412d`；Setup `1b4e66c09327446196159f9389727d52900b36247ef7924bdbe0878324a7c1b6`；MSI `f7f7ccf27d313674ab6936697a6bca038f2988413e6fa0b57e0f82f0f3c99577`。
+- **最终状态**：REFINE-19 的 48 个编号逐条证据不变；`REL-23 DONE`；未运行 macOS workflow，未停止当前用户进程 PID `12200`。

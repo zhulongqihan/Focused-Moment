@@ -18,8 +18,8 @@
 | 推送节奏 | 用户明确决定：同一界面内的多个小 bug 先在本地集中修复和验证；只有该界面整体修复完成并满足验收标准后，才一次性 commit、push 和 release，不按单个小 bug 推送；流程文档同步本身不触发应用版本、打包或 CI |
 | 远程 main | `origin/main` 已包含 v2.10.17 发布代码提交 `67104979f79591125cda32f5506836911b0279e1` 和 macOS 冻结策略；v2.10.15 发布代码提交 `88d97ad120024e63407e2702bee7359ba68cfa25` 及其 Release 继续保留；GitHub Release [v2.10.15](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.10.15) 已正式发布并有三项 Windows 资产，远端 digest 与本地 SHA-256 一致；Windows Checks [`34763893913`](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34763893913) 成功；v2.10.11 Release 仍有四项资产且是最后一个 macOS 发布版本；v2.10.8/v2.10.9/v2.10.10/v2.10.13 tag、GitHub Release 与资产未触碰；`origin/main` 已包含 v2.10.18 发布提交 `6e8a076e9864a19a8e390e432ff8384aef0e5462`，Windows Checks `34774739411` PASS，Release 与三项资产 digest 已核对 |
 | 本轮交付 | 已完成 MAINT-02 清理与重建；MAINT-03 对 283 个清理前 tracked 文件、ignored 历史资料、素材、组件、依赖、脚本和 workflow 做引用审计，明确删除候选仅为无引用 `public/vite.svg`、`public/tauri.svg` 并从工作树移除；MAINT-04 重写 README 并验证全部本地链接/图片；MAINT-05 核对远程分支、tag、Release、资产和 Actions，未执行远程删除；MAINT-06 在 `ae6ac45` 干净 checkout 完成 install/check/build、前端 67/67、Rust 33/33、debug bundle、真实 Windows 启动与隔离数据验证；维护结果经 `804de40` 正常推送；REFINE-13 仅修改 Night Valley 计时页现有入口布局与对应回归断言，native/布局与最终回归完成；2.10.9 Windows 三项 bundle 与 macOS Universal DMG 已发布并核对 digest；本轮另按清单删除约 95.25 GiB 本地旧归档/生成物和无引用 ignored 旧副本；UX-AUDIT-01 完成五套主题 25 页三轮真实体验，修复跨 Tab 滚动、无效记录占位、移动导航、图表日期点和过期设置说明等问题；REL-13 完成 v2.10.10 Windows/macOS 发布闭环；REL-14 完成五套主题 Today 的稳定每日一句、主题化布局、共享样式、跨主题同日断言、v2.10.11 本地 68/68/build/Rust 验证、Windows 三项打包、远程 Checks/Native Smoke/Universal DMG 发布闭环；REL-15 已完成 Night Valley 计时页记录入口文字几何居中、跨桌面/窄屏断言、v2.10.12 Windows-only 版本同步、Windows 构建与三项打包、远程 69/69 与 Rust 检查；`REFINE-14/REL-17` 从 `eaa1fc4` 开始，修复 Night Valley“记录”页首屏折叠、主题层级和长历史可视性，新增长列表夹具与可见性断言；本地完整前端 71/71、`pnpm check`、`git diff --check`、Windows v2.10.14 三项打包、远程 Checks `34756725964` 与三项资产 digest 均已通过；`REFINE-15/REL-18` 完成记录页点线坐标统一、专注时段分布和全部记录可读性，v2.10.15 本地 72/72、build、Rust、Windows 三项打包、远程 Checks `34763893913` 和三项资产 digest 均已通过；`REFINE-17/REL-20` 已完成 Night Valley 待办工作台重构、v2.10.17 Windows-only 构建与发布，远程 Checks `34770039344` 和三项资产 digest 均已通过；macOS workflow 已改为仅手动触发；v2.10.8/v2.10.9/v2.10.10/v2.10.13 Release 未触碰；`REFINE-18/REL-21` 已完成设置工作台流式重构、音效扩展、自动保存和主题观测站，v2.10.18 Windows-only 发布已收口 |
-| 下一项 | REL-23：按最新用户纠正将当前界面切换版本改为 `v2.11.0`，同步版本源、重建 Windows 资产、远程验证并发布；`v2.10.19` 历史 Release 保留，macOS 继续冻结 |
-| 当前执行人 / 在做任务 | Codex / 执行 `REL-23` v2.11.0 版本纠正与 Windows-only 发布 |
+| 下一项 | 无待收口项：`REL-23` 已完成；下一任务按项目优先级排队，macOS 继续冻结 |
+| 当前执行人 / 在做任务 | Codex / `REL-23` v2.11.0 版本纠正与 Windows-only 发布闭环已完成 |
 | 首套验收结论 | **Windows 原生核心闭环、编辑态计时刷新、主题渲染边界、QA-01 回退回归、五套主题 25 页前端回归、Editorial 长历史性能专项、v2.6.10/v2.7.0/v2.8.0/v2.9.0/v2.9.1 Windows 与 macOS 资产发布、CORE-03 macOS 原生数据目录与迁移、DESK-02 macOS 第二实例/托盘/浮窗/隔离安装启动、DATA-01 备份范围/隔离跨目录搬移/素材清单已通过**；资源出处补录缺口已在清单中保留为后续治理事项 |
 | source | 本轮用户说明；当前源码与测试；Git 提交/远程 refs；GitHub Release/Actions；本轮命令结果 |
 | supersedes | 旧文档中的 v1.4.1/v1.5.x/v1.10.0/v2.0 当前进度，以及 2026-09-06 摘要中的“其他四页未实现、主题注册未建立” |
@@ -325,7 +325,7 @@ CORE-03、DESK-02 为 macOS 下一次发布门槛，可与 Windows 首套验收�
 | REL-18 | P1 | DONE | REFINE-15 | v2.10.15 Windows-only 发布已完成：版本同步、Windows 构建/打包、提交、推送、tag、Release、远程 Checks 与三项资产 digest 核对；未触碰 macOS 版本、workflow 和资产 |
 | REFINE-19 | P1 | DONE | REL-22 | Editorial Paper 五页逐条问题核查与同类问题修复；阶段 0、今日页 TODAY-01～11、计时页 TIMER-01～21、待办页 TODO-01～03、记录页 RECORDS-01～07 与设置页 SETTINGS-01～06 已逐项完成，48/48 定向回归与 v2.10.19 Windows-only 发布闭环通过；执行计划见 `docs/qa/REFINE-19-editorial-paper-issue-audit-plan.md`，新窗口提示词见 `docs/qa/REFINE-19-editorial-paper-execution-prompt.md` |
 | REL-22 | P1 | DONE | REFINE-19 | v2.10.19 Editorial Paper 逐问题修复 Windows-only 发布闭环已完成：版本同步、构建/打包、提交、推送、远程 Checks、GitHub Release 与三项资产 digest 均已核对；macOS 继续冻结 |
-| REL-23 | P1 | DOING | REFINE-19 | 用户纠正版本语义：本轮界面切换应使用 `v2.11.0`；保留 `v2.10.19` 历史发布，完成 2.11.0 版本源同步、Windows 构建/打包、提交、推送、远程 Checks、GitHub Release 与三项资产 digest 核对；macOS 继续冻结 |
+| REL-23 | P1 | DONE | REFINE-19 | 用户纠正版本语义：本轮界面切换使用 `v2.11.0`；版本源同步、Windows 构建/打包、提交 `600501a`、推送、`v2.11.0` tag、Windows Checks `34838375564`、GitHub Release 与三项资产 digest 均已核对；`v2.10.19` 历史发布保留，macOS 继续冻结 |
 
 ### CORE-01 · 磁盘保存与恢复链（第一个执行任务）
 
@@ -1079,12 +1079,12 @@ NV-05 的具体键盘缺口：`CommandPalette.tsx` 声明 modal/listbox，但缺
 - **保护边界**：未运行或修改任何 macOS workflow；未停止用户进程；PID `23304` 及 WebView2 子进程保持运行，旧 v2.10.18 文件按占用警告保留。
 - **最终状态**：`REFINE-19 DONE`、`REL-22 DONE`；下一任务按项目优先级排队。
 
-### 2026-09-14 19:15 用户版本纠正（REL-23，进行中）
+### 2026-09-14 19:15 用户版本纠正（REL-23，已完成）
 
 - **最新事件**：用户明确纠正“本轮切换了一个界面，版本应为 `2.11.0`”。该事件优先于此前将本轮标为 `v2.10.19` 的派生结论。
 - **冲突处理**：`v2.10.19` 已发布这一事实保留为历史记录；不移动 tag、不覆盖 Release、不伪装为 `v2.11.0`，当前源码和新发布目标切换到 `2.11.0`。
 - **当前进度**：所有版本源已同步为 `2.11.0`；`pnpm check`、`pnpm build`、48/48 Editorial Paper 回归、Cargo fmt/check/test 和 `pnpm package:release` 均已通过，资产 SHA-256 已回填新 Release notes。
-- **下一步**：提交并推送 2.11.0，创建不可移动 `v2.11.0` tag，等待 Windows Checks 后创建 Windows-only GitHub Release 并核对远端 digest；macOS workflow 继续不运行，PID `23304` 不停止。
+- **发布结果**：提交 `600501a` 已推送，`v2.11.0` tag 已创建且固定，Windows Checks `34838375564` 已 PASS，GitHub Release 与 portable、Setup/NSIS、MSI 三项资产均已完成远端 digest 核对；macOS workflow 继续不运行，当前运行中的用户进程 PID `12200` 未被停止。
 
 ### 2026-09-14 南大就业宣讲会待办数据录入（已完成）
 
