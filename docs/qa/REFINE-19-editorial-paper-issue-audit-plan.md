@@ -1,6 +1,6 @@
 # REFINE-19：编辑纸页主题逐问题核查与修复执行计划
 
-状态：已完成逐条核查与本地修复，待 v2.10.19 Windows-only 发布收口
+状态：已完成逐条核查、修复与 v2.10.19 Windows-only 发布收口
 主题：Editorial Paper / 编辑纸页
 目标：逐条检查第一主题 Night Valley 历史上出现过的问题，在编辑纸页中只修复真实复现的同类问题
 执行顺序：今日 → 计时 → 待办 → 记录 → 设置
@@ -1312,3 +1312,13 @@
 - 版本同步：`package.json`、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock`、`src-tauri/tauri.conf.json`、`src-tauri/src/runtime.rs` 和 `src/App.css` 已同步到 2.10.19；旧 v2.10.18 Release/tag/资产未修改。
 - 保护边界：未运行或修改任何 macOS workflow；未停止用户进程。PID `23304` 仍运行旧的 `Focused Moment v2.10.18.exe`，因此导出脚本保留旧文件并给出占用警告。
 - 当前状态：本地候选完成，等待 REL-22 完成提交、推送、Windows Checks、tag/Release 和远端资产 digest 核对。
+
+## 8. Windows-only 发布闭环（2026-09-14）
+
+- **产品提交**：`8ef76813f65f86750fab46d2dba5f158b2aee0f7`（`refine: audit and repair editorial paper theme`）；`v2.10.19` tag 的 peeled commit 固定为该产品提交，未移动。
+- **后续测试提交**：`2afbc04d46f5c46cf81992e0bf186b30d43a9ba2`（`test: align editorial paper regression contracts`）；只修正既有测试契约，不改变已打包产品内容。
+- **远程 Windows Checks**：[`34835489340`](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34835489340) PASS；前端与 Rust 检查全部通过，报告 `123 passed`。
+- **GitHub Release**：[`v2.10.19`](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.10.19) 已发布，portable、Setup/NSIS、MSI 三项 Windows x64 资产均为 `uploaded`，远端 digest 与本地 SHA-256 完全一致。
+- **资产 digest**：portable `5bd4b8446959ea344a8cda6a9e67a7546408f3ea7fcdccd526235e1921b3d425`；Setup `4946c57cdd805db75754207ec838e16a4084de442cd3483a8389ad5bfb19f6f0`；MSI `f7f3c4a7da411bd3cc442cd2859aca920c95bdb1b1cad2dfee0b911c4dd5ea27`。
+- **保护边界**：未运行或修改任何 macOS workflow；未停止用户进程；PID `23304` 及其 WebView2 子进程保持运行，旧 v2.10.18 文件因占用警告按要求保留。
+- **最终状态**：REFINE-19 与 REL-22 均 DONE；顺序 `TODAY-01～11 → TIMER-01～21 → TODO-01～03 → RECORDS-01～07 → SETTINGS-01～06` 的 48 个编号均已逐条填写并完成核验。
