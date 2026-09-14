@@ -24,7 +24,7 @@ function pageButton(page, label) {
   return page.locator(".minimal-nav > button").filter({ hasText: label });
 }
 
-async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一件事开始", recordCount = 7, includeTodo = true } = {}) {
+async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一件事开始", recordCount = 7, includeTodo = true, todoTitles = ["明日规划"], completedTodoTitles = [], dailyBreakdown = [], recordDates = [], recordTitlePrefix = "", analyticsPatch = {} } = {}) {
   await page.addInitScript(() => {
     const NativeDate = Date;
     class ReferenceDate extends NativeDate {
@@ -40,7 +40,7 @@ async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一
     window.Date = ReferenceDate;
   });
 
-  await page.addInitScript(({ today, recordCount, includeTodo }) => {
+  await page.addInitScript(({ today, recordCount, includeTodo, todoTitles, completedTodoTitles, dailyBreakdown, recordDates, recordTitlePrefix, analyticsPatch }) => {
     const focusRecordSeeds = [
       ["晨间计划", "08:10"],
       ["阅读行业报告", "09:35"],
@@ -52,7 +52,8 @@ async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一
     ];
     const focusRecords = Array.from({ length: recordCount }, (_, index) => {
       const [seedTitle, completedTime] = focusRecordSeeds[index % focusRecordSeeds.length];
-      const title = recordCount > focusRecordSeeds.length ? `${seedTitle} ${index + 1}` : seedTitle;
+      const title = recordTitlePrefix ? `${recordTitlePrefix} ${index + 1}` : recordCount > focusRecordSeeds.length ? `${seedTitle} ${index + 1}` : seedTitle;
+      const completedDate = recordDates[index] ?? today;
       return {
       id: index + 1,
       title,
@@ -63,20 +64,30 @@ async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一
       phaseLabel: "正向计时",
       linkedTodoId: null,
       linkedTodoTitle: title,
-      completedAt: `${today}T${completedTime}:00`,
-      completedDate: today,
+      completedAt: `${completedDate}T${completedTime}:00`,
+      completedDate,
       completedTime,
       };
     });
 
-    let todos = includeTodo ? [{
-      id: 101,
-      title: "明日规划",
-      isCompleted: false,
-      scheduledDate: today,
-      scheduledTime: "21:00",
-      importanceKey: "medium",
-    }] : [];
+    let todos = [
+      ...(includeTodo ? todoTitles : []).map((title, index) => ({
+        id: 101 + index,
+        title,
+        isCompleted: false,
+        scheduledDate: today,
+        scheduledTime: "21:00",
+        importanceKey: "medium",
+      })),
+      ...completedTodoTitles.map((title, index) => ({
+        id: 201 + index,
+        title,
+        isCompleted: true,
+        scheduledDate: today,
+        scheduledTime: "18:00",
+        importanceKey: "low",
+      })),
+    ];
 
     let timer = {
       modeKey: "countdown",
@@ -123,8 +134,8 @@ async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一
       sessionCount: focusRecords.length,
       linkedSessionCount: 0,
       independentSessionCount: focusRecords.length,
-      pendingTodoCount: includeTodo ? 1 : 0,
-      completedTodoCount: 0,
+      pendingTodoCount: includeTodo ? todoTitles.length : 0,
+      completedTodoCount: completedTodoTitles.length,
       activeDays: 9,
       averageDailyDurationLabel: "00:35:00",
       todayFocusDurationLabel: "05:15:00",
@@ -132,7 +143,8 @@ async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一
       currentStreakDays: 9,
       bestFocusDate: today,
       bestFocusDurationLabel: "05:15:00",
-      dailyBreakdown: [],
+      dailyBreakdown,
+      ...analyticsPatch,
     };
 
     window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
@@ -195,7 +207,7 @@ async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一
         }
       },
     };
-  }, { today: referenceDate, recordCount, includeTodo });
+  }, { today: referenceDate, recordCount, includeTodo, todoTitles, completedTodoTitles, dailyBreakdown, recordDates, recordTitlePrefix, analyticsPatch });
 
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
@@ -933,6 +945,248 @@ test("Editorial Paper renders all five pages inside the desktop surface", async 
   writeFileSync(`${editorialDirectory}/geometry.json`, JSON.stringify({ viewport: { width: 1487, height: 1058 }, pages: geometry }, null, 2));
 });
 
+test("REFINE-19 TODAY-01 keeps Editorial Paper long node text readable", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page, {
+    expectedHeading: "今日节奏",
+    todoTitles: [
+      "这是一个用于复现今日节点信息被截断的超长任务名称需要完整显示给用户阅读并且不能因为单行省略而丢失后半段语义",
+      "第二条同样很长的任务标题用来确认多条节点在纸页中仍然保留完整语义信息即使窗口变窄也应该可以继续阅读",
+      "短任务",
+    ],
+    completedTodoTitles: ["已经完成但仍应保留在今日页中的长任务记录不能只显示一小段"],
+  });
+
+  const readEvidence = () => page.locator(".ep-field-row").evaluateAll((rows) => rows.map((row) => {
+    const title = row.querySelector(".ep-field-row__copy strong");
+    if (!title) return null;
+    const style = getComputedStyle(title);
+    return {
+      text: title.textContent,
+      clientWidth: title.clientWidth,
+      scrollWidth: title.scrollWidth,
+      overflow: style.overflow,
+      textOverflow: style.textOverflow,
+      whiteSpace: style.whiteSpace,
+    };
+  }));
+  const desktopEvidence = await readEvidence();
+  await page.setViewportSize({ width: 420, height: 720 });
+  const narrowEvidence = await readEvidence();
+  mkdirSync("output/qa/REFINE-19", { recursive: true });
+  await page.screenshot({ path: "output/qa/REFINE-19/TODAY-01-after-9ecaf59-420.png", animations: "disabled", fullPage: true });
+  console.log(`TODAY-01 desktop evidence: ${JSON.stringify(desktopEvidence)}`);
+  console.log(`TODAY-01 narrow evidence: ${JSON.stringify(narrowEvidence)}`);
+  for (const item of [...desktopEvidence, ...narrowEvidence]) {
+    expect(item.scrollWidth).toBeLessThanOrEqual(item.clientWidth);
+    expect(item.whiteSpace).toBe("normal");
+  }
+});
+
+test("REFINE-19 TODAY-02 hides the visual command trigger but keeps Ctrl+K", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  const commandTrigger = page.locator(".command-trigger");
+  await expect(commandTrigger).toBeHidden();
+  await page.keyboard.press("Control+K");
+  await expect(page.getByRole("dialog", { name: "你想做什么？" })).toBeVisible();
+  await page.screenshot({ path: "output/qa/REFINE-19/TODAY-02-after-9ecaf59.png", animations: "disabled", fullPage: true });
+  await page.keyboard.press("Escape");
+});
+
+test("REFINE-19 TODAY-03 keeps Editorial Paper Today whitespace bounded", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+
+  const viewports = [[1487, 1058], [1120, 760], [820, 720], [560, 720], [420, 720]];
+  const measurements = [];
+  for (const [index, [width, height]] of viewports.entries()) {
+    await page.setViewportSize({ width, height });
+    if (index > 0) {
+      await page.reload();
+      await expect(page.getByRole("heading", { name: "今日节奏" })).toBeVisible();
+    }
+    measurements.push(await page.locator(".ep-today-page").evaluate(() => {
+      const header = document.querySelector(".ep-today-header")?.getBoundingClientRect();
+      const grid = document.querySelector(".ep-today-grid")?.getBoundingClientRect();
+      const firstRow = document.querySelector(".ep-field-row")?.getBoundingClientRect();
+      return {
+        gap: Number((grid.top - header.bottom).toFixed(2)),
+        gridTop: Number(grid.top.toFixed(2)),
+        firstRowTop: Number(firstRow.top.toFixed(2)),
+        viewportWidth: window.innerWidth,
+        viewportHeight: window.innerHeight,
+        scrollWidth: document.documentElement.scrollWidth,
+      };
+    }));
+  }
+  await page.screenshot({ path: "output/qa/REFINE-19/TODAY-03-pass-9ecaf59-420.png", animations: "disabled", fullPage: true });
+  console.log(`TODAY-03 measurements: ${JSON.stringify(measurements)}`);
+  for (const measurement of measurements) {
+    expect(measurement.gap).toBeLessThanOrEqual(32);
+    expect(measurement.gridTop).toBeLessThan(measurement.viewportHeight);
+    expect(measurement.firstRowTop).toBeLessThan(measurement.viewportHeight);
+    expect(measurement.scrollWidth).toBeLessThanOrEqual(measurement.viewportWidth);
+  }
+});
+
+test("REFINE-19 TODAY-04 keeps timer work in the Editorial Paper focus page", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  const timerStrip = page.locator(".ep-today-timer-strip");
+  await expect(timerStrip).toHaveCount(0);
+  await page.screenshot({ path: "output/qa/REFINE-19/TODAY-04-after-9ecaf59.png", animations: "disabled", fullPage: true });
+  await page.locator(".ep-next-card").getByRole("button", { name: /开始专注/ }).click();
+  await expect(page.locator(".ep-focus-page")).toBeVisible();
+  await expect(page.locator(".ep-focus-page").getByRole("button", { name: "开始专注", exact: true })).toBeVisible();
+  await page.locator(".ep-focus-page").getByRole("button", { name: "开始专注", exact: true }).click();
+  await expect(page.locator(".ep-clock-card")).toContainText("倒计时中");
+});
+
+test("REFINE-19 TODAY-05 keeps Editorial Paper Today summary within the viewport", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  await page.setViewportSize({ width: 2560, height: 1368 });
+  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+
+  const viewports = [[2560, 1368], [1707, 912], [1487, 1058]];
+  const measurements = [];
+  for (const [width, height] of viewports) {
+    await page.setViewportSize({ width, height });
+    await expect.poll(() => page.evaluate(() => `${window.innerWidth}x${window.innerHeight}`)).toBe(`${width}x${height}`);
+    const expectedGap = width >= 821 && height <= 1100 ? "14px" : "22px";
+    await expect.poll(() => page.locator(".ep-today-page").evaluate((element) => getComputedStyle(element).gap)).toBe(expectedGap);
+    measurements.push(await page.locator(".ep-today-page").evaluate(() => {
+      const read = (selector) => {
+        const element = document.querySelector(selector);
+        if (!element) return null;
+        const rect = element.getBoundingClientRect();
+        return { top: Number(rect.top.toFixed(2)), bottom: Number(rect.bottom.toFixed(2)), height: Number(rect.height.toFixed(2)) };
+      };
+      return {
+        viewport: { width: window.innerWidth, height: window.innerHeight },
+        documentScrollWidth: document.documentElement.scrollWidth,
+        sheetFooter: read(".ep-sheet-footer"),
+        header: read(".ep-today-header"),
+        grid: read(".ep-today-grid"),
+        fieldSheet: read(".ep-field-sheet"),
+        nextCard: read(".ep-next-card"),
+        facts: read(".ep-facts-row"),
+        factsActions: read(".ep-facts-row__actions"),
+      };
+    }));
+  }
+  mkdirSync("output/qa/REFINE-19", { recursive: true });
+  await page.setViewportSize({ width: 1707, height: 912 });
+  await expect.poll(() => page.locator(".ep-today-page").evaluate((element) => getComputedStyle(element).gap)).toBe("14px");
+  await page.screenshot({ path: "output/qa/REFINE-19/TODAY-05-after-9ecaf59-1707x912.png", animations: "disabled" });
+  console.log(`TODAY-05 measurements: ${JSON.stringify(measurements)}`);
+  for (const item of measurements) {
+    expect(item.documentScrollWidth).toBeLessThanOrEqual(item.viewport.width);
+    for (const selector of ["sheetFooter", "facts", "factsActions", "nextCard"]) {
+      expect(item[selector].bottom).toBeLessThanOrEqual(item.viewport.height);
+    }
+  }
+});
+
+test("REFINE-19 TODAY-06 marks the Editorial Paper winding route as not applicable", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  await expect(page.locator(".ep-today-page")).toBeVisible();
+  await expect(page.locator(".trail-map__route-line")).toHaveCount(0);
+  await expect(page.locator(".ep-field-list")).toBeVisible();
+  await page.screenshot({ path: "output/qa/REFINE-19/TODAY-06-not-applicable-9ecaf59.png", animations: "disabled", fullPage: true });
+});
+
+test("REFINE-19 TODAY-07 keeps the Editorial Paper bottom summary visible", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  await page.setViewportSize({ width: 1707, height: 912 });
+  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  const summary = page.locator(".ep-facts-row");
+  await expect(summary).toBeVisible();
+  const bounds = await summary.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    return { top: rect.top, bottom: rect.bottom, viewportHeight: window.innerHeight };
+  });
+  expect(bounds.top).toBeGreaterThanOrEqual(0);
+  expect(bounds.bottom).toBeLessThanOrEqual(bounds.viewportHeight);
+  await page.screenshot({ path: "output/qa/REFINE-19/TODAY-07-pass-9ecaf59-1707x912.png", animations: "disabled" });
+});
+
+test("REFINE-19 TODAY-08 marks the Editorial Paper hard route geometry as not applicable", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  await expect(page.locator(".ep-today-page")).toBeVisible();
+  await expect(page.locator(".trail-map__route-line")).toHaveCount(0);
+  await expect(page.locator(".ep-field-row").first()).toBeVisible();
+  await page.screenshot({ path: "output/qa/REFINE-19/TODAY-08-not-applicable-9ecaf59.png", animations: "disabled", fullPage: true });
+});
+
+test("REFINE-19 TODAY-09 Editorial Paper Today exposes a live clock after the date", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  const date = page.locator(".ep-date-time__date");
+  const clock = page.locator('time[aria-label^="当前时间"]');
+  await expect(date).toHaveCount(1);
+  await expect(clock).toHaveCount(1);
+  await expect(clock).toHaveText(/^\d{2}:\d{2}:\d{2}$/);
+  const fonts = await page.locator(".ep-date-time").evaluate((element) => ({
+    date: getComputedStyle(element.querySelector(".ep-date-time__date")).fontFamily,
+    clock: getComputedStyle(element.querySelector(".ep-date-time__clock")).fontFamily,
+  }));
+  expect(fonts.date).not.toBe(fonts.clock);
+  await page.screenshot({ path: "output/qa/REFINE-19/TODAY-09-after-9ecaf59.png", animations: "disabled", fullPage: true });
+});
+
+test("REFINE-19 TODAY-10 keeps real next-step value in the Editorial Paper side card", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  const nextCard = page.locator(".ep-next-card");
+  await expect(nextCard).toContainText("明日规划");
+  await expect(nextCard.locator(".ep-next-card__duration strong")).toHaveText("45");
+  await expect(nextCard).toContainText("今天截止");
+  await expect(nextCard.getByRole("button", { name: /开始专注/ })).toHaveCount(1);
+  await page.screenshot({ path: "output/qa/REFINE-19/TODAY-10-pass-9ecaf59.png", animations: "disabled", fullPage: true });
+});
+
+test("REFINE-19 TODAY-11 records the undefined audit-plan item without inventing a UI issue", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  await expect(page.locator(".ep-today-page")).toBeVisible();
+  await expect(page.locator(".ep-page-header h1")).toHaveText("今日节奏");
+  await page.screenshot({ path: "output/qa/REFINE-19/TODAY-11-not-applicable-9ecaf59.png", animations: "disabled", fullPage: true });
+});
+
 test("Editorial Paper keeps shared actions and page bounds usable at pressure widths", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
@@ -964,9 +1218,1868 @@ test("Editorial Paper keeps shared actions and page bounds usable at pressure wi
     }
 
     await pageButton(page, "今日").click();
-    await page.getByRole("button", { name: "开始下一件事", exact: true }).click();
-    await expect(page.locator(".ep-today-timer-strip")).toContainText("正在专注");
+    await expect(page.locator(".ep-today-timer-strip")).toHaveCount(0);
+    await page.locator(".ep-next-card").getByRole("button", { name: /开始专注/ }).click();
+    await expect(page.locator(".ep-focus-page")).toBeVisible();
   }
+});
+
+test("REFINE-19 TIMER-01 gives every Editorial Paper tab the same live date and clock", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  for (const [width, height] of [[1487, 1058], [420, 720]]) {
+    await page.setViewportSize({ width, height });
+    await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+    for (const [label, selector] of [
+      ["今日", ".ep-today-page"],
+      ["计时", ".ep-focus-page"],
+      ["待办", ".ep-todos-page"],
+      ["记录", ".ep-records-page"],
+      ["设置", ".ep-settings-page"],
+    ]) {
+      if (label !== "今日") {
+        await pageButton(page, label).click();
+      }
+      await expect(page.locator(selector)).toBeVisible();
+      const slug = label === "今日" ? "today" : label === "计时" ? "focus" : label === "待办" ? "todos" : label === "记录" ? "records" : "settings";
+      const date = page.locator(".ep-date-time__date");
+      const clock = page.locator('time[aria-label^="当前时间"]');
+      await expect(date).toHaveCount(1);
+      await expect(clock).toHaveCount(1);
+      await expect(clock).toHaveText(/^\d{2}:\d{2}:\d{2}$/);
+      await expect(page.locator(".ep-date-time")).toBeVisible();
+      const layout = await page.locator(".ep-date-time").evaluate((element) => {
+        const dateRect = element.querySelector(".ep-date-time__date").getBoundingClientRect();
+        const clockRect = element.querySelector(".ep-date-time__clock").getBoundingClientRect();
+        const navRect = document.querySelector(".minimal-nav").getBoundingClientRect();
+        return { dateRight: dateRect.right, clockLeft: clockRect.left, clockTop: clockRect.top, clockBottom: clockRect.bottom, navBottom: navRect.bottom, viewportWidth: innerWidth };
+      });
+      expect(layout.clockLeft).toBeGreaterThanOrEqual(layout.dateRight);
+      expect(layout.clockBottom).toBeLessThanOrEqual(height);
+      if (width <= 820) {
+        expect(layout.clockTop).toBeGreaterThanOrEqual(layout.navBottom);
+      }
+      const fonts = await page.locator(".ep-date-time").evaluate((element) => ({
+        date: getComputedStyle(element.querySelector(".ep-date-time__date")).fontFamily,
+        clock: getComputedStyle(element.querySelector(".ep-date-time__clock")).fontFamily,
+      }));
+      expect(fonts.date).not.toBe(fonts.clock);
+      await page.screenshot({ path: `output/qa/REFINE-19/TIMER-01-after-9ecaf59-${slug}-${width}.png`, animations: "disabled", fullPage: true });
+    }
+  }
+});
+
+test("REFINE-19 TIMER-02 keeps Editorial Paper timer hierarchy readable", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  for (const viewport of [
+    { width: 1487, height: 1058 },
+    { width: 420, height: 720 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+    await pageButton(page, "计时").click();
+    await expect(page.locator(".ep-focus-page")).toBeVisible();
+    const metrics = await page.locator(".ep-focus-page").evaluate(() => {
+      const read = (selector) => {
+        const element = document.querySelector(selector);
+        const rect = element?.getBoundingClientRect();
+        return rect ? { width: Number(rect.width.toFixed(2)), height: Number(rect.height.toFixed(2)), top: Number(rect.top.toFixed(2)), bottom: Number(rect.bottom.toFixed(2)) } : null;
+      };
+      return {
+        focusLayout: read(".ep-focus-layout"),
+        clockCard: read(".ep-clock-card"),
+        ring: read(".ep-clock-card__ring"),
+        readout: read(".ep-clock-card__readout > strong"),
+        primaryAction: read(".ep-clock-card__actions .ep-primary-button"),
+        mode: read(".ep-clock-card__mode"),
+        inlineField: read(".ep-inline-field"),
+        readoutFontSize: getComputedStyle(document.querySelector(".ep-clock-card__readout > strong")).fontSize,
+      };
+    });
+    expect(metrics.ring).not.toBeNull();
+    expect(metrics.readout).not.toBeNull();
+    expect(metrics.primaryAction).not.toBeNull();
+    expect(metrics.mode).not.toBeNull();
+    expect(metrics.inlineField).not.toBeNull();
+    expect(metrics.ring.width).toBeLessThanOrEqual(300.5);
+    expect(Number.parseFloat(metrics.readoutFontSize)).toBeLessThanOrEqual(52);
+    expect(metrics.readout.bottom).toBeLessThan(metrics.mode.top);
+    expect(metrics.mode.bottom).toBeLessThan(metrics.inlineField.top);
+    expect(metrics.primaryAction.bottom).toBeLessThanOrEqual(metrics.clockCard.bottom);
+    await page.screenshot({ path: `output/qa/REFINE-19/TIMER-02-after-9ecaf59-${viewport.width}.png`, animations: "disabled", fullPage: true });
+  }
+});
+
+test("REFINE-19 TIMER-03 keeps Editorial Paper lines semantic", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  await pageButton(page, "计时").click();
+  await expect(page.locator(".ep-focus-page")).toBeVisible();
+  await expect(page.locator(".ep-clock-card__ring")).toBeVisible();
+  await expect(page.locator(".ep-focus-footer")).toBeVisible();
+  await expect(page.locator(".ep-clock-card__tick")).toHaveCount(4);
+  expect(await page.locator(".ep-focus-page .trail-map__route-line").count()).toBe(0);
+  expect(await page.locator(".ep-focus-page .nv-focus-route").count()).toBe(0);
+  expect(await page.locator(".ep-focus-page [data-route]").count()).toBe(0);
+  await page.screenshot({ path: "output/qa/REFINE-19/TIMER-03-not-applicable-9ecaf59.png", animations: "disabled", fullPage: true });
+});
+
+test("REFINE-19 TIMER-04 keeps Editorial Paper focus content in the full-screen safe area", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  await page.setViewportSize({ width: 2560, height: 1368 });
+  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  await pageButton(page, "计时").click();
+  await expect(page.locator(".ep-focus-page")).toBeVisible();
+  const measurements = [];
+  for (const [width, height] of [[2560, 1368], [1707, 912], [1487, 1058], [420, 720]]) {
+    await page.setViewportSize({ width, height });
+    measurements.push(await page.locator(".ep-focus-page").evaluate(() => {
+      const read = (selector) => {
+        const element = document.querySelector(selector);
+        if (!element) return null;
+        const rect = element.getBoundingClientRect();
+        return { top: Number(rect.top.toFixed(2)), bottom: Number(rect.bottom.toFixed(2)), height: Number(rect.height.toFixed(2)) };
+      };
+      return {
+        viewport: { width: innerWidth, height: innerHeight },
+        documentScrollHeight: document.documentElement.scrollHeight,
+        page: read(".ep-focus-page"),
+        header: read(".ep-page-header"),
+        layout: read(".ep-focus-layout"),
+        clockCard: read(".ep-clock-card"),
+        leftNotes: read(".ep-note-stack--left"),
+        rightNotes: read(".ep-focus-notes"),
+        footer: read(".ep-focus-footer"),
+        readout: read(".ep-clock-card__readout"),
+        inlineField: read(".ep-inline-field"),
+        actions: read(".ep-clock-card__actions"),
+      };
+    }));
+  }
+  mkdirSync("output/qa/REFINE-19", { recursive: true });
+  await page.setViewportSize({ width: 1707, height: 912 });
+  await page.screenshot({ path: "output/qa/REFINE-19/TIMER-04-pass-9ecaf59-1707x912.png", animations: "disabled" });
+  console.log(`TIMER-04 measurements: ${JSON.stringify(measurements)}`);
+  for (const item of measurements) {
+    expect(item.page).not.toBeNull();
+    expect(item.header).not.toBeNull();
+    expect(item.layout).not.toBeNull();
+    expect(item.clockCard).not.toBeNull();
+    expect(item.readout).not.toBeNull();
+    expect(item.inlineField).not.toBeNull();
+    expect(item.actions).not.toBeNull();
+    expect(item.footer).not.toBeNull();
+    expect(item.page.top).toBeGreaterThanOrEqual(0);
+    expect(item.documentScrollHeight).toBeGreaterThanOrEqual(item.page.bottom);
+    if (item.viewport.width >= 821) {
+      expect(item.page.bottom).toBeLessThanOrEqual(item.viewport.height);
+      for (const key of ["readout", "inlineField", "actions", "footer"]) {
+        expect(item[key].bottom).toBeLessThanOrEqual(item.viewport.height);
+      }
+    }
+  }
+});
+
+test("REFINE-19 TIMER-05 keeps Editorial Paper timer fields explicit", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  await pageButton(page, "计时").click();
+  const focusPage = page.locator(".ep-focus-page");
+  await expect(focusPage).toBeVisible();
+  await expect(focusPage).toContainText("当前状态");
+  await expect(focusPage).toContainText("正向计时");
+  await expect(focusPage).toContainText("倒计时");
+  await expect(focusPage).toContainText("专注时长");
+  await expect(focusPage).toContainText("今日专注");
+  for (const label of ["开始专注", "完成并记录", "清空设置", "我想专注于…", "关联待办", "本轮完成后同时标记关联待办"]) {
+    await expect(focusPage).toContainText(label);
+  }
+  const noteFields = await focusPage.locator(".ep-note-paper label").evaluateAll((labels) => labels.map((label) => {
+    const rect = label.getBoundingClientRect();
+    return { top: rect.top, bottom: rect.bottom, height: rect.height };
+  }));
+  expect(noteFields).toHaveLength(3);
+  expect(noteFields[0].bottom).toBeLessThanOrEqual(noteFields[1].top);
+  expect(noteFields[1].bottom).toBeLessThanOrEqual(noteFields[2].top);
+  expect(await focusPage.locator(".ep-focus-notes").locator(".ep-note-paper").count()).toBe(1);
+  await page.screenshot({ path: "output/qa/REFINE-19/TIMER-05-pass-9ecaf59.png", animations: "disabled", fullPage: true });
+});
+
+test("REFINE-19 TIMER-06 hides the command trigger on every Editorial Paper tab", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  for (const [label, selector, slug] of [
+    ["今日", ".ep-today-page", "today"],
+    ["计时", ".ep-focus-page", "focus"],
+    ["待办", ".ep-todos-page", "todos"],
+    ["记录", ".ep-records-page", "records"],
+    ["设置", ".ep-settings-page", "settings"],
+  ]) {
+    if (label !== "今日") await pageButton(page, label).click();
+    await expect(page.locator(selector)).toBeVisible();
+    await expect(page.locator(".command-trigger")).toBeHidden();
+    await page.screenshot({ path: `output/qa/REFINE-19/TIMER-06-after-9ecaf59-${slug}.png`, animations: "disabled", fullPage: true });
+  }
+  await page.keyboard.press("Control+K");
+  await expect(page.getByRole("dialog", { name: "你想做什么？" })).toBeVisible();
+  await page.keyboard.press("Escape");
+});
+
+test("REFINE-19 TIMER-07 makes Editorial Paper focus fields drive the real timer flow", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  await page.evaluate(() => {
+    const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
+    window.__epTimerInvoke = [];
+    let syntheticSnapshot = null;
+    window.__TAURI_INTERNALS__.invoke = async (command, args = {}) => {
+      window.__epTimerInvoke.push(command);
+      if (command === "get_timer_snapshot" && syntheticSnapshot) {
+        return syntheticSnapshot;
+      }
+      const result = await nativeInvoke(command, args);
+      if (command === "start_timer" || command === "pause_timer") {
+        syntheticSnapshot = { ...result, elapsedMs: 1000, elapsedLabel: "00:00:01", canCompleteSession: true, hasUnsubmittedProgress: true };
+        return syntheticSnapshot;
+      }
+      if (command === "complete_focus_session") {
+        const current = syntheticSnapshot ?? await nativeInvoke("get_timer_snapshot");
+        const records = await nativeInvoke("get_focus_records");
+        const todoItems = await nativeInvoke("get_todo_items");
+        syntheticSnapshot = null;
+        return {
+          timerSnapshot: { ...current, status: "未开始", isRunning: false, elapsedMs: 0, elapsedLabel: "00:00:00", hasUnsubmittedProgress: false, activeTaskTitle: "", linkedTodoId: null, completeLinkedTodoOnFinish: false },
+          records,
+          todoItems,
+        };
+      }
+      return result;
+    };
+  });
+  await pageButton(page, "计时").click();
+  const focusPage = page.locator(".ep-focus-page");
+  const clockCard = page.locator(".ep-clock-card");
+  await expect(focusPage).toBeVisible();
+
+  await focusPage.locator('input[name="editorialSessionTitle"]').fill("整理审计证据");
+  await focusPage.locator('input[name="editorialCountdownMinutes"]').fill("60");
+  await expect(clockCard.locator(".ep-clock-card__readout > strong")).toHaveText("01:00:00");
+  await expect(clockCard).toContainText("设定 60 分钟");
+  await focusPage.getByRole("button", { name: "开始专注", exact: true }).click();
+  await expect(clockCard).toContainText("倒计时中");
+  await expect(clockCard.getByRole("button", { name: "暂停", exact: true })).toBeVisible();
+  await expect(clockCard.getByRole("button", { name: "完成并记录", exact: true })).toBeVisible();
+  await expect(focusPage.locator('input[name="editorialSessionTitle"]')).toBeDisabled();
+  await expect(focusPage.locator('input[name="editorialCountdownMinutes"]')).toBeDisabled();
+
+  await clockCard.getByRole("button", { name: "暂停", exact: true }).click();
+  await expect(clockCard).toContainText("已暂停");
+  await expect(clockCard.getByRole("button", { name: "继续专注", exact: true })).toBeVisible();
+  await expect(clockCard.getByRole("button", { name: "重置本次专注", exact: true })).toBeEnabled();
+  await page.screenshot({ path: "output/qa/REFINE-19/TIMER-07-after-9ecaf59.png", animations: "disabled", fullPage: true });
+  await expect(clockCard.getByRole("button", { name: "完成并记录", exact: true })).toBeEnabled();
+  await clockCard.getByRole("button", { name: "完成并记录", exact: true }).click();
+  await expect(focusPage.locator(".ep-inline-confirmation")).toContainText("这一段已经收进记录");
+  const commands = await page.evaluate(() => window.__epTimerInvoke);
+  expect(commands).toEqual(expect.arrayContaining(["set_countdown_minutes", "update_timer_context", "start_timer", "pause_timer", "complete_focus_session"]));
+});
+
+test("REFINE-19 TIMER-08 keeps long Editorial Paper focus-note text readable", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  const longTodoTitle = "整理一份很长的研究审计证据清单并确认每个字段都能被完整回看";
+  for (const [width, height] of [[1487, 1058], [420, 720]]) {
+    await page.setViewportSize({ width, height });
+    await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", todoTitles: [longTodoTitle] });
+    await pageButton(page, "计时").click();
+    const focusPage = page.locator(".ep-focus-page");
+    const notePaper = focusPage.locator(".ep-note-paper");
+    await expect(notePaper).toBeVisible();
+    await focusPage.locator('input[name="editorialSessionTitle"]').fill("这是一个很长的本轮专注主题用于核对右侧卡片文字换行是否会遮挡其他字段与操作");
+    await focusPage.locator('select[name="editorialLinkedTodo"]').selectOption("101");
+    await expect(notePaper.locator(".ep-note-paper__linked")).toContainText(longTodoTitle);
+    const bounds = await notePaper.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      const textBlocks = [...element.querySelectorAll("label, .ep-note-paper__linked")].map((child) => {
+        const childRect = child.getBoundingClientRect();
+        return { left: childRect.left, right: childRect.right, top: childRect.top, bottom: childRect.bottom, scrollWidth: child.scrollWidth, clientWidth: child.clientWidth };
+      });
+      return { left: rect.left, right: rect.right, scrollWidth: element.scrollWidth, clientWidth: element.clientWidth, textBlocks, documentScrollWidth: document.documentElement.scrollWidth, viewportWidth: innerWidth };
+    });
+    expect(bounds.left).toBeGreaterThanOrEqual(0);
+    expect(bounds.right).toBeLessThanOrEqual(bounds.viewportWidth + 1);
+    expect(bounds.scrollWidth).toBeLessThanOrEqual(bounds.clientWidth + 1);
+    expect(bounds.textBlocks.every((block) => block.left >= 0 && block.right <= bounds.viewportWidth + 1 && block.scrollWidth <= block.clientWidth + 1)).toBe(true);
+    expect(bounds.documentScrollWidth).toBeLessThanOrEqual(bounds.viewportWidth + 1);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({ path: `output/qa/REFINE-19/TIMER-08-pass-9ecaf59-${width}.png`, animations: "disabled", fullPage: true });
+  }
+});
+
+test("REFINE-19 TIMER-09 makes Editorial Paper reset explicit and usable", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  await page.evaluate(() => {
+    const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
+    window.__TAURI_INTERNALS__.invoke = async (command, args = {}) => {
+      const result = await nativeInvoke(command, args);
+      if (command === "reset_timer") {
+        return { ...result, status: "未开始", isRunning: false, elapsedMs: 0, elapsedLabel: "00:45:00", targetDurationMs: 45 * 60 * 1000, remainingMs: 45 * 60 * 1000, hasUnsubmittedProgress: false, activeTaskTitle: "", linkedTodoId: null, completeLinkedTodoOnFinish: false };
+      }
+      return result;
+    };
+  });
+  await pageButton(page, "计时").click();
+  const focusPage = page.locator(".ep-focus-page");
+  const clockCard = page.locator(".ep-clock-card");
+  const clearSettings = clockCard.getByRole("button", { name: "清空设置", exact: true });
+  await expect(clearSettings).toBeEnabled();
+  await expect(clearSettings).toHaveAttribute("title", "清除当前标题、时长和待办选择");
+  await focusPage.locator('input[name="editorialSessionTitle"]').fill("临时专注主题");
+  await focusPage.locator('input[name="editorialCountdownMinutes"]').fill("60");
+  await clearSettings.click();
+  await expect(focusPage.locator('input[name="editorialSessionTitle"]')).toHaveValue("");
+  await expect(focusPage.locator('input[name="editorialCountdownMinutes"]')).toHaveValue("45");
+  await expect(clockCard.getByRole("button", { name: "清空设置", exact: true })).toBeEnabled();
+  await expect(page.locator(".app-message")).toContainText("本轮已重置，没有生成记录");
+
+  await focusPage.locator('input[name="editorialSessionTitle"]').fill("正式专注主题");
+  await clockCard.getByRole("button", { name: "开始专注", exact: true }).click();
+  await expect(clockCard.getByRole("button", { name: "重置本次专注", exact: true })).toBeEnabled();
+  await expect(clockCard.getByRole("button", { name: "重置本次专注", exact: true })).toHaveAttribute("title", "放弃当前计时并清除本次专注设置");
+  await page.screenshot({ path: "output/qa/REFINE-19/TIMER-09-after-active-9ecaf59.png", animations: "disabled", fullPage: true });
+  await clockCard.getByRole("button", { name: "重置本次专注", exact: true }).click();
+  await expect(clockCard.getByRole("button", { name: "清空设置", exact: true })).toBeEnabled();
+  await expect(focusPage.locator('input[name="editorialSessionTitle"]')).toHaveValue("");
+  await expect(focusPage.locator('input[name="editorialCountdownMinutes"]')).toHaveValue("45");
+  await expect(page.locator(".app-message")).toContainText("本轮已重置，没有生成记录");
+  await page.screenshot({ path: "output/qa/REFINE-19/TIMER-09-after-clear-9ecaf59.png", animations: "disabled", fullPage: true });
+});
+
+test("REFINE-19 TIMER-10 keeps only real Editorial Paper shortcut guidance", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", includeTodo: false });
+  await pageButton(page, "计时").click();
+  await expect(page.locator(".ep-focus-footer")).not.toContainText("Ctrl");
+  await expect(page.locator(".ep-focus-page kbd")).toHaveCount(0);
+
+  await pageButton(page, "设置").click();
+  const shortcuts = page.locator(".ep-settings-paper--shortcuts");
+  await expect(shortcuts).toBeVisible();
+  await expect(shortcuts).toContainText("开始 / 继续");
+  await expect(shortcuts).toContainText("结束本段");
+  await expect(shortcuts).toContainText("命令面板");
+  await expect(shortcuts.locator("kbd")).toHaveCount(7);
+
+  await page.keyboard.press("Control+Enter");
+  await expect(page.locator(".app-message")).toContainText("先写下一件要完成的事");
+  await page.keyboard.press("Control+Shift+E");
+  await expect(page.locator(".app-message")).toContainText("当前还没有可以保存的专注进度");
+  await page.keyboard.press("Control+K");
+  await expect(page.getByRole("dialog", { name: "你想做什么？" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await pageButton(page, "设置").click();
+  await expect(shortcuts).toBeVisible();
+  await page.screenshot({ path: "output/qa/REFINE-19/TIMER-10-pass-9ecaf59.png", animations: "disabled", fullPage: true });
+});
+
+test("REFINE-19 TIMER-11 keeps the Editorial Paper right note readable fullscreen", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  await page.setViewportSize({ width: 2560, height: 1368 });
+  const measurements = [];
+  for (const [width, height] of [[2560, 1368], [1707, 912], [1487, 1058]]) {
+    await page.setViewportSize({ width, height });
+    await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+    await pageButton(page, "计时").click();
+    const result = await page.locator(".ep-focus-notes").evaluate((notes) => {
+      const read = (selector) => [...notes.querySelectorAll(selector)].map((element) => {
+        const rect = element.getBoundingClientRect();
+        return { selector, left: Number(rect.left.toFixed(2)), right: Number(rect.right.toFixed(2)), top: Number(rect.top.toFixed(2)), bottom: Number(rect.bottom.toFixed(2)), width: Number(rect.width.toFixed(2)), height: Number(rect.height.toFixed(2)) };
+      });
+      const blocks = [
+        ...read(".ep-note-paper > .ep-section-label"),
+        ...read(".ep-note-paper > label"),
+        ...read(".ep-note-paper > .ep-note-paper__linked"),
+        ...read(".ep-mini-note"),
+      ];
+      const overlaps = [];
+      for (let index = 0; index < blocks.length; index += 1) {
+        for (let next = index + 1; next < blocks.length; next += 1) {
+          const a = blocks[index];
+          const b = blocks[next];
+          if (a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top) overlaps.push([index, next]);
+        }
+      }
+      const notesRect = notes.getBoundingClientRect();
+      return { viewport: { width: innerWidth, height: innerHeight }, notes: { left: notesRect.left, right: notesRect.right, top: notesRect.top, bottom: notesRect.bottom }, blocks, overlaps, documentScrollWidth: document.documentElement.scrollWidth };
+    });
+    measurements.push(result);
+    if (width === 1707) {
+      await page.screenshot({ path: "output/qa/REFINE-19/TIMER-11-pass-9ecaf59-1707x912.png", animations: "disabled", fullPage: true });
+    }
+  }
+  console.log(`TIMER-11 measurements: ${JSON.stringify(measurements)}`);
+  for (const item of measurements) {
+    expect(item.notes.left).toBeGreaterThanOrEqual(0);
+    expect(item.notes.right).toBeLessThanOrEqual(item.viewport.width + 1);
+    expect(item.overlaps).toEqual([]);
+    expect(item.documentScrollWidth).toBeLessThanOrEqual(item.viewport.width + 1);
+    expect(item.blocks.every((block) => block.left >= 0 && block.right <= item.viewport.width + 1 && block.height > 0)).toBe(true);
+    if (item.viewport.width >= 821) expect(item.notes.bottom).toBeLessThanOrEqual(item.viewport.height);
+  }
+});
+
+test("REFINE-19 TIMER-12 keeps a 01:00:00 Editorial Paper readout away from stats", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  await page.setViewportSize({ width: 2560, height: 1368 });
+  const measurements = [];
+  for (const [width, height] of [[2560, 1368], [1707, 912], [420, 720]]) {
+    await page.setViewportSize({ width, height });
+    await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+    await pageButton(page, "计时").click();
+    const focusPage = page.locator(".ep-focus-page");
+    await focusPage.locator('input[name="editorialCountdownMinutes"]').fill("60");
+    await expect(focusPage.locator(".ep-clock-card__readout > strong")).toHaveText("01:00:00");
+    measurements.push(await focusPage.evaluate(() => {
+      const read = (selector) => {
+        const element = document.querySelector(selector);
+        if (!element) return null;
+        const rect = element.getBoundingClientRect();
+        return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height };
+      };
+      return {
+        viewport: { width: innerWidth, height: innerHeight },
+        ring: read(".ep-clock-card__ring"),
+        readout: read(".ep-clock-card__readout"),
+        mode: read(".ep-clock-card__mode"),
+        target: read(".ep-inline-field"),
+        actions: read(".ep-clock-card__actions"),
+        todayFocus: read(".ep-taped-note--sage"),
+        documentScrollWidth: document.documentElement.scrollWidth,
+      };
+    }));
+    if (width === 1707) {
+      await page.screenshot({ path: "output/qa/REFINE-19/TIMER-12-pass-9ecaf59-1707x912.png", animations: "disabled", fullPage: true });
+    }
+  }
+  console.log(`TIMER-12 measurements: ${JSON.stringify(measurements)}`);
+  for (const item of measurements) {
+    for (const key of ["ring", "readout", "mode", "target", "actions", "todayFocus"]) expect(item[key]).not.toBeNull();
+    expect(item.readout.left).toBeGreaterThanOrEqual(item.ring.left);
+    expect(item.readout.right).toBeLessThanOrEqual(item.ring.right);
+    const blocks = [item.readout, item.mode, item.target, item.actions, item.todayFocus];
+    for (let index = 0; index < blocks.length; index += 1) {
+      for (let next = index + 1; next < blocks.length; next += 1) {
+        const a = blocks[index];
+        const b = blocks[next];
+        expect(a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top).toBe(false);
+      }
+    }
+    expect(item.documentScrollWidth).toBeLessThanOrEqual(item.viewport.width + 1);
+  }
+});
+
+test("REFINE-19 TIMER-13 keeps Editorial Paper status and mode copy separated", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  await page.setViewportSize({ width: 2560, height: 1368 });
+  const measurements = [];
+  for (const [width, height] of [[2560, 1368], [1707, 912], [420, 720]]) {
+    await page.setViewportSize({ width, height });
+    await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+    await pageButton(page, "计时").click();
+    const focusPage = page.locator(".ep-focus-page");
+    const minutesInput = focusPage.locator('input[name="editorialCountdownMinutes"]');
+    for (const [minutes, expectedReadout] of [[45, "00:45:00"], [60, "01:00:00"], [90, "01:30:00"]]) {
+      await minutesInput.fill(String(minutes));
+      await expect(focusPage.locator(".ep-clock-card__readout > strong")).toHaveText(expectedReadout);
+      await expect(focusPage.locator(".ep-clock-card__readout > small")).toHaveText(`设定 ${minutes} 分钟`);
+      measurements.push(await focusPage.evaluate(() => {
+        const read = (selector) => {
+          const element = document.querySelector(selector);
+          if (!element) return null;
+          const rect = element.getBoundingClientRect();
+          return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height };
+        };
+        return {
+          viewport: { width: innerWidth, height: innerHeight },
+          ring: read(".ep-clock-card__ring"),
+          status: read(".ep-clock-card__readout > span"),
+          readout: read(".ep-clock-card__readout > strong"),
+          modeCopy: read(".ep-clock-card__readout > small"),
+          modeSwitch: read(".ep-clock-card__mode"),
+          target: read(".ep-inline-field"),
+          actions: read(".ep-clock-card__actions"),
+        };
+      }));
+    }
+    if (width === 1707) {
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.screenshot({ path: "output/qa/REFINE-19/TIMER-13-pass-9ecaf59-1707x912.png", animations: "disabled", fullPage: true });
+    }
+  }
+  console.log(`TIMER-13 measurements: ${JSON.stringify(measurements)}`);
+  for (const item of measurements) {
+    for (const key of ["ring", "status", "readout", "modeCopy", "modeSwitch", "target", "actions"]) expect(item[key]).not.toBeNull();
+    expect(item.status.bottom).toBeLessThanOrEqual(item.readout.top);
+    expect(item.readout.bottom).toBeLessThanOrEqual(item.modeCopy.top);
+    expect(item.modeCopy.bottom).toBeLessThanOrEqual(item.ring.bottom);
+    expect(item.ring.right).toBeLessThanOrEqual(item.modeSwitch.right + 6);
+    expect(item.modeSwitch.bottom).toBeLessThan(item.target.top);
+    expect(item.target.bottom).toBeLessThan(item.actions.top);
+    expect(item.actions.right).toBeLessThanOrEqual(item.modeSwitch.right + 1);
+  }
+});
+
+test("REFINE-19 TIMER-14 keeps Editorial Paper focus safe at Windows high DPI", async ({ browser }) => {
+  const contexts = [
+    { width: 2560, height: 1368, requestedDpr: 1, slug: "physical-2560x1368-dpr1" },
+    { width: 1707, height: 912, requestedDpr: 1.5, slug: "css-1707x912-dpr1.5" },
+    { width: 1487, height: 1058, requestedDpr: 1, slug: "css-1487x1058-dpr1" },
+  ];
+  const measurements = [];
+  for (const item of contexts) {
+    const context = await browser.newContext({ viewport: { width: item.width, height: item.height }, deviceScaleFactor: item.requestedDpr });
+    const page = await context.newPage();
+    try {
+      await page.addInitScript(() => {
+        localStorage.setItem("focused-moment.theme", "editorial-paper");
+      });
+      await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+      await pageButton(page, "计时").click();
+      const measurement = await page.locator(".ep-focus-page").evaluate(() => {
+        const read = (selector) => {
+          const element = document.querySelector(selector);
+          if (!element) return null;
+          const rect = element.getBoundingClientRect();
+          return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
+        };
+        return {
+          viewport: { width: innerWidth, height: innerHeight },
+          dpr: devicePixelRatio,
+          documentScrollWidth: document.documentElement.scrollWidth,
+          page: read(".ep-focus-page"),
+          clock: read(".ep-clock-card"),
+          notes: read(".ep-focus-notes"),
+          footer: read(".ep-focus-footer"),
+        };
+      });
+      measurements.push({ ...item, ...measurement });
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.screenshot({ path: `output/qa/REFINE-19/TIMER-14-pass-9ecaf59-${item.slug}.png`, animations: "disabled", fullPage: true });
+    } finally {
+      await context.close();
+    }
+  }
+  console.log(`TIMER-14 measurements: ${JSON.stringify(measurements)}`);
+  for (const item of measurements) {
+    expect(item.viewport.width).toBe(item.width);
+    expect(item.viewport.height).toBe(item.height);
+    expect(item.dpr).toBe(item.requestedDpr);
+    expect(item.documentScrollWidth).toBeLessThanOrEqual(item.viewport.width + 1);
+    for (const key of ["page", "clock", "notes", "footer"]) {
+      expect(item[key]).not.toBeNull();
+      expect(item[key].left).toBeGreaterThanOrEqual(0);
+      expect(item[key].right).toBeLessThanOrEqual(item.viewport.width + 1);
+      expect(item[key].bottom).toBeLessThanOrEqual(item.viewport.height);
+    }
+  }
+});
+
+test("REFINE-19 TIMER-15 uses the same daily session count on Today and Focus", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", recordCount: 1, completedTodoTitles: [] });
+  const today = page.locator(".ep-today-page");
+  await expect(today.locator(".ep-facts-row > div:nth-child(2) strong")).toHaveText("1");
+  await pageButton(page, "计时").click();
+  const focus = page.locator(".ep-focus-page");
+  await expect(focus.locator(".ep-taped-note--sage strong")).toHaveText("1 段完成");
+  await expect(focus.locator(".ep-taped-note--sage")).toContainText("今日专注");
+  await page.screenshot({ path: "output/qa/REFINE-19/TIMER-15-after-9ecaf59.png", animations: "disabled", fullPage: true });
+});
+
+test("REFINE-19 TIMER-16 restores the Editorial Paper floating entry after returning", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  await page.evaluate(() => {
+    const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
+    window.__epFloatingCalls = 0;
+    window.__TAURI_INTERNALS__.invoke = async (command, args = {}) => {
+      if (command === "show_focus_floating") window.__epFloatingCalls += 1;
+      return nativeInvoke(command, args);
+    };
+  });
+  await pageButton(page, "计时").click();
+  const focusPage = page.locator(".ep-focus-page");
+  await focusPage.locator('input[name="editorialSessionTitle"]').fill("返回主界面后继续核对悬浮窗入口");
+  await focusPage.getByRole("button", { name: "开始专注", exact: true }).click();
+  await expect(focusPage).toContainText("倒计时中");
+
+  const floatingEntry = focusPage.getByRole("button", { name: "进入悬浮窗", exact: true });
+  await expect(floatingEntry).toBeVisible();
+  await expect(floatingEntry).toHaveAttribute("title", "隐藏主窗口，回到悬浮计时");
+  const callsBeforeReturn = await page.evaluate(() => window.__epFloatingCalls);
+  await floatingEntry.click();
+  await expect.poll(() => page.evaluate(() => window.__epFloatingCalls)).toBe(callsBeforeReturn + 1);
+  await page.screenshot({ path: "output/qa/REFINE-19/TIMER-16-after-9ecaf59.png", animations: "disabled", fullPage: true });
+});
+
+test("REFINE-19 TIMER-17 still opens the floating timer after Editorial Paper starts", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  await page.evaluate(() => {
+    const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
+    window.__epFloatingCalls = 0;
+    window.__TAURI_INTERNALS__.invoke = async (command, args = {}) => {
+      if (command === "show_focus_floating") window.__epFloatingCalls += 1;
+      return nativeInvoke(command, args);
+    };
+  });
+  await pageButton(page, "计时").click();
+  const focusPage = page.locator(".ep-focus-page");
+  await focusPage.locator('input[name="editorialSessionTitle"]').fill("核对开始后的悬浮计时状态");
+  await focusPage.getByRole("button", { name: "开始专注", exact: true }).click();
+  await expect(focusPage).toContainText("倒计时中");
+  await expect.poll(() => page.evaluate(() => window.__epFloatingCalls)).toBe(1);
+  await page.screenshot({ path: "output/qa/REFINE-19/TIMER-17-pass-9ecaf59.png", animations: "disabled", fullPage: true });
+});
+
+test("REFINE-19 TIMER-18 delegates main-window hiding to the focus floating command", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  await page.evaluate(() => {
+    const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
+    window.__epWindowCommands = [];
+    window.__TAURI_INTERNALS__.invoke = async (command, args = {}) => {
+      window.__epWindowCommands.push(command);
+      return nativeInvoke(command, args);
+    };
+  });
+  await pageButton(page, "计时").click();
+  const focusPage = page.locator(".ep-focus-page");
+  await focusPage.locator('input[name="editorialSessionTitle"]').fill("核对主窗口自动隐藏调用链");
+  await focusPage.getByRole("button", { name: "开始专注", exact: true }).click();
+  await expect(focusPage).toContainText("倒计时中");
+  await expect.poll(() => page.evaluate(() => window.__epWindowCommands.includes("show_focus_floating"))).toBe(true);
+  const commands = await page.evaluate(() => window.__epWindowCommands);
+  expect(commands.filter((command) => command === "show_focus_floating")).toHaveLength(1);
+  expect(commands).not.toContain("hide_main_window");
+  await page.screenshot({ path: "output/qa/REFINE-19/TIMER-18-pass-9ecaf59.png", animations: "disabled", fullPage: true });
+});
+
+test("REFINE-19 TIMER-19 keeps the floating entry visible and clickable in Editorial Paper focus states", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  await page.evaluate(() => {
+    const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
+    window.__epFloatingCalls = 0;
+    window.__TAURI_INTERNALS__.invoke = async (command, args = {}) => {
+      if (command === "show_focus_floating") window.__epFloatingCalls += 1;
+      return nativeInvoke(command, args);
+    };
+  });
+  await pageButton(page, "计时").click();
+  const focusPage = page.locator(".ep-focus-page");
+  const clockCard = page.locator(".ep-clock-card");
+  await focusPage.locator('input[name="editorialSessionTitle"]').fill("核对悬浮窗入口首屏可达性");
+  await focusPage.getByRole("button", { name: "开始专注", exact: true }).click();
+  await expect(focusPage).toContainText("倒计时中");
+  const floatingEntry = focusPage.getByRole("button", { name: "进入悬浮窗", exact: true });
+  await expect(floatingEntry).toBeVisible();
+  const firstScreenBounds = await floatingEntry.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    return { top: rect.top, bottom: rect.bottom, viewportHeight: innerHeight };
+  });
+  expect(firstScreenBounds.top).toBeGreaterThanOrEqual(0);
+  expect(firstScreenBounds.bottom).toBeLessThanOrEqual(firstScreenBounds.viewportHeight);
+  const callsAfterStart = await page.evaluate(() => window.__epFloatingCalls);
+  await floatingEntry.click();
+  await expect.poll(() => page.evaluate(() => window.__epFloatingCalls)).toBe(callsAfterStart + 1);
+
+  await clockCard.getByRole("button", { name: "暂停", exact: true }).click();
+  await expect(clockCard).toContainText("已暂停");
+  await expect(floatingEntry).toBeVisible();
+  await floatingEntry.click();
+  await expect.poll(() => page.evaluate(() => window.__epFloatingCalls)).toBe(callsAfterStart + 2);
+  await page.screenshot({ path: "output/qa/REFINE-19/TIMER-19-pass-9ecaf59.png", animations: "disabled", fullPage: true });
+});
+
+test("REFINE-19 TIMER-20 keeps Editorial Paper timer and interface state synchronized", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  await page.evaluate(() => {
+    const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
+    let timerOverride = null;
+    window.__epTimerInvoke = [];
+    window.__TAURI_INTERNALS__.invoke = async (command, args = {}) => {
+      window.__epTimerInvoke.push(command);
+      if (command === "get_timer_snapshot" && timerOverride) return timerOverride;
+      const result = await nativeInvoke(command, args);
+      if (command === "set_countdown_minutes" || command === "update_timer_context") {
+        timerOverride = result;
+        return timerOverride;
+      }
+      if (command === "start_timer" || command === "pause_timer") {
+        timerOverride = { ...result, elapsedMs: 1000, elapsedLabel: "00:00:01", canCompleteSession: true, hasUnsubmittedProgress: true };
+        return timerOverride;
+      }
+      if (command === "complete_focus_session") {
+        const current = timerOverride ?? await nativeInvoke("get_timer_snapshot");
+        const records = await nativeInvoke("get_focus_records");
+        const todoItems = await nativeInvoke("get_todo_items");
+        timerOverride = { ...current, status: "未开始", isRunning: false, elapsedMs: 0, elapsedLabel: "00:00:00", hasUnsubmittedProgress: false, activeTaskTitle: "", linkedTodoId: null, completeLinkedTodoOnFinish: false, canCompleteSession: false };
+        return { timerSnapshot: timerOverride, records, todoItems };
+      }
+      if (command === "reset_timer") {
+        timerOverride = { ...result, status: "未开始", isRunning: false, elapsedMs: 0, elapsedLabel: "00:45:00", hasUnsubmittedProgress: false, activeTaskTitle: "", linkedTodoId: null, completeLinkedTodoOnFinish: false, canCompleteSession: false };
+        return timerOverride;
+      }
+      return result;
+    };
+  });
+  await pageButton(page, "计时").click();
+  const focusPage = page.locator(".ep-focus-page");
+  const clockCard = page.locator(".ep-clock-card");
+  const titleInput = focusPage.locator('input[name="editorialSessionTitle"]');
+  await titleInput.fill("逐步核对计时和界面状态");
+  await focusPage.getByRole("button", { name: "开始专注", exact: true }).click();
+  await expect(clockCard).toContainText("倒计时中");
+  await expect(clockCard.getByRole("button", { name: "暂停", exact: true })).toBeVisible();
+
+  await clockCard.getByRole("button", { name: "暂停", exact: true }).click();
+  await expect(clockCard).toContainText("已暂停");
+  await expect(clockCard.getByRole("button", { name: "继续专注", exact: true })).toBeVisible();
+
+  await clockCard.getByRole("button", { name: "继续专注", exact: true }).click();
+  await expect(clockCard).toContainText("倒计时中");
+  await expect(clockCard.getByRole("button", { name: "暂停", exact: true })).toBeVisible();
+
+  await pageButton(page, "今日").click();
+  await expect(page.locator(".ep-today-page")).toBeVisible();
+  await pageButton(page, "计时").click();
+  await expect(focusPage).toContainText("倒计时中");
+  await expect(titleInput).toBeDisabled();
+  await expect(titleInput).toHaveValue("逐步核对计时和界面状态");
+
+  await clockCard.getByRole("button", { name: "完成并记录", exact: true }).click();
+  await expect(focusPage.locator(".ep-inline-confirmation")).toContainText("这一段已经收进记录");
+  await expect(clockCard).toContainText("未开始");
+  await expect(clockCard.getByRole("button", { name: "开始专注", exact: true })).toBeVisible();
+  await expect(titleInput).toBeEnabled();
+  await expect(titleInput).toHaveValue("");
+  await expect(focusPage.locator(".ep-focus-floating-link")).toHaveCount(0);
+
+  await titleInput.fill("再次开始后测试重置");
+  await clockCard.getByRole("button", { name: "开始专注", exact: true }).click();
+  await expect(clockCard).toContainText("倒计时中");
+  await clockCard.getByRole("button", { name: "重置本次专注", exact: true }).click();
+  await expect(clockCard).toContainText("未开始");
+  await expect(titleInput).toHaveValue("");
+  await expect(clockCard.getByRole("button", { name: "开始专注", exact: true })).toBeVisible();
+  await expect(page.locator(".app-message")).toContainText("本轮已重置，没有生成记录");
+
+  const commands = await page.evaluate(() => window.__epTimerInvoke);
+  expect(commands).toEqual(expect.arrayContaining(["start_timer", "pause_timer", "complete_focus_session", "reset_timer"]));
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "今日节奏" })).toBeVisible();
+  await pageButton(page, "计时").click();
+  await expect(page.locator(".ep-clock-card")).toContainText("待开始");
+  await expect(page.locator('input[name="editorialSessionTitle"]')).toHaveValue("");
+  await page.screenshot({ path: "output/qa/REFINE-19/TIMER-20-pass-9ecaf59.png", animations: "disabled", fullPage: true });
+});
+
+test("REFINE-19 TIMER-21 records when the Editorial Paper focus page has no matching records button", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  await pageButton(page, "计时").click();
+  const focusPage = page.locator(".ep-focus-page");
+  await expect(focusPage).toBeVisible();
+  await expect(focusPage.getByRole("button", { name: "查看专注记录", exact: true })).toHaveCount(0);
+  await expect(focusPage).not.toContainText("查看专注记录");
+  await pageButton(page, "今日").click();
+  await expect(page.getByRole("button", { name: "回看记录", exact: true })).toBeVisible();
+  await pageButton(page, "计时").click();
+  await page.screenshot({ path: "output/qa/REFINE-19/TIMER-21-not-applicable-9ecaf59.png", animations: "disabled", fullPage: true });
+});
+
+test("REFINE-19 TODO-01 checks Editorial Paper todo columns for overlap, bounded whitespace, and clear states", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  const longTitles = [
+    "整理一份跨团队研究审计证据清单并确认每个字段都能被完整回看",
+    "完成下一版产品复盘并把关键决策和待验证假设写进记录",
+    "准备发布前的最后检查并逐项核对 Windows 构建与安装包",
+  ];
+  const completedTitles = [
+    "回顾昨天的专注记录并标记已经完成的关键事项",
+    "收束本周的研究资料并整理成可以复用的索引",
+  ];
+  for (const [width, height] of [[1487, 1058], [1120, 760], [820, 720]]) {
+    await page.setViewportSize({ width, height });
+    await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", todoTitles: longTitles, completedTodoTitles: completedTitles });
+    await pageButton(page, "待办").click();
+    const todoPage = page.locator(".ep-todos-page");
+    await expect(todoPage).toBeVisible();
+    const metrics = await todoPage.evaluate(() => {
+      const overlap = (a, b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+      const columns = [...document.querySelectorAll(".ep-todo-column")].map((column) => {
+        const columnRect = column.getBoundingClientRect();
+        const list = column.querySelector(".ep-todo-column__list");
+        const listRect = list.getBoundingClientRect();
+        const content = [...column.querySelectorAll("header span, header h2, header strong, .ep-todo-row__copy strong, .ep-todo-row__copy small, .ep-todo-row__actions, .ep-empty, .ep-empty-card strong, .ep-empty-card small")].map((element) => {
+          const rect = element.getBoundingClientRect();
+          return { text: element.textContent?.trim() ?? "", left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height };
+        });
+        const overlaps = [];
+        for (let index = 0; index < content.length; index += 1) {
+          for (let next = index + 1; next < content.length; next += 1) {
+            if (overlap(content[index], content[next])) overlaps.push([index, next]);
+          }
+        }
+        return { className: column.className, column: { left: columnRect.left, right: columnRect.right, top: columnRect.top, bottom: columnRect.bottom }, list: { top: listRect.top, bottom: listRect.bottom, height: listRect.height, scrollHeight: list.scrollHeight }, rows: column.querySelectorAll(".ep-todo-row").length, content, overlaps };
+      });
+      return { viewport: { width: innerWidth, height: innerHeight }, documentScrollWidth: document.documentElement.scrollWidth, columns };
+    });
+    console.log(`TODO-01 ${width}x${height}: ${JSON.stringify(metrics)}`);
+    expect(metrics.documentScrollWidth).toBeLessThanOrEqual(width + 1);
+    expect(metrics.columns).toHaveLength(3);
+    for (const column of metrics.columns) {
+      expect(column.column.left).toBeGreaterThanOrEqual(0);
+      expect(column.column.right).toBeLessThanOrEqual(width + 1);
+      expect(column.overlaps).toEqual([]);
+      expect(column.content.every((item) => item.width >= 0 && item.height >= 0 && item.left >= 0 && item.right <= width + 1)).toBe(true);
+      expect(column.list.top).toBeGreaterThanOrEqual(column.column.top);
+      if (column.className.includes("ep-todo-column--focus")) expect(column.list.height).toBeLessThan(230);
+      expect(column.column.bottom - column.list.bottom).toBeLessThanOrEqual(35);
+    }
+    await expect(todoPage.locator(".ep-todo-column--today header")).toContainText("今天");
+    await expect(todoPage.locator(".ep-todo-column--focus .ep-empty-card")).toContainText("还没有进行中的事项");
+    await expect(todoPage.locator(".ep-todo-column--done header")).toContainText("已完成");
+  }
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.screenshot({ path: "output/qa/REFINE-19/TODO-01-after-9ecaf59.png", animations: "disabled", fullPage: true });
+});
+
+test("REFINE-19 TODO-02 keeps a long completed todo list visible and actionable", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  const completedTitles = Array.from({ length: 18 }, (_, index) => `已完成事项 ${String(index + 1).padStart(2, "0")}：整理一份可以长期回看的研究与发布证据清单`);
+  const restoredTitle = completedTitles[0];
+  const editedTitle = "已编辑的长完成事项：把恢复、编辑和删除动作留在同一张纸上";
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", todoTitles: ["待恢复的事项", "保留的待开始事项"], completedTodoTitles: completedTitles });
+  await page.evaluate(() => {
+    const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
+    let todoOverride = null;
+    window.__epTodoCommands = [];
+    window.__TAURI_INTERNALS__.invoke = async (command, args = {}) => {
+      window.__epTodoCommands.push(command);
+      if (command === "get_todo_items") {
+        todoOverride = todoOverride ?? await nativeInvoke(command, args);
+        return todoOverride;
+      }
+      if (command === "toggle_todo_item") {
+        todoOverride = await nativeInvoke(command, args);
+        return todoOverride;
+      }
+      if (command === "update_todo_item") {
+        todoOverride = (todoOverride ?? await nativeInvoke("get_todo_items")).map((item) => item.id === args.id ? { ...item, title: args.title, scheduledDate: args.scheduledDate, scheduledTime: args.scheduledTime, importanceKey: args.importanceKey } : item);
+        return todoOverride;
+      }
+      if (command === "delete_todo_item") {
+        todoOverride = (todoOverride ?? await nativeInvoke("get_todo_items")).filter((item) => item.id !== args.id);
+        return todoOverride;
+      }
+      return nativeInvoke(command, args);
+    };
+  });
+  await pageButton(page, "待办").click();
+  const todoPage = page.locator(".ep-todos-page");
+  const doneColumn = todoPage.locator(".ep-todo-column--done");
+  const todayColumn = todoPage.locator(".ep-todo-column--today");
+  await expect(doneColumn.locator(".ep-todo-row")).toHaveCount(completedTitles.length);
+  const lastRow = doneColumn.locator(".ep-todo-row").last();
+  await lastRow.scrollIntoViewIfNeeded();
+  await expect(lastRow.locator("strong")).toHaveAttribute("title", restoredTitle);
+
+  const firstRow = doneColumn.locator(".ep-todo-row").first();
+  await firstRow.getByRole("button", { name: "编辑", exact: true }).click();
+  await firstRow.locator('input[type="text"]').fill(editedTitle);
+  await firstRow.getByRole("button", { name: "保存", exact: true }).click();
+  await expect(doneColumn).toContainText(editedTitle);
+
+  await lastRow.locator(".ep-todo-check").click();
+  await expect(doneColumn.locator(".ep-todo-row")).toHaveCount(completedTitles.length - 1);
+  await expect(todayColumn).toContainText(restoredTitle);
+
+  await doneColumn.locator(".ep-todo-row").first().getByRole("button", { name: "删除", exact: true }).click();
+  await expect(doneColumn.locator(".ep-todo-row")).toHaveCount(completedTitles.length - 2);
+  await expect(page.locator(".app-message")).toContainText("已删除");
+
+  const desktopMetrics = await todoPage.evaluate(() => ({
+    documentScrollWidth: document.documentElement.scrollWidth,
+    doneRows: document.querySelectorAll(".ep-todo-column--done .ep-todo-row").length,
+    doneScrollHeight: document.querySelector(".ep-todo-column--done .ep-todo-column__list").scrollHeight,
+  }));
+  expect(desktopMetrics.documentScrollWidth).toBeLessThanOrEqual(1488);
+  expect(desktopMetrics.doneRows).toBe(completedTitles.length - 2);
+  expect(desktopMetrics.doneScrollHeight).toBeGreaterThan(1000);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.screenshot({ path: "output/qa/REFINE-19/TODO-02-pass-1487-9ecaf59.png", animations: "disabled", fullPage: true });
+
+  for (const [width, height] of [[820, 720], [560, 720], [420, 720]]) {
+    await page.setViewportSize({ width, height });
+    await page.evaluate(() => window.scrollTo(0, 0));
+    const metrics = await todoPage.evaluate(() => {
+      const overlap = (a, b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+      const rows = [...document.querySelectorAll(".ep-todo-row")].map((row) => {
+        const rowRect = row.getBoundingClientRect();
+        const blocks = [".ep-todo-check", ".ep-todo-row__copy", ".ep-todo-row__actions"].map((selector) => row.querySelector(selector)).filter(Boolean).map((element) => {
+          const rect = element.getBoundingClientRect();
+          return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height };
+        });
+        const overlaps = [];
+        for (let index = 0; index < blocks.length; index += 1) {
+          for (let next = index + 1; next < blocks.length; next += 1) if (overlap(blocks[index], blocks[next])) overlaps.push([index, next]);
+        }
+        return { left: rowRect.left, right: rowRect.right, blocks, overlaps };
+      });
+      return { documentScrollWidth: document.documentElement.scrollWidth, rows };
+    });
+    expect(metrics.documentScrollWidth).toBeLessThanOrEqual(width + 1);
+    expect(metrics.rows.every((row) => row.left >= 0 && row.right <= width + 1 && row.overlaps.length === 0 && row.blocks.every((block) => block.width >= 0 && block.height >= 0))).toBe(true);
+    if (width === 420) await page.screenshot({ path: "output/qa/REFINE-19/TODO-02-pass-420-9ecaf59.png", animations: "disabled", fullPage: true });
+  }
+  const commands = await page.evaluate(() => window.__epTodoCommands);
+  expect(commands).toEqual(expect.arrayContaining(["update_todo_item", "toggle_todo_item", "delete_todo_item"]));
+});
+
+test("REFINE-19 TODO-03 keeps all three Editorial Paper window controls available", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  await page.evaluate(() => {
+    const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
+    window.__epWindowCommands = [];
+    window.__TAURI_INTERNALS__.invoke = async (command, args = {}) => {
+      window.__epWindowCommands.push(command);
+      return nativeInvoke(command, args);
+    };
+  });
+  await pageButton(page, "待办").click();
+  const todoPage = page.locator(".ep-todos-page");
+  const controls = page.locator(".window-controls");
+  const buttons = controls.locator(".window-control");
+  await expect(todoPage).toBeVisible();
+  await expect(controls).toBeVisible();
+  await expect(buttons).toHaveCount(3);
+  const expectedControls = [
+    ["最小化窗口", "最小化", "minimize_main_window"],
+    ["最大化或还原窗口", "最大化 / 还原", "toggle_maximize_main_window"],
+    ["关闭窗口", "关闭窗口（隐藏到托盘）", "close_main_window"],
+  ];
+  for (let index = 0; index < expectedControls.length; index += 1) {
+    const [ariaLabel, title] = expectedControls[index];
+    const button = buttons.nth(index);
+    await expect(button).toBeVisible();
+    await expect(button).toHaveAttribute("aria-label", ariaLabel);
+    await expect(button).toHaveAttribute("title", title);
+    const bounds = await button.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, viewportWidth: innerWidth, viewportHeight: innerHeight };
+    });
+    expect(bounds.left).toBeGreaterThanOrEqual(0);
+    expect(bounds.right).toBeLessThanOrEqual(bounds.viewportWidth + 1);
+    expect(bounds.top).toBeGreaterThanOrEqual(0);
+    expect(bounds.bottom).toBeLessThanOrEqual(bounds.viewportHeight);
+  }
+  for (const [index, [, , command]] of expectedControls.entries()) {
+    await buttons.nth(index).click();
+    await expect.poll(() => page.evaluate((expectedCommand) => window.__epWindowCommands.filter((item) => item === expectedCommand).length, command)).toBe(1);
+  }
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.screenshot({ path: "output/qa/REFINE-19/TODO-03-pass-1487-9ecaf59.png", animations: "disabled", fullPage: true });
+
+  await page.setViewportSize({ width: 420, height: 720 });
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await expect(buttons).toHaveCount(3);
+  const mobileBounds = await buttons.evaluateAll((elements) => elements.map((element) => {
+    const rect = element.getBoundingClientRect();
+    return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, viewportWidth: innerWidth, viewportHeight: innerHeight };
+  }));
+  expect(mobileBounds.every((bounds) => bounds.left >= 0 && bounds.right <= bounds.viewportWidth + 1 && bounds.top >= 0 && bounds.bottom <= bounds.viewportHeight)).toBe(true);
+  await page.screenshot({ path: "output/qa/REFINE-19/TODO-03-pass-420-9ecaf59.png", animations: "disabled", fullPage: true });
+});
+
+test("REFINE-19 RECORDS-01 checks the Editorial Paper records first screen", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  const dailyBreakdown = [
+    ["2026-08-30", 30, "00:30:00"],
+    ["2026-08-31", 45, "00:45:00"],
+    ["2026-09-01", 60, "01:00:00"],
+    ["2026-09-02", 30, "00:30:00"],
+    ["2026-09-03", 45, "00:45:00"],
+    ["2026-09-04", 60, "01:00:00"],
+    ["2026-09-05", 45, "00:45:00"],
+  ].map(([date, minutes, totalDurationLabel]) => ({
+    date,
+    totalDurationMs: minutes * 60 * 1000,
+    totalDurationLabel,
+    sessionCount: 1,
+    linkedSessionCount: 0,
+    independentSessionCount: 1,
+  }));
+  for (const [width, height] of [[1487, 1058], [1120, 760]]) {
+    await page.setViewportSize({ width, height });
+    await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", recordCount: 3, dailyBreakdown });
+    await pageButton(page, "记录").click();
+    const recordsPage = page.locator(".ep-records-page");
+    await expect(recordsPage).toBeVisible();
+    await expect(recordsPage.locator(".ep-archive-chart .ep-chart-bar")).toHaveCount(7);
+    await expect(recordsPage.locator(".ep-archive-summary")).toBeVisible();
+    await expect(recordsPage.locator(".ep-record-entry")).toHaveCount(3);
+    const metrics = await recordsPage.evaluate(() => {
+      const read = (selector) => {
+        const element = document.querySelector(selector);
+        if (!element) return null;
+        const rect = element.getBoundingClientRect();
+        return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height };
+      };
+      const entries = [...document.querySelectorAll(".ep-record-entry")].map((entry) => {
+        const rect = entry.getBoundingClientRect();
+        return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, height: rect.height, title: entry.querySelector("strong")?.textContent ?? "" };
+      });
+      const header = read(".ep-records-header");
+      const archive = read(".ep-archive-paper");
+      const spread = read(".ep-records-spread");
+      const firstHeading = read(".ep-records-list .ep-section-heading");
+      return { viewport: { width: innerWidth, height: innerHeight }, documentScrollWidth: document.documentElement.scrollWidth, header, archive, spread, firstHeading, entries, scrollHeight: document.documentElement.scrollHeight };
+    });
+    console.log(`RECORDS-01 ${width}x${height}: ${JSON.stringify(metrics)}`);
+    expect(metrics.documentScrollWidth).toBeLessThanOrEqual(width + 1);
+    for (const block of [metrics.header, metrics.archive, metrics.spread, metrics.firstHeading]) {
+      expect(block).not.toBeNull();
+      expect(block.left).toBeGreaterThanOrEqual(0);
+      expect(block.right).toBeLessThanOrEqual(width + 1);
+    }
+    expect(metrics.entries.every((entry) => entry.left >= 0 && entry.right <= width + 1 && entry.height > 0)).toBe(true);
+    if (width === 1487) {
+      expect(metrics.header.bottom).toBeLessThanOrEqual(height);
+      expect(metrics.archive.bottom).toBeLessThanOrEqual(height);
+      expect(metrics.firstHeading.bottom).toBeLessThanOrEqual(height);
+      expect(metrics.entries[0].bottom).toBeLessThanOrEqual(height);
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.screenshot({ path: "output/qa/REFINE-19/RECORDS-01-before-9ecaf59-1487.png", animations: "disabled", fullPage: true });
+    } else {
+      await recordsPage.locator(".ep-record-entry").first().scrollIntoViewIfNeeded();
+      await expect(recordsPage.locator(".ep-record-entry").first()).toBeVisible();
+    }
+  }
+});
+
+test("REFINE-19 RECORDS-02 keeps the Editorial Paper records hierarchy inside its theme boundary", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  const dailyBreakdown = [
+    ["2026-08-30", 30, "00:30:00"],
+    ["2026-08-31", 45, "00:45:00"],
+    ["2026-09-01", 60, "01:00:00"],
+    ["2026-09-02", 30, "00:30:00"],
+    ["2026-09-03", 45, "00:45:00"],
+    ["2026-09-04", 60, "01:00:00"],
+    ["2026-09-05", 45, "00:45:00"],
+  ].map(([date, minutes, totalDurationLabel]) => ({ date, totalDurationMs: minutes * 60 * 1000, totalDurationLabel, sessionCount: 1, linkedSessionCount: 0, independentSessionCount: 1 }));
+  for (const [width, height] of [[1487, 1058], [420, 720]]) {
+    await page.setViewportSize({ width, height });
+    await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", recordCount: 3, dailyBreakdown });
+    await pageButton(page, "记录").click();
+    const recordsPage = page.locator(".ep-records-page");
+    await expect(recordsPage).toBeVisible();
+    await expect(page.locator('.minimal-app[data-theme="editorial-paper"]')).toHaveCount(1);
+    for (const selector of [".trail-page", ".trail-map", ".nv-page", ".nv-focus-panel", ".nv-records-archive", ".nv-settings-layout"]) {
+      await expect(page.locator(selector)).toHaveCount(0);
+    }
+    const styleMetrics = await recordsPage.evaluate(() => {
+      const regions = [".ep-records-header", ".ep-archive-paper", ".ep-records-spread", ".ep-insight-paper", ".ep-full-history"].map((selector) => {
+        const element = document.querySelector(selector);
+        const rect = element.getBoundingClientRect();
+        const style = getComputedStyle(element);
+        return { selector, className: element.className, left: rect.left, right: rect.right, backgroundImage: style.backgroundImage, position: style.position, borderStyle: style.borderStyle };
+      });
+      return { documentScrollWidth: document.documentElement.scrollWidth, regions, rootClasses: document.querySelector(".minimal-app").className };
+    });
+    expect(styleMetrics.documentScrollWidth).toBeLessThanOrEqual(width + 1);
+    expect(styleMetrics.rootClasses).toContain("minimal-app--records");
+    expect(styleMetrics.rootClasses).not.toContain("minimal-app--trail");
+    expect(styleMetrics.regions.every((region) => region.left >= 0 && region.right <= width + 1 && !region.backgroundImage.includes("url(") && region.position !== "absolute")).toBe(true);
+    expect(styleMetrics.regions.find((region) => region.selector === ".ep-archive-paper").backgroundImage).toContain("linear-gradient");
+    if (width === 1487) {
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.screenshot({ path: "output/qa/REFINE-19/RECORDS-02-pass-1487-9ecaf59.png", animations: "disabled", fullPage: true });
+    } else {
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.screenshot({ path: "output/qa/REFINE-19/RECORDS-02-pass-420-9ecaf59.png", animations: "disabled", fullPage: true });
+    }
+  }
+});
+
+test("REFINE-19 RECORDS-03 keeps 28-day Editorial Paper history navigable", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  const recordDates = Array.from({ length: 28 }, (_, index) => new Date(Date.UTC(2026, 7, 9 + index)).toISOString().slice(0, 10));
+  recordDates.push("2026-09-05");
+  const dailyBreakdown = [
+    ["2026-08-30", 30, "00:30:00"],
+    ["2026-08-31", 45, "00:45:00"],
+    ["2026-09-01", 60, "01:00:00"],
+    ["2026-09-02", 30, "00:30:00"],
+    ["2026-09-03", 45, "00:45:00"],
+    ["2026-09-04", 60, "01:00:00"],
+    ["2026-09-05", 90, "01:30:00"],
+  ].map(([date, minutes, totalDurationLabel]) => ({ date, totalDurationMs: minutes * 60 * 1000, totalDurationLabel, sessionCount: 1, linkedSessionCount: 0, independentSessionCount: 1 }));
+  const longTitlePrefix = "这是一条很长的历史专注记录用于核对日期分组展开编辑删除和窄屏回看";
+  const editedTitle = "已编辑的历史专注记录：保持长文本在纸页内可回看";
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page, {
+    expectedHeading: "今日节奏",
+    recordCount: recordDates.length,
+    recordDates,
+    recordTitlePrefix: longTitlePrefix,
+    dailyBreakdown,
+    analyticsPatch: { todayFocusDurationLabel: "01:30:00", todaySessionCount: 2, totalFocusDurationLabel: "21:45:00", totalFocusDurationMs: recordDates.length * 45 * 60 * 1000 },
+  });
+  await page.evaluate(() => {
+    const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
+    let recordsOverride = null;
+    window.__epRecordCommands = [];
+    window.__TAURI_INTERNALS__.invoke = async (command, args = {}) => {
+      window.__epRecordCommands.push(command);
+      if (command === "get_focus_records") {
+        recordsOverride = recordsOverride ?? await nativeInvoke(command, args);
+        return recordsOverride;
+      }
+      if (command === "update_focus_record_title") {
+        recordsOverride = (recordsOverride ?? await nativeInvoke("get_focus_records")).map((record) => record.id === args.id ? { ...record, title: args.title, linkedTodoTitle: args.title } : record);
+        return recordsOverride;
+      }
+      if (command === "delete_focus_record") {
+        recordsOverride = (recordsOverride ?? await nativeInvoke("get_focus_records")).filter((record) => record.id !== args.id);
+        return recordsOverride;
+      }
+      return nativeInvoke(command, args);
+    };
+  });
+  await pageButton(page, "记录").click();
+  const recordsPage = page.locator(".ep-records-page");
+  const history = recordsPage.locator(".ep-full-history");
+  await expect(history.locator("details")).toHaveCount(28);
+  const oldest = history.locator("details").first();
+  await oldest.locator("summary").click();
+  await expect(oldest.locator(":scope > div")).toBeVisible();
+  await expect(oldest).toContainText(`${longTitlePrefix} 1`);
+  await oldest.locator("summary").click();
+  await expect(oldest.locator(":scope > div")).toHaveCount(0);
+  await oldest.locator("summary").click();
+
+  const selectedEntries = recordsPage.locator(".ep-records-list .ep-record-entry");
+  await expect(selectedEntries).toHaveCount(2);
+  await selectedEntries.first().getByRole("button", { name: "编辑", exact: true }).click();
+  await selectedEntries.first().locator('input[aria-label="记录名称"]').fill(editedTitle);
+  await selectedEntries.first().getByRole("button", { name: "保存", exact: true }).click();
+  await expect(selectedEntries.first().locator("strong")).toHaveAttribute("title", editedTitle);
+  await selectedEntries.last().getByRole("button", { name: "删除", exact: true }).click();
+  await expect(selectedEntries).toHaveCount(1);
+  await expect(page.locator(".app-message")).toContainText("已删除");
+
+  await oldest.locator("summary").click();
+  await expect(oldest.locator(":scope > div")).toBeVisible();
+  await history.locator("details").last().scrollIntoViewIfNeeded();
+  const desktopMetrics = await recordsPage.evaluate(() => ({ documentScrollWidth: document.documentElement.scrollWidth, documentScrollHeight: document.documentElement.scrollHeight, scrollY: window.scrollY, historyGroups: document.querySelectorAll(".ep-full-history details").length, oldestExpanded: document.querySelector(".ep-full-history details")?.open ?? false }));
+  expect(desktopMetrics.documentScrollWidth).toBeLessThanOrEqual(1488);
+  expect(desktopMetrics.documentScrollHeight).toBeGreaterThan(1058);
+  expect(desktopMetrics.scrollY).toBeGreaterThan(0);
+  expect(desktopMetrics.historyGroups).toBe(28);
+  expect(desktopMetrics.oldestExpanded).toBe(true);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.screenshot({ path: "output/qa/REFINE-19/RECORDS-03-pass-1487-9ecaf59.png", animations: "disabled", fullPage: true });
+
+  await page.setViewportSize({ width: 420, height: 720 });
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await expect(history.locator("details")).toHaveCount(28);
+  const mobileMetrics = await recordsPage.evaluate(() => ({ documentScrollWidth: document.documentElement.scrollWidth, oldestLeft: document.querySelector(".ep-full-history details")?.getBoundingClientRect().left ?? -1, oldestRight: document.querySelector(".ep-full-history details")?.getBoundingClientRect().right ?? -1 }));
+  expect(mobileMetrics.documentScrollWidth).toBeLessThanOrEqual(421);
+  expect(mobileMetrics.oldestLeft).toBeGreaterThanOrEqual(0);
+  expect(mobileMetrics.oldestRight).toBeLessThanOrEqual(421);
+  await oldest.scrollIntoViewIfNeeded();
+  await expect(oldest).toBeVisible();
+  await page.screenshot({ path: "output/qa/REFINE-19/RECORDS-03-pass-420-9ecaf59.png", animations: "disabled", fullPage: true });
+  const commands = await page.evaluate(() => window.__epRecordCommands);
+  expect(commands).toEqual(expect.arrayContaining(["update_focus_record_title", "delete_focus_record"]));
+});
+
+test("REFINE-19 RECORDS-04 verifies Editorial Paper uses aligned natural-day bars", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  const dailyBreakdown = [
+    ["2026-08-30", 30, "00:30:00"],
+    ["2026-08-31", 45, "00:45:00"],
+    ["2026-09-01", 60, "01:00:00"],
+    ["2026-09-02", 30, "00:30:00"],
+    ["2026-09-03", 45, "00:45:00"],
+    ["2026-09-04", 60, "01:00:00"],
+    ["2026-09-05", 90, "01:30:00"],
+  ].map(([date, minutes, totalDurationLabel]) => ({ date, totalDurationMs: minutes * 60 * 1000, totalDurationLabel, sessionCount: 1, linkedSessionCount: 0, independentSessionCount: 1 }));
+  for (const [width, height] of [[1487, 1058], [420, 720]]) {
+    await page.setViewportSize({ width, height });
+    await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", recordCount: 7, dailyBreakdown });
+    await pageButton(page, "记录").click();
+    const recordsPage = page.locator(".ep-records-page");
+    const chart = recordsPage.locator(".ep-archive-chart");
+    await expect(chart).toBeVisible();
+    const metrics = await chart.evaluate((element) => {
+      const bars = [...element.querySelectorAll(".ep-chart-bar")].map((bar) => {
+        const column = bar.querySelector(".ep-chart-bar__column");
+        const label = bar.querySelector("strong");
+        const value = bar.querySelector(".ep-chart-bar__value");
+        const barRect = bar.getBoundingClientRect();
+        const columnRect = column.getBoundingClientRect();
+        const labelRect = label.getBoundingClientRect();
+        return {
+          barCenter: (barRect.left + barRect.right) / 2,
+          columnCenter: (columnRect.left + columnRect.right) / 2,
+          columnBottom: columnRect.bottom,
+          labelTop: labelRect.top,
+          value: value?.textContent ?? "",
+          date: label?.textContent ?? "",
+          barWidth: barRect.width,
+          columnWidth: columnRect.width,
+        };
+      });
+      return {
+        svgLikeNodes: element.querySelectorAll("svg, path, circle, polyline").length,
+        heading: element.querySelector(".ep-chart-heading span")?.textContent ?? "",
+        bars,
+        documentScrollWidth: document.documentElement.scrollWidth,
+      };
+    });
+    expect(metrics.svgLikeNodes).toBe(0);
+    expect(metrics.heading).toContain("近七日 / NATURAL DAYS");
+    expect(metrics.bars).toHaveLength(7);
+    expect(metrics.bars.map((bar) => bar.value)).toEqual(["00:30:00", "00:45:00", "01:00:00", "00:30:00", "00:45:00", "01:00:00", "01:30:00"]);
+    expect(metrics.bars.map((bar) => bar.date)).toEqual(["8/30周日", "8/31周一", "9/1周二", "9/2周三", "9/3周四", "9/4周五", "9/5周六"]);
+    expect(metrics.bars.every((bar) => Math.abs(bar.barCenter - bar.columnCenter) < 1 && bar.columnBottom <= bar.labelTop && bar.barWidth > 0 && bar.columnWidth > 0)).toBe(true);
+    expect(metrics.documentScrollWidth).toBeLessThanOrEqual(width + 1);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({ path: `output/qa/REFINE-19/RECORDS-04-not-applicable-${width}-9ecaf59.png`, animations: "disabled", fullPage: true });
+  }
+});
+
+test("REFINE-19 RECORDS-05 keeps Editorial Paper history statistics non-duplicative", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  const dailyBreakdown = [
+    ["2026-08-30", 15, "00:15:00"],
+    ["2026-08-31", 30, "00:30:00"],
+    ["2026-09-01", 45, "00:45:00"],
+    ["2026-09-02", 60, "01:00:00"],
+    ["2026-09-03", 75, "01:15:00"],
+    ["2026-09-04", 90, "01:30:00"],
+    ["2026-09-05", 120, "02:00:00"],
+  ].map(([date, minutes, totalDurationLabel]) => ({ date, totalDurationMs: minutes * 60 * 1000, totalDurationLabel, sessionCount: 1, linkedSessionCount: 0, independentSessionCount: 1 }));
+  for (const [width, height] of [[1487, 1058], [420, 720]]) {
+    await page.setViewportSize({ width, height });
+    await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", recordCount: 7, dailyBreakdown });
+    await pageButton(page, "记录").click();
+    const recordsPage = page.locator(".ep-records-page");
+    const metrics = await recordsPage.evaluate(() => ({
+      archiveCharts: document.querySelectorAll(".ep-archive-chart").length,
+      barGroups: document.querySelectorAll(".ep-chart-bars").length,
+      distributionCandidates: document.querySelectorAll('[class*="distribution"], [data-chart="distribution"], [data-visualization="distribution"]').length,
+      chartLabel: document.querySelector(".ep-chart-heading span")?.textContent ?? "",
+      chartValues: [...document.querySelectorAll(".ep-chart-bar__value")].map((element) => element.textContent ?? ""),
+      chartDates: [...document.querySelectorAll(".ep-chart-bar strong")].map((element) => element.textContent ?? ""),
+      chartButtons: document.querySelectorAll(".ep-chart-bar").length,
+      historySections: document.querySelectorAll(".ep-full-history").length,
+      documentScrollWidth: document.documentElement.scrollWidth,
+    }));
+    expect(metrics.archiveCharts).toBe(1);
+    expect(metrics.barGroups).toBe(1);
+    expect(metrics.distributionCandidates).toBe(0);
+    expect(metrics.chartLabel).toBe("近七日 / NATURAL DAYS");
+    expect(metrics.chartValues).toEqual(["00:15:00", "00:30:00", "00:45:00", "01:00:00", "01:15:00", "01:30:00", "02:00:00"]);
+    expect(metrics.chartDates).toEqual(["8/30周日", "8/31周一", "9/1周二", "9/2周三", "9/3周四", "9/4周五", "9/5周六"]);
+    expect(metrics.chartButtons).toBe(7);
+    expect(metrics.historySections).toBe(1);
+    expect(metrics.documentScrollWidth).toBeLessThanOrEqual(width + 1);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({ path: `output/qa/REFINE-19/RECORDS-05-not-applicable-${width}-9ecaf59.png`, animations: "disabled", fullPage: true });
+  }
+});
+
+test("REFINE-19 RECORDS-06 keeps all Editorial Paper records usable at scale", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  const recordCount = 205;
+  const recordDates = Array.from({ length: recordCount }, () => referenceDate);
+  const longTitlePrefix = "这是一条很长的全部记录用于核对加载更多编辑保存删除和窄屏回看";
+  const editedTitle = "已编辑的全部记录标题：仍然可以完整回看";
+  const dailyBreakdown = [
+    ["2026-08-30", 0, "00:00:00"],
+    ["2026-08-31", 0, "00:00:00"],
+    ["2026-09-01", 0, "00:00:00"],
+    ["2026-09-02", 0, "00:00:00"],
+    ["2026-09-03", 0, "00:00:00"],
+    ["2026-09-04", 0, "00:00:00"],
+    ["2026-09-05", recordCount * 45, "153:45:00"],
+  ].map(([date, minutes, totalDurationLabel]) => ({ date, totalDurationMs: minutes * 60 * 1000, totalDurationLabel, sessionCount: date === referenceDate ? recordCount : 0, linkedSessionCount: 0, independentSessionCount: date === referenceDate ? recordCount : 0 }));
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page, {
+    expectedHeading: "今日节奏",
+    recordCount,
+    recordDates,
+    recordTitlePrefix: longTitlePrefix,
+    dailyBreakdown,
+    analyticsPatch: { todayFocusDurationLabel: "153:45:00", todaySessionCount: recordCount, totalFocusDurationLabel: "153:45:00", totalFocusDurationMs: recordCount * 45 * 60 * 1000 },
+  });
+  await page.evaluate(() => {
+    const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
+    let recordsOverride = null;
+    window.__epRecordCommands = [];
+    window.__TAURI_INTERNALS__.invoke = async (command, args = {}) => {
+      window.__epRecordCommands.push(command);
+      if (command === "get_focus_records") {
+        recordsOverride = recordsOverride ?? await nativeInvoke(command, args);
+        return recordsOverride;
+      }
+      if (command === "update_focus_record_title") {
+        recordsOverride = (recordsOverride ?? await nativeInvoke("get_focus_records")).map((record) => record.id === args.id ? { ...record, title: args.title, linkedTodoTitle: args.title } : record);
+        return recordsOverride;
+      }
+      if (command === "delete_focus_record") {
+        recordsOverride = (recordsOverride ?? await nativeInvoke("get_focus_records")).filter((record) => record.id !== args.id);
+        return recordsOverride;
+      }
+      return nativeInvoke(command, args);
+    };
+  });
+  await pageButton(page, "记录").click();
+  const recordsPage = page.locator(".ep-records-page");
+  const selectedEntries = recordsPage.locator(".ep-records-list .ep-record-entry");
+  const history = recordsPage.locator(".ep-full-history");
+  const historyDay = history.locator("details").first();
+  await expect(history.locator("details")).toHaveCount(1);
+  await expect(historyDay.locator("summary")).toContainText("205 轮");
+  await expect(selectedEntries).toHaveCount(200);
+  const loadMore = recordsPage.getByRole("button", { name: /继续展开记录/ });
+  await expect(loadMore).toContainText("200 / 205");
+  await loadMore.click();
+  await expect(selectedEntries).toHaveCount(205);
+  await expect(selectedEntries.last().locator("strong")).toHaveAttribute("title", `${longTitlePrefix} 205`);
+
+  await selectedEntries.first().getByRole("button", { name: "编辑", exact: true }).click();
+  await selectedEntries.first().locator('input[aria-label="记录名称"]').fill(editedTitle);
+  await selectedEntries.first().getByRole("button", { name: "保存", exact: true }).click();
+  await expect(selectedEntries.first().locator("strong")).toHaveAttribute("title", editedTitle);
+  await selectedEntries.last().getByRole("button", { name: "删除", exact: true }).click();
+  await expect(page.locator(".app-message")).toContainText("已删除");
+  await expect(historyDay.locator("summary")).toContainText("204 轮");
+
+  await historyDay.locator("summary").click();
+  await expect(historyDay.locator(":scope > div span")).toHaveCount(204);
+  await expect(historyDay.locator(":scope > div")).toContainText(editedTitle);
+  const desktopMetrics = await recordsPage.evaluate(() => ({
+    documentScrollWidth: document.documentElement.scrollWidth,
+    documentScrollHeight: document.documentElement.scrollHeight,
+    historyTextCount: document.querySelectorAll(".ep-full-history details > div span").length,
+    selectedCount: document.querySelectorAll(".ep-records-list .ep-record-entry").length,
+  }));
+  expect(desktopMetrics.documentScrollWidth).toBeLessThanOrEqual(1488);
+  expect(desktopMetrics.documentScrollHeight).toBeGreaterThan(1058);
+  expect(desktopMetrics.historyTextCount).toBe(204);
+  await history.screenshot({ path: "output/qa/REFINE-19/RECORDS-06-pass-1487-9ecaf59.png", animations: "disabled" });
+
+  await page.setViewportSize({ width: 420, height: 720 });
+  const mobileMetrics = await recordsPage.evaluate(() => {
+    const list = document.querySelector(".ep-records-list");
+    const historyElement = document.querySelector(".ep-full-history");
+    const listRect = list.getBoundingClientRect();
+    const historyRect = historyElement.getBoundingClientRect();
+    return { documentScrollWidth: document.documentElement.scrollWidth, listRight: listRect.right, historyRight: historyRect.right, viewportWidth: innerWidth };
+  });
+  expect(mobileMetrics.documentScrollWidth).toBeLessThanOrEqual(421);
+  expect(mobileMetrics.listRight).toBeLessThanOrEqual(mobileMetrics.viewportWidth + 1);
+  expect(mobileMetrics.historyRight).toBeLessThanOrEqual(mobileMetrics.viewportWidth + 1);
+  await expect(historyDay.locator(":scope > div span")).toHaveCount(204);
+  await history.screenshot({ path: "output/qa/REFINE-19/RECORDS-06-pass-420-9ecaf59.png", animations: "disabled" });
+  const commands = await page.evaluate(() => window.__epRecordCommands);
+  expect(commands).toEqual(expect.arrayContaining(["update_focus_record_title", "delete_focus_record"]));
+});
+
+test("REFINE-19 RECORDS-07 keeps all Editorial Paper window controls usable", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", recordCount: 3 });
+  await page.evaluate(() => {
+    const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
+    window.__epRecordsWindowCommands = [];
+    window.__TAURI_INTERNALS__.invoke = async (command, args = {}) => {
+      window.__epRecordsWindowCommands.push(command);
+      return nativeInvoke(command, args);
+    };
+  });
+  await pageButton(page, "记录").click();
+  const recordsPage = page.locator(".ep-records-page");
+  const controls = page.locator(".window-controls");
+  const buttons = controls.locator(".window-control");
+  await expect(recordsPage).toBeVisible();
+  await expect(controls).toBeVisible();
+  await expect(buttons).toHaveCount(3);
+  await expect(controls).not.toHaveAttribute("data-tauri-drag-region", "true");
+  const expectedControls = [
+    ["最小化窗口", "最小化", "minimize_main_window"],
+    ["最大化或还原窗口", "最大化 / 还原", "toggle_maximize_main_window"],
+    ["关闭窗口", "关闭窗口（隐藏到托盘）", "close_main_window"],
+  ];
+  for (let index = 0; index < expectedControls.length; index += 1) {
+    const [ariaLabel, title] = expectedControls[index];
+    const button = buttons.nth(index);
+    await expect(button).toBeVisible();
+    await expect(button).toHaveAttribute("aria-label", ariaLabel);
+    await expect(button).toHaveAttribute("title", title);
+    const bounds = await button.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, viewportWidth: innerWidth, viewportHeight: innerHeight };
+    });
+    expect(bounds.left).toBeGreaterThanOrEqual(0);
+    expect(bounds.right).toBeLessThanOrEqual(bounds.viewportWidth + 1);
+    expect(bounds.top).toBeGreaterThanOrEqual(0);
+    expect(bounds.bottom).toBeLessThanOrEqual(bounds.viewportHeight);
+  }
+  for (const [index, [, , command]] of expectedControls.entries()) {
+    await buttons.nth(index).click();
+    await expect.poll(() => page.evaluate((expectedCommand) => window.__epRecordsWindowCommands.filter((item) => item === expectedCommand).length, command)).toBe(1);
+  }
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.screenshot({ path: "output/qa/REFINE-19/RECORDS-07-pass-1487-9ecaf59.png", animations: "disabled", fullPage: true });
+
+  await page.setViewportSize({ width: 420, height: 720 });
+  await page.evaluate(() => window.scrollTo(0, 0));
+  const mobileBounds = await buttons.evaluateAll((elements) => elements.map((element) => {
+    const rect = element.getBoundingClientRect();
+    return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, viewportWidth: innerWidth, viewportHeight: innerHeight };
+  }));
+  expect(mobileBounds.every((bounds) => bounds.left >= 0 && bounds.right <= bounds.viewportWidth + 1 && bounds.top >= 0 && bounds.bottom <= bounds.viewportHeight)).toBe(true);
+  await expect(buttons).toHaveCount(3);
+  await page.screenshot({ path: "output/qa/REFINE-19/RECORDS-07-pass-420-9ecaf59.png", animations: "disabled", fullPage: true });
+});
+
+test("REFINE-19 SETTINGS-01 keeps Editorial Paper settings copy and controls separated", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  for (const [width, height] of [[1487, 1058], [420, 720]]) {
+    await page.setViewportSize({ width, height });
+    await pageButton(page, "设置").click();
+    const settingsPage = page.locator(".ep-settings-page");
+    await expect(settingsPage).toBeVisible();
+    const metrics = await settingsPage.evaluate(() => {
+      const rect = (element) => {
+        const box = element.getBoundingClientRect();
+        return { left: box.left, right: box.right, top: box.top, bottom: box.bottom, width: box.width, height: box.height };
+      };
+      const overlaps = (first, second) => first.left < second.right - 1 && first.right > second.left + 1 && first.top < second.bottom - 1 && first.bottom > second.top + 1;
+      const blockSelectors = [
+        ".ep-section-heading", ".ep-theme-swatches", ".ep-slider-row", ".ep-density-row", ".ep-live-preview",
+        ".ep-setting-list", ".ep-hand-note", ".ep-select-row", ".ep-sound-actions", ".ep-shortcut-list",
+        ".ep-settings-paper--backup > p", ".ep-settings-actions", ".ep-error", ".ep-settings-footer",
+      ];
+      const blockMetrics = [...document.querySelectorAll(".ep-settings-paper")].flatMap((paper, paperIndex) => blockSelectors.map((selector) => {
+        const element = paper.querySelector(selector);
+        return element ? { paperIndex, selector, ...rect(element) } : null;
+      }).filter(Boolean));
+      const overlapPairs = [];
+      for (let index = 0; index < blockMetrics.length; index += 1) {
+        for (let next = index + 1; next < blockMetrics.length; next += 1) {
+          const first = blockMetrics[index];
+          const second = blockMetrics[next];
+          if (first.paperIndex === second.paperIndex && overlaps(first, second)) overlapPairs.push([first.selector, second.selector, first.paperIndex]);
+        }
+      }
+      const swatches = [...document.querySelectorAll(".ep-theme-swatch")].map((element) => ({ ...rect(element), label: element.textContent?.trim() ?? "" }));
+      const footerChildren = [...document.querySelectorAll(".ep-settings-footer > *")].map((element) => ({ ...rect(element), tag: element.tagName, text: element.textContent?.trim() ?? "" }));
+      return { documentScrollWidth: document.documentElement.scrollWidth, viewportWidth: innerWidth, blockMetrics, overlapPairs, swatches, footerChildren };
+    });
+    console.log(`SETTINGS-01 ${width}x${height}: ${JSON.stringify(metrics)}`);
+    expect(metrics.documentScrollWidth).toBeLessThanOrEqual(width + 1);
+    expect(metrics.overlapPairs).toEqual([]);
+    expect(metrics.swatches.every((swatch) => swatch.left >= 0 && swatch.right <= width + 1 && swatch.height > 0)).toBe(true);
+    expect(metrics.footerChildren.every((child) => child.left >= 0 && child.right <= width + 1 && child.height > 0)).toBe(true);
+    if (width === 1487) {
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.screenshot({ path: "output/qa/REFINE-19/SETTINGS-01-pass-1487-9ecaf59.png", animations: "disabled", fullPage: true });
+    } else {
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.screenshot({ path: "output/qa/REFINE-19/SETTINGS-01-pass-420-9ecaf59.png", animations: "disabled", fullPage: true });
+    }
+  }
+});
+
+test("REFINE-19 SETTINGS-02 removes Editorial Paper controls with no visible effect", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  for (const [width, height] of [[1487, 1058], [420, 720]]) {
+    await page.setViewportSize({ width, height });
+    await pageButton(page, "设置").click();
+    const settingsPage = page.locator(".ep-settings-page");
+    await expect(settingsPage).toBeVisible();
+    await expect(settingsPage.locator(".ep-slider-row")).toHaveCount(0);
+    await expect(settingsPage.locator(".ep-density-row")).toHaveCount(0);
+    await expect(settingsPage.locator(".ep-theme-swatch")).toHaveCount(5);
+    await expect(settingsPage.locator(".ep-live-preview")).toBeVisible();
+    const metrics = await settingsPage.evaluate(() => ({
+      rootDensity: document.querySelector(".minimal-app")?.getAttribute("data-density") ?? "",
+      rootMotion: document.querySelector(".minimal-app")?.getAttribute("data-motion") ?? "",
+      visualIntensityVariable: document.querySelector(".minimal-app")?.style.getPropertyValue("--nv-visual-intensity") ?? "",
+      documentScrollWidth: document.documentElement.scrollWidth,
+    }));
+    expect(metrics.rootDensity).toMatch(/^(roomy|compact)$/);
+    expect(metrics.rootMotion).toMatch(/^(off|subtle|full)$/);
+    expect(metrics.visualIntensityVariable).not.toBe("");
+    expect(metrics.documentScrollWidth).toBeLessThanOrEqual(width + 1);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({ path: `output/qa/REFINE-19/SETTINGS-02-after-${width}-9ecaf59.png`, animations: "disabled", fullPage: true });
+  }
+});
+
+test("REFINE-19 SETTINGS-03 keeps Editorial Paper sound choices and custom sound flow usable", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  await page.evaluate(() => {
+    const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
+    window.__epSoundCommands = [];
+    window.__epSoundPreferences = null;
+    window.__epPreviewOscillators = 0;
+    class ReferenceAudioContext {
+      currentTime = 0;
+      destination = {};
+      createOscillator() {
+        window.__epPreviewOscillators += 1;
+        return { type: "sine", frequency: { value: 0 }, connect: () => {}, start: () => {}, stop: () => {} };
+      }
+      createGain() {
+        return { gain: { setValueAtTime: () => {}, exponentialRampToValueAtTime: () => {} }, connect: () => {} };
+      }
+      close() { return Promise.resolve(); }
+    }
+    Object.defineProperty(window, "AudioContext", { configurable: true, value: ReferenceAudioContext });
+    window.__TAURI_INTERNALS__.invoke = async (command, args = {}) => {
+      window.__epSoundCommands.push(command);
+      if (command === "update_timer_preferences") {
+        const current = window.__epSoundPreferences ?? await nativeInvoke("get_timer_preferences");
+        window.__epSoundPreferences = { ...current, ...(args.preferences ?? {}) };
+        return window.__epSoundPreferences;
+      }
+      return nativeInvoke(command, args);
+    };
+  });
+  await pageButton(page, "设置").click();
+  const settingsPage = page.locator(".ep-settings-page");
+  const soundSelect = settingsPage.locator('select[name="editorialAlertSound"]');
+  const soundOptions = soundSelect.locator("option");
+  await expect(soundOptions).toHaveCount(8);
+  await expect(soundOptions).toHaveText(["柔和铃音", "明亮三连", "沉稳脉冲", "木鱼单击", "玻璃回响", "晨光和弦", "老牧师原声", "自定义音效"]);
+  await expect(soundOptions.nth(7)).toHaveJSProperty("disabled", true);
+  await soundSelect.selectOption("bright_bell");
+  await expect(soundSelect).toHaveValue("bright_bell");
+  await expect.poll(() => page.evaluate(() => window.__epSoundCommands.filter((item) => item === "update_timer_preferences").length)).toBe(1);
+  await settingsPage.getByRole("button", { name: "试听", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => window.__epPreviewOscillators)).toBeGreaterThan(0);
+
+  await settingsPage.locator('input[type="file"][aria-label="导入自定义音效"]').setInputFiles({ name: "paper-chime.wav", mimeType: "audio/wav", buffer: Buffer.from("RIFF0000WAVEfmt ") });
+  await expect(page.locator(".app-message")).toContainText("自定义音效已启用");
+  await expect(soundOptions.nth(7)).toHaveJSProperty("disabled", false);
+  await expect(soundSelect).toHaveValue("custom");
+  await expect(settingsPage.getByRole("button", { name: "移除自定义", exact: true })).toBeVisible();
+  await settingsPage.getByRole("button", { name: "移除自定义", exact: true }).click();
+  await expect(page.locator(".app-message")).toContainText("已恢复为柔和铃音");
+  await expect(soundSelect).toHaveValue("soft_chime");
+  await expect(settingsPage.getByRole("button", { name: "移除自定义", exact: true })).toHaveCount(0);
+
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.screenshot({ path: "output/qa/REFINE-19/SETTINGS-03-pass-1487-9ecaf59.png", animations: "disabled", fullPage: true });
+  await page.setViewportSize({ width: 420, height: 720 });
+  const mobileMetrics = await settingsPage.evaluate(() => ({
+    documentScrollWidth: document.documentElement.scrollWidth,
+    selectRight: document.querySelector('select[name="editorialAlertSound"]')?.getBoundingClientRect().right ?? -1,
+    actionsRight: document.querySelector(".ep-sound-actions")?.getBoundingClientRect().right ?? -1,
+  }));
+  expect(mobileMetrics.documentScrollWidth).toBeLessThanOrEqual(421);
+  expect(mobileMetrics.selectRight).toBeLessThanOrEqual(421);
+  expect(mobileMetrics.actionsRight).toBeLessThanOrEqual(421);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.screenshot({ path: "output/qa/REFINE-19/SETTINGS-03-pass-420-9ecaf59.png", animations: "disabled", fullPage: true });
+  const commands = await page.evaluate(() => window.__epSoundCommands);
+  expect(commands.filter((command) => command === "update_timer_preferences").length).toBe(3);
+});
+
+test("REFINE-19 SETTINGS-04 keeps displayed Editorial Paper shortcuts wired", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  await page.evaluate(() => {
+    const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
+    window.__epShortcutCommands = [];
+    window.__TAURI_INTERNALS__.invoke = async (command, args = {}) => {
+      window.__epShortcutCommands.push(command);
+      if (command === "start_timer") {
+        const snapshot = await nativeInvoke(command, args);
+        return { ...snapshot, elapsedMs: 1000, elapsedLabel: "00:00:01", hasUnsubmittedProgress: true, canCompleteSession: true };
+      }
+      if (command === "complete_focus_session") {
+        const snapshot = await nativeInvoke("get_timer_snapshot");
+        return {
+          records: await nativeInvoke("get_focus_records"),
+          todoItems: await nativeInvoke("get_todo_items"),
+          timerSnapshot: { ...snapshot, isRunning: false, status: "待开始", elapsedMs: 0, elapsedLabel: "00:00:00", remainingMs: 0, hasUnsubmittedProgress: false, canCompleteSession: false },
+        };
+      }
+      return nativeInvoke(command, args);
+    };
+  });
+  await pageButton(page, "设置").click();
+  const settingsPage = page.locator(".ep-settings-page");
+  const shortcutRows = settingsPage.locator(".ep-shortcut-list > div");
+  await expect(shortcutRows).toHaveCount(3);
+  await expect(shortcutRows.nth(0)).toContainText("开始 / 继续");
+  await expect(shortcutRows.nth(0)).toContainText("Ctrl");
+  await expect(shortcutRows.nth(0)).toContainText("Enter");
+  await expect(shortcutRows.nth(1)).toContainText("结束本段");
+  await expect(shortcutRows.nth(1)).toContainText("Shift");
+  await expect(shortcutRows.nth(1)).toContainText("E");
+  await expect(shortcutRows.nth(2)).toContainText("命令面板");
+  await expect(shortcutRows.nth(2)).toContainText("K");
+
+  await page.keyboard.press("Control+K");
+  await expect(page.locator("#command-palette-dialog")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#command-palette-dialog")).toHaveCount(0);
+  await page.keyboard.press("Control+Enter");
+  await expect.poll(() => page.evaluate(() => window.__epShortcutCommands.filter((command) => command === "start_timer").length)).toBe(1);
+  await page.keyboard.press("Control+Shift+E");
+  await expect.poll(() => page.evaluate(() => window.__epShortcutCommands.filter((command) => command === "complete_focus_session").length)).toBe(1);
+  await expect(page.locator(".app-message")).toContainText("已保存为一条专注记录");
+  const commands = await page.evaluate(() => window.__epShortcutCommands);
+  expect(commands).toEqual(expect.arrayContaining(["start_timer", "complete_focus_session"]));
+
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.screenshot({ path: "output/qa/REFINE-19/SETTINGS-04-pass-1487-9ecaf59.png", animations: "disabled", fullPage: true });
+  await page.setViewportSize({ width: 420, height: 720 });
+  const mobileMetrics = await settingsPage.evaluate(() => ({
+    documentScrollWidth: document.documentElement.scrollWidth,
+    shortcutRight: document.querySelector(".ep-shortcut-list")?.getBoundingClientRect().right ?? -1,
+  }));
+  expect(mobileMetrics.documentScrollWidth).toBeLessThanOrEqual(421);
+  expect(mobileMetrics.shortcutRight).toBeLessThanOrEqual(421);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.screenshot({ path: "output/qa/REFINE-19/SETTINGS-04-pass-420-9ecaf59.png", animations: "disabled", fullPage: true });
+});
+
+test("REFINE-19 SETTINGS-05 keeps Editorial Paper theme preview purposeful", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  for (const [width, height] of [[1487, 1058], [420, 720]]) {
+    await page.setViewportSize({ width, height });
+    await pageButton(page, "设置").click();
+    const settingsPage = page.locator(".ep-settings-page");
+    await expect(settingsPage).toBeVisible();
+    await expect(settingsPage.locator(".ep-theme-swatches")).toHaveCount(1);
+    await expect(settingsPage.locator(".ep-theme-swatch")).toHaveCount(5);
+    const preview = settingsPage.locator(".ep-live-preview");
+    await expect(preview).toBeVisible();
+    await expect(preview).toContainText("当前样式预览");
+    await expect(preview.locator(".ep-live-preview__paper")).toContainText("编辑纸页");
+    await expect(preview.locator(".ep-live-preview__paper")).toContainText("纸张、铅字与可读性的工作界面。");
+    const metrics = await settingsPage.evaluate(() => {
+      const previewPaper = document.querySelector(".ep-live-preview__paper");
+      const style = previewPaper ? getComputedStyle(previewPaper) : null;
+      return {
+        nightValleyNodes: document.querySelectorAll('[class^="nv-"], [class*=" nv-"]').length,
+        previewImages: document.querySelectorAll(".ep-live-preview img").length,
+        previewUrlBackgrounds: style?.backgroundImage.includes("url(") ?? false,
+        previewRole: document.querySelector(".ep-live-preview__paper")?.className ?? "",
+        documentScrollWidth: document.documentElement.scrollWidth,
+      };
+    });
+    expect(metrics.nightValleyNodes).toBe(0);
+    expect(metrics.previewImages).toBe(0);
+    expect(metrics.previewUrlBackgrounds).toBe(false);
+    expect(metrics.previewRole).toContain("ep-live-preview__paper--editorial-paper");
+    expect(metrics.documentScrollWidth).toBeLessThanOrEqual(width + 1);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({ path: `output/qa/REFINE-19/SETTINGS-05-pass-${width}-9ecaf59.png`, animations: "disabled", fullPage: true });
+  }
+});
+
+test("REFINE-19 SETTINGS-06 makes Editorial Paper settings immediate and persistent", async ({ page }) => {
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem("refine19-settings06-seeded") !== "1") {
+      localStorage.setItem("focused-moment.theme", "editorial-paper");
+      sessionStorage.setItem("refine19-settings06-seeded", "1");
+    }
+  });
+  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  await page.evaluate(() => {
+    const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
+    window.__epSettings06Commands = [];
+    window.__epSettings06FailNext = false;
+    window.__epSettings06Preferences = null;
+    window.__TAURI_INTERNALS__.invoke = async (command, args = {}) => {
+      window.__epSettings06Commands.push(command);
+      if (command === "get_timer_preferences") {
+        window.__epSettings06Preferences = window.__epSettings06Preferences ?? await nativeInvoke(command, args);
+        return window.__epSettings06Preferences;
+      }
+      if (command === "update_timer_preferences") {
+        if (window.__epSettings06FailNext) {
+          window.__epSettings06FailNext = false;
+          throw new Error("模拟保存失败");
+        }
+        const current = window.__epSettings06Preferences ?? await nativeInvoke("get_timer_preferences");
+        const next = { ...current, ...(args.preferences ?? {}) };
+        window.__epSettings06Preferences = next;
+        localStorage.setItem("refine19-settings06-preferences", JSON.stringify(next));
+        return next;
+      }
+      return nativeInvoke(command, args);
+    };
+  });
+  await pageButton(page, "设置").click();
+  let settingsPage = page.locator(".ep-settings-page");
+  await expect(settingsPage).toBeVisible();
+  await expect(settingsPage.getByRole("button", { name: "保存外观设置", exact: true })).toHaveCount(0);
+  await expect(settingsPage).toContainText("主题与提醒设置会立即保存。");
+  await expect(settingsPage).not.toContainText("更改将在下次打开应用时生效。");
+  await settingsPage.locator(".ep-theme-swatch").filter({ hasText: "编辑纸页" }).click();
+  await expect(page.locator(".app-message")).toContainText("设置会自动保留");
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("focused-moment.theme"))).toBe("editorial-paper");
+
+  const behaviorToggle = settingsPage.locator('.ep-setting-list input[type="checkbox"]').first();
+  await behaviorToggle.uncheck();
+  await expect(behaviorToggle).not.toBeChecked();
+  await expect.poll(() => page.evaluate(() => window.__epSettings06Commands.filter((command) => command === "update_timer_preferences").length)).toBe(1);
+  const soundSelect = settingsPage.locator('select[name="editorialAlertSound"]');
+  await page.evaluate(() => { window.__epSettings06FailNext = true; });
+  await soundSelect.selectOption("deep_pulse");
+  await expect(page.locator(".app-message")).toContainText("模拟保存失败");
+  await expect(soundSelect).toHaveValue("soft_chime");
+  await soundSelect.selectOption("bright_bell");
+  await expect(soundSelect).toHaveValue("bright_bell");
+  await expect.poll(() => page.evaluate(() => window.__epSettings06Commands.filter((command) => command === "update_timer_preferences").length)).toBe(3);
+  const storedPreferences = await page.evaluate(() => JSON.parse(localStorage.getItem("refine19-settings06-preferences") ?? "{}"));
+  expect(storedPreferences.toastReminderEnabled).toBe(false);
+  expect(storedPreferences.alertSoundKey).toBe("bright_bell");
+
+  await page.addInitScript(() => {
+    const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
+    window.__TAURI_INTERNALS__.invoke = async (command, args = {}) => {
+      if (command === "get_timer_preferences") {
+        const stored = localStorage.getItem("refine19-settings06-preferences");
+        if (stored) return JSON.parse(stored);
+      }
+      return nativeInvoke(command, args);
+    };
+  });
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "今日节奏" })).toBeVisible();
+  await pageButton(page, "设置").click();
+  settingsPage = page.locator(".ep-settings-page");
+  await expect(settingsPage.locator('select[name="editorialAlertSound"]')).toHaveValue("bright_bell");
+  await expect(settingsPage.locator('.ep-setting-list input[type="checkbox"]').first()).not.toBeChecked();
+  await expect(settingsPage.getByRole("button", { name: "保存外观设置", exact: true })).toHaveCount(0);
+  await expect(settingsPage).toContainText("主题与提醒设置会立即保存。");
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.screenshot({ path: "output/qa/REFINE-19/SETTINGS-06-pass-1487-9ecaf59.png", animations: "disabled", fullPage: true });
+
+  await page.setViewportSize({ width: 420, height: 720 });
+  const mobileMetrics = await settingsPage.evaluate(() => ({
+    documentScrollWidth: document.documentElement.scrollWidth,
+    footerRight: document.querySelector(".ep-settings-footer")?.getBoundingClientRect().right ?? -1,
+  }));
+  expect(mobileMetrics.documentScrollWidth).toBeLessThanOrEqual(421);
+  expect(mobileMetrics.footerRight).toBeLessThanOrEqual(421);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.screenshot({ path: "output/qa/REFINE-19/SETTINGS-06-pass-420-9ecaf59.png", animations: "disabled", fullPage: true });
 });
 
 test("PERF-01 measures synthetic Editorial Paper history rendering", async ({ page }) => {

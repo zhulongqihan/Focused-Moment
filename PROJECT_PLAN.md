@@ -9,16 +9,16 @@
 | --- | --- |
 | as_of / updated_at | 2026-09-14 02:41（Asia/Shanghai）；UX-AUDIT-01 已完成 25 页 × 3 轮 = 75 轮真实浏览器体验、50 组紧凑密度专项、20 个设置锚点检查和人工视觉复核；本地旧归档与生成物清理已按用户授权完成；REL-14 v2.10.11 五套主题“今日一句”已完成构建、提交、正常推送、tag、GitHub Release、远程 Checks、macOS Native Smoke、Universal DMG 和四项资产 digest 核对；新增用户决策：暂时冻结 macOS 版本更新，直到用户明确授权恢复；REL-15 v2.10.12 Windows-only 对齐修复已完成本地验证、打包、提交、推送、tag、Release、远程 Checks 和三项资产 digest 核对；新增用户决策：同一界面内的小修复先本地合并验证，界面整体完成后再一次性提交、推送和发布，不按单个小 bug 推送；`TRAY-01/REL-16` v2.10.13 Windows 通知区域托盘快速操作已实现、完成本地和远程 Windows 验收，并完成 Windows-only Release，证据见 `docs/v2.10.13/RELEASE_NOTES.md` 与 `docs/qa/TRAY-01-windows-tray-menu-v2.10.13.md`；`REFINE-14/REL-17` Night Valley“记录”页三项问题已完成本地实现、71/71 前端回归、Windows 构建打包、提交推送、远程 Checks 与三项 Release 资产 digest 核对，v2.10.14 已完成 Windows-only 发布；`REFINE-15/REL-18` 本轮记录页点线对齐、专注时段分布和全部记录可见性修复已完成本地实现、72/72 前端回归、Windows v2.10.15 打包与三项资产 SHA-256 核对、提交推送、tag、GitHub Release 和远程 Checks 收口；`REFINE-16/REL-19` 记录页窗口控件回归已完成 v2.10.16 Windows-only 修复、73/73 前端回归、Windows 打包、远程 Checks、tag、GitHub Release 与三项资产 digest 核对；`REFINE-17/REL-20` Night Valley 待办工作台重构已完成 v2.10.17 Windows-only 发布、本地与远程 75/75 前端回归、Windows 打包、tag、GitHub Release 和三项资产 digest 核对；`REFINE-18/REL-21` Night Valley 设置工作台重构已完成 v2.10.18 Windows-only 发布，远程 Checks 与三项资产 digest 已核对 |
 | 产品目标 | 本地优先的桌面专注工具：待办 → 专注 → 桌面提醒 → 保存记录 → 回看投入 → 可恢复地长期保留 |
-| 当前阶段 | 五套主题均已接入；MAINT-01 至 MAINT-06 瘦身、文档、远程审计和干净 checkout 验证已完成；REFINE-13 的 Night Valley“计时”页修复、Windows native 验收和 REL-12 v2.10.9 发布闭环均已完成；2026-09-12 本地旧归档与可再生生成物清理已完成；UX-AUDIT-01 全主题逐页体验精修已完成；REL-13 v2.10.10、REL-14 v2.10.11、REL-15 v2.10.12、`TRAY-01/REL-16` v2.10.13 与 `REFINE-14/REL-17` v2.10.14 Windows-only 发布闭环均已完成；`REFINE-15/REL-18` v2.10.15 发布已完成；`REFINE-16/REL-19` v2.10.16 窗口控件修复与 Windows-only 发布已完成；`REFINE-17` v2.10.17 待办工作台重构与 Windows-only 发布均已完成；macOS 仍冻结；`REFINE-18/REL-21` v2.10.18 设置工作台重构与 Windows-only 发布已完成 |
+| 当前阶段 | 五套主题均已接入；MAINT-01 至 MAINT-06 瘦身、文档、远程审计和干净 checkout 验证已完成；REFINE-13 的 Night Valley“计时”页修复、Windows native 验收和 REL-12 v2.10.9 发布闭环均已完成；2026-09-12 本地旧归档与可再生生成物清理已完成；UX-AUDIT-01 全主题逐页体验精修已完成；REL-13 v2.10.10、REL-14 v2.10.11、REL-15 v2.10.12、`TRAY-01/REL-16` v2.10.13 与 `REFINE-14/REL-17` v2.10.14 Windows-only 发布闭环均已完成；`REFINE-15/REL-18` v2.10.15 发布已完成；`REFINE-16/REL-19` v2.10.16 窗口控件修复与 Windows-only 发布已完成；`REFINE-17` v2.10.17 待办工作台重构与 Windows-only 发布均已完成；macOS 仍冻结；`REFINE-18/REL-21` v2.10.18 设置工作台重构与 Windows-only 发布已完成；`REFINE-19` 编辑纸页五页逐条核查、局部修复与 48/48 前端回归已完成，正在收口 v2.10.19 Windows-only 发布 |
 | 代码基线 | v2.10.18 发布代码提交为 `6e8a076e9864a19a8e390e432ff8384aef0e5462`，tag `v2.10.18` peeled commit 与其一致；v2.10.17 发布代码提交为 `67104979f79591125cda32f5506836911b0279e1`，tag `v2.10.17` peeled commit 与其一致；v2.10.16 发布代码提交为 `e6671fceae2595cf0fa4a6893d3dbc059082d651`，tag `v2.10.16` peeled commit 与其一致；v2.10.15 发布代码提交为 `88d97ad120024e63407e2702bee7359ba68cfa25`，tag `v2.10.15` peeled commit 与其一致；v2.10.14 发布代码提交为 `fb1e03eb248e8415e2e29bc688cd756458b427b5`；v2.10.13 发布代码提交为 `28b354e6bead620db11c5cb5c01b6ad1a16ec2ac`；v2.10.12 发布代码提交为 `77b5b66dbde53b976a1f4b2ef3e3582d4f3fd7d5`；v2.10.11 发布代码提交为 `d83444b7d861730a7bd6b22e448b4000ccdec5b3`；旧版本 tag 未移动 |
-| 当前工作分支 | `main`；旧 CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06/DESK-01/DESK-02/DESK-03/ARCH-01/QA-01/PERF-01/TH-02/TH-03/TH-04/TH-05/DATA-01/REL-01 已完成；REFINE-03/REFINE-04/REFINE-05 DONE；REL-02/REL-03/REL-04 DONE；REFINE-06 REVIEW；REL-05 DONE；REFINE-07 REVIEW；REL-06 DONE；REFINE-08 REVIEW；REL-07 DONE；REFINE-09 REVIEW；REL-08 DONE；REFINE-10 REVIEW；REL-09 DONE；REFINE-11 REVIEW；REL-10 DONE；REFINE-12 REVIEW；REL-11 DONE；MAINT-01 至 MAINT-06 DONE；REFINE-13 DONE；REL-12 DONE；本地旧归档清理 DONE；UX-AUDIT-01 DONE；REL-13 DONE；REL-14 DONE；REL-15 DONE；TRAY-01 DONE；REL-16 DONE；REFINE-14 DONE；REL-17 DONE；REFINE-15 DONE；REL-18 DONE；REFINE-16 DONE；REL-19 DONE；REFINE-17 DONE；REL-20 DONE；REFINE-18 DONE；REL-21 DONE |
+| 当前工作分支 | `main`；旧 CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06/DESK-01/DESK-02/DESK-03/ARCH-01/QA-01/PERF-01/TH-02/TH-03/TH-04/TH-05/DATA-01/REL-01 已完成；REFINE-03/REFINE-04/REFINE-05 DONE；REL-02/REL-03/REL-04 DONE；REFINE-06 REVIEW；REL-05 DONE；REFINE-07 REVIEW；REL-06 DONE；REFINE-08 REVIEW；REL-07 DONE；REFINE-09 REVIEW；REL-08 DONE；REFINE-10 REVIEW；REL-09 DONE；REFINE-11 REVIEW；REL-10 DONE；REFINE-12 REVIEW；REL-11 DONE；MAINT-01 至 MAINT-06 DONE；REFINE-13 DONE；REL-12 DONE；本地旧归档清理 DONE；UX-AUDIT-01 DONE；REL-13 DONE；REL-14 DONE；REL-15 DONE；TRAY-01 DONE；REL-16 DONE；REFINE-14 DONE；REL-17 DONE；REFINE-15 DONE；REL-18 DONE；REFINE-16 DONE；REL-19 DONE；REFINE-17 DONE；REL-20 DONE；REFINE-18 DONE；REL-21 DONE；REFINE-19 DOING；REL-22 TODO |
 | 发布基线 | GitHub `v2.10.18`，tag peeled commit 为 `6e8a076`；Windows Checks `34774739411` PASS，远程前端 75 passed，Rust fmt/check/test 均 PASS；GitHub Release 三项 Windows 资产均 uploaded，远端 digest 与本地 SHA-256 一致，详见 `docs/v2.10.18/RELEASE_NOTES.md`；GitHub `v2.10.17`，tag peeled commit 为 `6710497`；Windows Checks `34770039344` PASS，远程前端 75 passed，Rust fmt/check/test 均 PASS；GitHub Release 三项 Windows 资产均 uploaded，远端 digest 与本地 SHA-256 一致，详见 `docs/v2.10.17/RELEASE_NOTES.md`；v2.10.16 继续保留，tag peeled commit 为 `e6671fc`；Windows Checks `34766432213` PASS，远程前端 73 passed，Rust fmt/check/test 均 PASS；GitHub Release 三项 Windows 资产均 uploaded，远端 digest 与本地 SHA-256 一致，详见 `docs/v2.10.16/RELEASE_NOTES.md`；v2.10.15 tag/Release/资产继续保留；Windows Checks `34763893913` PASS，远程前端步骤记录 71 passed + 1 flaky（既有“每日一句”跨主题测试的 Chromium 资源波动，workflow 总体 success），Rust fmt/check/test 均 PASS；Release 三项 Windows 资产均为 uploaded，远端 digest 与本地 SHA-256 一致，详见 `docs/v2.10.15/RELEASE_NOTES.md`；v2.10.11 仍是最后一个包含 macOS 资产的版本；v2.10.8/v2.10.9/v2.10.10/v2.10.13 tag、Release、资产未修改 |
 | 后续发布策略 | **macOS 暂停更新，直到用户明确要求恢复**；v2.10.11 是当前最后一个同时发布 Windows 与 macOS 资产的版本。后续普通用户可见变更默认只走 Windows 构建/验证/发布，不构建或上传新的 macOS Universal DMG，不运行 macOS Release 与 macOS Native Smoke；共享源码可能仍包含 macOS 可用逻辑，但不视为 macOS 版本发布 |
 | 推送节奏 | 用户明确决定：同一界面内的多个小 bug 先在本地集中修复和验证；只有该界面整体修复完成并满足验收标准后，才一次性 commit、push 和 release，不按单个小 bug 推送；流程文档同步本身不触发应用版本、打包或 CI |
 | 远程 main | `origin/main` 已包含 v2.10.17 发布代码提交 `67104979f79591125cda32f5506836911b0279e1` 和 macOS 冻结策略；v2.10.15 发布代码提交 `88d97ad120024e63407e2702bee7359ba68cfa25` 及其 Release 继续保留；GitHub Release [v2.10.15](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.10.15) 已正式发布并有三项 Windows 资产，远端 digest 与本地 SHA-256 一致；Windows Checks [`34763893913`](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34763893913) 成功；v2.10.11 Release 仍有四项资产且是最后一个 macOS 发布版本；v2.10.8/v2.10.9/v2.10.10/v2.10.13 tag、GitHub Release 与资产未触碰；`origin/main` 已包含 v2.10.18 发布提交 `6e8a076e9864a19a8e390e432ff8384aef0e5462`，Windows Checks `34774739411` PASS，Release 与三项资产 digest 已核对 |
 | 本轮交付 | 已完成 MAINT-02 清理与重建；MAINT-03 对 283 个清理前 tracked 文件、ignored 历史资料、素材、组件、依赖、脚本和 workflow 做引用审计，明确删除候选仅为无引用 `public/vite.svg`、`public/tauri.svg` 并从工作树移除；MAINT-04 重写 README 并验证全部本地链接/图片；MAINT-05 核对远程分支、tag、Release、资产和 Actions，未执行远程删除；MAINT-06 在 `ae6ac45` 干净 checkout 完成 install/check/build、前端 67/67、Rust 33/33、debug bundle、真实 Windows 启动与隔离数据验证；维护结果经 `804de40` 正常推送；REFINE-13 仅修改 Night Valley 计时页现有入口布局与对应回归断言，native/布局与最终回归完成；2.10.9 Windows 三项 bundle 与 macOS Universal DMG 已发布并核对 digest；本轮另按清单删除约 95.25 GiB 本地旧归档/生成物和无引用 ignored 旧副本；UX-AUDIT-01 完成五套主题 25 页三轮真实体验，修复跨 Tab 滚动、无效记录占位、移动导航、图表日期点和过期设置说明等问题；REL-13 完成 v2.10.10 Windows/macOS 发布闭环；REL-14 完成五套主题 Today 的稳定每日一句、主题化布局、共享样式、跨主题同日断言、v2.10.11 本地 68/68/build/Rust 验证、Windows 三项打包、远程 Checks/Native Smoke/Universal DMG 发布闭环；REL-15 已完成 Night Valley 计时页记录入口文字几何居中、跨桌面/窄屏断言、v2.10.12 Windows-only 版本同步、Windows 构建与三项打包、远程 69/69 与 Rust 检查；`REFINE-14/REL-17` 从 `eaa1fc4` 开始，修复 Night Valley“记录”页首屏折叠、主题层级和长历史可视性，新增长列表夹具与可见性断言；本地完整前端 71/71、`pnpm check`、`git diff --check`、Windows v2.10.14 三项打包、远程 Checks `34756725964` 与三项资产 digest 均已通过；`REFINE-15/REL-18` 完成记录页点线坐标统一、专注时段分布和全部记录可读性，v2.10.15 本地 72/72、build、Rust、Windows 三项打包、远程 Checks `34763893913` 和三项资产 digest 均已通过；`REFINE-17/REL-20` 已完成 Night Valley 待办工作台重构、v2.10.17 Windows-only 构建与发布，远程 Checks `34770039344` 和三项资产 digest 均已通过；macOS workflow 已改为仅手动触发；v2.10.8/v2.10.9/v2.10.10/v2.10.13 Release 未触碰；`REFINE-18/REL-21` 已完成设置工作台流式重构、音效扩展、自动保存和主题观测站，v2.10.18 Windows-only 发布已收口 |
-| 下一项 | REFINE-19：按 `docs/qa/REFINE-19-editorial-paper-issue-audit-plan.md` 逐条核查并修复 Editorial Paper 五页；普通变更默认只发布 Windows，macOS 保持冻结，直到用户明确授权 |
-| 当前执行人 / 在做任务 | Codex / `REFINE-17` 与 `REL-20` 已完成；继续遵守按界面批量推送与 macOS 冻结策略；Codex / `REFINE-18` 与 `REL-21` 已完成 |
+| 下一项 | REL-22：基于已完成的 REFINE-19 五页逐条核查和 48/48 回归，完成 v2.10.19 版本同步、Windows 构建/打包、提交、推送、远程 Checks 与 GitHub Release；macOS 保持冻结 |
+| 当前执行人 / 在做任务 | Codex / `REFINE-19` 本地修复与逐条 QA 已完成，正在执行 `REL-22` Windows-only 发布收口 |
 | 首套验收结论 | **Windows 原生核心闭环、编辑态计时刷新、主题渲染边界、QA-01 回退回归、五套主题 25 页前端回归、Editorial 长历史性能专项、v2.6.10/v2.7.0/v2.8.0/v2.9.0/v2.9.1 Windows 与 macOS 资产发布、CORE-03 macOS 原生数据目录与迁移、DESK-02 macOS 第二实例/托盘/浮窗/隔离安装启动、DATA-01 备份范围/隔离跨目录搬移/素材清单已通过**；资源出处补录缺口已在清单中保留为后续治理事项 |
 | source | 本轮用户说明；当前源码与测试；Git 提交/远程 refs；GitHub Release/Actions；本轮命令结果 |
 | supersedes | 旧文档中的 v1.4.1/v1.5.x/v1.10.0/v2.0 当前进度，以及 2026-09-06 摘要中的“其他四页未实现、主题注册未建立” |
@@ -322,7 +322,8 @@ CORE-03、DESK-02 为 macOS 下一次发布门槛，可与 Windows 首套验收�
 | REL-17 | P1 | DONE | REFINE-14 | v2.10.14 Windows-only 发布已完成：版本同步、Windows 构建/打包、提交、推送、远程 Checks、GitHub Release 与三项资产 digest 核对；未触碰 macOS 版本、workflow 和资产 |
 | REFINE-15 | P1 | DONE | REL-17 | Night Valley“记录”页点线对齐、专注时段分布和全部记录可见性修复已完成，源码与 72/72 前端回归通过 |
 | REL-18 | P1 | DONE | REFINE-15 | v2.10.15 Windows-only 发布已完成：版本同步、Windows 构建/打包、提交、推送、tag、Release、远程 Checks 与三项资产 digest 核对；未触碰 macOS 版本、workflow 和资产 |
-| REFINE-19 | P1 | TODO | REL-21 | Editorial Paper 五页逐条问题核查与同类问题修复；执行计划见 `docs/qa/REFINE-19-editorial-paper-issue-audit-plan.md`，新窗口提示词见 `docs/qa/REFINE-19-editorial-paper-execution-prompt.md` |
+| REFINE-19 | P1 | DOING | REL-22 | Editorial Paper 五页逐条问题核查与同类问题修复；阶段 0、今日页 TODAY-01～11、计时页 TIMER-01～21、待办页 TODO-01～03、记录页 RECORDS-01～07 与设置页 SETTINGS-01～06 已逐项完成，48/48 定向回归通过，当前进入 v2.10.19 Windows-only 发布核验；执行计划见 `docs/qa/REFINE-19-editorial-paper-issue-audit-plan.md`，新窗口提示词见 `docs/qa/REFINE-19-editorial-paper-execution-prompt.md` |
+| REL-22 | P1 | TODO | REFINE-19 | v2.10.19 Editorial Paper 逐问题修复 Windows-only 发布闭环：版本同步、构建/打包、提交、推送、远程 Checks、GitHub Release 与三项资产 digest 核对；macOS 继续冻结 |
 
 ### CORE-01 · 磁盘保存与恢复链（第一个执行任务）
 
@@ -756,6 +757,313 @@ NV-05 的具体键盘缺口：`CommandPalette.tsx` 声明 modal/listbox，但缺
 - **用户要求**：继续检查 Editorial Paper / 编辑纸页的今日、计时、待办、记录、设置五页，逐条核查第一主题历史问题；编辑纸页主题风格保持不变，只有复现同类问题才修复。
 - **计划文件**：docs/qa/REFINE-19-editorial-paper-issue-audit-plan.md；其中保留第一主题各页面的原始问题、逐条编号、复现条件、修复条件、验收矩阵和结果模板。
 - **新窗口提示词**：docs/qa/REFINE-19-editorial-paper-execution-prompt.md；要求按项目资料顺序启动，从 TODAY-01 开始逐条执行。
-- **本轮变更**：仅新增执行计划、启动提示词并登记 PROJECT_PLAN.md；未修改源码、版本号、Release 资产或运行中的用户进程，未执行构建、打包或 macOS workflow。
-- **当前状态**：REFINE-19 TODO；等待在新窗口按计划执行。
-- **下一步**：先做阶段 0 状态核对，再逐条完成今日页问题清单。
+- **本轮变更**：启动时仅新增执行计划、启动提示词并登记 PROJECT_PLAN.md；后续已按计划完成阶段 0 与今日页逐条核查，未重复 v2.10.18、未修改 Release 资产或运行中的用户进程，未执行构建、打包或 macOS workflow。
+- **当前状态**：REFINE-19 DOING；今日页结果已回填，待按序执行计时页。
+- **下一步**：从 `TIMER-01` 开始，继续逐条填写计时页问题的原话、区域、复现、根因、修改、测试、截图与最终状态。
+
+### 2026-09-14 REFINE-19 阶段 0 状态核对（已完成，今日页已继续收口）
+
+- **状态对账**：当前 `main` 与 `origin/main` 均为 `9ecaf5984b72f4d2731b2133927ad7019c192634`，工作树干净；最近提交为 `9ecaf59`（Editorial Paper 审计计划文档）。版本源仍为 `2.10.18`，`v2.10.18` tag/Release/Windows Checks `34774739411` 均保持只读且成功。
+- **用户进程保护**：发现并保留用户进程 `F:\Focused Moment\Focused Moment v2.10.18.exe`（PID `23304`）及其 WebView2 子进程；未停止、未重启。未发现项目 Vite/Playwright/pnpm/cargo 服务进程。
+- **来源与限制**：`scripts/audit_project_state.py` 当前不存在，未伪造脚本结果；已用 Git、版本源、GitHub Release/Checks、进程、目录统计和 Editorial Paper 入口进行手工核对。基线详情见 `docs/qa/REFINE-19-editorial-paper-baseline-20260914-1346.md`。
+- **Editorial Paper 入口**：`ThemeSurface.tsx` 显式分派五页；`EditorialPaperViews.tsx` 提供五个主题页面；`EditorialPaperViews.css` 承载主题样式和响应式断点；`MainShell.tsx` 继续统一业务状态、实时刷新、窗口控件、浮窗和备份动作。阶段 0 未修改源码。
+- **保护边界**：不重复 v2.10.18；不运行任何 macOS workflow；不复制 Night Valley 构图；不为未复现问题改动编辑纸页风格。
+- **下一步**：阶段 0 后已按 `TODAY-01` 至 `TODAY-11` 完成今日页逐条核查；以下一工作单元进入 `TIMER-01`，继续按同一证据字段推进。
+
+### 2026-09-14 REFINE-19 今日页逐问题核查（已完成，进入 TIMER-01）
+
+- **执行范围**：严格按 TODAY-01 → TODAY-11；Editorial Paper 主题风格保持原样，只处理真实复现的问题。结果明细已写入 `docs/qa/REFINE-19-editorial-paper-issue-audit-plan.md`。
+- **复现与修复**：TODAY-01 节点长标题单行省略已修复；TODAY-02 多余视觉命令入口已隐藏并保留 Ctrl+K；TODAY-04 今日页重复计时操作带已移除；TODAY-05 短桌面 CSS 视口底部摘要越界已修复；TODAY-09 今日页静态日期缺少实时钟已修复。TODAY-03、07、10 PASS；TODAY-06、08 不适用；TODAY-11 为执行提示与计划明细的编号缺口。
+- **修改文件**：`src/components/EditorialPaperViews.tsx`、`src/components/EditorialPaperViews.css`、`tests/today-visual.spec.mjs`、`docs/qa/REFINE-19-editorial-paper-issue-audit-plan.md`；阶段 0 基线另保存在 `docs/qa/REFINE-19-editorial-paper-baseline-20260914-1346.md`（当前被本地 docs 忽略规则排除）。
+- **本地证据**：TODAY-01～11 整组 `pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 TODAY" --workers=1` 为 `11/11 PASS`；`pnpm check` PASS；`git diff --check` PASS。今日截图证据均在 `output/qa/REFINE-19/`，其中 05 覆盖 `2560×1368`、`1707×912`、`1487×1058`，压力宽度回归覆盖 `1120/820/560/420`。
+- **保护边界**：版本源仍为 `2.10.18`，未重复发布；不运行 macOS workflow；PID `23304` 用户进程及 WebView2 子进程保持运行；未提交、推送或发布，等待五页界面整体完成后统一处理。
+- **当前状态 / 下一步**：REFINE-19 DOING；今日页完成，计时页 TIMER-01～02 完成，下一项为 `TIMER-03`。
+
+### 2026-09-14 REFINE-19 计时页 TIMER-01～02（已完成，进入 TIMER-03）
+
+- **执行范围**：严格按 TIMER-01 → TIMER-02；逐条结果、原话、对应区域、复现、根因、修改、测试、截图和最终状态已回填 `docs/qa/REFINE-19-editorial-paper-issue-audit-plan.md`。
+- **复现与修复**：TIMER-01 复现五页页眉只有静态页码/部分页面缺少实时钟，并复现窄屏页眉被 sticky tab rail 覆盖；已增加共享 `EditorialPaperDateTime`、保留页码并加入窄屏内容安全偏移。TIMER-02 复现计时页固定 `360px` 中央圆盘和 `64px` 读数过度抢占层级；已将纸页圆盘上限调整为 `300px`、读数上限调整为 `3.2rem`，保留圆形计时语汇与操作结构。
+- **修改文件**：`src/components/EditorialPaperViews.tsx`、`src/components/EditorialPaperViews.css`、`tests/today-visual.spec.mjs`、`docs/qa/REFINE-19-editorial-paper-issue-audit-plan.md`。
+- **本地证据**：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 TIMER-01" --workers=1` 为 `1/1 PASS`；`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 TIMER-02" --workers=1` 为 `1/1 PASS`；TIMER-01 覆盖五页 `1487×1058`/`420×720`，TIMER-02 覆盖计时页 `1487×1058`/`420×720`；截图均在 `output/qa/REFINE-19/`。
+- **保护边界**：版本源仍为 `2.10.18`，未重复发布；不运行 macOS workflow；PID `23304` 用户进程及 WebView2 子进程保持运行；未提交、推送或发布，等待五页界面整体完成后统一处理。
+- **当前状态 / 下一步**：REFINE-19 DOING；计时页 TIMER-01～02 完成，下一项为 `TIMER-03`。
+
+### 2026-09-14 REFINE-19 计时页 TIMER-03（已完成，进入 TIMER-04）
+
+- **执行范围**：严格核查 TIMER-03 的背景线条、分隔线和状态连接，结果明细已回填 `docs/qa/REFINE-19-editorial-paper-issue-audit-plan.md`。
+- **结果**：编辑纸页不存在第一主题的背景路线、弧线地图或生硬连接器；现有圆盘刻度、控件下划线和页脚边框均有明确语义，TIMER-03 不适用 + PASS，无代码修改。
+- **本地证据**：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 TIMER-03" --workers=1` 为 `1/1 PASS`；截图 `output/qa/REFINE-19/TIMER-03-not-applicable-9ecaf59.png`。
+- **保护边界**：版本源仍为 `2.10.18`，未重复发布；不运行 macOS workflow；PID `23304` 用户进程及 WebView2 子进程保持运行；未提交、推送或发布，等待五页界面整体完成后统一处理。
+- **当前状态 / 下一步**：REFINE-19 DOING；计时页 TIMER-01～03 完成，下一项为 `TIMER-04`。
+
+### 2026-09-14 REFINE-19 计时页 TIMER-04（已完成，进入 TIMER-05）
+
+- **执行范围**：严格核查 TIMER-04 的全屏/高 DPI 视口底部安全区，结果明细已回填 `docs/qa/REFINE-19-editorial-paper-issue-audit-plan.md`。
+- **结果**：覆盖物理 `2560×1368`、CSS `1707×912`、`1487×1058` 和 `420×720`；桌面页眉、状态、计时读数、目标时长、备注、操作和页脚均在安全区内，窄屏内容按文档流可滚动到达，TIMER-04 PASS，无代码修改。
+- **本地证据**：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 TIMER-04" --workers=1` 为 `1/1 PASS`；CSS `1707×912` 下页脚 bottom `900.23px`，截图 `output/qa/REFINE-19/TIMER-04-pass-9ecaf59-1707x912.png`。
+- **保护边界**：版本源仍为 `2.10.18`，未重复发布；不运行 macOS workflow；PID `23304` 用户进程及 WebView2 子进程保持运行；未提交、推送或发布，等待五页界面整体完成后统一处理。
+- **当前状态 / 下一步**：REFINE-19 DOING；计时页 TIMER-01～04 完成，下一项为 `TIMER-05`。
+
+### 2026-09-14 REFINE-19 计时页 TIMER-05（已完成，进入 TIMER-06）
+
+- **执行范围**：严格核查 TIMER-05 的状态、模式、目标时长、今日专注、操作按钮和右侧高频字段，结果明细已回填 `docs/qa/REFINE-19-editorial-paper-issue-audit-plan.md`。
+- **结果**：编辑纸页没有第一主题对应的右侧计时卡；中央计时卡、左侧状态纸条和右侧专注备注纸的字段均有清晰标签与用途，右侧三组字段不重叠，TIMER-05 不适用 + PASS，无代码修改。
+- **本地证据**：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 TIMER-05" --workers=1` 为 `1/1 PASS`；截图 `output/qa/REFINE-19/TIMER-05-pass-9ecaf59.png`。
+- **保护边界**：版本源仍为 `2.10.18`，未重复发布；不运行 macOS workflow；PID `23304` 用户进程及 WebView2 子进程保持运行；未提交、推送或发布，等待五页界面整体完成后统一处理。
+- **当前状态 / 下一步**：REFINE-19 DOING；计时页 TIMER-01～05 完成，下一项为 `TIMER-06`。
+
+### 2026-09-14 REFINE-19 计时页 TIMER-06（已完成，进入 TIMER-07）
+
+- **执行范围**：严格核查 TIMER-06 的编辑纸页五个 tab 视觉命令入口与 Ctrl+K 保留能力，结果明细已回填 `docs/qa/REFINE-19-editorial-paper-issue-audit-plan.md`。
+- **结果**：今日、计时、待办、记录、设置五页均隐藏 `.command-trigger`，全局 `Control+K` 能打开命令面板，TIMER-06 PASS，无代码修改。
+- **本地证据**：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 TIMER-06" --workers=1` 为 `1/1 PASS`；五页截图在 `output/qa/REFINE-19/` 的 `TIMER-06-after-9ecaf59-*.png`。
+- **保护边界**：版本源仍为 `2.10.18`，未重复发布；不运行 macOS workflow；PID `23304` 用户进程及 WebView2 子进程保持运行；未提交、推送或发布，等待五页界面整体完成后统一处理。
+- **当前状态 / 下一步**：REFINE-19 DOING；计时页 TIMER-01～06 完成，下一项为 `TIMER-07`。
+
+### 2026-09-14 REFINE-19 计时页 TIMER-07（已完成，进入 TIMER-08）
+
+- **执行范围**：严格核查 TIMER-07 的状态字段、时长、输入、开始/暂停/完成/保存流程，结果明细已回填 `docs/qa/REFINE-19-editorial-paper-issue-audit-plan.md`。
+- **复现与修复**：填写主题并调整 60 分钟后，开始/暂停流程可用，但暂停态仍显示“开始专注”；已根据已有 `timerHasProgress()` 改为“继续专注”，并验证完成保存反馈。仅修改 `EditorialPaperViews.tsx` 文案分支，不改计时状态机或纸页风格。
+- **本地证据**：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 TIMER-07" --workers=1` 为 `1/1 PASS`；前后截图 `output/qa/REFINE-19/TIMER-07-before-9ecaf59.png`、`TIMER-07-after-9ecaf59.png`。
+- **保护边界**：版本源仍为 `2.10.18`，未重复发布；不运行 macOS workflow；PID `23304` 用户进程及 WebView2 子进程保持运行；未提交、推送或发布，等待五页界面整体完成后统一处理。
+- **当前状态 / 下一步**：REFINE-19 DOING；计时页 TIMER-01～07 完成，下一项为 `TIMER-08`。
+
+### 2026-09-14 REFINE-19 计时页 TIMER-08（已完成，进入 TIMER-09）
+
+- **执行范围**：严格核查 TIMER-08 右侧专注备注纸的标题、说明、状态、选择器、长中文和按钮/复选框排版，结果明细已回填 `docs/qa/REFINE-19-editorial-paper-issue-audit-plan.md`。
+- **结果**：长中文在桌面与 `420px` 窄屏均按文档流换行，右侧纸张没有文字重叠、裁切或横向溢出，TIMER-08 PASS，无代码修改。
+- **本地证据**：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 TIMER-08" --workers=1` 为 `1/1 PASS`；截图 `output/qa/REFINE-19/TIMER-08-pass-9ecaf59-1487.png`、`TIMER-08-pass-9ecaf59-420.png`。
+- **保护边界**：版本源仍为 `2.10.18`，未重复发布；不运行 macOS workflow；PID `23304` 用户进程及 WebView2 子进程保持运行；未提交、推送或发布，等待五页界面整体完成后统一处理。
+- **当前状态 / 下一步**：REFINE-19 DOING；计时页 TIMER-01～08 完成，下一项为 `TIMER-09`。
+
+### 2026-09-14 REFINE-19 计时页 TIMER-09（已完成，进入 TIMER-10）
+
+- **执行范围**：严格核查 TIMER-09 的空闲、运行、暂停/完成状态、启用条件、清除范围、反馈和文案，结果明细已回填 `docs/qa/REFINE-19-editorial-paper-issue-audit-plan.md`。
+- **复现与修复**：复现空闲态“重置”无用途说明且被禁用，以及 reset 后倒计时草稿未恢复的问题；已改为“清空设置”/“重置本次专注”并补充可访问说明，reset 前清除 draft dirty 标记后再应用快照。只改对应状态语义和 reset 同步顺序。
+- **本地证据**：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 TIMER-09" --workers=1` 为 `1/1 PASS`；截图 `TIMER-09-before-9ecaf59.png`、`TIMER-09-after-active-9ecaf59.png`、`TIMER-09-after-clear-9ecaf59.png` 均在 `output/qa/REFINE-19/`。
+- **保护边界**：版本源仍为 `2.10.18`，未重复发布；不运行 macOS workflow；PID `23304` 用户进程及 WebView2 子进程保持运行；未提交、推送或发布，等待五页界面整体完成后统一处理。
+- **当前状态 / 下一步**：REFINE-19 DOING；计时页 TIMER-01～09 完成，下一项为 `TIMER-10`。
+
+### 2026-09-14 REFINE-19 计时页 TIMER-10（已完成，进入 TIMER-11）
+
+- **执行范围**：严格核查计时页底部无效快捷键提示、设置页快捷键说明及全局实际响应，结果明细已回填 `docs/qa/REFINE-19-editorial-paper-issue-audit-plan.md`。
+- **结果**：计时页没有无效 Ctrl/kbd 提示；设置页列出的 Ctrl+Enter、Ctrl+Shift+E、Ctrl+K 均有全局处理，TIMER-10 PASS，无代码修改。
+- **本地证据**：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 TIMER-10" --workers=1` 为 `1/1 PASS`；截图 `output/qa/REFINE-19/TIMER-10-pass-9ecaf59.png`。
+- **保护边界**：版本源仍为 `2.10.18`，未重复发布；不运行 macOS workflow；PID `23304` 用户进程及 WebView2 子进程保持运行；未提交、推送或发布，等待五页界面整体完成后统一处理。
+- **当前状态 / 下一步**：REFINE-19 DOING；计时页 TIMER-01～10 完成，下一项为 `TIMER-11`。
+
+### 2026-09-14 REFINE-19 计时页 TIMER-11（已完成，进入 TIMER-12）
+
+- **执行范围**：严格核查全屏/最大化下右侧专注备注纸的每个元素 bounding box 和重叠关系，结果明细已回填 `docs/qa/REFINE-19-editorial-paper-issue-audit-plan.md`。
+- **结果**：覆盖 `2560×1368`、CSS `1707×912` 和 `1487×1058`；右侧纸张与标题、字段、关联提示、休息提示均在边界内且无两两重叠，TIMER-11 PASS，无代码修改。
+- **本地证据**：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 TIMER-11" --workers=1` 为 `1/1 PASS`；CSS `1707×912` 下右侧区域 `1224.25–1543.50px × 319.23–782.23px`；截图 `output/qa/REFINE-19/TIMER-11-pass-9ecaf59-1707x912.png`。
+- **保护边界**：版本源仍为 `2.10.18`，未重复发布；不运行 macOS workflow；PID `23304` 用户进程及 WebView2 子进程保持运行；未提交、推送或发布，等待五页界面整体完成后统一处理。
+- **当前状态 / 下一步**：REFINE-19 DOING；计时页 TIMER-01～11 完成，下一项为 `TIMER-12`。
+
+### 2026-09-14 REFINE-19 计时页 TIMER-12（已完成，进入 TIMER-13）
+
+- **执行范围**：严格核查 60 分钟长读数与目标时长、今日专注统计、模式和操作区的边界关系，结果明细已回填 `docs/qa/REFINE-19-editorial-paper-issue-audit-plan.md`。
+- **结果**：`01:00:00` 在圆盘内，模式、目标时长、操作区和左侧今日专注纸条均独立且不重叠；编辑纸页没有“今日已完成”同名字段，TIMER-12 不适用 + PASS，无代码修改。
+- **本地证据**：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 TIMER-12" --workers=1` 为 `1/1 PASS`；覆盖 `2560×1368`、`1707×912`、`420×720`；截图 `output/qa/REFINE-19/TIMER-12-pass-9ecaf59-1707x912.png`。
+- **保护边界**：版本源仍为 `2.10.18`，未重复发布；不运行 macOS workflow；PID `23304` 用户进程及 WebView2 子进程保持运行；未提交、推送或发布，等待五页界面整体完成后统一处理。
+- **当前状态 / 下一步**：REFINE-19 DOING；计时页 TIMER-01～12 完成，下一项为 `TIMER-13`。
+
+### 2026-09-14 REFINE-19 计时页 TIMER-13（已完成，进入 TIMER-14）
+
+- **执行范围**：严格核查 45/60/90 分钟及状态/模式说明在编辑纸页计时卡中的层级和重叠，结果明细已回填 `docs/qa/REFINE-19-editorial-paper-issue-audit-plan.md`。
+- **结果**：状态、读数、模式说明、目标时长和操作区均按序分离，无同类覆盖，TIMER-13 PASS，无代码修改。
+- **本地证据**：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 TIMER-13" --workers=1` 为 `1/1 PASS`；覆盖 `2560×1368`、`1707×912`、`420×720`；截图 `output/qa/REFINE-19/TIMER-13-pass-9ecaf59-1707x912.png`。
+- **保护边界**：版本源仍为 `2.10.18`，未重复发布；不运行 macOS workflow；PID `23304` 用户进程及 WebView2 子进程保持运行；未提交、推送或发布，等待五页界面整体完成后统一处理。
+- **当前状态 / 下一步**：REFINE-19 DOING；计时页 TIMER-01～13 完成，下一项为 `TIMER-14`。
+
+### 2026-09-14 REFINE-19 计时页 TIMER-14（已完成，进入 TIMER-15）
+
+- **执行范围**：严格核查 Windows 高 DPI 物理/CSS/DPR 组合下编辑纸页计时页的尺寸和边界，结果明细已回填 `docs/qa/REFINE-19-editorial-paper-issue-audit-plan.md`。
+- **结果**：`2560×1368 / DPR 1`、`1707×912 / DPR 1.5`、`1487×1058 / DPR 1` 三种上下文均通过，关键区域无裁切或横向溢出，TIMER-14 PASS，无代码修改。
+- **本地证据**：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 TIMER-14" --workers=1` 为 `1/1 PASS`；截图 `TIMER-14-pass-9ecaf59-*` 在 `output/qa/REFINE-19/`。
+- **保护边界**：版本源仍为 `2.10.18`，未重复发布；不运行 macOS workflow；PID `23304` 用户进程及 WebView2 子进程保持运行；未提交、推送或发布，等待五页界面整体完成后统一处理。
+- **当前状态 / 下一步**：REFINE-19 DOING；计时页 TIMER-01～14 完成，下一项为 `TIMER-15`。
+
+### 2026-09-14 REFINE-19 计时页 TIMER-15（已完成，进入 TIMER-16）
+
+- **执行范围**：严格核查当天已有专注记录与待办完成数不一致时，Today 与 Focus 的“今日专注”统计口径，结果明细已回填 `docs/qa/REFINE-19-editorial-paper-issue-audit-plan.md`。
+- **复现与修复**：在 1 条当天专注记录、0 个已完成待办的夹具下，复现 Focus 显示 0 的问题；已改为读取 `todaySessionCount`，并将文案改为“1 段完成”，与 Today 页一致。
+- **本地证据**：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 TIMER-15" --workers=1` 为 `1/1 PASS`；前后截图 `TIMER-15-before-9ecaf59.png`、`TIMER-15-after-9ecaf59.png` 在 `output/qa/REFINE-19/`。
+- **保护边界**：版本源仍为 `2.10.18`，未重复发布；不运行 macOS workflow；PID `23304` 用户进程及 WebView2 子进程保持运行；未提交、推送或发布，等待五页界面整体完成后统一处理。
+- **当前状态 / 下一步**：REFINE-19 DOING；计时页 TIMER-01～15 完成，下一项为 `TIMER-16`。
+
+### 2026-09-14 REFINE-19 计时页 TIMER-16（已完成，进入 TIMER-17）
+
+- **执行范围**：严格核查从悬浮窗返回主界面后，编辑纸页计时页是否仍有重新进入悬浮窗的入口，结果明细已回填 `docs/qa/REFINE-19-editorial-paper-issue-audit-plan.md`。
+- **复现与修复**：复现编辑纸页活动态没有重新打开悬浮窗入口；复用已有 `onShowFocusFloating` 回调，在计时页脚增加仅对有进度状态显示的“进入悬浮窗”按钮，并保留紧凑尺寸，避免改变纸页计时布局。
+- **本地证据**：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 TIMER-16" --workers=1` 为 `1/1 PASS`；前后截图 `TIMER-16-before-9ecaf59.png`、`TIMER-16-after-9ecaf59.png` 在 `output/qa/REFINE-19/`。
+- **保护边界**：版本源仍为 `2.10.18`，未重复发布；不运行 macOS workflow；PID `23304` 用户进程及 WebView2 子进程保持运行；未提交、推送或发布，等待五页界面整体完成后统一处理。
+- **当前状态 / 下一步**：REFINE-19 DOING；计时页 TIMER-01～16 完成，下一项为 `TIMER-17`。
+
+### 2026-09-14 REFINE-19 计时页 TIMER-17（已完成，进入 TIMER-18）
+
+- **执行范围**：严格核查编辑纸页点击“开始专注”后的自动悬浮窗打开行为，结果明细已回填 `docs/qa/REFINE-19-editorial-paper-issue-audit-plan.md`。
+- **结果**：开始动作进入“倒计时中”，并触发恰好一次 `show_focus_floating`；第一主题的“点击开始后悬浮窗会打开”问题未在编辑纸页复现，TIMER-17 PASS，无代码修改。
+- **本地证据**：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 TIMER-17" --workers=1` 为 `1/1 PASS`；截图 `TIMER-17-pass-9ecaf59.png` 在 `output/qa/REFINE-19/`。
+- **保护边界**：版本源仍为 `2.10.18`，未重复发布；不运行 macOS workflow；PID `23304` 用户进程及 WebView2 子进程保持运行；未提交、推送或发布，等待五页界面整体完成后统一处理。
+- **当前状态 / 下一步**：REFINE-19 DOING；计时页 TIMER-01～17 完成，下一项为 `TIMER-18`。
+
+### 2026-09-14 REFINE-19 计时页 TIMER-18（已完成，进入 TIMER-19）
+
+- **执行范围**：严格核查编辑纸页开始专注后主窗口是否通过悬浮计时命令自动隐藏，结果明细已回填 `docs/qa/REFINE-19-editorial-paper-issue-audit-plan.md`。
+- **结果**：前端开始链路调用 `show_focus_floating` 恰好一次；该命令的 Rust 实现显示/聚焦专注小窗并隐藏主窗口，未复现第一主题的不同步问题，TIMER-18 PASS，无代码修改。
+- **本地证据**：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 TIMER-18" --workers=1` 为 `1/1 PASS`；截图 `TIMER-18-pass-9ecaf59.png` 在 `output/qa/REFINE-19/`，原生行为核对 `src-tauri/src/runtime.rs`。
+- **保护边界**：版本源仍为 `2.10.18`，未重复发布；不运行 macOS workflow；PID `23304` 用户进程及 WebView2 子进程保持运行；未提交、推送或发布，等待五页界面整体完成后统一处理。
+- **当前状态 / 下一步**：REFINE-19 DOING；计时页 TIMER-01～18 完成，下一项为 `TIMER-19`。
+
+### 2026-09-14 REFINE-19 计时页 TIMER-19（已完成，进入 TIMER-20）
+
+- **执行范围**：严格核查悬浮窗入口在编辑纸页运行态/暂停态是否存在、是否位于首屏且可点击，结果明细已回填 `docs/qa/REFINE-19-editorial-paper-issue-audit-plan.md`。
+- **结果**：入口在首屏内，运行态和暂停态均可见；两次点击均重新调用悬浮窗命令，TIMER-19 PASS，无新增代码修改。
+- **本地证据**：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 TIMER-19" --workers=1` 为 `1/1 PASS`；截图 `TIMER-19-pass-9ecaf59.png` 在 `output/qa/REFINE-19/`。
+- **保护边界**：版本源仍为 `2.10.18`，未重复发布；不运行 macOS workflow；PID `23304` 用户进程及 WebView2 子进程保持运行；未提交、推送或发布，等待五页界面整体完成后统一处理。
+- **当前状态 / 下一步**：REFINE-19 DOING；计时页 TIMER-01～19 完成，下一项为 `TIMER-20`。
+
+### 2026-09-14 REFINE-19 计时页 TIMER-20（已完成，进入 TIMER-21）
+
+- **执行范围**：严格核查运行、暂停、继续、切页、完成、再次开始、重置和刷新后的计时/界面状态一致性，结果明细已回填 `docs/qa/REFINE-19-editorial-paper-issue-audit-plan.md`。
+- **结果**：完整状态链路通过；控件文案、状态纸条、输入锁定、保存反馈、重置清理和刷新后的初始快照一致，TIMER-20 PASS，无新增代码修改。
+- **本地证据**：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 TIMER-20" --workers=1` 为 `1/1 PASS`；截图 `TIMER-20-pass-9ecaf59.png` 在 `output/qa/REFINE-19/`。
+- **保护边界**：版本源仍为 `2.10.18`，未重复发布；不运行 macOS workflow；PID `23304` 用户进程及 WebView2 子进程保持运行；未提交、推送或发布，等待五页界面整体完成后统一处理。
+- **当前状态 / 下一步**：REFINE-19 DOING；计时页 TIMER-01～20 完成，下一项为 `TIMER-21`。
+
+### 2026-09-14 REFINE-19 计时页 TIMER-21（已完成，进入 TODO-01）
+
+- **执行范围**：严格核查编辑纸页是否存在第一主题所说的“查看专注记录”按钮，以及对应文字/图标/箭头居中问题，结果明细已回填 `docs/qa/REFINE-19-editorial-paper-issue-audit-plan.md`。
+- **结果**：计时页没有同名按钮；Today 页的“回看记录”是独立文字操作，TIMER-21 不适用 + PASS，无代码修改。
+- **本地证据**：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 TIMER-21" --workers=1` 为 `1/1 PASS`；截图 `TIMER-21-not-applicable-9ecaf59.png` 在 `output/qa/REFINE-19/`。
+- **保护边界**：版本源仍为 `2.10.18`，未重复发布；不运行 macOS workflow；PID `23304` 用户进程及 WebView2 子进程保持运行；未提交、推送或发布，等待五页界面整体完成后统一处理。
+- **当前状态 / 下一步**：REFINE-19 DOING；计时页 TIMER-01～21 完成，下一项为 `TODO-01`。
+
+### 2026-09-14 REFINE-19 待办页 TODO-01（已完成，进入 TODO-02）
+
+- **执行范围**：严格核查待办页三列中的文字重叠、固定留白和待开始/进行中/已完成状态表达，结果明细已回填 `docs/qa/REFINE-19-editorial-paper-issue-audit-plan.md`。
+- **复现与修复**：复现窄屏纵向堆叠时空“稍后”列被固定 `230px` 最小高度拉出大块留白；将 `.ep-todo-column__list` 的 `min-height` 改为 `0`，长标题与操作无重叠，三种状态仍保留。
+- **本地证据**：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 TODO-01" --workers=1` 为 `1/1 PASS`；前后截图 `TODO-01-before-9ecaf59.png`、`TODO-01-after-9ecaf59.png` 在 `output/qa/REFINE-19/`。
+- **保护边界**：版本源仍为 `2.10.18`，未重复发布；不运行 macOS workflow；PID `23304` 用户进程及 WebView2 子进程保持运行；未提交、推送或发布，等待五页界面整体完成后统一处理。
+- **当前状态 / 下一步**：REFINE-19 DOING；待办页 TODO-01 完成，下一项为 `TODO-02`。
+
+### 2026-09-14 REFINE-19 待办页 TODO-02（已完成，进入 TODO-03）
+
+- **执行范围**：严格核查长完成事项的可见性、滚动、编辑、恢复、删除、窄屏堆叠与横向溢出，结果明细已回填 `docs/qa/REFINE-19-editorial-paper-issue-audit-plan.md`。
+- **复现与修复**：18 条完成事项的查看和操作均可用；发现桌面长列表会让其他列被 Grid 拉伸形成空白，增加 `.ep-todo-book { align-items: start; }`，并保留 TODO-01 的 `min-height: 0`。
+- **本地证据**：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 TODO-02" --workers=1` 为 `1/1 PASS`；截图 `TODO-02-pass-1487-9ecaf59.png`、`TODO-02-pass-420-9ecaf59.png` 在 `output/qa/REFINE-19/`。
+- **保护边界**：版本源仍为 `2.10.18`，未重复发布；不运行 macOS workflow；PID `23304` 用户进程及 WebView2 子进程保持运行；未提交、推送或发布，等待五页界面整体完成后统一处理。
+- **当前状态 / 下一步**：REFINE-19 DOING；待办页 TODO-01～02 完成，下一项为 `TODO-03`。
+
+### 2026-09-14 REFINE-19 待办页 TODO-03（已完成，进入 RECORDS-01）
+
+- **执行范围**：严格核查待办页右上角三个原生窗口控件的可见性、边界、可访问名称和命令映射，结果明细已回填 `docs/qa/REFINE-19-editorial-paper-issue-audit-plan.md`。
+- **结果**：桌面与 `420px` 下三个控件均可用，最小化、最大化/还原、关闭命令映射正确，TODO-03 PASS，无代码修改；未触碰 PID `23304` 用户进程。
+- **本地证据**：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 TODO-03" --workers=1` 为 `1/1 PASS`；截图 `TODO-03-pass-1487-9ecaf59.png`、`TODO-03-pass-420-9ecaf59.png` 在 `output/qa/REFINE-19/`。
+- **保护边界**：版本源仍为 `2.10.18`，未重复发布；不运行 macOS workflow；PID `23304` 用户进程及 WebView2 子进程保持运行；未提交、推送或发布，等待五页界面整体完成后统一处理。
+- **当前状态 / 下一步**：REFINE-19 DOING；待办页 TODO-01～03 完成，下一项为 `RECORDS-01`。
+
+### 2026-09-14 REFINE-19 记录页 RECORDS-01（已完成，进入 RECORDS-02）
+
+- **执行范围**：严格核查记录页首屏页眉、七日概览、统计摘要、日期详情和第一条记录的可见性与边界，结果明细已回填 `docs/qa/REFINE-19-editorial-paper-issue-audit-plan.md`。
+- **结果**：默认 `1487×1058` 下关键内容均在首屏；`1120×760` 下自然滚动可达且无横向溢出，RECORDS-01 PASS，无代码修改。
+- **本地证据**：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 RECORDS-01" --workers=1` 为 `1/1 PASS`；截图 `RECORDS-01-before-9ecaf59-1487.png` 在 `output/qa/REFINE-19/`。
+- **保护边界**：版本源仍为 `2.10.18`，未重复发布；不运行 macOS workflow；PID `23304` 用户进程及 WebView2 子进程保持运行；未提交、推送或发布，等待五页界面整体完成后统一处理。
+- **当前状态 / 下一步**：REFINE-19 DOING；记录页 RECORDS-01 完成，下一项为 `RECORDS-02`。
+
+### 2026-09-14 REFINE-19 记录页 RECORDS-02（已完成，进入 RECORDS-03）
+
+- **执行范围**：严格核查记录页是否泄漏 Night Valley 背景、错误面板层级、错误边框或固定布局，结果明细已回填 `docs/qa/REFINE-19-editorial-paper-issue-audit-plan.md`。
+- **结果**：记录页保持编辑纸页自己的纸张渐变、线条和洞察纸层级，桌面与 `420px` 均无横向溢出；RECORDS-02 PASS，无代码修改。
+- **本地证据**：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 RECORDS-02" --workers=1` 为 `1/1 PASS`；截图 `RECORDS-02-pass-1487-9ecaf59.png`、`RECORDS-02-pass-420-9ecaf59.png` 在 `output/qa/REFINE-19/`。
+- **保护边界**：版本源仍为 `2.10.18`，未重复发布；不运行 macOS workflow；PID `23304` 用户进程及 WebView2 子进程保持运行；未提交、推送或发布，等待五页界面整体完成后统一处理。
+- **当前状态 / 下一步**：REFINE-19 DOING；记录页 RECORDS-01～02 完成，下一项为 `RECORDS-03`。
+
+### 2026-09-14 REFINE-19 记录页 RECORDS-03（已完成，进入 RECORDS-04）
+
+- **执行范围**：严格核查 28 天历史的日期分组展开/收起、最旧记录可达、长标题、编辑保存、删除反馈、纵向滚动和窄屏边界；结果明细已回填 `docs/qa/REFINE-19-editorial-paper-issue-audit-plan.md`。
+- **结果**：历史长列表、分组回看、编辑删除和滚动均可用；首轮复现发现当前记录行的长标题虽被省略但没有 `title` 完整文本入口，已在 `src/components/EditorialPaperViews.tsx` 为该标题补充 `title={record.title}`，保留原有纸页排版；RECORDS-03 部分复现项已修复。
+- **本地证据**：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 RECORDS-03" --workers=1` 为 `1/1 PASS`；截图 `RECORDS-03-pass-1487-9ecaf59.png`、`RECORDS-03-pass-420-9ecaf59.png` 在 `output/qa/REFINE-19/`。
+- **保护边界**：版本源仍为 `2.10.18`，未重复发布；不运行 macOS workflow；PID `23304` 用户进程及 WebView2 子进程保持运行；未提交、推送或发布，等待五页界面整体完成后统一处理。
+- **当前状态 / 下一步**：REFINE-19 DOING；记录页 RECORDS-01～03 完成，下一项为 `RECORDS-04`。
+
+### 2026-09-14 REFINE-19 记录页 RECORDS-04（已完成，进入 RECORDS-05）
+
+- **执行范围**：核查编辑纸页七日总览是否存在第一主题的点线错位、日期点/连接线坐标不一致或首末标签错位。
+- **结果**：编辑纸页使用七个 HTML 自然日柱形按钮，不存在 SVG 点线结构；真实日期、时长标签、柱体中心和基线均对齐，RECORDS-04 不适用 + PASS，无代码修改。
+- **本地证据**：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 RECORDS-04" --workers=1` 为 `1/1 PASS`；截图 `RECORDS-04-not-applicable-1487-9ecaf59.png`、`RECORDS-04-not-applicable-420-9ecaf59.png` 在 `output/qa/REFINE-19/`。
+- **保护边界**：版本源仍为 `2.10.18`，未重复发布；不运行 macOS workflow；PID `23304` 用户进程及 WebView2 子进程保持运行；未提交、推送或发布，等待五页界面整体完成后统一处理。
+- **当前状态 / 下一步**：REFINE-19 DOING；记录页 RECORDS-01～04 完成，下一项为 `RECORDS-05`。
+
+### 2026-09-14 REFINE-19 记录页 RECORDS-05（已完成，进入 RECORDS-06）
+
+- **执行范围**：核查编辑纸页是否存在模糊或重复的“分布图”，并验证图表标题口径、七日数据映射与空余结构。
+- **结果**：编辑纸页只有一个明确标注 `近七日 / NATURAL DAYS` 的七日柱形图，没有重复 distribution 图；7 个真实时长与日期映射正确，RECORDS-05 不适用 + PASS，无代码修改。
+- **本地证据**：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 RECORDS-05" --workers=1` 为 `1/1 PASS`；截图 `RECORDS-05-not-applicable-1487-9ecaf59.png`、`RECORDS-05-not-applicable-420-9ecaf59.png` 在 `output/qa/REFINE-19/`。
+- **保护边界**：版本源仍为 `2.10.18`，未重复发布；不运行 macOS workflow；PID `23304` 用户进程及 WebView2 子进程保持运行；未提交、推送或发布，等待五页界面整体完成后统一处理。
+- **当前状态 / 下一步**：REFINE-19 DOING；记录页 RECORDS-01～05 完成，下一项为 `RECORDS-06`。
+
+### 2026-09-14 REFINE-19 记录页 RECORDS-06（已完成，进入 RECORDS-07）
+
+- **执行范围**：以 205 条长历史验证全部记录分组、默认显示、继续展开、文字回看、编辑保存、删除反馈、纵向滚动与窄屏边界。
+- **结果**：205 条记录按 200 条初始显示并可继续展开到 205 条；编辑、保存、删除后分组与全文索引更新，桌面/窄屏无横向溢出；RECORDS-06 PASS，无新增代码修改。
+- **本地证据**：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 RECORDS-06" --workers=1` 为 `1/1 PASS`；截图 `RECORDS-06-pass-1487-9ecaf59.png`、`RECORDS-06-pass-420-9ecaf59.png` 在 `output/qa/REFINE-19/`。
+- **保护边界**：版本源仍为 `2.10.18`，未重复发布；不运行 macOS workflow；PID `23304` 用户进程及 WebView2 子进程保持运行；未提交、推送或发布，等待五页界面整体完成后统一处理。
+- **当前状态 / 下一步**：REFINE-19 DOING；记录页 RECORDS-01～06 完成，下一项为 `RECORDS-07`。
+
+### 2026-09-14 REFINE-19 记录页 RECORDS-07（已完成，进入 SETTINGS-01）
+
+- **执行范围**：在记录页单独核查右上角最小化、最大化/还原、关闭三个窗口控件的可见性、边界、可访问名称、命令映射和顶栏拖拽隔离。
+- **结果**：桌面与 `420px` 下三个控件均可见可用，三条命令映射正确且不参与顶栏拖拽；RECORDS-07 PASS，无代码修改，未触碰 PID `23304`。
+- **本地证据**：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 RECORDS-07" --workers=1` 为 `1/1 PASS`；截图 `RECORDS-07-pass-1487-9ecaf59.png`、`RECORDS-07-pass-420-9ecaf59.png` 在 `output/qa/REFINE-19/`。
+- **保护边界**：版本源仍为 `2.10.18`，未重复发布；不运行 macOS workflow；PID `23304` 用户进程及 WebView2 子进程保持运行；未提交、推送或发布，等待五页界面整体完成后统一处理。
+- **当前状态 / 下一步**：REFINE-19 DOING；记录页 RECORDS-01～07 完成，下一项为 `SETTINGS-01`。
+
+### 2026-09-14 REFINE-19 设置页 SETTINGS-01（已完成，进入 SETTINGS-02）
+
+- **执行范围**：逐区域核查设置页页眉、五张纸、文字说明、开关、音效、主题预览、快捷键、备份、底部提示与反馈文字的重叠和横向边界。
+- **结果**：桌面两列与窄屏单列下布局块均无重叠、控件与说明分离、底部提示不越界；SETTINGS-01 PASS，无代码修改。
+- **本地证据**：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 SETTINGS-01" --workers=1` 为 `1/1 PASS`；截图 `SETTINGS-01-pass-1487-9ecaf59.png`、`SETTINGS-01-pass-420-9ecaf59.png` 在 `output/qa/REFINE-19/`。
+- **保护边界**：版本源仍为 `2.10.18`，未重复发布；不运行 macOS workflow；PID `23304` 用户进程及 WebView2 子进程保持运行；未提交、推送或发布，等待五页界面整体完成后统一处理。
+- **当前状态 / 下一步**：REFINE-19 DOING；设置页 SETTINGS-01 完成，下一项为 `SETTINGS-02`。
+
+### 2026-09-14 REFINE-19 设置页 SETTINGS-02（已完成，进入 SETTINGS-03）
+
+- **执行范围**：核查两个外观滑块和宽松/紧凑密度是否真正作用于编辑纸页、是否有足够可解释价值。
+- **结果**：确认三组控件对编辑纸页无实际消费者，复现低价值问题；仅从编辑纸页移除两个滑块和密度切换，保留主题色板/预览及其他主题底层设置，未改变纸页风格。
+- **本地证据**：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 SETTINGS-02" --workers=1` 为 `1/1 PASS`；修复前后桌面/窄屏截图在 `output/qa/REFINE-19/`。
+- **保护边界**：版本源仍为 `2.10.18`，未重复发布；不运行 macOS workflow；PID `23304` 用户进程及 WebView2 子进程保持运行；未提交、推送或发布，等待五页界面整体完成后统一处理。
+- **当前状态 / 下一步**：REFINE-19 DOING；设置页 SETTINGS-01～02 完成，下一项为 `SETTINGS-03`。
+
+### 2026-09-14 REFINE-19 设置页 SETTINGS-03（已完成，进入 SETTINGS-04）
+
+- **执行范围**：核查默认音效数量/名称、试听、选择保存、恢复、自定义音效导入和移除。
+- **结果**：7 个默认音效和自定义音效链路均可用，桌面/窄屏无越界；SETTINGS-03 PASS，无代码修改。
+- **本地证据**：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 SETTINGS-03" --workers=1` 为 `1/1 PASS`；截图 `SETTINGS-03-pass-1487-9ecaf59.png`、`SETTINGS-03-pass-420-9ecaf59.png` 在 `output/qa/REFINE-19/`。
+- **保护边界**：版本源仍为 `2.10.18`，未重复发布；不运行 macOS workflow；PID `23304` 用户进程及 WebView2 子进程保持运行；未提交、推送或发布，等待五页界面整体完成后统一处理。
+- **当前状态 / 下一步**：REFINE-19 DOING；设置页 SETTINGS-01～03 完成，下一项为 `SETTINGS-04`。
+
+### 2026-09-14 REFINE-19 设置页 SETTINGS-04（已完成，进入 SETTINGS-05）
+
+- **执行范围**：核查设置页展示的开始/继续、结束本段、命令面板三条快捷键是否真实接入且可靠。
+- **结果**：三条快捷键均有真实行为，`Ctrl+K` 可开关命令面板，`Ctrl+Enter` 可开始，`Ctrl+Shift+E` 可完成并记录；SETTINGS-04 PASS，无代码修改。
+- **本地证据**：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 SETTINGS-04" --workers=1` 为 `1/1 PASS`；截图 `SETTINGS-04-pass-1487-9ecaf59.png`、`SETTINGS-04-pass-420-9ecaf59.png` 在 `output/qa/REFINE-19/`。
+- **保护边界**：版本源仍为 `2.10.18`，未重复发布；不运行 macOS workflow；PID `23304` 用户进程及 WebView2 子进程保持运行；未提交、推送或发布，等待五页界面整体完成后统一处理。
+- **当前状态 / 下一步**：REFINE-19 DOING；设置页 SETTINGS-01～04 完成，下一项为 `SETTINGS-05`。
+
+### 2026-09-14 REFINE-19 设置页 SETTINGS-05（已完成，进入 SETTINGS-06）
+
+- **执行范围**：核查编辑纸页是否误用 Night Valley 右侧预览图、预览用途是否不清，以及图片与纸页风格是否冲突。
+- **结果**：编辑纸页仅保留自己的 5 个主题色板和文字实时预览，没有 Night Valley 节点、图片或 URL 背景；SETTINGS-05 PASS，无代码修改。
+- **本地证据**：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 SETTINGS-05" --workers=1` 为 `1/1 PASS`；截图 `SETTINGS-05-pass-1487-9ecaf59.png`、`SETTINGS-05-pass-420-9ecaf59.png` 在 `output/qa/REFINE-19/`。
+- **保护边界**：版本源仍为 `2.10.18`，未重复发布；不运行 macOS workflow；PID `23304` 用户进程及 WebView2 子进程保持运行；未提交、推送或发布，等待五页界面整体完成后统一处理。
+- **当前状态 / 下一步**：REFINE-19 DOING；设置页 SETTINGS-01～05 完成，下一项为 `SETTINGS-06`。
+
+### 2026-09-14 REFINE-19 设置页 SETTINGS-06（已完成，进入整组回归与发布核验）
+
+- **执行范围**：核查主题/提醒/音效修改的即时保存、写入失败提示、重载恢复及误导性的手动保存语义。
+- **结果**：移除编辑纸页冗余手动保存按钮并改为即时保存说明；偏好写入失败时控件回到最后成功值；主题、提醒和音效重载恢复通过，SETTINGS-06 已修复。
+- **本地证据**：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 SETTINGS-06" --workers=1` 为 `1/1 PASS`；修复前后桌面/窄屏截图在 `output/qa/REFINE-19/`。
+- **保护边界**：当前版本源仍为 `2.10.18`，尚未重复发布；下一阶段需 bump 到新的 patch 版本并同步版本源；不运行 macOS workflow；PID `23304` 用户进程及 WebView2 子进程保持运行；尚未提交、推送或发布。
+- **当前状态 / 下一步**：REFINE-19 五页编号问题已全部逐项核查，下一步执行整组定向回归、`pnpm check`/构建/打包核验，再按发布纪律同步 patch 版本并发布 Windows 资产。

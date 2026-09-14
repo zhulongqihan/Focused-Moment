@@ -10065,7 +10065,7 @@ body,
   overflow: visible;
 }
 
-/* v2.10.18 Settings workspace: every control gets a measured home, while
+/* v2.10.19 Settings workspace: every control gets a measured home, while
    the right rail explains the active theme instead of showing a static image. */
 .minimal-app--settings {
   height: auto;

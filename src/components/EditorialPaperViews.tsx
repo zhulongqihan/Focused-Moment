@@ -7,7 +7,6 @@ import {
   Clock3,
   Plus,
   RotateCcw,
-  Save,
   Settings,
   SlidersHorizontal,
   Volume2,
@@ -23,6 +22,7 @@ import type {
   NightValleySettingsProps,
   NightValleyTodoProps,
 } from "./NightValleyViews";
+import { NightValleyClock } from "./NightValleyDateStamp";
 
 function formatPreviewMinutes(value: number) {
   const totalSeconds = Math.max(0, Math.round((Number.isFinite(value) ? value : 0) * 60));
@@ -61,22 +61,30 @@ function analyticsValue(analytics: AnalyticsSnapshot | null, key: keyof Analytic
   return value === undefined || value === null ? fallback : String(value);
 }
 
+function currentEditorialDateLabel() {
+  return new Date()
+    .toLocaleDateString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" })
+    .replace(/\//g, "-");
+}
+
+function EditorialPaperDateTime(props: { date?: string }) {
+  return (
+    <span class="ep-date-time">
+      <time class="ep-date-time__date">{props.date ?? currentEditorialDateLabel()}</time>
+      <NightValleyClock className="ep-date-time__clock" />
+    </span>
+  );
+}
+
 export function EditorialPaperToday(props: TodayDashboardProps) {
   const streak = createMemo(() => props.analytics()?.currentStreakDays ?? 0);
   const completionCount = createMemo(() => props.todayCompletedTodos().length);
   const totalTodayCount = createMemo(() => completionCount() + props.todayTodos().length);
-  const timerLabel = createMemo(() => {
-    const snapshot = props.timer();
-    if (snapshot.isRunning) {
-      return "正在专注";
-    }
-    return props.timerHasProgress() ? "已暂停" : "准备开始";
-  });
 
   return (
     <section class="ep-page ep-today-page" aria-label="今日节奏">
       <header class="ep-page-header ep-today-header">
-        <div class="ep-meta-line"><span>FOCUSED MOMENT / DAILY FIELD NOTES</span><time>{props.todayLabel}</time></div>
+        <div class="ep-meta-line"><span>FOCUSED MOMENT / DAILY FIELD NOTES</span><EditorialPaperDateTime date={props.todayLabel} /></div>
         <div class="ep-heading-row">
           <div>
             <span class="ep-kicker">DAILY PLAN · VOL. 0905</span>
@@ -149,16 +157,6 @@ export function EditorialPaperToday(props: TodayDashboardProps) {
         </aside>
       </div>
 
-      <section class="ep-today-timer-strip" aria-label="当前计时">
-        <div class="ep-timer-strip__status"><span classList={{ "ep-live-dot": true, "is-running": props.timer().isRunning }} /> <span>{timerLabel()}</span><strong>{props.timer().elapsedLabel}</strong></div>
-        <div class="ep-timer-strip__actions">
-          <Show when={props.timer().isRunning} fallback={<button type="button" class="ep-text-button" disabled={props.busy() || !props.timerCanContinue() && !props.nextTodo()} onClick={props.timerHasProgress() ? props.onContinue : props.onStartNext}>{props.timerHasProgress() ? "继续专注" : "开始下一件事"}</button>}>
-            <button type="button" class="ep-text-button" disabled={props.busy()} onClick={props.onPause}>暂停</button>
-          </Show>
-          <button type="button" class="ep-text-button" disabled={props.busy() || !props.timerHasProgress()} onClick={props.onFinish}>完成并记录</button>
-        </div>
-      </section>
-
       <footer class="ep-facts-row">
         <div><span>今日专注</span><strong>{analyticsValue(props.analytics(), "todayFocusDurationLabel", "0 分钟")}</strong></div>
         <div><span>完成段数</span><strong>{analyticsValue(props.analytics(), "todaySessionCount", "0")}</strong></div>
@@ -173,6 +171,10 @@ export function EditorialPaperFocus(props: NightValleyFocusProps) {
   const displayTime = createMemo(() => focusDisplayTime(props.timer(), props.countdownMinutes(), props.countdownDraftDirty()));
   const progress = createMemo(() => timerProgress(props.timer(), props.timerHasProgress()));
   const currentTodo = createMemo(() => props.todos().find((item) => item.id === props.linkedTodoId()) ?? null);
+  const resetLabel = createMemo(() => props.timerHasProgress() ? "重置本次专注" : "清空设置");
+  const resetDescription = createMemo(() => props.timerHasProgress()
+    ? "放弃当前计时并清除本次专注设置"
+    : "清除当前标题、时长和待办选择");
 
   function handleLinkedTodoChange(value: string) {
     const id = value ? Number(value) : null;
@@ -187,7 +189,7 @@ export function EditorialPaperFocus(props: NightValleyFocusProps) {
   return (
     <section class="ep-page ep-focus-page" aria-label="专注时刻">
       <header class="ep-page-header">
-        <div class="ep-meta-line"><span>FOCUSED MOMENT / FOCUS CARD</span><span>02 / 05</span></div>
+        <div class="ep-meta-line"><span>FOCUSED MOMENT / FOCUS CARD</span><span class="ep-page-meta"><span class="ep-page-index">02 / 05</span><EditorialPaperDateTime /></span></div>
         <span class="ep-kicker">A GENTLE APPOINTMENT WITH ATTENTION</span>
         <h1>专注时刻</h1>
         <p>给眼前这一段完整的注意力。</p>
@@ -196,7 +198,7 @@ export function EditorialPaperFocus(props: NightValleyFocusProps) {
       <div class="ep-focus-layout">
         <aside class="ep-note-stack ep-note-stack--left">
           <div class="ep-taped-note ep-taped-note--ochre"><span>当前状态</span><strong>{props.timer().isRunning ? "进行中" : props.timerHasProgress() ? "已暂停" : "准备开始"}</strong><small>{props.timer().phaseLabel}</small></div>
-          <div class="ep-taped-note ep-taped-note--sage"><span>今日专注</span><strong>{props.todos().filter((item) => item.isCompleted).length} 项完成</strong><small>每一段都算数</small></div>
+          <div class="ep-taped-note ep-taped-note--sage"><span>今日专注</span><strong>{props.todaySessionCount()} 段完成</strong><small>每一段都算数</small></div>
         </aside>
 
         <section class="ep-clock-card" aria-label="计时器">
@@ -212,11 +214,11 @@ export function EditorialPaperFocus(props: NightValleyFocusProps) {
             <label class="ep-inline-field"><span>专注时长</span><input type="number" name="editorialCountdownMinutes" min="1" max="720" value={props.countdownMinutes()} disabled={props.busy() || !props.ready() || props.timerHasProgress()} onInput={(event) => { props.onCountdownDraftDirty(); props.onCountdownMinutesChange(Number(event.currentTarget.value || 0)); }} /><em>分钟</em></label>
           </Show>
           <div class="ep-clock-card__actions">
-            <Show when={props.timer().isRunning} fallback={<button type="button" class="ep-primary-button" disabled={props.busy() || !props.ready() || props.timer().isRunning || (props.timer().modeKey === "countdown" && props.timer().remainingMs === 0)} onClick={() => void props.onStart()}>{props.busy() ? props.busyLabel() : "开始专注"}</button>}>
+            <Show when={props.timer().isRunning} fallback={<button type="button" class="ep-primary-button" disabled={props.busy() || !props.ready() || props.timer().isRunning || (props.timer().modeKey === "countdown" && props.timer().remainingMs === 0)} onClick={() => void props.onStart()}>{props.busy() ? props.busyLabel() : props.timerHasProgress() ? "继续专注" : "开始专注"}</button>}>
               <button type="button" class="ep-primary-button" disabled={props.busy()} onClick={() => void props.onPause()}>{props.busy() ? props.busyLabel() : "暂停"}</button>
             </Show>
             <button type="button" class="ep-secondary-button" disabled={props.busy() || !props.canFinish()} onClick={() => void props.onFinish()}>{props.busy() && props.canFinish() ? props.busyLabel() : "完成并记录"}</button>
-            <button type="button" class="ep-text-button" disabled={props.busy() || !props.timerHasProgress()} onClick={() => void props.onReset()}><RotateCcw size={14} strokeWidth={1.6} aria-hidden="true" />重置</button>
+            <button type="button" class="ep-text-button" disabled={props.busy() || !props.ready()} title={resetDescription()} aria-label={resetLabel()} onClick={() => void props.onReset()}><RotateCcw size={14} strokeWidth={1.6} aria-hidden="true" />{resetLabel()}</button>
           </div>
           <Show when={props.savedConfirmation()}><p class="ep-inline-confirmation" role="status"><CircleCheck size={15} strokeWidth={1.7} aria-hidden="true" />这一段已经收进记录。</p></Show>
         </section>
@@ -227,7 +229,7 @@ export function EditorialPaperFocus(props: NightValleyFocusProps) {
         </aside>
       </div>
 
-      <footer class="ep-focus-footer"><span><Clock3 size={15} strokeWidth={1.6} aria-hidden="true" />{props.timerCanContinue() ? "可以继续回来" : "准备好时，从这里开始"}</span><span>FOCUSED MOMENT · FM-2026</span><span>{props.timer().activeTaskTitle || "一段完整的注意力"}</span></footer>
+      <footer class="ep-focus-footer"><span><Clock3 size={15} strokeWidth={1.6} aria-hidden="true" />{props.timerCanContinue() ? "可以继续回来" : "准备好时，从这里开始"}</span><Show when={props.timerHasProgress()}><button type="button" class="ep-secondary-button ep-focus-floating-link" title="隐藏主窗口，回到悬浮计时" onClick={() => void props.onShowFocusFloating()}>进入悬浮窗 <ArrowUpRight size={15} strokeWidth={1.6} aria-hidden="true" /></button></Show><span>FOCUSED MOMENT · FM-2026</span><span>{props.timer().activeTaskTitle || "一段完整的注意力"}</span></footer>
     </section>
   );
 }
@@ -290,7 +292,7 @@ export function EditorialPaperTodos(props: NightValleyTodoProps) {
   return (
     <section class="ep-page ep-todos-page" aria-label="待办清单">
       <header class="ep-page-header ep-todos-header">
-        <div class="ep-meta-line"><span>FOCUSED MOMENT / FIELD NOTES</span><span>03 / 05</span></div>
+        <div class="ep-meta-line"><span>FOCUSED MOMENT / FIELD NOTES</span><span class="ep-page-meta"><span class="ep-page-index">03 / 05</span><EditorialPaperDateTime /></span></div>
         <span class="ep-kicker">SORT THE NOISE INTO A NEXT STEP</span>
         <h1>待办清单</h1>
         <p>把杂乱的念头整理成下一步。</p>
@@ -340,7 +342,7 @@ export function EditorialPaperRecords(props: NightValleyRecordsProps) {
   return (
     <section class="ep-page ep-records-page" aria-label="专注年鉴">
       <header class="ep-page-header ep-records-header">
-        <div class="ep-meta-line"><span>FOCUSED MOMENT / PERSONAL ARCHIVE</span><span>04 / 05</span></div>
+        <div class="ep-meta-line"><span>FOCUSED MOMENT / PERSONAL ARCHIVE</span><span class="ep-page-meta"><span class="ep-page-index">04 / 05</span><EditorialPaperDateTime /></span></div>
         <span class="ep-kicker">RETURN TO THE RHYTHM YOU HAVE BUILT</span>
         <h1>专注年鉴</h1>
         <p>回看节奏，给下一页留下证据。</p>
@@ -352,7 +354,7 @@ export function EditorialPaperRecords(props: NightValleyRecordsProps) {
       </section>
 
       <section class="ep-records-spread">
-        <div class="ep-records-list"><div class="ep-section-heading"><div><span class="ep-section-label">{props.formatAnalyticsDate(selectedDate())} · 节奏回顾</span><h2>每一段都留下痕迹</h2></div><button type="button" class="ep-text-button" onClick={() => props.onSelectDate(props.archiveDays()[props.archiveDays().length - 1]?.date ?? props.selectedArchiveDate())}>回到最近</button></div><Show when={selectedRecords().length > 0} fallback={<p class="ep-empty">这一天还没有专注记录。</p>}><For each={visibleSelectedRecords()}>{(record) => <article class="ep-record-entry"><span class="ep-record-entry__time">{record.completedTime}</span><span class="ep-record-entry__line" /><div><Show when={props.editingRecord()?.id === record.id} fallback={<><strong>{record.title}</strong><small>{record.durationLabel} · {record.modeLabel} · {formatRecordTime(record)}</small></>}><input type="text" aria-label="记录名称" value={props.editingRecord()?.title ?? ""} onInput={(event) => props.onPatchEdit(event.currentTarget.value)} onKeyDown={(event) => { if (event.key === "Enter") void props.onSaveEdit(); if (event.key === "Escape") props.onCancelEdit(); }} /><div class="ep-record-entry__edit-actions"><button type="button" class="ep-primary-button" disabled={props.busy()} onClick={() => void props.onSaveEdit()}>保存</button><button type="button" class="ep-text-button" disabled={props.busy()} onClick={props.onCancelEdit}>取消</button></div></Show></div><Show when={props.editingRecord()?.id !== record.id}><span class="ep-record-entry__duration">{record.durationLabel}</span><div class="ep-record-entry__actions"><button type="button" class="ep-text-button" disabled={props.busy()} onClick={() => props.onBeginEdit(record)}>编辑</button><button type="button" class="ep-text-button ep-text-button--danger" disabled={props.busy()} onClick={() => void props.onRemove(record.id)}>删除</button></div></Show></article>}</For><Show when={visibleRecordCount() < selectedRecords().length}><button type="button" class="ep-records-load-more" onClick={() => setVisibleRecordCount((count) => Math.min(count + initialVisibleRecordCount, selectedRecords().length))}>继续展开记录 · 已显示 {visibleRecordCount()} / {selectedRecords().length}</button></Show></Show></div>
+        <div class="ep-records-list"><div class="ep-section-heading"><div><span class="ep-section-label">{props.formatAnalyticsDate(selectedDate())} · 节奏回顾</span><h2>每一段都留下痕迹</h2></div><button type="button" class="ep-text-button" onClick={() => props.onSelectDate(props.archiveDays()[props.archiveDays().length - 1]?.date ?? props.selectedArchiveDate())}>回到最近</button></div><Show when={selectedRecords().length > 0} fallback={<p class="ep-empty">这一天还没有专注记录。</p>}><For each={visibleSelectedRecords()}>{(record) => <article class="ep-record-entry"><span class="ep-record-entry__time">{record.completedTime}</span><span class="ep-record-entry__line" /><div><Show when={props.editingRecord()?.id === record.id} fallback={<><strong title={record.title}>{record.title}</strong><small>{record.durationLabel} · {record.modeLabel} · {formatRecordTime(record)}</small></>}><input type="text" aria-label="记录名称" value={props.editingRecord()?.title ?? ""} onInput={(event) => props.onPatchEdit(event.currentTarget.value)} onKeyDown={(event) => { if (event.key === "Enter") void props.onSaveEdit(); if (event.key === "Escape") props.onCancelEdit(); }} /><div class="ep-record-entry__edit-actions"><button type="button" class="ep-primary-button" disabled={props.busy()} onClick={() => void props.onSaveEdit()}>保存</button><button type="button" class="ep-text-button" disabled={props.busy()} onClick={props.onCancelEdit}>取消</button></div></Show></div><Show when={props.editingRecord()?.id !== record.id}><span class="ep-record-entry__duration">{record.durationLabel}</span><div class="ep-record-entry__actions"><button type="button" class="ep-text-button" disabled={props.busy()} onClick={() => props.onBeginEdit(record)}>编辑</button><button type="button" class="ep-text-button ep-text-button--danger" disabled={props.busy()} onClick={() => void props.onRemove(record.id)}>删除</button></div></Show></article>}</For><Show when={visibleRecordCount() < selectedRecords().length}><button type="button" class="ep-records-load-more" onClick={() => setVisibleRecordCount((count) => Math.min(count + initialVisibleRecordCount, selectedRecords().length))}>继续展开记录 · 已显示 {visibleRecordCount()} / {selectedRecords().length}</button></Show></Show></div>
         <aside class="ep-insight-paper"><span class="ep-section-label">今日洞察 / FIELD NOTE</span><Show when={analytics()} fallback={<p>完成一段专注后，这里会出现可回看的事实。</p>}><p>你已经为今天留下 <strong>{analyticsValue(analytics(), "todayFocusDurationLabel", "0 分钟")}</strong> 的注意力。早上的输入会让下午的创作更稳定，晚上可以用下一段安静的回看收束今天。</p></Show><div class="ep-insight-signature">FOCUSED MOMENT<br /><small>FM-ARCHIVE / 2026</small></div></aside>
       </section>
 
@@ -368,14 +370,14 @@ export function EditorialPaperSettings(props: NightValleySettingsProps) {
   return (
     <section class="ep-page ep-settings-page" aria-label="专注手册">
       <header class="ep-page-header ep-settings-header">
-        <div class="ep-meta-line"><span>FOCUSED MOMENT / PERSONAL MANUAL</span><span>05 / 05</span></div>
+        <div class="ep-meta-line"><span>FOCUSED MOMENT / PERSONAL MANUAL</span><span class="ep-page-meta"><span class="ep-page-index">05 / 05</span><EditorialPaperDateTime /></span></div>
         <span class="ep-kicker">TUNE THE BOUNDARIES OF YOUR ATTENTION</span>
         <h1>你的专注手册</h1>
         <p>调整纸面之外，也调整注意力的边界。</p>
       </header>
 
       <div class="ep-settings-spread">
-        <section class="ep-settings-paper"><div class="ep-section-heading"><div><span class="ep-section-label">01 / APPEARANCE</span><h2>外观样式</h2></div><SlidersHorizontal size={18} strokeWidth={1.4} aria-hidden="true" /></div><div class="ep-theme-swatches"><For each={themes}>{(theme) => <button type="button" classList={{ "ep-theme-swatch": true, selected: props.themeId() === theme.id, disabled: !theme.implemented }} disabled={!theme.implemented} aria-pressed={props.themeId() === theme.id} onClick={() => props.onThemeSelect(theme.id)}><span class={`ep-theme-swatch__paper ep-theme-swatch__paper--${theme.id}`} /><strong>{theme.name}</strong><small>{theme.implemented ? "可用" : "尚未实现"}</small></button>}</For></div><label class="ep-slider-row"><span>纸面亮度 <b>{props.visualIntensity()}%</b></span><input type="range" min="0" max="100" value={props.visualIntensity()} onInput={(event) => props.onVisualIntensityChange(Number(event.currentTarget.value))} /></label><label class="ep-slider-row"><span>动效程度 <b>{props.motionIntensity()}%</b></span><input type="range" min="0" max="100" value={props.motionIntensity()} onInput={(event) => props.onMotionIntensityChange(Number(event.currentTarget.value))} /></label><label class="ep-density-row"><span>界面密度</span><div><button type="button" classList={{ selected: props.density() === "roomy" }} onClick={() => props.onDensityChange("roomy")}>宽松</button><button type="button" classList={{ selected: props.density() === "compact" }} onClick={() => props.onDensityChange("compact")}>紧凑</button></div></label><div class="ep-live-preview"><span>当前样式预览</span><div class={`ep-live-preview__paper ep-live-preview__paper--${activeTheme().id}`}><strong>{activeTheme().name}</strong><small>{activeTheme().description}</small></div></div></section>
+        <section class="ep-settings-paper"><div class="ep-section-heading"><div><span class="ep-section-label">01 / APPEARANCE</span><h2>外观样式</h2></div><SlidersHorizontal size={18} strokeWidth={1.4} aria-hidden="true" /></div><div class="ep-theme-swatches"><For each={themes}>{(theme) => <button type="button" classList={{ "ep-theme-swatch": true, selected: props.themeId() === theme.id, disabled: !theme.implemented }} disabled={!theme.implemented} aria-pressed={props.themeId() === theme.id} onClick={() => props.onThemeSelect(theme.id)}><span class={`ep-theme-swatch__paper ep-theme-swatch__paper--${theme.id}`} /><strong>{theme.name}</strong><small>{theme.implemented ? "可用" : "尚未实现"}</small></button>}</For></div><div class="ep-live-preview"><span>当前样式预览</span><div class={`ep-live-preview__paper ep-live-preview__paper--${activeTheme().id}`}><strong>{activeTheme().name}</strong><small>{activeTheme().description}</small></div></div></section>
 
         <section class="ep-settings-paper"><div class="ep-section-heading"><div><span class="ep-section-label">02 / BEHAVIOR</span><h2>专注行为</h2></div><Settings size={18} strokeWidth={1.4} aria-hidden="true" /></div><div class="ep-setting-list"><label><input type="checkbox" checked={props.timerPreferences().toastReminderEnabled} disabled={props.busy()} onChange={(event) => void props.onSaveTimerPreferences({ toastReminderEnabled: event.currentTarget.checked })} /><span><strong>完成后自动回到下一段</strong><small>无缝衔接，保持节奏。</small></span></label><label><input type="checkbox" checked={props.timerPreferences().windowAttentionReminderEnabled} disabled={props.busy()} onChange={(event) => void props.onSaveTimerPreferences({ windowAttentionReminderEnabled: event.currentTarget.checked })} /><span><strong>结束时提醒我</strong><small>回顾本次专注收获。</small></span></label><label><input type="checkbox" checked={props.timerPreferences().soundReminderEnabled} disabled={props.busy()} onChange={(event) => void props.onSaveTimerPreferences({ soundReminderEnabled: event.currentTarget.checked })} /><span><strong>持续专注提醒</strong><small>长时间专注时轻柔提醒。</small></span></label></div><p class="ep-hand-note">边界清晰，节奏自然。</p></section>
 
@@ -386,7 +388,7 @@ export function EditorialPaperSettings(props: NightValleySettingsProps) {
         <section class="ep-settings-paper ep-settings-paper--backup"><div class="ep-section-heading"><div><span class="ep-section-label">05 / DATA</span><h2>数据与备份</h2></div><BookOpen size={18} strokeWidth={1.4} aria-hidden="true" /></div><p>待办、专注记录和未完成计时状态留在这台电脑上。</p><div class="ep-settings-actions"><button type="button" class="ep-primary-button" disabled={props.busy()} onClick={() => void props.onCreateBackup()}>{props.busy() ? props.busyLabel() : "导出备份"}</button><button type="button" class="ep-secondary-button" disabled={props.busy()} onClick={() => void props.onOpenBackupFolder()}>打开备份目录</button></div><Show when={props.lastBackupPath()}><p class="ep-path">最近备份：{props.lastBackupPath()}</p></Show><Show when={props.backupLoadState() === "loading"}><p class="ep-empty">正在读取备份列表…</p></Show><Show when={props.backupLoadState() === "error"}><div class="ep-error"><strong>备份列表读取失败</strong><span>{props.backupLoadError()}</span><button type="button" class="ep-text-button" onClick={() => void props.onLoadBackups()}>重试读取</button></div></Show><Show when={props.backupLoadState() === "ready" && props.backups().length > 0}><label class="ep-select-row"><span>选择备份</span><select value={props.selectedBackupFile()} onChange={(event) => props.onSelectedBackupFile(event.currentTarget.value)}><For each={props.backups()}>{(backup) => <option value={backup.fileName}>{backup.fileName}</option>}</For></select></label><button type="button" class="ep-secondary-button" disabled={props.busy() || !props.selectedBackupFile()} onClick={() => void props.onRestoreBackup()}>导入并替换当前数据</button></Show><Show when={props.backupLoadState() === "ready" && props.backups().length === 0}><p class="ep-empty">还没有备份。建议在清理前先导出一份。</p></Show><button type="button" class="ep-danger-button" disabled={props.busy()} onClick={() => void props.onClearAllData()}>清空当前数据</button></section>
       </div>
 
-      <footer class="ep-settings-footer"><span>当前样式：{activeTheme().name}</span><button type="button" class="ep-primary-button" onClick={props.onSaveVisualSettings}><Save size={15} strokeWidth={1.6} aria-hidden="true" />保存外观设置</button><span>更改将在下次打开应用时生效。</span></footer>
+      <footer class="ep-settings-footer"><span>当前样式：{activeTheme().name}</span><span>主题与提醒设置会立即保存。</span></footer>
     </section>
   );
 }

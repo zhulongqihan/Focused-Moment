@@ -1011,7 +1011,9 @@ function MainShell() {
 
   async function resetFocus() {
     await run(async () => {
-      applyTimerSnapshot(await resetTimer());
+      const nextTimer = await resetTimer();
+      setCountdownDraftDirty(false);
+      applyTimerSnapshot(nextTimer);
       setSavedConfirmation(false);
       setSessionTitle("");
       setSessionTitleDirty(false);
@@ -1249,10 +1251,15 @@ function MainShell() {
 
   async function saveTimerPreferences(patch: Partial<TimerPreferences>, successMessage = "提醒设置已保存。") {
     const nextPreferences = { ...timerPreferences(), ...patch };
+    let saved = false;
     await run(async () => {
       setTimerPreferences(await updateTimerPreferences(nextPreferences));
+      saved = true;
       showMessage(successMessage, "success");
     }, "正在保存提醒设置…");
+    if (!saved) {
+      setTimerPreferences({ ...timerPreferences() });
+    }
   }
 
   function previewAlertSound() {
