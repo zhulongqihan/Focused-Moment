@@ -1196,3 +1196,12 @@ NV-05 的具体键盘缺口：`CommandPalette.tsx` 声明 modal/listbox，但缺
 - **发布闭环**：产品提交 [`e9fb459`](https://github.com/zhulongqihan/Focused-Moment/commit/e9fb459f229216d1e7c4766f89906113a58f1291) 已推送到 `main`；`v2.11.3` tag 已创建并固定指向该产品提交；Windows x64 三项安装资产已上传，远端 digest 与本地打包结果一致。
 - **远端验证**：Windows Checks [`34936326293`](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34936326293) PASS；前端 `135 passed`，Rust fmt/check/test PASS。Node.js 20 弃用提示仅为 Actions 注记，不影响本次验证。
 - **最终状态**：`REL-26 DONE`；发布页为 [`v2.11.3`](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.11.3)；不运行任何 macOS workflow，不停止当前用户进程；后续按项目优先级排队。
+
+### 2026-09-15 Editorial Paper 今日页视觉收口（本地候选进行中）
+
+- **用户问题**：第二套“编辑纸页”主题点击“今日”后侧边栏文字颜色变浅；左上角产品图标希望改为大圆套小圆；`DAILY PLAN · VOL. 0905` 含义不清。
+- **根因确认**：共享壳层的 Today 状态会附加 `minimal-app--trail`，旧规则对导航内所有 `span` 设置了浅色，覆盖了 Editorial Paper 标签的主题继承色；`0905` 是静态样稿编号，不来自日期或用户数据。
+- **实现**：`src/components/EditorialPaperViews.css` 将编辑纸页导航标签颜色绑定到按钮状态并移除旧间距污染；顶栏与侧栏产品标记统一为外圆/内圆同心结构，隐藏偏置圆点；`src/components/EditorialPaperViews.tsx` 将计划编号改为 `props.todayDate` 的 `YYYY.MM.DD` 文案；`tests/today-visual.spec.mjs` 新增颜色、几何和文案回归。
+- **本地验证**：`pnpm check` PASS；编辑纸页导航/图标/日期定向回归 PASS；编辑纸页五页桌面渲染截图回归 PASS；截图已核对；待继续执行完整前端回归、构建、Rust fmt/check/test 和 Windows 打包。
+- **版本边界**：因 `v2.11.3` 后新增用户可见修复，按 patch 纪律升为 `2.11.4`，版本源已同步，`docs/v2.11.4/RELEASE_NOTES.md` 已创建；macOS 继续冻结。
+- **当前状态 / 下一步**：REL-27 DOING；先完成完整回归与发布候选打包，再提交、推送、创建 `v2.11.4` GitHub Release，等待 Windows Checks 通过后回填资产 digest 与最终证据。

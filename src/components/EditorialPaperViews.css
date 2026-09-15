@@ -85,12 +85,21 @@
 }
 
 .minimal-app[data-theme="editorial-paper"] .app-brand__mark {
+  position: relative;
   width: 18px;
   height: 18px;
   border: 1px solid var(--ep-green);
   border-radius: 50%;
   background: transparent;
-  box-shadow: inset 0 0 0 3px var(--ep-paper), inset 0 0 0 4px var(--ep-rust);
+  box-shadow: none;
+}
+
+.minimal-app[data-theme="editorial-paper"] .app-brand__mark::before {
+  position: absolute;
+  inset: 4px;
+  border: 1px solid var(--ep-rust);
+  border-radius: 50%;
+  content: "";
 }
 
 .minimal-app[data-theme="editorial-paper"] .command-trigger,
@@ -178,27 +187,22 @@
 
 .minimal-app[data-theme="editorial-paper"] .trail-nav__logo {
   position: relative;
-  width: 28px;
-  height: 28px;
+  width: 34px;
+  height: 34px;
   border: 1px solid var(--ep-green);
   border-radius: 50%;
 }
 
 .minimal-app[data-theme="editorial-paper"] .trail-nav__logo-ring {
   position: absolute;
-  inset: 4px;
+  inset: 6px;
   border: 1px solid var(--ep-rust);
   border-radius: 50%;
+  transform: none;
 }
 
 .minimal-app[data-theme="editorial-paper"] .trail-nav__logo-dot {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--ep-rust);
+  display: none;
 }
 
 .minimal-app[data-theme="editorial-paper"] .minimal-nav button {
@@ -275,6 +279,13 @@
   color: var(--ep-rust);
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   font-size: 0.72rem;
+}
+
+/* Today adds the cinematic trail state to the shared shell. Keep that
+   state from recoloring Editorial Paper labels as if they were a counter. */
+.minimal-app[data-theme="editorial-paper"].minimal-app--trail .minimal-nav > button .minimal-nav__label {
+  margin-left: 0 !important;
+  color: inherit !important;
 }
 
 .minimal-app[data-theme="editorial-paper"] .minimal-content,

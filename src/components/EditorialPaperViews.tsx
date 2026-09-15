@@ -87,7 +87,7 @@ export function EditorialPaperToday(props: TodayDashboardProps) {
         <div class="ep-meta-line"><span>FOCUSED MOMENT / DAILY FIELD NOTES</span><EditorialPaperDateTime /></div>
         <div class="ep-heading-row">
           <div>
-            <span class="ep-kicker">DAILY PLAN · VOL. 0905</span>
+            <span class="ep-kicker">DAILY PLAN · {props.todayDate.replace(/-/g, ".")}</span>
             <h1>今日节奏</h1>
             <p>把注意力放在真正重要的事上，时间会给出回应。</p>
           </div>

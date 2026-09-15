@@ -953,6 +953,60 @@ test("Editorial Paper renders all five pages inside the desktop surface", async 
   writeFileSync(`${editorialDirectory}/geometry.json`, JSON.stringify({ viewport: { width: 1487, height: 1058 }, pages: geometry }, null, 2));
 });
 
+test("Editorial Paper keeps Today navigation colors, logo geometry, and plan date meaningful", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+
+  const navEvidence = await page.locator(".minimal-nav").evaluate((nav) => {
+    const buttons = Array.from(nav.querySelectorAll(":scope > button"));
+    return buttons.map((button) => {
+      const label = button.querySelector(".minimal-nav__label");
+      if (!label) return null;
+      const buttonStyle = getComputedStyle(button);
+      const labelStyle = getComputedStyle(label);
+      return {
+        active: button.classList.contains("active"),
+        buttonColor: buttonStyle.color,
+        labelColor: labelStyle.color,
+        labelMarginLeft: labelStyle.marginLeft,
+      };
+    }).filter(Boolean);
+  });
+
+  expect(navEvidence).toHaveLength(5);
+  for (const item of navEvidence) {
+    expect(item.labelColor).toBe(item.buttonColor);
+    expect(item.labelMarginLeft).toBe("0px");
+  }
+
+  const logoEvidence = await page.locator(".trail-nav__logo").evaluate((logo) => {
+    const ring = logo.querySelector(".trail-nav__logo-ring");
+    const dot = logo.querySelector(".trail-nav__logo-dot");
+    if (!ring || !dot) return null;
+    const logoRect = logo.getBoundingClientRect();
+    const ringRect = ring.getBoundingClientRect();
+    return {
+      outer: { width: logoRect.width, height: logoRect.height },
+      inner: { width: ringRect.width, height: ringRect.height },
+      dotDisplay: getComputedStyle(dot).display,
+      outerRadius: getComputedStyle(logo).borderRadius,
+      innerRadius: getComputedStyle(ring).borderRadius,
+    };
+  });
+
+  expect(logoEvidence).not.toBeNull();
+  expect(logoEvidence.outer.width).toBeGreaterThan(logoEvidence.inner.width);
+  expect(logoEvidence.outer.height).toBeGreaterThan(logoEvidence.inner.height);
+  expect(logoEvidence.outerRadius).toBe("50%");
+  expect(logoEvidence.innerRadius).toBe("50%");
+  expect(logoEvidence.dotDisplay).toBe("none");
+  await expect(page.locator(".ep-kicker").first()).toHaveText("DAILY PLAN · 2026.09.05");
+  await expect(page.locator(".ep-kicker").first()).not.toContainText("0905");
+});
+
 test("REFINE-19 TODAY-01 keeps Editorial Paper long node text readable", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
