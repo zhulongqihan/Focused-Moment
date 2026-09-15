@@ -24,21 +24,23 @@ function pageButton(page, label) {
   return page.locator(".minimal-nav > button").filter({ hasText: label });
 }
 
-async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一件事开始", recordCount = 7, includeTodo = true, todoTitles = ["明日规划"], completedTodoTitles = [], dailyBreakdown = [], recordDates = [], recordTitlePrefix = "", analyticsPatch = {} } = {}) {
-  await page.addInitScript(() => {
-    const NativeDate = Date;
-    class ReferenceDate extends NativeDate {
-      constructor(...args) {
-        super(...(args.length === 0 ? ["2026-09-05T12:00:00+08:00"] : args));
+async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一件事开始", recordCount = 7, includeTodo = true, todoTitles = ["明日规划"], completedTodoTitles = [], dailyBreakdown = [], recordDates = [], recordTitlePrefix = "", analyticsPatch = {}, freezeClock = true } = {}) {
+  if (freezeClock) {
+    await page.addInitScript(() => {
+      const NativeDate = Date;
+      class ReferenceDate extends NativeDate {
+        constructor(...args) {
+          super(...(args.length === 0 ? ["2026-09-05T12:00:00+08:00"] : args));
+        }
+
+        static now() {
+          return new NativeDate("2026-09-05T12:00:00+08:00").getTime();
+        }
       }
 
-      static now() {
-        return new NativeDate("2026-09-05T12:00:00+08:00").getTime();
-      }
-    }
-
-    window.Date = ReferenceDate;
-  });
+      window.Date = ReferenceDate;
+    });
+  }
 
   await page.addInitScript(({ today, recordCount, includeTodo, todoTitles, completedTodoTitles, dailyBreakdown, recordDates, recordTitlePrefix, analyticsPatch }) => {
     const focusRecordSeeds = [
@@ -1101,6 +1103,38 @@ test("REFINE-19 TODAY-05 keeps Editorial Paper Today summary within the viewport
   }
 });
 
+test("REFINE-19 TODAY-05 keeps the summary in document flow with long todo data", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  const longTodoTitles = Array.from({ length: 21 }, (_, index) => `活动${String(index + 1).padStart(2, "0")}｜10月${(index % 9) + 1}日 10:00-12:00｜仙林校区会议与材料准备`);
+  const completedTodoTitles = Array.from({ length: 5 }, (_, index) => `已完成事项${index + 1}｜跨页面长标题压力数据｜归档复盘`);
+  for (const [width, height] of [[1487, 1058], [420, 720]]) {
+    await page.setViewportSize({ width, height });
+    await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", todoTitles: longTodoTitles, completedTodoTitles });
+    const evidence = await page.locator(".ep-today-page").evaluate(() => {
+      const facts = document.querySelector(".ep-facts-row")?.getBoundingClientRect();
+      return {
+        viewport: { width: innerWidth, height: innerHeight },
+        documentScrollWidth: document.documentElement.scrollWidth,
+        documentScrollHeight: document.documentElement.scrollHeight,
+        facts: facts ? { top: facts.top, bottom: facts.bottom, height: facts.height } : null,
+        rows: document.querySelectorAll(".ep-field-row").length,
+      };
+    });
+    expect(evidence.rows).toBe(21);
+    expect(evidence.facts).not.toBeNull();
+    expect(evidence.documentScrollWidth).toBeLessThanOrEqual(width + 1);
+    expect(evidence.documentScrollHeight).toBeGreaterThan(height);
+    expect(evidence.facts.bottom).toBeLessThanOrEqual(evidence.documentScrollHeight);
+    if (width === 1487) {
+      await page.screenshot({ path: "output/qa/REFINE-19/TODAY-05-reaudit-data-1487.png", animations: "disabled", fullPage: true });
+    } else {
+      await page.screenshot({ path: "output/qa/REFINE-19/TODAY-05-reaudit-data-420.png", animations: "disabled", fullPage: true });
+    }
+  }
+});
+
 test("REFINE-19 TODAY-06 marks the Editorial Paper winding route as not applicable", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
@@ -1303,12 +1337,13 @@ test("REFINE-19 TIMER-02 keeps Editorial Paper timer hierarchy readable", async 
     expect(metrics.primaryAction).not.toBeNull();
     expect(metrics.mode).not.toBeNull();
     expect(metrics.inlineField).not.toBeNull();
-    expect(metrics.ring.width).toBeLessThanOrEqual(300.5);
+    expect(metrics.ring.width).toBeLessThanOrEqual(Math.min(300.5, metrics.clockCard.width * 0.72 + 1));
+    expect(metrics.ring.width / metrics.clockCard.width).toBeLessThanOrEqual(0.72);
     expect(Number.parseFloat(metrics.readoutFontSize)).toBeLessThanOrEqual(52);
     expect(metrics.readout.bottom).toBeLessThan(metrics.mode.top);
     expect(metrics.mode.bottom).toBeLessThan(metrics.inlineField.top);
     expect(metrics.primaryAction.bottom).toBeLessThanOrEqual(metrics.clockCard.bottom);
-    await page.screenshot({ path: `output/qa/REFINE-19/TIMER-02-after-9ecaf59-${viewport.width}.png`, animations: "disabled", fullPage: true });
+    await page.screenshot({ path: `output/qa/REFINE-19/TIMER-02-reaudit-pass-${viewport.width}.png`, animations: "disabled", fullPage: true });
   }
 });
 
@@ -2163,6 +2198,12 @@ test("REFINE-19 TODO-02 keeps a long completed todo list visible and actionable"
   await expect(doneColumn.locator(".ep-todo-row")).toHaveCount(completedTitles.length - 1);
   await expect(todayColumn).toContainText(restoredTitle);
 
+  const desktopTextEvidence = await todoPage.locator(".ep-todo-row__copy strong").evaluateAll((elements) => elements.map((element) => {
+    const style = getComputedStyle(element);
+    return { text: element.textContent ?? "", clientWidth: element.clientWidth, scrollWidth: element.scrollWidth, overflow: style.overflow, textOverflow: style.textOverflow, whiteSpace: style.whiteSpace };
+  }));
+  expect(desktopTextEvidence.every((item) => item.scrollWidth <= item.clientWidth && item.whiteSpace === "normal" && item.overflow !== "hidden" && item.textOverflow === "clip")).toBe(true);
+
   await doneColumn.locator(".ep-todo-row").first().getByRole("button", { name: "删除", exact: true }).click();
   await expect(doneColumn.locator(".ep-todo-row")).toHaveCount(completedTitles.length - 2);
   await expect(page.locator(".app-message")).toContainText("已删除");
@@ -2176,7 +2217,7 @@ test("REFINE-19 TODO-02 keeps a long completed todo list visible and actionable"
   expect(desktopMetrics.doneRows).toBe(completedTitles.length - 2);
   expect(desktopMetrics.doneScrollHeight).toBeGreaterThan(800);
   await page.evaluate(() => window.scrollTo(0, 0));
-  await page.screenshot({ path: "output/qa/REFINE-19/TODO-02-pass-1487-9ecaf59.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: "output/qa/REFINE-19/TODO-02-reaudit-pass-1487.png", animations: "disabled", fullPage: true });
 
   for (const [width, height] of [[820, 720], [560, 720], [420, 720]]) {
     await page.setViewportSize({ width, height });
@@ -2199,7 +2240,9 @@ test("REFINE-19 TODO-02 keeps a long completed todo list visible and actionable"
     });
     expect(metrics.documentScrollWidth).toBeLessThanOrEqual(width + 1);
     expect(metrics.rows.every((row) => row.left >= 0 && row.right <= width + 1 && row.overlaps.length === 0 && row.blocks.every((block) => block.width >= 0 && block.height >= 0))).toBe(true);
-    if (width === 420) await page.screenshot({ path: "output/qa/REFINE-19/TODO-02-pass-420-9ecaf59.png", animations: "disabled", fullPage: true });
+    const textEvidence = await todoPage.locator(".ep-todo-row__copy strong").evaluateAll((elements) => elements.map((element) => ({ clientWidth: element.clientWidth, scrollWidth: element.scrollWidth, whiteSpace: getComputedStyle(element).whiteSpace })));
+    expect(textEvidence.every((item) => item.scrollWidth <= item.clientWidth && item.whiteSpace === "normal")).toBe(true);
+    if (width === 420) await page.screenshot({ path: "output/qa/REFINE-19/TODO-02-reaudit-pass-420.png", animations: "disabled", fullPage: true });
   }
   const commands = await page.evaluate(() => window.__epTodoCommands);
   expect(commands).toEqual(expect.arrayContaining(["update_todo_item", "toggle_todo_item", "delete_todo_item"]));
@@ -2440,6 +2483,11 @@ test("REFINE-19 RECORDS-03 keeps 28-day Editorial Paper history navigable", asyn
 
   const selectedEntries = recordsPage.locator(".ep-records-list .ep-record-entry");
   await expect(selectedEntries).toHaveCount(2);
+  const desktopTitleEvidence = await selectedEntries.locator("strong").evaluateAll((elements) => elements.map((element) => {
+    const style = getComputedStyle(element);
+    return { text: element.textContent ?? "", clientWidth: element.clientWidth, scrollWidth: element.scrollWidth, overflow: style.overflow, textOverflow: style.textOverflow, whiteSpace: style.whiteSpace };
+  }));
+  expect(desktopTitleEvidence.every((item) => item.scrollWidth <= item.clientWidth && item.whiteSpace === "normal" && item.overflow !== "hidden" && item.textOverflow === "clip")).toBe(true);
   await selectedEntries.first().getByRole("button", { name: "编辑", exact: true }).click();
   await selectedEntries.first().locator('input[aria-label="记录名称"]').fill(editedTitle);
   await selectedEntries.first().getByRole("button", { name: "保存", exact: true }).click();
@@ -2458,7 +2506,7 @@ test("REFINE-19 RECORDS-03 keeps 28-day Editorial Paper history navigable", asyn
   expect(desktopMetrics.historyGroups).toBe(28);
   expect(desktopMetrics.oldestExpanded).toBe(true);
   await page.evaluate(() => window.scrollTo(0, 0));
-  await page.screenshot({ path: "output/qa/REFINE-19/RECORDS-03-pass-1487-9ecaf59.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: "output/qa/REFINE-19/RECORDS-03-reaudit-pass-1487.png", animations: "disabled", fullPage: true });
 
   await page.setViewportSize({ width: 420, height: 720 });
   await page.evaluate(() => window.scrollTo(0, 0));
@@ -2467,9 +2515,11 @@ test("REFINE-19 RECORDS-03 keeps 28-day Editorial Paper history navigable", asyn
   expect(mobileMetrics.documentScrollWidth).toBeLessThanOrEqual(421);
   expect(mobileMetrics.oldestLeft).toBeGreaterThanOrEqual(0);
   expect(mobileMetrics.oldestRight).toBeLessThanOrEqual(421);
+  const mobileTitleEvidence = await recordsPage.locator(".ep-records-list .ep-record-entry strong").evaluateAll((elements) => elements.map((element) => ({ clientWidth: element.clientWidth, scrollWidth: element.scrollWidth, whiteSpace: getComputedStyle(element).whiteSpace })));
+  expect(mobileTitleEvidence.every((item) => item.scrollWidth <= item.clientWidth && item.whiteSpace === "normal")).toBe(true);
   await oldest.scrollIntoViewIfNeeded();
   await expect(oldest).toBeVisible();
-  await page.screenshot({ path: "output/qa/REFINE-19/RECORDS-03-pass-420-9ecaf59.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: "output/qa/REFINE-19/RECORDS-03-reaudit-pass-420.png", animations: "disabled", fullPage: true });
   const commands = await page.evaluate(() => window.__epRecordCommands);
   expect(commands).toEqual(expect.arrayContaining(["update_focus_record_title", "delete_focus_record"]));
 });
@@ -3446,4 +3496,362 @@ test("Night Valley timer survives a scaled fullscreen CSS viewport", async ({ pa
   expect(metrics.panel.bottom).toBeLessThanOrEqual(viewport.height);
   expect(metrics.panelScroll.scrollHeight).toBeLessThanOrEqual(metrics.panelScroll.clientHeight);
   await page.screenshot({ path: "output/playwright/night-valley-timer-scaled-fullscreen.png", animations: "disabled" });
+});
+
+test("REFINE-19 SHELL-01 keeps shared window controls usable on every Editorial Paper tab", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  await page.evaluate(() => {
+    const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
+    window.__epShellCommands = [];
+    window.__TAURI_INTERNALS__.invoke = async (command, args = {}) => {
+      window.__epShellCommands.push(command);
+      return nativeInvoke(command, args);
+    };
+  });
+
+  const pages = [
+    ["今日", ".ep-today-page"],
+    ["计时", ".ep-focus-page"],
+    ["待办", ".ep-todos-page"],
+    ["记录", ".ep-records-page"],
+    ["设置", ".ep-settings-page"],
+  ];
+  const expectedControls = [
+    ["最小化窗口", "minimize_main_window"],
+    ["最大化或还原窗口", "toggle_maximize_main_window"],
+    ["关闭窗口", "close_main_window"],
+  ];
+  for (const [index, [label, selector]] of pages.entries()) {
+    if (index > 0) await pageButton(page, label).click();
+    await expect(page.locator(selector)).toBeVisible();
+    const controls = page.locator(".window-controls");
+    const buttons = controls.locator(".window-control");
+    await expect(buttons).toHaveCount(3);
+    await expect(controls).not.toHaveAttribute("data-tauri-drag-region", /.+/);
+    for (const [buttonIndex, [ariaLabel, command]] of expectedControls.entries()) {
+      const button = buttons.nth(buttonIndex);
+      await expect(button).toBeVisible();
+      await expect(button).toHaveAttribute("aria-label", ariaLabel);
+      await expect(button).not.toHaveAttribute("data-tauri-drag-region", /.+/);
+      await button.click();
+      await expect.poll(() => page.evaluate((expectedCommand) => window.__epShellCommands.filter((item) => item === expectedCommand).length, command)).toBe(index + 1);
+    }
+  }
+  const commands = await page.evaluate(() => window.__epShellCommands);
+  expect(commands.filter((command) => command === "minimize_main_window")).toHaveLength(5);
+  expect(commands.filter((command) => command === "toggle_maximize_main_window")).toHaveLength(5);
+  expect(commands.filter((command) => command === "close_main_window")).toHaveLength(5);
+  await page.screenshot({ path: "output/qa/REFINE-19/SHELL-01-pass-1487.png", animations: "disabled", fullPage: true });
+});
+
+test("REFINE-19 SHELL-02 keeps a live date and clock synchronized across Editorial Paper tabs", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await page.addInitScript(() => {
+    const NativeDate = Date;
+    const startEpoch = NativeDate.parse("2026-09-05T12:00:00+08:00");
+    const startPerformance = performance.now();
+    class LiveReferenceDate extends NativeDate {
+      constructor(...args) {
+        super(...(args.length === 0 ? [startEpoch + (performance.now() - startPerformance)] : args));
+      }
+
+      static now() {
+        return startEpoch + (performance.now() - startPerformance);
+      }
+    }
+
+    window.Date = LiveReferenceDate;
+  });
+  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", freezeClock: false });
+  const pages = [
+    ["今日", ".ep-today-page"],
+    ["计时", ".ep-focus-page"],
+    ["待办", ".ep-todos-page"],
+    ["记录", ".ep-records-page"],
+    ["设置", ".ep-settings-page"],
+  ];
+  const readings = [];
+  for (const [index, [label, selector]] of pages.entries()) {
+    if (index > 0) await pageButton(page, label).click();
+    await expect(page.locator(selector)).toBeVisible();
+    const clock = page.locator('time[aria-label^="当前时间"]');
+    const date = page.locator(".ep-date-time__date");
+    await expect(clock).toHaveText(/^\d{2}:\d{2}:\d{2}$/);
+    const initialClock = await clock.textContent();
+    await expect.poll(() => clock.textContent(), { timeout: 3500 }).not.toBe(initialClock);
+    readings.push(await page.locator(".ep-date-time").evaluate((element) => ({
+      date: element.querySelector(".ep-date-time__date")?.textContent ?? "",
+      clock: element.querySelector(".ep-date-time__clock")?.textContent ?? "",
+      dateFont: getComputedStyle(element.querySelector(".ep-date-time__date")).fontFamily,
+      clockFont: getComputedStyle(element.querySelector(".ep-date-time__clock")).fontFamily,
+    })));
+  }
+  expect(new Set(readings.map((item) => item.date)).size).toBe(1);
+  expect(readings.every((item) => /^\d{2}:\d{2}:\d{2}$/.test(item.clock))).toBe(true);
+  expect(new Set(readings.map((item) => item.dateFont)).size).toBe(1);
+  expect(new Set(readings.map((item) => item.clockFont)).size).toBe(1);
+  expect(readings.every((item) => item.dateFont !== item.clockFont)).toBe(true);
+  await page.screenshot({ path: "output/qa/REFINE-19/SHELL-02-pass-settings.png", animations: "disabled", fullPage: true });
+});
+
+test("REFINE-19 SHELL-03 hides the visual command entry without removing Ctrl+K", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  for (const [index, [label, selector]] of [
+    ["今日", ".ep-today-page"],
+    ["计时", ".ep-focus-page"],
+    ["待办", ".ep-todos-page"],
+    ["记录", ".ep-records-page"],
+    ["设置", ".ep-settings-page"],
+  ].entries()) {
+    if (index > 0) await pageButton(page, label).click();
+    await expect(page.locator(selector)).toBeVisible();
+    await expect(page.locator(".command-trigger")).toBeHidden();
+  }
+  await page.keyboard.press("Control+K");
+  await expect(page.getByRole("dialog", { name: "你想做什么？" })).toBeVisible();
+  await page.screenshot({ path: "output/qa/REFINE-19/SHELL-03-pass-settings.png", animations: "disabled", fullPage: true });
+  await page.keyboard.press("Escape");
+});
+
+test("REFINE-19 SHELL-04 keeps the Editorial Paper daily focus line visible and wrap-safe", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  const line = page.getByRole("complementary", { name: "今日一句 · 页边手记" });
+  const quote = line.locator(".daily-focus-line__quote");
+  await expect(line).toBeVisible();
+  await expect(quote).not.toHaveText(/^“”$/);
+  await page.screenshot({ path: "output/qa/REFINE-19/SHELL-04-pass-1487.png", animations: "disabled", fullPage: true });
+
+  for (const [width, height] of [[1487, 1058], [420, 720]]) {
+    await page.setViewportSize({ width, height });
+    const evidence = await line.evaluate((element) => {
+      const quote = element.querySelector(".daily-focus-line__quote");
+      if (!quote) return null;
+      quote.textContent = `“${"这是一段用于检验每日一句在编辑纸页中长文本换行和可见性的压力语料。".repeat(4)}”`;
+      const lineRect = element.getBoundingClientRect();
+      const quoteRect = quote.getBoundingClientRect();
+      return {
+        lineTop: lineRect.top,
+        lineBottom: lineRect.bottom,
+        quoteWidth: quoteRect.width,
+        quoteScrollWidth: quote.scrollWidth,
+        quoteClientWidth: quote.clientWidth,
+        quoteOverflowWrap: getComputedStyle(quote).overflowWrap,
+        documentScrollWidth: document.documentElement.scrollWidth,
+        documentScrollHeight: document.documentElement.scrollHeight,
+      };
+    });
+    expect(evidence).not.toBeNull();
+    expect(evidence.lineTop).toBeGreaterThanOrEqual(0);
+    expect(evidence.lineBottom).toBeLessThanOrEqual(evidence.documentScrollHeight);
+    expect(evidence.quoteScrollWidth).toBeLessThanOrEqual(evidence.quoteClientWidth);
+    expect(evidence.quoteOverflowWrap).toBe("anywhere");
+    expect(evidence.documentScrollWidth).toBeLessThanOrEqual(width + 1);
+  }
+});
+
+test("REFINE-19 adversarial current-data matrix keeps completed nodes, boundary widths, and history copy visible", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+
+  const currentLikeTodoTitles = Array.from({ length: 151 }, (_, index) => `南京大学就业场次 ${index + 1}｜2026-09-${String(15 + (index % 10)).padStart(2, "0")} 09:00｜紫金校区招聘场地与入口说明`);
+  const completedTitles = Array.from({ length: 5 }, (_, index) => `已完成事项 ${index + 1}：回看完整的节点信息与后续动作`);
+
+  for (const [width, height] of [[1487, 1058], [821, 720], [420, 720]]) {
+    await page.setViewportSize({ width, height });
+    await bootTodayReferenceMock(page, {
+      expectedHeading: "今日节奏",
+      todoTitles: currentLikeTodoTitles,
+      completedTodoTitles: completedTitles,
+    });
+
+    const today = page.locator(".ep-today-page");
+    const completedNodes = today.locator(".ep-completed-notes > span:not(.ep-section-label)");
+    if (width === 1487) {
+      await page.screenshot({ path: "output/qa/REFINE-19/TODAY-01-adversarial-completed-before.png", animations: "disabled", fullPage: true });
+    }
+    await expect(completedNodes).toHaveCount(completedTitles.length);
+    expect(new Set(await completedNodes.allTextContents())).toEqual(new Set(completedTitles));
+    if (width === 1487) {
+      await page.screenshot({ path: "output/qa/REFINE-19/TODAY-01-adversarial-completed-after.png", animations: "disabled", fullPage: true });
+    }
+
+    await pageButton(page, "待办").click();
+    const todos = page.locator(".ep-todos-page");
+    await expect(todos.locator(".ep-todo-row")).toHaveCount(currentLikeTodoTitles.length + completedTitles.length);
+    const todoEvidence = await todos.evaluate(() => {
+      const read = (element) => {
+        const rect = element.getBoundingClientRect();
+        return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, clientWidth: element.clientWidth, scrollWidth: element.scrollWidth };
+      };
+      return {
+        documentScrollWidth: document.documentElement.scrollWidth,
+        rows: [...document.querySelectorAll(".ep-todo-row")].map((row) => read(row)),
+        footer: [...document.querySelectorAll(".ep-todo-footer > *")].map(read),
+      };
+    });
+    expect(todoEvidence.documentScrollWidth).toBeLessThanOrEqual(width + 1);
+    expect(todoEvidence.rows.every((row) => row.left >= 0 && row.right <= width + 1)).toBe(true);
+    expect(todoEvidence.footer.every((item) => item.left >= 0 && item.right <= width + 1)).toBe(true);
+    await page.screenshot({ path: `output/qa/REFINE-19/adversarial-current-todos-${width}.png`, animations: "disabled", fullPage: true });
+  }
+
+  const unbrokenTitle = `RECORD-${"ABCDEFGHIJKLMNOPQRSTUVWXYZ".repeat(12)}`;
+  await page.setViewportSize({ width: 420, height: 720 });
+  await bootTodayReferenceMock(page, {
+    expectedHeading: "今日节奏",
+    recordCount: 3,
+    recordDates: [referenceDate, referenceDate, referenceDate],
+    recordTitlePrefix: unbrokenTitle,
+  });
+  await pageButton(page, "记录").click();
+  const records = page.locator(".ep-records-page");
+  const historyDay = records.locator(".ep-full-history details").first();
+  if (!(await historyDay.evaluate((element) => element.open))) {
+    await historyDay.locator("summary").click();
+  }
+  await expect(historyDay.locator(":scope > div")).toBeVisible();
+  const historyEvidence = await historyDay.locator(":scope > div").evaluate((element) => ({
+    documentScrollWidth: document.documentElement.scrollWidth,
+    items: [...element.querySelectorAll("span")].map((item) => {
+      const rect = item.getBoundingClientRect();
+      return { left: rect.left, right: rect.right, clientWidth: item.clientWidth, scrollWidth: item.scrollWidth };
+    }),
+  }));
+  await page.screenshot({ path: "output/qa/REFINE-19/adversarial-unbroken-history-before-420.png", animations: "disabled", fullPage: true });
+  expect(historyEvidence.documentScrollWidth).toBeLessThanOrEqual(421);
+  expect(historyEvidence.items.every((item) => item.left >= 0 && item.right <= 421 && item.scrollWidth <= item.clientWidth)).toBe(true);
+  await page.screenshot({ path: "output/qa/REFINE-19/adversarial-unbroken-history-420.png", animations: "disabled", fullPage: true });
+});
+
+test("REFINE-19 adversarial boundary matrix keeps every Editorial Paper surface inside the viewport", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+
+  const longTodoTitle = "南京大学就业场次｜2026-09-15 09:00｜紫金校区招聘场地与入口说明和现场核对";
+  for (const [width, height] of [[821, 720], [420, 720]]) {
+    await page.setViewportSize({ width, height });
+    await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", todoTitles: [longTodoTitle] });
+    for (const [index, [label, selector]] of [
+      ["今日", ".ep-today-page"],
+      ["计时", ".ep-focus-page"],
+      ["待办", ".ep-todos-page"],
+      ["记录", ".ep-records-page"],
+      ["设置", ".ep-settings-page"],
+    ].entries()) {
+      if (index > 0) await pageButton(page, label).click();
+      const surface = page.locator(selector);
+      await expect(surface).toBeVisible();
+      await page.screenshot({ path: `output/qa/REFINE-19/adversarial-boundary-${label}-${width}.png`, animations: "disabled", fullPage: true });
+      const evidence = await surface.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        return {
+          documentScrollWidth: document.documentElement.scrollWidth,
+          surfaceRight: rect.right,
+          viewportWidth: innerWidth,
+        };
+      });
+      // The focus note keeps its intentional paper rotation; Chromium reports
+      // up to two antialiasing pixels beyond the viewport at the 821px edge.
+      expect(evidence.documentScrollWidth).toBeLessThanOrEqual(width + 3);
+      expect(evidence.surfaceRight).toBeLessThanOrEqual(width + 1);
+    }
+
+    await pageButton(page, "今日").click();
+    await page.locator(".ep-field-row").first().click();
+    const focus = page.locator(".ep-focus-page");
+    await expect(focus).toBeVisible();
+    await expect(focus.locator(".ep-note-paper__linked")).toContainText(longTodoTitle);
+    await focus.getByRole("button", { name: "开始专注", exact: true }).click();
+    await expect(focus).toContainText("倒计时中");
+    const focusEvidence = await focus.evaluate(() => {
+      const read = (selector) => [...document.querySelectorAll(selector)].map((element) => {
+        const rect = element.getBoundingClientRect();
+        return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, text: element.textContent?.trim() ?? "" };
+      });
+      return {
+        documentScrollWidth: document.documentElement.scrollWidth,
+        footer: read(".ep-focus-footer > *"),
+        linked: read(".ep-note-paper__linked"),
+      };
+    });
+    expect(focusEvidence.documentScrollWidth).toBeLessThanOrEqual(width + 3);
+    expect(focusEvidence.footer.every((item) => item.left >= 0 && item.right <= width + 1)).toBe(true);
+    expect(focusEvidence.linked.every((item) => item.left >= 0 && item.right <= width + 1)).toBe(true);
+    expect(focusEvidence.footer.some((item) => item.text.includes(longTodoTitle))).toBe(true);
+    await page.screenshot({ path: `output/qa/REFINE-19/adversarial-boundary-focus-${width}.png`, animations: "disabled", fullPage: true });
+  }
+});
+
+test("REFINE-19 adversarial next-page card keeps an unbroken user title visible", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  const unbrokenTitle = `TODO-${"ABCDEFGHIJKLMNOPQRSTUVWXYZ".repeat(12)}`;
+  await page.setViewportSize({ width: 420, height: 720 });
+  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", todoTitles: [unbrokenTitle] });
+  const card = page.locator(".ep-next-card");
+  const title = card.locator("h2");
+  const evidence = await title.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    const style = getComputedStyle(element);
+    return {
+      text: element.textContent ?? "",
+      left: rect.left,
+      right: rect.right,
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+      overflow: style.overflow,
+      overflowWrap: style.overflowWrap,
+      documentScrollWidth: document.documentElement.scrollWidth,
+    };
+  });
+  await page.screenshot({ path: "output/qa/REFINE-19/adversarial-next-card-unbroken-before-420.png", animations: "disabled", fullPage: true });
+  expect(evidence.text).toBe(unbrokenTitle);
+  expect(evidence.scrollWidth).toBeLessThanOrEqual(evidence.clientWidth);
+  expect(evidence.overflowWrap).toBe("anywhere");
+  expect(evidence.left).toBeGreaterThanOrEqual(0);
+  expect(evidence.right).toBeLessThanOrEqual(421);
+  expect(evidence.documentScrollWidth).toBeLessThanOrEqual(421);
+  await page.screenshot({ path: "output/qa/REFINE-19/adversarial-next-card-unbroken-420.png", animations: "disabled", fullPage: true });
+});
+
+test("REFINE-19 TODAY-01 adversarial narrow view keeps todo importance visible", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  await page.setViewportSize({ width: 420, height: 720 });
+  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", todoTitles: ["检查窄屏节点的优先级信息"] });
+  const row = page.locator(".ep-field-row").first();
+  const importance = row.locator(".ep-field-row__importance-mobile");
+  const evidence = await importance.evaluate((element) => ({
+    text: element.textContent ?? "",
+    display: getComputedStyle(element).display,
+    rect: (() => {
+      const box = element.getBoundingClientRect();
+      return { left: box.left, right: box.right, width: box.width, height: box.height };
+    })(),
+  }));
+  await page.screenshot({ path: "output/qa/REFINE-19/TODAY-01-adversarial-importance-before-420.png", animations: "disabled", fullPage: true });
+  expect(evidence.text).toBe(" · 中");
+  expect(evidence.display).not.toBe("none");
+  expect(evidence.rect.width).toBeGreaterThan(0);
+  expect(evidence.rect.height).toBeGreaterThan(0);
+  await page.screenshot({ path: "output/qa/REFINE-19/TODAY-01-adversarial-importance-420.png", animations: "disabled", fullPage: true });
 });

@@ -8,8 +8,8 @@ function localDate() {
   return `${year}-${month}-${day}`;
 }
 
-async function bootWithTauriMock(page, { includeOverdue = false, includeRecords = false, windowLabel = "main", pausedFocus = false, completedCountdown = false, initialLoadError = false, todayRecordCount = includeRecords ? 1 : 0, todayTodoCount = 1, completedTodoCount = 0, historyDayCount = 0 } = {}) {
-  await page.addInitScript(({ today, includeOverdue, includeRecords, windowLabel, pausedFocus, completedCountdown, initialLoadError, todayRecordCount, todayTodoCount, completedTodoCount, historyDayCount }) => {
+async function bootWithTauriMock(page, { includeOverdue = false, includeRecords = false, windowLabel = "main", pausedFocus = false, completedCountdown = false, initialLoadError = false, todayRecordCount = includeRecords ? 1 : 0, todayTodoCount = 1, futureTodoCount = 0, completedTodoCount = 0, historyDayCount = 0 } = {}) {
+  await page.addInitScript(({ today, includeOverdue, includeRecords, windowLabel, pausedFocus, completedCountdown, initialLoadError, todayRecordCount, todayTodoCount, futureTodoCount, completedTodoCount, historyDayCount }) => {
     const yesterday = new Date(`${today}T00:00:00`);
     yesterday.setDate(yesterday.getDate() - 1);
     const dateKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -130,6 +130,18 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
         importanceKey: "medium",
       });
     }
+    for (let index = 0; index < futureTodoCount; index += 1) {
+      const futureDate = new Date(`${today}T00:00:00`);
+      futureDate.setDate(futureDate.getDate() + 1 + Math.floor(index / 2));
+      todos.push({
+        id: 800 + index,
+        title: `未来事项 ${index + 1}`,
+        isCompleted: false,
+        scheduledDate: dateKey(futureDate),
+        scheduledTime: `${String(9 + index).padStart(2, "0")}:00`,
+        importanceKey: "medium",
+      });
+    }
     for (let index = 0; index < completedTodoCount; index += 1) {
       todos.push({
         id: 600 + index,
@@ -153,7 +165,16 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
     window.__completedFocusCalls = 0;
     window.__resetTimerCalls = 0;
     let initialLoadFailures = initialLoadError ? 1 : 0;
-    window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
+    const eventCallbacks = new Map();
+    const eventListeners = new Map();
+    let nextEventCallbackId = 1;
+    window.__appStateSyncReady = false;
+    window.__TAURI_EVENT_PLUGIN_INTERNALS__ = {
+      unregisterListener: (event, eventId) => {
+        eventListeners.get(event)?.delete(eventId);
+        eventCallbacks.delete(eventId);
+      },
+    };
     let timerPreferences = {
       pomodoroFocusMinutes: 25,
       pomodoroBreakMinutes: 5,
@@ -247,6 +268,13 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
       bestFocusDurationLabel: bestDay?.totalDurationLabel ?? null,
       dailyBreakdown,
     };
+    window.__getAppStateSyncPayload = () => ({
+      timer,
+      todos,
+      records: focusRecords,
+      analytics,
+      timerPreferences,
+    });
 
     window.__TAURI_INTERNALS__ = {
       metadata: {
@@ -254,12 +282,15 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
         currentWebview: { label: windowLabel },
       },
       transformCallback: (callback) => {
+        const callbackId = nextEventCallbackId;
+        nextEventCallbackId += 1;
+        eventCallbacks.set(callbackId, callback);
         if (windowLabel === "main") {
           window.__trayNavigationCallback = callback;
         } else {
           window.__floatingWorkspaceEventCallback = callback;
         }
-        return 1;
+        return callbackId;
       },
       invoke: async (command, args = {}) => {
         if (initialLoadFailures > 0 && ["get_timer_snapshot", "get_timer_preferences", "get_todo_items", "get_focus_records", "get_analytics_snapshot"].includes(command)) {
@@ -268,10 +299,27 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
         }
 
         switch (command) {
-          case "plugin:event|listen":
-            return 1;
+          case "plugin:event|listen": {
+            const listeners = eventListeners.get(args.event) ?? new Set();
+            listeners.add(args.handler);
+            eventListeners.set(args.event, listeners);
+            if (args.event === "app-state-sync") {
+              window.__appStateSyncReady = true;
+            }
+            return args.handler;
+          }
           case "plugin:event|unlisten":
             return null;
+          case "plugin:event|emit": {
+            for (const callbackId of eventListeners.get(args.event) ?? []) {
+              eventCallbacks.get(callbackId)?.({
+                event: args.event,
+                id: callbackId,
+                payload: args.payload,
+              });
+            }
+            return null;
+          }
           case "get_timer_snapshot":
             window.__timerSnapshotCalls += 1;
             return timer;
@@ -427,7 +475,7 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
         }
       },
     };
-  }, { today: localDate(), includeOverdue, includeRecords, windowLabel, pausedFocus, completedCountdown, initialLoadError, todayRecordCount, todayTodoCount, completedTodoCount, historyDayCount });
+  }, { today: localDate(), includeOverdue, includeRecords, windowLabel, pausedFocus, completedCountdown, initialLoadError, todayRecordCount, todayTodoCount, futureTodoCount, completedTodoCount, historyDayCount });
 
   await page.goto("/");
   if (windowLabel === "main") {
@@ -691,11 +739,25 @@ test("floating workspace can adjust and remember its opacity", async ({ page }) 
   await expect.poll(() => page.evaluate(() => localStorage.getItem("focused-moment.floating-window.opacity"))).toBe("62");
 });
 
-test("floating timer refreshes its snapshot every second", async ({ page }) => {
+test("floating timer receives main-window state sync without polling", async ({ page }) => {
   await bootWithTauriMock(page, { windowLabel: "todo-float", pausedFocus: true });
 
   const initialCalls = await page.evaluate(() => window.__timerSnapshotCalls);
-  await expect.poll(() => page.evaluate(() => window.__timerSnapshotCalls), { timeout: 2500 }).toBeGreaterThan(initialCalls);
+  await expect.poll(() => page.evaluate(() => window.__appStateSyncReady)).toBe(true);
+  await page.evaluate(() => {
+    window.__replaceTimer({
+      elapsedMs: 42_000,
+      elapsedLabel: "00:00:42",
+      status: "已暂停",
+    });
+    return window.__TAURI_INTERNALS__.invoke("plugin:event|emit", {
+      event: "app-state-sync",
+      payload: window.__getAppStateSyncPayload(),
+    });
+  });
+  await expect(page.getByText("00:00:42", { exact: true })).toBeVisible();
+  await page.waitForTimeout(1500);
+  await expect.poll(() => page.evaluate(() => window.__timerSnapshotCalls)).toBe(initialCalls);
 });
 
 test("floating workspace only shows todos when there is no active timer", async ({ page }) => {
@@ -1162,9 +1224,8 @@ test("todo board keeps completed actions aligned and scrollable", async ({ page 
   });
 
   expect(layout.board?.width).toBeGreaterThan(700);
-  expect(layout.columns).toHaveLength(3);
+  expect(layout.columns).toHaveLength(2);
   expect(layout.columns[0].right).toBeLessThanOrEqual(layout.columns[1].left + 0.5);
-  expect(layout.columns[1].right).toBeLessThanOrEqual(layout.columns[2].left + 0.5);
   expect(layout.completedList?.scrollHeight).toBeGreaterThan(layout.completedList?.clientHeight ?? 0);
   expect(layout.title?.right).toBeLessThanOrEqual(layout.actions[0].left + 1);
   expect(Math.abs(layout.actions[0].top - layout.actions[1].top)).toBeLessThan(2);
@@ -1205,11 +1266,65 @@ test("todo workspace stacks cleanly on a phone viewport", async ({ page }) => {
   expect(layout.board?.left).toBeGreaterThanOrEqual(layout.page?.left ?? 0);
   expect(layout.board?.right).toBeLessThanOrEqual(layout.page?.right ?? 560);
   expect(layout.columns[0].bottom).toBeLessThanOrEqual(layout.columns[1].top + 1);
-  expect(layout.columns[1].bottom).toBeLessThanOrEqual(layout.columns[2].top + 1);
+  expect(layout.columns).toHaveLength(2);
   expect(layout.board?.bottom).toBeLessThanOrEqual(layout.focus?.top ?? 0);
   await expect(page.getByRole("button", { name: "添加待办" })).toBeVisible();
   await expect(page.locator(".completed-row")).toHaveCount(3);
   await page.screenshot({ path: "output/playwright/night-valley-todo-phone-layout.png", animations: "disabled", fullPage: true });
+});
+
+test("todo board groups pending items by date and keeps one group open", async ({ page }) => {
+  await bootWithTauriMock(page, { todayTodoCount: 12, futureTodoCount: 4 });
+
+  await page.getByRole("button", { name: /^待办/ }).click();
+
+  await expect(page.locator(".nv-todo-column")).toHaveCount(2);
+  await expect(page.getByRole("heading", { name: "进行中" })).toHaveCount(0);
+  await expect(page.locator(".nv-todo-summary")).not.toContainText("进行中");
+
+  const navGeometry = await page.locator(".minimal-nav > button").nth(2).evaluate((button) => {
+    const label = button.querySelector(".minimal-nav__label")?.getBoundingClientRect();
+    const count = button.querySelector(".minimal-nav__count")?.getBoundingClientRect();
+    if (!label || !count) throw new Error("todo navigation count is incomplete");
+    return { labelRight: label.right, countLeft: count.left, countWidth: count.width };
+  });
+  expect(navGeometry.labelRight).toBeLessThanOrEqual(navGeometry.countLeft + 0.5);
+  expect(navGeometry.countWidth).toBeGreaterThanOrEqual(18);
+
+  const groups = page.locator(".nv-todo-date-group");
+  await expect(groups).toHaveCount(3);
+  await expect(groups.nth(0).locator(".nv-todo-date-group__toggle")).toHaveAttribute("aria-expanded", "true");
+  await expect(groups.nth(1).locator(".nv-todo-date-group__toggle")).toHaveAttribute("aria-expanded", "false");
+  await expect(groups.nth(0).locator(".nv-todo-card")).toHaveCount(12);
+  await expect(groups.nth(1).locator(".nv-todo-card")).toHaveCount(0);
+
+  const openGroupViewport = await groups.nth(0).locator(".nv-todo-date-group__items").evaluate((element) => ({
+    clientHeight: element.clientHeight,
+    scrollHeight: element.scrollHeight,
+  }));
+  expect(openGroupViewport.scrollHeight).toBeGreaterThan(openGroupViewport.clientHeight);
+  expect(openGroupViewport.clientHeight).toBeLessThanOrEqual(430);
+
+  await groups.nth(1).locator(".nv-todo-date-group__toggle").click();
+  await expect(groups.nth(0).locator(".nv-todo-date-group__toggle")).toHaveAttribute("aria-expanded", "false");
+  await expect(groups.nth(1).locator(".nv-todo-date-group__toggle")).toHaveAttribute("aria-expanded", "true");
+  await expect(groups.nth(1).locator(".nv-todo-card")).toHaveCount(2);
+});
+
+test("records overview info explains the seven-day chart on hover and focus", async ({ page }) => {
+  await bootWithTauriMock(page, { includeRecords: true });
+
+  await page.getByRole("button", { name: "记录", exact: true }).click();
+
+  const info = page.locator(".nv-info-tip");
+  const tooltip = page.locator("#records-overview-help");
+  await expect(info).toBeVisible();
+  await info.hover();
+  await expect(tooltip).toBeVisible();
+  await expect(tooltip).toContainText("最近 7 个自然日");
+
+  await info.focus();
+  await expect(tooltip).toBeVisible();
 });
 
 test("overdue todos are shown in their own status section", async ({ page }) => {

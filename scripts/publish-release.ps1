@@ -136,6 +136,9 @@ if (Test-Path -LiteralPath $manifestPath) {
       if ($manifest.setupAssetPath -and (Test-Path -LiteralPath $manifest.setupAssetPath)) {
         $assets += $manifest.setupAssetPath
       }
+      if ($manifest.msiAssetPath -and (Test-Path -LiteralPath $manifest.msiAssetPath)) {
+        $assets += $manifest.msiAssetPath
+      }
     }
   } catch {
     Write-Warning "Unable to read build artifact manifest: $manifestPath"
@@ -145,12 +148,16 @@ if (Test-Path -LiteralPath $manifestPath) {
 if ($assets.Count -eq 0) {
   $versionedExe = Join-Path $projectRoot ("Focused Moment {0}.exe" -f $Tag)
   $versionedSetup = Join-Path $projectRoot ("Focused Moment Setup {0}.exe" -f $Tag)
+  $versionedMsi = Join-Path $projectRoot ("src-tauri\target\{0}\bundle\msi\Focused Moment_{1}_x64_en-US.msi" -f $Profile, $currentVersion)
 
   if (Test-Path -LiteralPath $versionedExe) {
     $assets += $versionedExe
   }
   if (Test-Path -LiteralPath $versionedSetup) {
     $assets += $versionedSetup
+  }
+  if (Test-Path -LiteralPath $versionedMsi) {
+    $assets += $versionedMsi
   }
 }
 

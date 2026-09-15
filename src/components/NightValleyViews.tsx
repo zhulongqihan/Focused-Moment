@@ -1,6 +1,7 @@
 import { For, Show, createMemo, createSignal } from "solid-js";
 import {
   ArrowUpRight,
+  ChevronDown,
   CircleCheck,
   Flame,
   Plus,
@@ -28,6 +29,51 @@ function localDateKey(date = new Date()) {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+interface TodoDateGroup {
+  date: string;
+  label: string;
+  items: TodoItem[];
+}
+
+function parseTodoDateKey(value: string) {
+  const match = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatTodoDateGroupLabel(value: string) {
+  const date = parseTodoDateKey(value);
+  if (!date) return value;
+
+  const today = parseTodoDateKey(localDateKey());
+  const difference = today
+    ? Math.round((date.getTime() - today.getTime()) / 86_400_000)
+    : null;
+  const dateLabel = `${date.getMonth() + 1}月${date.getDate()}日`;
+  const weekday = new Intl.DateTimeFormat("zh-CN", { weekday: "short" }).format(date);
+
+  if (difference === 0) return `今天 · ${dateLabel}`;
+  if (difference === 1) return `明天 · ${dateLabel}`;
+  if (difference !== null && difference < 0) return `已过期 · ${dateLabel}`;
+  return `${dateLabel} · ${weekday}`;
+}
+
+function groupTodosByDate(items: TodoItem[]) {
+  const groups = new Map<string, TodoDateGroup>();
+  for (const item of items) {
+    const date = item.scheduledDate.trim() || "未设置日期";
+    const group = groups.get(date);
+    if (group) {
+      group.items.push(item);
+      continue;
+    }
+    groups.set(date, { date, label: formatTodoDateGroupLabel(date), items: [item] });
+  }
+  return Array.from(groups.values());
 }
 
 function currentDateLabel() {
@@ -470,6 +516,80 @@ function TodoCard(props: TodoCardProps) {
   );
 }
 
+interface TodoDateGroupListProps extends Omit<TodoCardProps, "item"> {
+  groups: Accessor<TodoDateGroup[]>;
+  listLabel: string;
+}
+
+function TodoDateGroupList(props: TodoDateGroupListProps) {
+  const [requestedOpenDate, setRequestedOpenDate] = createSignal<string | null | undefined>(undefined);
+  const openDate = createMemo(() => {
+    const requested = requestedOpenDate();
+    const groups = props.groups();
+    if (requested === null) return null;
+    if (requested && groups.some((group) => group.date === requested)) return requested;
+    return groups[0]?.date ?? null;
+  });
+
+  const toggleDate = (date: string) => {
+    setRequestedOpenDate(date === openDate() ? null : date);
+  };
+
+  return (
+    <div class="nv-todo-date-groups" aria-label={props.listLabel}>
+      <For each={props.groups()}>
+        {(group) => {
+          const isOpen = () => openDate() === group.date;
+          const groupId = `todo-date-group-${group.date.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+          return (
+            <section classList={{ "nv-todo-date-group": true, "is-expanded": isOpen() }}>
+              <button
+                type="button"
+                class="nv-todo-date-group__toggle"
+                aria-expanded={isOpen()}
+                aria-controls={groupId}
+                onClick={() => toggleDate(group.date)}
+              >
+                <span class="nv-todo-date-group__label">
+                  <strong>{group.label}</strong>
+                  <small>{group.items.length} 项待办</small>
+                </span>
+                <span class="nv-todo-date-group__state">
+                  {isOpen() ? "收起" : "展开"}
+                  <ChevronDown size={15} strokeWidth={1.8} aria-hidden="true" />
+                </span>
+              </button>
+              <Show when={isOpen()}>
+                <div id={groupId} class="nv-todo-date-group__items">
+                  <For each={group.items}>
+                    {(item) => (
+                      <TodoCard
+                        item={item}
+                        editingTodo={props.editingTodo}
+                        busy={props.busy}
+                        timerHasProgress={props.timerHasProgress}
+                        formatTodoDue={props.formatTodoDue}
+                        importanceLabel={props.importanceLabel}
+                        onToggle={props.onToggle}
+                        onBeginEdit={props.onBeginEdit}
+                        onUseForFocus={props.onUseForFocus}
+                        onRemove={props.onRemove}
+                        onPatch={props.onPatch}
+                        onSave={props.onSave}
+                        onCancel={props.onCancel}
+                      />
+                    )}
+                  </For>
+                </div>
+              </Show>
+            </section>
+          );
+        }}
+      </For>
+    </div>
+  );
+}
+
 export interface NightValleyTodoProps {
   todos: Accessor<TodoItem[]>;
   activeTodos: Accessor<TodoItem[]>;
@@ -503,9 +623,8 @@ export interface NightValleyTodoProps {
 
 export function NightValleyTodo(props: NightValleyTodoProps) {
   const [createOpen, setCreateOpen] = createSignal(false);
-  const focusedTodoId = createMemo(() => props.timer().linkedTodoId);
-  const startItems = createMemo(() => props.activeTodos().filter((item) => item.id !== focusedTodoId()));
-  const focusItems = createMemo(() => props.activeTodos().filter((item) => item.id === focusedTodoId()));
+  const activeDateGroups = createMemo(() => groupTodosByDate(props.activeTodos()));
+  const overdueDateGroups = createMemo(() => groupTodosByDate(props.overdueTodos()));
   const completionPercent = createMemo(() => {
     const total = props.todos().length;
     return total === 0 ? 0 : Math.round((props.completedTodos().length / total) * 100);
@@ -520,7 +639,6 @@ export function NightValleyTodo(props: NightValleyTodoProps) {
       </header>
       <div class="nv-todo-summary" aria-label="待办摘要">
         <span><strong>{props.activeTodos().length}</strong> 个待办</span>
-        <span><strong>{focusItems().length}</strong> 个进行中</span>
         <span><strong>{props.completedTodos().length}</strong> 个已完成</span>
       </div>
 
@@ -552,33 +670,24 @@ export function NightValleyTodo(props: NightValleyTodoProps) {
           </div>
         </div>
         <section class="todo-column nv-todo-column nv-todo-column--start">
-          <div class="nv-todo-column__heading"><span class="nv-column-index">01</span><div><h2>待开始</h2><small>{startItems().length} 项 · 先做最清楚的一件</small></div></div>
+          <div class="nv-todo-column__heading"><span class="nv-column-index">01</span><div><h2>待办</h2><small>{props.activeTodos().length} 项 · 按截止日期分组</small></div></div>
           <div class="nv-todo-column__list">
             <Show when={props.ready()} fallback={<p class="empty-copy">正在读取待办…</p>}>
-              <For each={startItems()}>{(item) => <TodoCard item={item} editingTodo={props.editingTodo} busy={props.busy} timerHasProgress={props.timerHasProgress} formatTodoDue={props.formatTodoDue} importanceLabel={props.importanceLabel} onToggle={props.onToggle} onBeginEdit={props.onBeginEdit} onUseForFocus={props.onUseForFocus} onRemove={props.onRemove} onPatch={props.onPatch} onSave={props.onSave} onCancel={props.onCancel} />}</For>
-              <Show when={startItems().length === 0 && props.overdueTodos().length === 0}><p class="empty-copy">这里还没有待开始的事项。</p></Show>
+              <Show when={activeDateGroups().length > 0} fallback={<p class="empty-copy">这里还没有待办事项。</p>}>
+                <TodoDateGroupList groups={activeDateGroups} listLabel="按日期分组的待办" editingTodo={props.editingTodo} busy={props.busy} timerHasProgress={props.timerHasProgress} formatTodoDue={props.formatTodoDue} importanceLabel={props.importanceLabel} onToggle={props.onToggle} onBeginEdit={props.onBeginEdit} onUseForFocus={props.onUseForFocus} onRemove={props.onRemove} onPatch={props.onPatch} onSave={props.onSave} onCancel={props.onCancel} />
+              </Show>
             </Show>
           </div>
           <Show when={props.ready() && props.overdueTodos().length > 0}>
             <section class="todo-status-section todo-status-section--overdue nv-overdue-section" aria-labelledby="overdue-todos-heading">
               <div class="todo-status-section__heading"><div><h2 id="overdue-todos-heading">已过期</h2><span>仍可编辑或标记完成</span></div><strong>{props.overdueTodos().length}</strong></div>
-              <For each={props.overdueTodos()}>{(item) => <TodoCard item={item} editingTodo={props.editingTodo} busy={props.busy} timerHasProgress={props.timerHasProgress} formatTodoDue={props.formatTodoDue} importanceLabel={props.importanceLabel} onToggle={props.onToggle} onBeginEdit={props.onBeginEdit} onUseForFocus={props.onUseForFocus} onRemove={props.onRemove} onPatch={props.onPatch} onSave={props.onSave} onCancel={props.onCancel} />}</For>
+              <TodoDateGroupList groups={overdueDateGroups} listLabel="按日期分组的过期待办" editingTodo={props.editingTodo} busy={props.busy} timerHasProgress={props.timerHasProgress} formatTodoDue={props.formatTodoDue} importanceLabel={props.importanceLabel} onToggle={props.onToggle} onBeginEdit={props.onBeginEdit} onUseForFocus={props.onUseForFocus} onRemove={props.onRemove} onPatch={props.onPatch} onSave={props.onSave} onCancel={props.onCancel} />
             </section>
           </Show>
         </section>
 
-        <section class="todo-column nv-todo-column nv-todo-column--focus">
-          <div class="nv-todo-column__heading"><span class="nv-column-index">02</span><div><h2>进行中</h2><small>{focusItems().length ? "计时器正在看护它" : "从待开始挑一项"}</small></div></div>
-          <div class="nv-todo-column__list">
-            <Show when={focusItems().length > 0} fallback={<div class="nv-todo-empty-card"><span class="nv-todo-empty-card__orb" /><strong>还没有进行中的事项</strong><small>开始一段专注后，当前任务会留在这里。</small></div>}>
-              <For each={focusItems()}>{(item) => <TodoCard item={item} editingTodo={props.editingTodo} busy={props.busy} timerHasProgress={props.timerHasProgress} formatTodoDue={props.formatTodoDue} importanceLabel={props.importanceLabel} onToggle={props.onToggle} onBeginEdit={props.onBeginEdit} onUseForFocus={props.onUseForFocus} onRemove={props.onRemove} onPatch={props.onPatch} onSave={props.onSave} onCancel={props.onCancel} />}</For>
-            </Show>
-          </div>
-          <div class="nv-todo-column__signal"><span class="nv-live-dot" /> {props.timer().isRunning ? "正在专注" : props.timerHasProgress() ? "已暂停" : "等待下一段"}</div>
-        </section>
-
         <section class="todo-column nv-todo-column nv-todo-column--done completed-section">
-          <div class="nv-todo-column__heading"><span class="nv-column-index">03</span><div><h2>已完成</h2><small>{props.completedTodos().length} 项 · 今天留下的坐标</small></div></div>
+          <div class="nv-todo-column__heading"><span class="nv-column-index">02</span><div><h2>已完成</h2><small>{props.completedTodos().length} 项 · 今天留下的坐标</small></div></div>
           <div class="nv-todo-column__list">
             <Show when={props.completedTodos().length > 0} fallback={<p class="empty-copy">完成一项后，它会出现在这里。</p>}>
               <For each={props.completedTodos()}>
@@ -745,7 +854,20 @@ export function NightValleyRecords(props: NightValleyRecordsProps) {
         </div>
 
         <section class="records-archive__timeline nv-records-chart" aria-label="最近七天专注轨迹">
-          <div class="nv-records-chart__heading"><span>本周专注总览</span><i aria-hidden="true">i</i></div>
+          <div class="nv-records-chart__heading">
+            <span>本周专注总览</span>
+            <button
+              type="button"
+              class="nv-info-tip"
+              aria-label="本周专注总览说明"
+              aria-describedby="records-overview-help"
+            >
+              <span aria-hidden="true">i</span>
+              <span id="records-overview-help" class="nv-info-tip__bubble" role="tooltip">
+                这里按最近 7 个自然日汇总每天已保存的专注时长。点击日期节点，可以回看当天记录。
+              </span>
+            </button>
+          </div>
           <div class="nv-records-chart__labels"><span>投入强度</span><span>{props.recentWeekActiveDays()} 天有投入 · 最近 7 天</span></div>
           <div class="records-archive__map">
             <div class="records-archive__map-glow" aria-hidden="true" />

@@ -84,7 +84,7 @@ export function EditorialPaperToday(props: TodayDashboardProps) {
   return (
     <section class="ep-page ep-today-page" aria-label="今日节奏">
       <header class="ep-page-header ep-today-header">
-        <div class="ep-meta-line"><span>FOCUSED MOMENT / DAILY FIELD NOTES</span><EditorialPaperDateTime date={props.todayLabel} /></div>
+        <div class="ep-meta-line"><span>FOCUSED MOMENT / DAILY FIELD NOTES</span><EditorialPaperDateTime /></div>
         <div class="ep-heading-row">
           <div>
             <span class="ep-kicker">DAILY PLAN · VOL. 0905</span>
@@ -117,7 +117,7 @@ export function EditorialPaperToday(props: TodayDashboardProps) {
                     onClick={() => props.onUseTodo(item)}
                   >
                     <span class="ep-field-row__index">{String(index() + 1).padStart(2, "0")}</span>
-                    <span class="ep-field-row__copy"><strong>{item.title}</strong><small>{props.formatTodoDue(item)}</small></span>
+                    <span class="ep-field-row__copy"><strong>{item.title}</strong><small>{props.formatTodoDue(item)}<span class="ep-field-row__importance-mobile"> · {props.importanceLabel(item.importanceKey)}</span></small></span>
                     <span class="ep-field-row__tag">{props.importanceLabel(item.importanceKey)}</span>
                     <span class="ep-field-row__mark" aria-label="待开始">○</span>
                   </button>
@@ -131,8 +131,8 @@ export function EditorialPaperToday(props: TodayDashboardProps) {
           <Show when={props.todayCompletedTodos().length > 0}>
             <div class="ep-completed-notes">
               <span class="ep-section-label">已完成的页签</span>
-              <For each={props.todayCompletedTodos().slice(0, 4)}>
-                {(item) => <span><CircleCheck size={15} strokeWidth={1.6} aria-hidden="true" />{item.title}</span>}
+              <For each={props.todayCompletedTodos()}>
+                {(item) => <span><CircleCheck size={15} strokeWidth={1.6} aria-hidden="true" /><span class="ep-completed-notes__title">{item.title}</span></span>}
               </For>
             </div>
           </Show>

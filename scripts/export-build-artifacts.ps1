@@ -9,6 +9,7 @@ $projectRoot = Split-Path -Parent $PSScriptRoot
 $targetDir = Join-Path $projectRoot ("src-tauri\target\{0}" -f $Profile)
 $appExe = Join-Path $targetDir "focused-moment.exe"
 $setupDir = Join-Path $targetDir "bundle\nsis"
+$msiDir = Join-Path $targetDir "bundle\msi"
 $packageJson = Join-Path $projectRoot "package.json"
 $releaseDir = Join-Path $projectRoot ".release"
 
@@ -88,6 +89,15 @@ if ($null -ne $latestSetup) {
   }
 }
 
+$latestMsi = Get-ChildItem -LiteralPath $msiDir -Filter "*.msi" -File -ErrorAction SilentlyContinue |
+  Sort-Object LastWriteTime -Descending |
+  Select-Object -First 1
+
+$msiAssetPath = $null
+if ($null -ne $latestMsi) {
+  $msiAssetPath = $latestMsi.FullName
+}
+
 $assetManifest = [ordered]@{
   version = $version
   tag = $tag
@@ -95,6 +105,7 @@ $assetManifest = [ordered]@{
   exportedAt = (Get-Date).ToString("o")
   appAssetPath = $appAssetPath
   setupAssetPath = $setupAssetPath
+  msiAssetPath = $msiAssetPath
   rootAppPath = $rootExe
   rootSetupPath = $rootSetup
 }
@@ -108,5 +119,8 @@ Write-Host " - $appAssetPath"
 if ($null -ne $latestSetup) {
   Write-Host " - $rootSetup"
   Write-Host " - $setupAssetPath"
+}
+if ($null -ne $msiAssetPath) {
+  Write-Host " - $msiAssetPath"
 }
 Write-Host " - $manifestPath"

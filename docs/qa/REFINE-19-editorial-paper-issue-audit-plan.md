@@ -1,6 +1,6 @@
 # REFINE-19：编辑纸页主题逐问题核查与修复执行计划
 
-状态：逐条核查、修复与 v2.11.0 Windows-only 发布收口已完成；v2.10.19 仅作为历史版本保留
+状态：逐条核查与本地对抗修复已完成，待用户视角复核；本次修复尚未重新打包/发布；v2.10.19 仅作为历史版本保留
 版本纠正：2026-09-14 19:15 用户明确指出本轮发生了界面切换，当前版本应为 `2.11.0`；本页逐条核查结果不变，`v2.10.19` 仅作为此前已发布历史记录保留，当前版本同步与新发布目标以 `v2.11.0` 为准。
 主题：Editorial Paper / 编辑纸页
 目标：逐条检查第一主题 Night Valley 历史上出现过的问题，在编辑纸页中只修复真实复现的同类问题
@@ -24,7 +24,7 @@
 ## 1. 当前基线和边界
 
 - 当前分支：main。
-- 当前代码基线：v2.10.18 发布代码及其文档跟随提交，当前工作树需要在执行窗口重新核对。
+- 当前产品基线：v2.11.0 已发布；本工作树包含本轮未发布的 Editorial Paper 对抗修复，运行中的旧 v2.10.18 进程仅作为用户进程保护对象。
 - 不重复构建、测试或发布 v2.10.18。
 - 本轮用户可见改动必须在后续版本使用新的 patch 版本，并同步所有版本源。
 - macOS 更新继续冻结，不构建、上传或运行 macOS workflow。
@@ -872,7 +872,7 @@
 - 未修改范围：不引入内部滚动容器、不改变完成事项排序、待办 API、编辑/恢复/删除语义、长标题 title 提示、窗口控件、其他主题或编辑纸页风格。
 - 定向测试：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 TODO-02" --workers=1`，1/1 PASS；18 条完成事项覆盖滚动、编辑、恢复、删除，检查完成列表高度、三种窄屏堆叠、横向边界和行内块重叠。
 - 截图证据：`output/qa/REFINE-19/TODO-02-pass-1487-9ecaf59.png`、`output/qa/REFINE-19/TODO-02-pass-420-9ecaf59.png`。
-- 最终状态：已修复并通过；完成事项可回看、可操作，长列表不会把其他列的内容布局拉伸到无意义空白。
+- 最终状态：初次验收的结构/操作部分已通过；可见长标题部分被本次对抗复核否定，详见第 10 节，不能沿用旧的完整 PASS 结论。
 
 #### TODO-03：窗口控件回归
 
@@ -958,7 +958,7 @@
 - 未修改范围：不新增独立滚动容器，不改变历史排序、默认显示数量、展开状态规则、编辑/删除后端命令、记录数据、其他主题或编辑纸页整体风格。
 - 定向测试：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 RECORDS-03" --workers=1`，1/1 PASS；断言 28 个日期分组、展开/收起、最旧日期可达、长标题、编辑保存、删除反馈、页面纵向滚动和 `420px` 横向边界，并检查 `update_focus_record_title`、`delete_focus_record` 命令。
 - 截图证据：`output/qa/REFINE-19/RECORDS-03-pass-1487-9ecaf59.png`、`output/qa/REFINE-19/RECORDS-03-pass-420-9ecaf59.png`。
-- 最终状态：已修复部分复现项；历史记录现可按日期回看，长标题在当前记录行保留完整 `title` 入口，未复现部分不改动。
+- 最终状态：初次验收的历史导航/编辑删除部分已通过；当前记录行的可见长标题部分被本次对抗复核否定，详见第 10 节，`title` 不能代替页面可读文本。
 
 #### RECORDS-04：本周专注总览点线错位
 
@@ -1307,12 +1307,12 @@
 ## 7. 本地整体验收记录（2026-09-14）
 
 - 逐条执行顺序已完成：TODAY-01～11 → TIMER-01～21 → TODO-01～03 → RECORDS-01～07 → SETTINGS-01～06；每个编号均已填写原话、对应区域、复现数据或状态、复现结论、根因、修改/未修改范围、定向测试、截图证据和最终状态。
-- 完整定向回归：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19" --workers=1`，48/48 PASS；升版到 2.10.19 后再次运行仍为 48/48 PASS。
+- 历史完整定向回归：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19" --workers=1`，旧基线为 48/48 PASS；该数字不包含 SHELL-01～04，且不代表本次对抗复核结论。
 - 静态与构建验证：`pnpm check` PASS；`pnpm build` PASS（2066 modules）；`git diff --check` PASS；`cargo fmt --check --manifest-path src-tauri/Cargo.toml` PASS；`cargo check --locked --manifest-path src-tauri/Cargo.toml` PASS；`cargo test --locked --manifest-path src-tauri/Cargo.toml` 35/35 PASS。
 - Windows 打包：`pnpm package:release` PASS；portable、Setup/NSIS、MSI 的版本元数据均为 2.10.19。本地 SHA-256 已写入 `docs/v2.10.19/RELEASE_NOTES.md`。
 - 版本同步：`package.json`、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock`、`src-tauri/tauri.conf.json`、`src-tauri/src/runtime.rs` 和 `src/App.css` 已同步到 2.10.19；旧 v2.10.18 Release/tag/资产未修改。
 - 保护边界：未运行或修改任何 macOS workflow；未停止用户进程。PID `23304` 仍运行旧的 `Focused Moment v2.10.18.exe`，因此导出脚本保留旧文件并给出占用警告。
-- 当前状态：本地候选完成，等待 REL-22 完成提交、推送、Windows Checks、tag/Release 和远端资产 digest 核对。
+- 当前状态：上述为历史候选记录；本次对抗复核发现壳层漏项和可见文本/层级误判，最终有效状态以第 10 节为准，不能据此继续宣称 REFINE-19 已闭环。
 
 ## 8. Windows-only 发布闭环（2026-09-14）
 
@@ -1322,7 +1322,7 @@
 - **GitHub Release**：[`v2.10.19`](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.10.19) 已发布，portable、Setup/NSIS、MSI 三项 Windows x64 资产均为 `uploaded`，远端 digest 与本地 SHA-256 完全一致。
 - **资产 digest**：portable `5bd4b8446959ea344a8cda6a9e67a7546408f3ea7fcdccd526235e1921b3d425`；Setup `4946c57cdd805db75754207ec838e16a4084de442cd3483a8389ad5bfb19f6f0`；MSI `f7f3c4a7da411bd3cc442cd2859aca920c95bdb1b1cad2dfee0b911c4dd5ea27`。
 - **保护边界**：未运行或修改任何 macOS workflow；未停止用户进程；PID `23304` 及其 WebView2 子进程保持运行，旧 v2.10.18 文件因占用警告按要求保留。
-- **最终状态**：REFINE-19 与 REL-22 均 DONE；顺序 `TODAY-01～11 → TIMER-01～21 → TODO-01～03 → RECORDS-01～07 → SETTINGS-01～06` 的 48 个编号均已逐条填写并完成核验。
+- **最终状态**：这是历史 Windows 发布闭环记录；产品发布事实保留，但 REFINE-19 的视觉验收结论已由第 10 节对抗复核修正，不能再用历史 48 项概括为当前全部通过。
 
 ## 9. v2.11.0 版本纠正发布证据（2026-09-14）
 
@@ -1331,4 +1331,164 @@
 - **远程 Windows Checks**：[`34838375564`](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34838375564) PASS；前端与 Rust 检查报告 `123 passed`。
 - **GitHub Release**：[`v2.11.0`](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.11.0) 正式发布；portable、Setup/NSIS、MSI 三项资产均 `uploaded`，远端 digest 与本地 SHA-256 完全一致。
 - **资产 digest**：portable `fd319f13eaf0e4c9a6a737c7dafac3ab19df4fd969dc9ea8a90c1aa929df412d`；Setup `1b4e66c09327446196159f9389727d52900b36247ef7924bdbe0878324a7c1b6`；MSI `f7f7ccf27d313674ab6936697a6bca038f2988413e6fa0b57e0f82f0f3c99577`。
-- **最终状态**：REFINE-19 的 48 个编号逐条证据不变；`REL-23 DONE`；未运行 macOS workflow，未停止当前用户进程 PID `12200`。
+- **最终状态**：`v2.11.0` 发布事实保留；REFINE-19 的旧 48 项证据已进入对抗复核，当前有效结论以第 10 节为准；未运行 macOS workflow，未停止当前用户进程 PID `12200`。
+
+## 10. 2026-09-14 对抗复核（当前有效结论）
+
+旧记录中的 `48/48 PASS` 只统计 `TODAY-01～11 → TIMER-01～21 → TODO-01～03 → RECORDS-01～07 → SETTINGS-01～06`，没有统计本计划 2.1 节中的 `SHELL-01～04`。此外，旧的部分 PASS 只检查 DOM 结构、`title` 属性或绝对尺寸，没有证明用户实际看到的文字完整、跨页日期一致或窄屏信息层级合理。本节的复核结果优先于第 7～9 节中“最终闭环”的概括性结论。
+
+### SHELL-01
+
+- 第一主题原话：> 你现在修完右上角三个按钮直接用不了了，我连检查都检查不了了
+- 编辑纸页对应区域：五个 Editorial Paper 页面共享顶栏 `.window-controls` 及最小化、最大化/还原、关闭三个按钮；同时检查其与窗口拖拽区域的边界。
+- 复现数据或状态：Chromium + Tauri mock；`1487×1058`；逐页切换今日、计时、待办、记录、设置，逐个点击三个按钮并记录命令；检查控件容器和按钮没有 `data-tauri-drag-region`。
+- 是否复现：否，PASS。五页均有三个可见控件，aria-label 与命令分别匹配 `minimize_main_window`、`toggle_maximize_main_window`、`close_main_window`，没有被拖拽区域吞掉。
+- 根因：未发现产品同类回归；旧审计只是把记录页/待办页局部检查当作跨页结论，没有独立的壳层编号证据。
+- 实际修改：无产品代码修改；新增独立跨五页回归测试和截图证据，补齐编号，不改变窗口控件或用户进程。
+- 定向测试：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 SHELL-01" --workers=1`，1/1 PASS；覆盖五页、按钮可见性、aria、拖拽边界和三条命令各 5 次分发。
+- 截图证据：`output/qa/REFINE-19/SHELL-01-pass-1487.png`。
+- 最终状态：PASS；无产品修改。
+
+### SHELL-02
+
+- 第一主题原话：> 日期后需要显示当前时、分、秒，并同步到每个 tab 页，日期与时钟使用不同字体。
+- 编辑纸页对应区域：五个页面 `.ep-date-time` 的日期、实时 HH:MM:SS 和字体层级。
+- 复现数据或状态：先用旧口径逐页采样，发现今日页显示 `9/14周一`，其他页面显示 `2026-09-14`；实时夹具再逐页等待至少一次每秒更新，覆盖 `1487×1058`。
+- 是否复现：是。跨 Tab 日期格式不一致真实复现；实时钟和字体分层同时作为修复后回归条件验证通过。
+- 根因：`EditorialPaperToday` 把 `props.todayLabel`（短日期/星期）传给共享日期组件，而其他 Editorial Paper 页面使用 `currentEditorialDateLabel()`（ISO 样式）；旧测试只检查字符串形状，没有比较五页日期值。
+- 实际修改：`src/components/EditorialPaperViews.tsx` 的今日页改为不传入主题外的短日期，统一由 `EditorialPaperDateTime` 使用同一日期来源；保留日期后实时钟和原纸页字体。
+- 定向测试：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 SHELL-02" --workers=1`，1/1 PASS；五页均逐秒更新，日期值一致，日期/时钟字体族稳定且不同。
+- 截图证据：`output/qa/REFINE-19/SHELL-02-pass-settings.png`。
+- 最终状态：已修复；跨页日期与实时钟口径统一。
+
+### SHELL-03
+
+- 第一主题原话：> 左下角命令按钮不应在其他 tab 页出现；本主题所有 tab 都隐藏该视觉入口，但保留全局 Ctrl+K 能力。
+- 编辑纸页对应区域：五页共享 `.command-trigger` 视觉入口，以及全局 `Ctrl+K` 命令面板。
+- 复现数据或状态：Chromium + Tauri mock；逐页切换五个页面，检查视觉入口，再按 `Control+K` 打开命令面板。
+- 是否复现：否，PASS。五页均隐藏视觉入口，键盘能力仍可打开“你想做什么？”对话框。
+- 根因：未发现当前产品回归；旧记录由 TODAY-02/TIMER-06 间接覆盖，但缺少独立壳层编号。
+- 实际修改：无产品代码修改；新增独立跨五页回归测试和截图，不删除全局命令能力。
+- 定向测试：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 SHELL-03" --workers=1`，1/1 PASS。
+- 截图证据：`output/qa/REFINE-19/SHELL-03-pass-settings.png`。
+- 最终状态：PASS；无产品修改。
+
+### SHELL-04
+
+- 第一主题原话：> 用户反馈上一张截图中看不到每日一句
+- 编辑纸页对应区域：今日页 `DailyFocusLine`（`今日一句 · 页边手记`）及其标题、引文、出处和窄屏换行。
+- 复现数据或状态：Chromium + Tauri mock；固定真实语料日期，覆盖 `1487×1058`、`420×720`；先检查实际引文存在，再注入长语料压力文本检查换行、可见边界和横向滚动宽度。
+- 是否复现：否，PASS。当前编辑纸页每日一句在首屏实际渲染；长语料在可用宽度内换行，未被裁切或制造横向溢出。
+- 根因：未发现产品同类问题；旧计划只有问题定义，没有独立执行结果和截图，属于审计证据漏项。
+- 实际修改：无产品代码修改；新增独立可见性/换行回归测试和截图，不改变 DailyFocusLine 的纸页样式。
+- 定向测试：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 SHELL-04" --workers=1`，1/1 PASS。
+- 截图证据：`output/qa/REFINE-19/SHELL-04-pass-1487.png`。
+- 最终状态：PASS；无产品修改。
+
+### TIMER-02 对抗复核
+
+- 第一主题原话：> 中央大圆和巨大时间读数过度吸引注意，需要重新规划计时页的信息层级。
+- 编辑纸页对应区域：计时页中央 `.ep-clock-card` 的圆盘、读数、模式、目标时长和主操作。
+- 复现数据或状态：`45:00` 倒计时；`1487×1058` 与 `420×720`。旧测试只断言圆盘 `≤300.5px`；在窄屏圆盘约占计时卡宽度 77%，截图中仍压过操作层级。
+- 是否复现：是，窄屏同类层级问题复现；桌面原有 300px 规则保留。
+- 根因：测试用绝对像素阈值替代相对视觉层级，且窄屏沿用桌面圆盘上限，没有约束装饰圆盘相对计时卡的面积。
+- 实际修改：`src/components/EditorialPaperViews.css` 在 `540px` 以下将圆盘上限收至 `250px`、读数收至 `2.3rem`；保留圆形、刻度、颜色、纸页结构和计时逻辑。
+- 定向测试：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 TIMER-02" --workers=1`，1/1 PASS；新增圆盘/计时卡宽度比例 `≤72%` 断言。
+- 截图证据：`output/qa/REFINE-19/TIMER-02-reaudit-pass-1487.png`、`output/qa/REFINE-19/TIMER-02-reaudit-pass-420.png`。
+- 最终状态：已修复；窄屏装饰层级重新纳入可测量范围。
+
+### TODO-02 对抗复核
+
+- 第一主题原话：> 待办页中间文字仍有重叠，界面留白较多，且已完成事项数量增加后无法正常查看和操作；此前记录页修复后还出现过右上角三个原生窗口控件不可用，要求继续保持可检查。
+- 编辑纸页对应区域：待办页今天/稍后/已完成三列中每行标题、截止信息和操作。
+- 复现数据或状态：接近当前本地待办压力数据的 21 条未完成 + 5 条已完成，长标题在 `1487×1058` 和 `420×720` 下检查实际元素宽度。旧实现所有标题均为 `nowrap + overflow:hidden + text-overflow:ellipsis`，长标题 `scrollWidth` 大于 `clientWidth`；截图中可见省略号。
+- 是否复现：是。长标题可见性同类问题复现；编辑/恢复/删除/纵向操作链路仍通过。
+- 根因：标题的 `title` 属性只能提供悬停辅助，不能替代页面可见文本；列表 CSS 把用户输入强制压成单行。
+- 实际修改：`src/components/EditorialPaperViews.css` 让待办标题和元信息自然换行、允许内容撑高行；保留 `title` 辅助、列结构、操作和编辑纸页材质。
+- 定向测试：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 TODO-02" --workers=1`，1/1 PASS；新增 desktop/mobile `scrollWidth <= clientWidth`、`white-space: normal` 和非隐藏溢出断言。
+- 截图证据：`output/qa/REFINE-19/TODO-02-reaudit-pass-1487.png`、`output/qa/REFINE-19/TODO-02-reaudit-pass-420.png`。
+- 最终状态：已修复；长完成事项本身可见、可回看、可操作。
+
+### RECORDS-03 对抗复核
+
+- 第一主题原话：> 历史天数增加后内容过长且难以回看
+- 编辑纸页对应区域：记录页当前日期记录行标题、长历史展开分组及编辑/删除操作。
+- 复现数据或状态：28 天历史夹具、当天长标题记录，覆盖 `1487×1058` 和 `420×720`。旧实现记录行标题仍为 `nowrap + overflow:hidden + text-overflow:ellipsis`，窄屏 `scrollWidth 338–340` 大于可见宽度 `327`；旧测试只检查 `title` 存在。
+- 是否复现：是。当前记录行页面可见文本截断复现；日期分组、展开、最旧记录、编辑删除链路通过。
+- 根因：给 `<strong>` 增加 `title` 没有消除视觉截断，旧测试把辅助属性误当成完整可读证据。
+- 实际修改：`src/components/EditorialPaperViews.css` 让记录行标题自然换行、内容撑高，并保留现有 `title` 辅助和历史分组结构。
+- 定向测试：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 RECORDS-03" --workers=1`，1/1 PASS；新增桌面/窄屏实际标题 `scrollWidth <= clientWidth` 和 `white-space: normal` 断言。
+- 截图证据：`output/qa/REFINE-19/RECORDS-03-reaudit-pass-1487.png`、`output/qa/REFINE-19/RECORDS-03-reaudit-pass-420.png`。
+- 最终状态：已修复；长记录标题不再依赖悬停才能读取。
+
+### TODAY-05 数据压力复核
+
+- 第一主题原话：> 页面底部原有的总结句在全屏时仍然看不到，需要重新调整布局。
+- 编辑纸页对应区域：今日页节点纸张、下一页卡片与底部 `.ep-facts-row` 总结区。
+- 复现数据或状态：默认旧夹具只有 1 条待办时，`1707×912` 紧凑桌面摘要在视口内；接近当前数据的 21 条待办 + 5 条已完成时，摘要落在页面文档底部（桌面约 `2343–2410px`，420px 约 `3439–3573px`），初始视口当然看不到。
+- 是否复现：部分。旧的短数据全屏挤压问题已修复；长列表下摘要被内容推到页面下方是真实现象，但属于正常纵向滚动，不是裁切或数据丢失。
+- 根因：摘要位于全部节点之后，内容高度随真实待办数量增长；若强行固定到首屏，会遮挡或压缩用户仍需阅读的节点。
+- 实际修改：无。保留当前纸页信息顺序，不用固定层覆盖长列表；补充压力数据证据，避免把“短夹具 PASS”误写成“任意数据首屏 PASS”。
+- 定向测试：现有 `REFINE-19 TODAY-05` 保持短数据安全区断言；本次独立压力复现截图记录 21+5 条数据下的文档流行为，后续若要摘要固定/粘滞需单独产品决策。
+- 截图证据：`output/qa/REFINE-19/reaudit-TODAY-05-current-data-1487.png`、`output/qa/REFINE-19/reaudit-TODAY-05-current-data-420.png`。
+- 最终状态：短数据 PASS；长数据为已知正常滚动行为，当前不改动，不能笼统写成“所有数据均首屏可见”。
+
+- 本次对抗复核完整回归：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19" --workers=1`，最终应以包含本节新增矩阵的结果为准；当前已覆盖 151 条未完成待办 + 5 条已完成、821px 断点、420px 窄屏、无空格长标题和真实开始专注后的长任务上下文。此前 53/53 只是上一轮基线，不再作为最终数字。
+
+### TODAY-01 第二轮对抗复核：完成节点与窄屏重要度
+
+- 第一主题原话：> 部分节点信息会展示不出来，需要调整排版，避免信息丢失。
+- 编辑纸页对应区域：今日页 `.ep-completed-notes` 已完成节点列表，以及 `420px` 下 `.ep-field-row` 的重要度信息。
+- 复现数据或状态：用接近当前数据规模的 151 条未完成事项 + 5 条当天已完成事项，初版实际只渲染 4 条完成节点；另用 420px 单条待办夹具，节点保留“中”文本但 `.ep-field-row__tag` 的 computed display 为 `none`，用户不可见。
+- 是否复现：是，两个同类信息缺失均复现。
+- 根因：完成节点被 `slice(0, 4)` 硬截断；窄屏仅隐藏优先级视觉标签，没有提供替代可见字段。
+- 实际修改：移除完成节点数量截断；完成节点标题包入可换行的 `.ep-completed-notes__title`；在窄屏节点截止信息后增加移动端可见的优先级文本，保留桌面标签与编辑纸页字号/色彩。
+- 未修改范围：不改待办数据源、排序、纸页材质、节点主布局、导航、计时状态或其他主题。
+- 定向测试：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 adversarial current-data matrix" --workers=1` 和 `--grep "TODAY-01 adversarial narrow view" --workers=1` 均 PASS；前者断言 5 条完成节点和 151+5 条待办三档宽度，后者断言 420px 优先级文本可见。
+- 截图证据：`output/qa/REFINE-19/TODAY-01-adversarial-completed-after.png`、`output/qa/REFINE-19/TODAY-01-adversarial-importance-420.png`。
+- 最终状态：已修复；完成节点不再被前四条截断，窄屏仍可读到优先级。
+
+### TODAY-10 第二轮对抗复核：下一页长标题
+
+- 第一主题原话：> 右侧卡片只跳转到“计时”页，信息价值不足；需要重构为今日页本身有用的数据。
+- 编辑纸页对应区域：今日页 `.ep-next-card h2` 下一件事项标题。
+- 复现数据或状态：420px 下注入无空格长标题，标题 DOM 文本完整但 `scrollWidth=7124px`、可见 `clientWidth=166px`，父级卡片 `overflow:hidden` 导致截图只显示标题开头。
+- 是否复现：是，用户输入长标题被视觉截断。
+- 根因：卡片标题没有 `overflow-wrap:anywhere`，父级裁切掩盖了标题的实际溢出。
+- 实际修改：给 `.ep-next-card h2` 增加 `min-width:0` 与 `overflow-wrap:anywhere`，让卡片按标题自然增高；不改变卡片纸张、标题字号或信息结构。
+- 未修改范围：不改下一步动作、预计时长、待办排序、计时页或编辑纸页视觉风格。
+- 定向测试：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 adversarial next-page card" --workers=1`，1/1 PASS；断言无空格标题实际可见、无内部截断和无横向文档溢出。
+- 截图证据：`output/qa/REFINE-19/adversarial-next-card-unbroken-420.png`。
+- 最终状态：已修复；长标题完整换行显示。
+
+### RECORDS-03 第二轮对抗复核：完整历史无空格标题
+
+- 第一主题原话：> 历史天数增加后内容过长且难以回看
+- 编辑纸页对应区域：记录页 `.ep-full-history .ep-history-day > div > span` 展开的全部记录文字索引。
+- 复现数据或状态：420px 下 3 条无空格长记录展开后，修复前文档 `scrollWidth=2545px`，文字横向穿出纸页与窗口；中文长标题夹具未能暴露该问题。
+- 是否复现：是，展开历史文本发生横向溢出。
+- 根因：历史条目 span 没有 `min-width:0` 和断词规则，网格轨道按无空格长串的最小内容宽度扩张。
+- 实际修改：为历史容器及其直接条目增加 `min-width:0`、`overflow-wrap:anywhere`；保留日期分组、展开/收起、完整索引和纸页间距。
+- 未修改范围：不改当前记录分页、编辑/删除、日期排序、图表或其他主题。
+- 定向测试：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 adversarial current-data matrix" --workers=1`，1/1 PASS；断言 420px 文档宽度、条目边界和条目 scrollWidth 均受控。
+- 截图证据：`output/qa/REFINE-19/adversarial-unbroken-history-420.png`。
+- 最终状态：已修复；无空格长记录也能在历史展开区内换行回看。
+
+### TODO-02 / 跨页断点第二轮对抗复核
+
+- 第一主题原话：> 待办页中间文字仍有重叠，界面留白较多，且已完成事项数量增加后无法正常查看和操作；此前记录页修复后还出现过右上角三个原生窗口控件不可用，要求继续保持可检查。
+- 编辑纸页对应区域：待办页 151 条未完成 + 5 条已完成的长列表、底部完成度、821px 断点及计时页开始后的关联任务/页脚。
+- 复现数据或状态：当前数据压力矩阵覆盖 `1487px`、`821px`、`420px`；每一行标题/截止信息可见，完成节点数量完整，底部元素和五页主要区域均在文档边界内；821px 计时页仅有纸张旋转带来的最多约 2px 抗锯齿外扩，语义内容未出界。
+- 是否复现：否；长列表可滚动、操作和文字边界均通过。
+- 根因：不适用；本轮没有把旋转抗锯齿像素误判成新的主题问题。
+- 实际修改：无针对 TODO-02 的新增产品修改；复用 TODAY-01、TODO-02、TODAY-10 与 RECORDS-03 的局部修复。
+- 未修改范围：不引入内部滚动容器，不固定摘要，不改变工作簿列结构、纸页风格或用户数据。
+- 定向测试：`pnpm exec playwright test tests/today-visual.spec.mjs --grep "REFINE-19 adversarial current-data matrix" --workers=1`、`--grep "REFINE-19 adversarial boundary matrix" --workers=1` 均 PASS。
+- 截图证据：`output/qa/REFINE-19/adversarial-current-todos-1487.png`、`output/qa/REFINE-19/adversarial-current-todos-420.png`、`output/qa/REFINE-19/adversarial-boundary-focus-821.png`。
+- 最终状态：PASS；当前数据规模没有再复现旧的长列表裁切/操作失效类问题。
+
+### 本轮有效回归口径
+
+- 新增对抗测试 4 项：当前数据矩阵、跨页断点矩阵、下一页无空格长标题、窄屏优先级信息；它们不是“整体优化”替代项，而是对 TODAY-01、TODAY-10、TODO-02、RECORDS-03 的补充编号证据。
+- 完整回归：原五页 48 项 + SHELL-01～04 4 项 + 当前数据压力 1 项 + 本轮 4 项对抗测试，共 `57/57 PASS`；每项均保留逐条测试和截图证据。
+- 当前产品代码仍保持版本 `2.11.0`；本轮局部用户可见修复尚未重新打包/发布。若后续要发布，按版本纪律应在 2.11.0 之后使用新的 patch 版本。

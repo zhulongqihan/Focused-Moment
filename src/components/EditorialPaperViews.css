@@ -489,11 +489,13 @@
 .ep-field-row__copy { display: grid; gap: 4px; min-width: 0; }
 .ep-field-row__copy strong { overflow: visible; font-size: 1rem; font-weight: 600; line-height: 1.45; overflow-wrap: anywhere; text-overflow: clip; white-space: normal; }
 .ep-field-row__copy small { color: var(--ep-muted); font-size: 0.72rem; }
+.ep-field-row__importance-mobile { display: none; }
 .ep-field-row__tag { color: var(--ep-sage); font-size: 0.7rem; }
 .ep-field-row__mark { color: var(--ep-rust); font-size: 1.25rem; }
 
 .ep-completed-notes { display: grid; gap: 6px; margin-top: 22px; padding-top: 14px; border-top: 1px solid var(--ep-line); }
-.ep-completed-notes > span:not(.ep-section-label) { display: flex; align-items: center; gap: 7px; color: var(--ep-sage); font-size: 0.78rem; }
+.ep-completed-notes > span:not(.ep-section-label) { display: flex; align-items: flex-start; gap: 7px; min-width: 0; color: var(--ep-sage); font-size: 0.78rem; line-height: 1.5; }
+.ep-completed-notes__title { min-width: 0; overflow-wrap: anywhere; }
 .ep-completed-notes svg { color: var(--ep-sage); }
 .ep-sheet-footer { margin-top: 26px; padding-top: 12px; border-top: 1px solid var(--ep-line); }
 
@@ -689,6 +691,7 @@
   .ep-field-sheet { min-height: 0; padding: 20px 16px 17px; }
   .ep-field-row { grid-template-columns: 32px minmax(0, 1fr) 20px; gap: 7px; padding: 13px 0; }
   .ep-field-row__index { font-size: 1.25rem; }.ep-field-row__tag { display: none; }
+  .ep-field-row__importance-mobile { display: inline; }
   .ep-sheet-topline, .ep-sheet-footer, .ep-today-timer-strip, .ep-focus-footer { align-items: flex-start; flex-direction: column; }
   .ep-timer-strip__actions { width: 100%; justify-content: space-between; }
   .ep-next-card { padding: 34px 20px 24px; }
@@ -954,5 +957,61 @@
 @media (max-width: 820px) {
   .minimal-app[data-theme="editorial-paper"] .minimal-nav .trail-nav__brand {
     display: none !important;
+  }
+}
+
+/* Long user-authored copy must remain readable in the paper lists. The
+   tooltip is only a supplement; it cannot replace visible text. */
+.ep-todo-row {
+  align-items: start;
+}
+
+.ep-todo-row__copy strong,
+.ep-todo-row__copy small,
+.ep-record-entry strong {
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.ep-todo-row__copy strong,
+.ep-record-entry strong {
+  line-height: 1.45;
+}
+
+.ep-todo-row__copy small,
+.ep-record-entry small {
+  line-height: 1.5;
+}
+
+.ep-record-entry {
+  align-items: start;
+  padding: 14px 0;
+}
+
+.ep-next-card h2 {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.ep-history-day > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.ep-history-day > div > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 540px) {
+  .ep-clock-card__ring {
+    width: min(250px, 100%);
+    height: min(250px, 100%);
+  }
+
+  .ep-clock-card__readout strong {
+    font-size: 2.3rem;
   }
 }

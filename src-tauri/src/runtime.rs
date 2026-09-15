@@ -22,7 +22,10 @@ use storage::{
 use tauri::menu::{Menu, MenuItem};
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};
-use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, Window, WindowEvent};
+use tauri::{
+    AppHandle, Emitter, Manager, PhysicalPosition, WebviewUrl, WebviewWindowBuilder, Window,
+    WindowEvent,
+};
 
 #[cfg(windows)]
 use tauri::Wry;
@@ -70,8 +73,9 @@ const DEFAULT_COUNTDOWN_MINUTES: u64 = 25;
 const MIN_COUNTDOWN_MINUTES: u64 = 1;
 const MAX_COUNTDOWN_MINUTES: u64 = 12 * 60;
 const MAX_TODO_TITLE_CHARS: usize = 200;
-const APP_VERSION: &str = "2.11.0";
-const APP_MILESTONE: &str = "v2.11.0 interface switch; Windows-only release";
+const APP_VERSION: &str = "2.11.1";
+const APP_MILESTONE: &str =
+    "v2.11.1 Night Valley usability and runtime efficiency fixes; Windows-only release";
 const APP_BACKUP_KIND: &str = "focused-moment-backup";
 const APP_BACKUP_FORMAT_VERSION: u64 = 2;
 const FLOATING_WORKSPACE_SYNC_EVENT: &str = "floating-workspace-sync";
@@ -2959,6 +2963,106 @@ fn show_main_window(app: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+fn build_floating_window(
+    app: &AppHandle,
+    label: &str,
+    title: &str,
+    width: f64,
+    height: f64,
+    min_width: f64,
+    min_height: f64,
+) -> Result<tauri::WebviewWindow, String> {
+    WebviewWindowBuilder::new(app, label, WebviewUrl::App("index.html".into()))
+        .title(title)
+        .inner_size(width, height)
+        .min_inner_size(min_width, min_height)
+        .resizable(true)
+        .decorations(false)
+        .transparent(true)
+        .always_on_top(true)
+        .skip_taskbar(true)
+        .visible(false)
+        .focused(false)
+        .build()
+        .map_err(|error| error.to_string())
+}
+
+fn build_unlock_window(
+    app: &AppHandle,
+    label: &str,
+    title: &str,
+) -> Result<tauri::WebviewWindow, String> {
+    WebviewWindowBuilder::new(app, label, WebviewUrl::App("index.html".into()))
+        .title(title)
+        .inner_size(42.0, 42.0)
+        .min_inner_size(42.0, 42.0)
+        .max_inner_size(42.0, 42.0)
+        .resizable(false)
+        .decorations(false)
+        .transparent(true)
+        .always_on_top(true)
+        .skip_taskbar(true)
+        .visible(false)
+        .focused(false)
+        .build()
+        .map_err(|error| error.to_string())
+}
+
+fn ensure_todo_floating_window(app: &AppHandle) -> Result<tauri::WebviewWindow, String> {
+    app.get_webview_window("todo-float").map_or_else(
+        || {
+            build_floating_window(
+                app,
+                "todo-float",
+                "Focused Moment 悬浮工作台",
+                360.0,
+                340.0,
+                280.0,
+                260.0,
+            )
+        },
+        Ok,
+    )
+}
+
+fn ensure_focus_floating_window(app: &AppHandle) -> Result<tauri::WebviewWindow, String> {
+    app.get_webview_window("focus-float").map_or_else(
+        || {
+            build_floating_window(
+                app,
+                "focus-float",
+                "Focused Moment 专注",
+                320.0,
+                230.0,
+                280.0,
+                200.0,
+            )
+        },
+        Ok,
+    )
+}
+
+fn ensure_todo_unlock_window(app: &AppHandle) -> Result<tauri::WebviewWindow, String> {
+    app.get_webview_window("todo-unlock").map_or_else(
+        || build_unlock_window(app, "todo-unlock", "解除待办锁定"),
+        Ok,
+    )
+}
+
+fn ensure_focus_unlock_window(app: &AppHandle) -> Result<tauri::WebviewWindow, String> {
+    app.get_webview_window("focus-unlock").map_or_else(
+        || build_unlock_window(app, "focus-unlock", "解除专注锁定"),
+        Ok,
+    )
+}
+
+fn close_utility_window(app: &AppHandle, label: &str) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window(label) {
+        window.close().map_err(|error| error.to_string())?;
+    }
+    Ok(())
+}
+
 fn hide_main_window(window: &Window) -> Result<(), String> {
     window.hide().map_err(|error| error.to_string())
 }
@@ -3216,12 +3320,17 @@ fn build_system_tray(app: &AppHandle) -> Result<(), String> {
                 }
             }
             #[cfg(windows)]
-            TRAY_FOCUS_FLOATING_ID => match show_focus_floating(app.clone()) {
-                Ok(()) => eprintln!("FOCUSED_MOMENT_TRAY_FOCUS_FLOATING=ok"),
-                Err(error) => {
-                    eprintln!("FOCUSED_MOMENT_TRAY_FOCUS_FLOATING=error:{error}")
-                }
-            },
+            TRAY_FOCUS_FLOATING_ID => {
+                let app_handle = app.clone();
+                tauri::async_runtime::spawn(async move {
+                    match show_focus_floating(app_handle).await {
+                        Ok(()) => eprintln!("FOCUSED_MOMENT_TRAY_FOCUS_FLOATING=ok"),
+                        Err(error) => {
+                            eprintln!("FOCUSED_MOMENT_TRAY_FOCUS_FLOATING=error:{error}")
+                        }
+                    }
+                });
+            }
             #[cfg(windows)]
             TRAY_OPEN_FOCUS_ID => {
                 if let Err(error) = navigate_from_tray(app, "focus") {
@@ -3386,40 +3495,33 @@ fn close_main_window(window: tauri::Window) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn show_floating_todos(app: tauri::AppHandle) -> Result<(), String> {
-    let floating_window = app
-        .get_webview_window("todo-float")
-        .ok_or_else(|| "找不到悬浮待办窗口".to_string())?;
-
+async fn show_floating_todos(app: tauri::AppHandle) -> Result<(), String> {
     let main_window = app
         .get_webview_window("main")
         .ok_or_else(|| "找不到主窗口".to_string())?;
 
+    close_utility_window(&app, "focus-float")?;
+    close_utility_window(&app, "focus-unlock")?;
+    close_utility_window(&app, "todo-unlock")?;
+    let floating_window = ensure_todo_floating_window(&app)?;
+
     floating_window
         .set_ignore_cursor_events(false)
         .map_err(|error| error.to_string())?;
-    if let Some(unlock_window) = app.get_webview_window("todo-unlock") {
-        unlock_window.hide().map_err(|error| error.to_string())?;
-    }
     floating_window.show().map_err(|error| error.to_string())?;
     floating_window
         .set_focus()
         .map_err(|error| error.to_string())?;
     let _ = floating_window.emit(FLOATING_WORKSPACE_SYNC_EVENT, ());
-    if let Some(focus_window) = app.get_webview_window("focus-float") {
-        focus_window.hide().map_err(|error| error.to_string())?;
-    }
     main_window.hide().map_err(|error| error.to_string())
 }
 
 #[tauri::command]
-fn lock_floating_todos(app: tauri::AppHandle) -> Result<(), String> {
+async fn lock_floating_todos(app: tauri::AppHandle) -> Result<(), String> {
     let floating_window = app
         .get_webview_window("todo-float")
         .ok_or_else(|| "找不到悬浮待办窗口".to_string())?;
-    let unlock_window = app
-        .get_webview_window("todo-unlock")
-        .ok_or_else(|| "找不到待办解锁按钮".to_string())?;
+    let unlock_window = ensure_todo_unlock_window(&app)?;
 
     let floating_position = floating_window
         .outer_position()
@@ -3453,7 +3555,7 @@ fn unlock_floating_todos(app: tauri::AppHandle) -> Result<(), String> {
         .get_webview_window("todo-float")
         .ok_or_else(|| "找不到悬浮待办窗口".to_string())?;
 
-    // Restore interaction before hiding the fallback unlock window. If a
+    // Restore interaction before closing the fallback unlock window. If a
     // native focus/show call is delayed, the user must still have a visible
     // button to retry instead of being left with a click-through window.
     floating_window.show().map_err(|error| error.to_string())?;
@@ -3464,34 +3566,25 @@ fn unlock_floating_todos(app: tauri::AppHandle) -> Result<(), String> {
         .set_focus()
         .map_err(|error| error.to_string())?;
     if let Some(unlock_window) = app.get_webview_window("todo-unlock") {
-        unlock_window.hide().map_err(|error| error.to_string())?;
+        unlock_window.close().map_err(|error| error.to_string())?;
     }
     Ok(())
 }
 
 #[tauri::command]
-fn show_focus_floating(app: tauri::AppHandle) -> Result<(), String> {
-    let focus_window = app
-        .get_webview_window("focus-float")
-        .ok_or_else(|| "找不到专注小窗".to_string())?;
+async fn show_focus_floating(app: tauri::AppHandle) -> Result<(), String> {
     let main_window = app
         .get_webview_window("main")
         .ok_or_else(|| "找不到主窗口".to_string())?;
 
+    close_utility_window(&app, "todo-float")?;
+    close_utility_window(&app, "todo-unlock")?;
+    close_utility_window(&app, "focus-unlock")?;
+    let focus_window = ensure_focus_floating_window(&app)?;
+
     focus_window
         .set_ignore_cursor_events(false)
         .map_err(|error| error.to_string())?;
-    if let Some(unlock_window) = app.get_webview_window("focus-unlock") {
-        unlock_window.hide().map_err(|error| error.to_string())?;
-    }
-    if let Some(todo_window) = app.get_webview_window("todo-float") {
-        todo_window.hide().map_err(|error| error.to_string())?;
-    }
-    if let Some(todo_unlock_window) = app.get_webview_window("todo-unlock") {
-        todo_unlock_window
-            .hide()
-            .map_err(|error| error.to_string())?;
-    }
     focus_window.show().map_err(|error| error.to_string())?;
     focus_window
         .set_focus()
@@ -3500,13 +3593,11 @@ fn show_focus_floating(app: tauri::AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn lock_focus_floating(app: tauri::AppHandle) -> Result<(), String> {
+async fn lock_focus_floating(app: tauri::AppHandle) -> Result<(), String> {
     let focus_window = app
         .get_webview_window("focus-float")
         .ok_or_else(|| "找不到专注小窗".to_string())?;
-    let unlock_window = app
-        .get_webview_window("focus-unlock")
-        .ok_or_else(|| "找不到专注解锁按钮".to_string())?;
+    let unlock_window = ensure_focus_unlock_window(&app)?;
 
     let floating_position = focus_window
         .outer_position()
@@ -3548,44 +3639,27 @@ fn unlock_focus_floating(app: tauri::AppHandle) -> Result<(), String> {
         .set_focus()
         .map_err(|error| error.to_string())?;
     if let Some(unlock_window) = app.get_webview_window("focus-unlock") {
-        unlock_window.hide().map_err(|error| error.to_string())?;
+        unlock_window.close().map_err(|error| error.to_string())?;
     }
     Ok(())
 }
 
 #[tauri::command]
 fn restore_main_from_focus_floating(app: tauri::AppHandle) -> Result<(), String> {
-    if let Some(floating_window) = app.get_webview_window("todo-float") {
-        floating_window
-            .set_ignore_cursor_events(false)
-            .map_err(|error| error.to_string())?;
-        floating_window.hide().map_err(|error| error.to_string())?;
-    }
-    if let Some(focus_window) = app.get_webview_window("focus-float") {
-        focus_window
-            .set_ignore_cursor_events(false)
-            .map_err(|error| error.to_string())?;
-        focus_window.hide().map_err(|error| error.to_string())?;
-    }
-    if let Some(unlock_window) = app.get_webview_window("focus-unlock") {
-        unlock_window.hide().map_err(|error| error.to_string())?;
-    }
-    show_main_window(&app)
+    show_main_window(&app)?;
+    close_utility_window(&app, "todo-float")?;
+    close_utility_window(&app, "todo-unlock")?;
+    close_utility_window(&app, "focus-float")?;
+    close_utility_window(&app, "focus-unlock")
 }
 
 #[tauri::command]
 fn restore_main_from_floating_todos(app: tauri::AppHandle) -> Result<(), String> {
-    if let Some(floating_window) = app.get_webview_window("todo-float") {
-        floating_window
-            .set_ignore_cursor_events(false)
-            .map_err(|error| error.to_string())?;
-        floating_window.hide().map_err(|error| error.to_string())?;
-    }
-    if let Some(unlock_window) = app.get_webview_window("todo-unlock") {
-        unlock_window.hide().map_err(|error| error.to_string())?;
-    }
-
-    show_main_window(&app)
+    show_main_window(&app)?;
+    close_utility_window(&app, "todo-float")?;
+    close_utility_window(&app, "todo-unlock")?;
+    close_utility_window(&app, "focus-float")?;
+    close_utility_window(&app, "focus-unlock")
 }
 
 #[tauri::command]

@@ -10,7 +10,7 @@
 | as_of / updated_at | 2026-09-14 02:41（Asia/Shanghai）；UX-AUDIT-01 已完成 25 页 × 3 轮 = 75 轮真实浏览器体验、50 组紧凑密度专项、20 个设置锚点检查和人工视觉复核；本地旧归档与生成物清理已按用户授权完成；REL-14 v2.10.11 五套主题“今日一句”已完成构建、提交、正常推送、tag、GitHub Release、远程 Checks、macOS Native Smoke、Universal DMG 和四项资产 digest 核对；新增用户决策：暂时冻结 macOS 版本更新，直到用户明确授权恢复；REL-15 v2.10.12 Windows-only 对齐修复已完成本地验证、打包、提交、推送、tag、Release、远程 Checks 和三项资产 digest 核对；新增用户决策：同一界面内的小修复先本地合并验证，界面整体完成后再一次性提交、推送和发布，不按单个小 bug 推送；`TRAY-01/REL-16` v2.10.13 Windows 通知区域托盘快速操作已实现、完成本地和远程 Windows 验收，并完成 Windows-only Release，证据见 `docs/v2.10.13/RELEASE_NOTES.md` 与 `docs/qa/TRAY-01-windows-tray-menu-v2.10.13.md`；`REFINE-14/REL-17` Night Valley“记录”页三项问题已完成本地实现、71/71 前端回归、Windows 构建打包、提交推送、远程 Checks 与三项 Release 资产 digest 核对，v2.10.14 已完成 Windows-only 发布；`REFINE-15/REL-18` 本轮记录页点线对齐、专注时段分布和全部记录可见性修复已完成本地实现、72/72 前端回归、Windows v2.10.15 打包与三项资产 SHA-256 核对、提交推送、tag、GitHub Release 和远程 Checks 收口；`REFINE-16/REL-19` 记录页窗口控件回归已完成 v2.10.16 Windows-only 修复、73/73 前端回归、Windows 打包、远程 Checks、tag、GitHub Release 与三项资产 digest 核对；`REFINE-17/REL-20` Night Valley 待办工作台重构已完成 v2.10.17 Windows-only 发布、本地与远程 75/75 前端回归、Windows 打包、tag、GitHub Release 和三项资产 digest 核对；`REFINE-18/REL-21` Night Valley 设置工作台重构已完成 v2.10.18 Windows-only 发布，远程 Checks 与三项资产 digest 已核对 |
 | 最新用户纠正 | 2026-09-14 19:15（Asia/Shanghai）：用户明确指出本轮发生了界面切换，版本应为 `2.11.0`；该纠正晚于 v2.10.19 发布闭环，作为当前版本决策生效；`v2.10.19` 历史 tag/Release 不移动、不重写 |
 | 产品目标 | 本地优先的桌面专注工具：待办 → 专注 → 桌面提醒 → 保存记录 → 回看投入 → 可恢复地长期保留 |
-| 当前阶段 | 五套主题均已接入；MAINT-01 至 MAINT-06 瘦身、文档、远程审计和干净 checkout 验证已完成；REFINE-13 的 Night Valley“计时”页修复、Windows native 验收和 REL-12 v2.10.9 发布闭环均已完成；2026-09-12 本地旧归档与可再生生成物清理已完成；UX-AUDIT-01 全主题逐页体验精修已完成；REL-13 v2.10.10、REL-14 v2.10.11、REL-15 v2.10.12、`TRAY-01/REL-16` v2.10.13 与 `REFINE-14/REL-17` v2.10.14 Windows-only 发布闭环均已完成；`REFINE-15/REL-18` v2.10.15 发布已完成；`REFINE-16/REL-19` v2.10.16 窗口控件修复与 Windows-only 发布已完成；`REFINE-17` v2.10.17 待办工作台重构与 Windows-only 发布均已完成；macOS 仍冻结；`REFINE-18/REL-21` v2.10.18 设置工作台重构与 Windows-only 发布已完成；`REFINE-19` 编辑纸页五页逐条核查、局部修复、48/48 前端回归与 v2.10.19 Windows-only 发布闭环均已完成 |
+| 当前阶段 | 五套主题均已接入；MAINT-01 至 MAINT-06 瘦身、文档、远程审计和干净 checkout 验证已完成；REFINE-13 的 Night Valley“计时”页修复、Windows native 验收和 REL-12 v2.10.9 发布闭环均已完成；2026-09-12 本地旧归档与可再生生成物清理已完成；UX-AUDIT-01 全主题逐页体验精修已完成；REL-13 v2.10.10、REL-14 v2.10.11、REL-15 v2.10.12、`TRAY-01/REL-16` v2.10.13 与 `REFINE-14/REL-17` v2.10.14 Windows-only 发布闭环均已完成；`REFINE-15/REL-18` v2.10.15 发布已完成；`REFINE-16/REL-19` v2.10.16 窗口控件修复与 Windows-only 发布已完成；`REFINE-17` v2.10.17 待办工作台重构与 Windows-only 发布均已完成；macOS 仍冻结；`REFINE-18/REL-21` v2.10.18 设置工作台重构与 Windows-only 发布已完成；`v2.10.19` 的 REFINE-19 结果与发布记录保留为历史；当前 `2.11.0` 工作树已完成 Editorial Paper 第二轮对抗修复与 `57/57` 回归，待用户视角复核 |
 | 代码基线 | v2.10.18 发布代码提交为 `6e8a076e9864a19a8e390e432ff8384aef0e5462`，tag `v2.10.18` peeled commit 与其一致；v2.10.17 发布代码提交为 `67104979f79591125cda32f5506836911b0279e1`，tag `v2.10.17` peeled commit 与其一致；v2.10.16 发布代码提交为 `e6671fceae2595cf0fa4a6893d3dbc059082d651`，tag `v2.10.16` peeled commit 与其一致；v2.10.15 发布代码提交为 `88d97ad120024e63407e2702bee7359ba68cfa25`，tag `v2.10.15` peeled commit 与其一致；v2.10.14 发布代码提交为 `fb1e03eb248e8415e2e29bc688cd756458b427b5`；v2.10.13 发布代码提交为 `28b354e6bead620db11c5cb5c01b6ad1a16ec2ac`；v2.10.12 发布代码提交为 `77b5b66dbde53b976a1f4b2ef3e3582d4f3fd7d5`；v2.10.11 发布代码提交为 `d83444b7d861730a7bd6b22e448b4000ccdec5b3`；旧版本 tag 未移动 |
 | 当前工作分支 | `main`；旧 CORE-01/CORE-02/CORE-03/CORE-04/CORE-05/NV-01/NV-02/NV-03/NV-04/NV-05/NV-06/DESK-01/DESK-02/DESK-03/ARCH-01/QA-01/PERF-01/TH-02/TH-03/TH-04/TH-05/DATA-01/REL-01 已完成；REFINE-03/REFINE-04/REFINE-05 DONE；REL-02/REL-03/REL-04 DONE；REFINE-06 REVIEW；REL-05 DONE；REFINE-07 REVIEW；REL-06 DONE；REFINE-08 REVIEW；REL-07 DONE；REFINE-09 REVIEW；REL-08 DONE；REFINE-10 REVIEW；REL-09 DONE；REFINE-11 REVIEW；REL-10 DONE；REFINE-12 REVIEW；REL-11 DONE；MAINT-01 至 MAINT-06 DONE；REFINE-13 DONE；REL-12 DONE；本地旧归档清理 DONE；UX-AUDIT-01 DONE；REL-13 DONE；REL-14 DONE；REL-15 DONE；TRAY-01 DONE；REL-16 DONE；REFINE-14 DONE；REL-17 DONE；REFINE-15 DONE；REL-18 DONE；REFINE-16 DONE；REL-19 DONE；REFINE-17 DONE；REL-20 DONE；REFINE-18 DONE；REL-21 DONE；REFINE-19 DONE；REL-22 DONE |
 | 发布基线 | GitHub `v2.10.18`，tag peeled commit 为 `6e8a076`；Windows Checks `34774739411` PASS，远程前端 75 passed，Rust fmt/check/test 均 PASS；GitHub Release 三项 Windows 资产均 uploaded，远端 digest 与本地 SHA-256 一致，详见 `docs/v2.10.18/RELEASE_NOTES.md`；GitHub `v2.10.17`，tag peeled commit 为 `6710497`；Windows Checks `34770039344` PASS，远程前端 75 passed，Rust fmt/check/test 均 PASS；GitHub Release 三项 Windows 资产均 uploaded，远端 digest 与本地 SHA-256 一致，详见 `docs/v2.10.17/RELEASE_NOTES.md`；v2.10.16 继续保留，tag peeled commit 为 `e6671fc`；Windows Checks `34766432213` PASS，远程前端 73 passed，Rust fmt/check/test 均 PASS；GitHub Release 三项 Windows 资产均 uploaded，远端 digest 与本地 SHA-256 一致，详见 `docs/v2.10.16/RELEASE_NOTES.md`；v2.10.15 tag/Release/资产继续保留；Windows Checks `34763893913` PASS，远程前端步骤记录 71 passed + 1 flaky（既有“每日一句”跨主题测试的 Chromium 资源波动，workflow 总体 success），Rust fmt/check/test 均 PASS；Release 三项 Windows 资产均为 uploaded，远端 digest 与本地 SHA-256 一致，详见 `docs/v2.10.15/RELEASE_NOTES.md`；v2.10.11 仍是最后一个包含 macOS 资产的版本；v2.10.8/v2.10.9/v2.10.10/v2.10.13 tag、Release、资产未修改 |
@@ -323,7 +323,7 @@ CORE-03、DESK-02 为 macOS 下一次发布门槛，可与 Windows 首套验收�
 | REL-17 | P1 | DONE | REFINE-14 | v2.10.14 Windows-only 发布已完成：版本同步、Windows 构建/打包、提交、推送、远程 Checks、GitHub Release 与三项资产 digest 核对；未触碰 macOS 版本、workflow 和资产 |
 | REFINE-15 | P1 | DONE | REL-17 | Night Valley“记录”页点线对齐、专注时段分布和全部记录可见性修复已完成，源码与 72/72 前端回归通过 |
 | REL-18 | P1 | DONE | REFINE-15 | v2.10.15 Windows-only 发布已完成：版本同步、Windows 构建/打包、提交、推送、tag、Release、远程 Checks 与三项资产 digest 核对；未触碰 macOS 版本、workflow 和资产 |
-| REFINE-19 | P1 | DONE | REL-22 | Editorial Paper 五页逐条问题核查与同类问题修复；阶段 0、今日页 TODAY-01～11、计时页 TIMER-01～21、待办页 TODO-01～03、记录页 RECORDS-01～07 与设置页 SETTINGS-01～06 已逐项完成，48/48 定向回归与 v2.10.19 Windows-only 发布闭环通过；执行计划见 `docs/qa/REFINE-19-editorial-paper-issue-audit-plan.md`，新窗口提示词见 `docs/qa/REFINE-19-editorial-paper-execution-prompt.md` |
+| REFINE-19 | P1 | REVIEW | REL-23 | Editorial Paper 五页逐问题复核已发现并修复旧测试漏掉的同类问题；阶段 0、TODAY-01～11、TIMER-01～21、TODO-01～03、RECORDS-01～07、SETTINGS-01～06、SHELL-01～04 与新增数据/边界对抗项共 `57/57 PASS`；源码候选仍未重新打包/发布，待用户视角复核；执行计划见 `docs/qa/REFINE-19-editorial-paper-issue-audit-plan.md` |
 | REL-22 | P1 | DONE | REFINE-19 | v2.10.19 Editorial Paper 逐问题修复 Windows-only 发布闭环已完成：版本同步、构建/打包、提交、推送、远程 Checks、GitHub Release 与三项资产 digest 均已核对；macOS 继续冻结 |
 | REL-23 | P1 | DONE | REFINE-19 | 用户纠正版本语义：本轮界面切换使用 `v2.11.0`；版本源同步、Windows 构建/打包、提交 `600501a`、推送、`v2.11.0` tag、Windows Checks `34838375564`、GitHub Release 与三项资产 digest 均已核对；`v2.10.19` 历史发布保留，macOS 继续冻结 |
 
@@ -1094,3 +1094,81 @@ NV-05 的具体键盘缺口：`CommandPalette.tsx` 声明 modal/listbox，但缺
 - **持久化**：`%LOCALAPPDATA%\FocusedMoment\focused-moment-state.json` 从 5 条待办扩展到 20 条，新增 ID `11`～`25`，`nextTodoId` 更新为 `26`；原有焦点记录和 5 条已完成待办保留。操作前备份为 `focused-moment-state.pre-nju-20260914-192215.json` 与对应 runtime 副本。
 - **验证**：JSON 解析通过；新增待办均为未完成、日期均为 `2026-09-15`、标题最长 68 字且无重复 ID；计时 runtime 为停止状态。为让已写入数据被运行中的应用读取，关闭到托盘的旧 PID `23304` 已结束，原 v2.10.18 应用已以 PID `14404` 重启；未修改源码、样式、版本或发布资产。
 - **下一步**：如用户继续提供公众号批次，再按日期/活动类型增量核对并写入；REL-23 的 `2.11.0` 版本发布工作保持排队，不因本次数据变更启动发布。
+
+### 2026-09-14 用户补充南大就业场次（已完成）
+
+- **最新事件**：用户补充 18 条公众号/招聘活动信息，并明确待办只保留公司名、时间、地点；要求与上一批去重后补录。
+- **冲突处理**：鸿擎科技、紫光同创、网易游戏雷火 9/15 18:00 场次已存在，不重复；用户明确提供的网易 9/15 11:00～18:00 方肇周体育馆 6 号门路演、网易互娱 9/19 303A 等细节按最新用户证据写入。招商银行上海分行、矩量光启、乾元国家实验室、算能、银河通用等缺少完整结束时间的用户条目，使用官方门户对应场次补齐结束时间；莉莉丝、腾讯、建行、北京市定向选调/优培等仅给出开始时间的条目保持单点时间。
+- **持久化**：上一批 15 条待办标题已统一压缩为“公司名｜时间｜地点”；本次新增 16 条，ID `26`～`41`，待办总数 36（其中未完成活动 31 条，历史已完成 5 条），`nextTodoId` 更新为 `42`。操作前备份为 `focused-moment-state.pre-nju-supplement-20260914-192923.json` 与对应 runtime 副本。
+- **验证**：JSON 解析通过；新增 ID 无重复，日期/开始时间/重要级字段合法，标题最长 47 字；重启后的应用 PID 为 `12200`，磁盘读取到 36 条待办，计时 runtime 仍为停止状态。
+- **保护边界**：未修改样式、源码、版本或发布资产；未运行构建、打包或发布流程。当前仍有单点时间活动缺少结束时间这一事实限制，若用户补充精确结束时间再更新。
+- **下一步**：继续按用户提供的公众号内容增量去重；REL-23 的 `2.11.0` 发布工作保持排队。
+
+### 2026-09-14 REL-23 v2.11.0 Windows-only 发布闭环（已完成）
+
+- **版本语义**：按用户最新纠正，本轮界面切换使用 minor 版本 `2.11.0`；`v2.10.19` tag、Release 和资产作为历史记录保留，未移动或覆盖。
+- **本地验证**：版本源均为 `2.11.0`；历史 48 项回归之外，本次对抗复核的 Editorial Paper 回归为 `53/53 PASS`，并通过 `pnpm check`、`pnpm build`（2066 modules）、`git diff --check`；Cargo fmt/check/test（35/35）和 `pnpm package:release` 为既有 v2.11.0 发布证据。
+- **远程证据**：Windows Checks [`34838375564`](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34838375564) PASS，报告 `123 passed`；GitHub Release [`v2.11.0`](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.11.0) 三项 Windows x64 资产均为 `uploaded`，远端 digest 与本地 SHA-256 一致。
+- **tag 与保护边界**：`v2.11.0` peeled commit 为 `600501a5b98a7e502bfbe629735888b56496f0cb`；未运行或修改任何 macOS workflow；未停止当前用户进程 PID `12200`。
+- **最终状态**：`REL-23 DONE`；下一任务按项目优先级排队。
+
+### 2026-09-14 REFINE-19 编辑纸页对抗复核（本地复核完成，待用户视角复核）
+
+- **纠正结论**：此前 `48/48 PASS` 只统计五页编号，没有包含审计计划中已有的 `SHELL-01～04`；且 TODO-02、RECORDS-03 的旧测试把 `title` 属性当成可见文本证据，TIMER-02 只用绝对圆盘尺寸判断层级，不能继续作为最终验收结论。
+- **已复现并修复**：共享日期口径（今日页 `9/14周一` 与其他页 `2026-09-14` 不一致）、待办/记录/下一页长标题被截断、Today 完成节点只渲染前 4 条、420px 节点重要度被隐藏、无空格历史标题在窄屏撑出 `2545px`、窄屏计时圆盘相对卡片过重。修改集中在 `src/components/EditorialPaperViews.tsx`、`src/components/EditorialPaperViews.css`；测试已补充实际 `scrollWidth`、日期逐秒更新、跨页壳层、长数据和相对层级断言。
+- **已补齐证据**：审计计划新增第 10 节，对 `SHELL-01～04` 逐项补写原话、区域、复现、根因、修改/未修改范围、测试、截图和最终状态；新增壳层测试共 4 项。SHELL-01/03/04 PASS，SHELL-02 已修复后 PASS。
+- **数据压力边界**：按当前数据压力的 151 条未完成 + 5 条已完成复现；Today 摘要自然位于长页面底部，这是正常滚动而非横向溢出或裁切，本轮不以固定层遮挡节点的方式改动。
+- **定向验证**：TIMER-02、TODO-02、RECORDS-03、SHELL-01～04 以及新增当前数据/断点/无空格长文本测试已通过；完整 REFINE-19 回归为 `57/57 PASS`，`pnpm check`、`pnpm build` 和 `git diff --check` 通过。未运行 macOS workflow，未停止用户进程。
+- **当前状态**：本地对抗复核已完成，但本轮用户可见修复尚未重新打包/发布，不能称为已发布闭环；版本基线保持 `2.11.0`，后续若发布需按版本纪律使用新的 patch 版本。
+
+### 2026-09-14 南大就业公开网页补充（已完成）
+
+- **用户边界**：用户明确要求停止操作微信客户端；本批仅使用公开网页、南京大学就业门户公开专场接口和公开活动汇总页，没有继续访问或操作微信。
+- **数据依据**：公众号主页/历史索引可确认“南大就业”的账号身份与招聘、实习、宣讲栏目；公众号最新正文受微信客户端验证限制，因此只录入能够由南大就业门户公开排期核实出公司名、时间和地点的活动。
+- **数据范围**：核对 2026-09-15～2026-09-21 官方排期 116 条，并补查 2026-09-22～2026-09-30 后续排期 34 条；按同一活动多场地去重、跳过已存在条目，并保留用户明确提供的莉莉丝游戏与网易游戏雷火 9/15 路演信息。
+- **持久化结果**：以磁盘 canonical 为准，开始前实际为 26 条待办（21 条未完成、5 条已完成，和旧计划记录中的 36 条不一致）；本次新增 ID `42`～`171` 共 130 条，`nextTodoId=172`，当前共 156 条（151 条未完成、5 条已完成）。标题统一为“公司名｜时间｜地点”，没有修改样式、源码、版本或发布资产。
+- **备份与验证**：写入前备份为 `%LOCALAPPDATA%\\FocusedMoment\\focused-moment-state.pre-nju-web-20260914-204455.json` 与 `focused-moment-state.pre-nju-web-future-20260914-204957.json`，最终安全副本为 `focused-moment-state.nju-web-final-20260914-205324.json`；JSON 解析通过，新增条目日期均在 9/15～9/24、9/28～9/29，标题结构合法，ID 与完整标题均无重复。
+- **应用读取边界**：当前已打开的 Focused Moment 进程 PID `12200` 未停止；核验到运行态 `isRunning=true`、当前计时任务为“能做到吗”，因此没有重启或停止进程以免打断计时。磁盘数据已更新；计时结束后关闭并重新打开 Focused Moment 即可读取最新待办。未操作微信进程。
+- **来源链接**：[南京大学就业门户](https://job.nju.edu.cn/career/info?type=SPECIFIC)、[南京宣讲会公开汇总](https://www.xuanjianghui.net/nanjing/)、[南大就业历史文章索引](https://www.jintiankansha.me/column/xlTEjlmOjn)。
+- **下一步**：本数据补充已收口；后续如继续同步，按增量核对新日期并先去重，不再操作微信客户端。
+
+### 2026-09-14 软件工程岗位 JD 筛选（已完成）
+
+- **用户新增条件**：用户专业为软件工程，要求排除没有明确匹配岗位 JD 的宣讲会；本次不改样式、不操作微信。
+- **筛选口径**：仅保留公开招聘简章或活动招聘信息中明确出现软件工程/计算机、算法、信息技术、软件开发、嵌入式、系统开发、客户端/后端、AI 技术等岗位或专业方向的场次。仅有泛技术描述、综合招聘会、选调/教师/行政/业务岗位或无法核实具体技术岗位的场次删除。
+- **持久化结果**：筛选前为 156 条，其中 2026-09-15 起活动 151 条、9/15 前原有已完成待办 5 条；筛选后保留后续活动 88 条，删除 63 条，总待办 93 条。5 条原有待办保持不变，后续保留场次仍为未完成，`nextTodoId=172`。
+- **补充核对**：依据南京大学就业门户公开专场排期及公开招聘简章逐条对照；额外确认美的集团“信息技术类”、华太电子“嵌入式开发工程师”等明确岗位后纳入。参考来源包括 [南京大学就业门户](https://job.nju.edu.cn/career/info?type=SPECIFIC)、[南京大学就业门户公开专场接口](https://job.nju.edu.cn/api/career/job/fair/specifics)、[腾讯招聘](https://careers.tencent.com/m/zh-cn/faqdetail.html)、[中国建设银行校园招聘](https://ccb.com/cn/job/plan_index.html?planType=SH)、[美的校园招聘](https://careers.midea.com/)和[宁波银行公开招聘简章](https://m.yinhangzhaopin.com/zjtlcb/2026-08-13/223500.htm)。
+- **备份与验证**：筛选前备份为 `C:\Users\yang\AppData\Local\FocusedMoment\focused-moment-state.pre-software-filter-20260914-211750.json`；JSON 解析通过，后续保留场次中无不符合项，原有 5 条待办逐条比对一致，完成数为 5，`nextTodoId` 未改变。
+- **应用读取边界**：当前 Focused Moment PID `12200` 正在运行，运行态显示当前计时任务为“能做到吗”且 `isRunning=true`；为避免打断计时没有重启应用。磁盘状态已更新，计时结束后关闭并重新打开应用即可读取筛选后的待办。
+- **下一步**：本轮软件工程岗位筛选已收口；后续同步南大就业信息时继续先核验明确 JD、再增量去重，不再操作微信客户端。
+
+### 2026-09-14 Focused Moment 性能与存储现状检查（只读诊断）
+
+- **检查范围**：核对工作区、构建缓存、2.11.0 可运行文件、应用数据/WebView2 缓存、真实运行时进程树、CPU/内存采样和代码调用链；未修改应用源码、用户数据或发布资产。
+- **磁盘事实**：`F:\Focused Moment` 当前约 `15.703 GiB`；其中 `src-tauri\target` 约 `14.60 GiB`（debug `12.30 GiB`，含 incremental `6.42 GiB`、deps `4.17 GiB`、build `1.55 GiB`；release `2.29 GiB`，含历史发行资产）。`output` 约 `634.2 MiB`，`node_modules` 约 `137.7 MiB`，`dist` 约 `14.5 MiB`。2.11.0 portable EXE 为 `22.69 MiB`，Setup 为 `15.43 MiB`，MSI 为 `16.37 MiB`；用户数据目录约 `0.44 MiB`，WebView2 用户缓存约 `60.87 MiB`。F 盘剩余约 `181.96 GiB`，磁盘余量不是当前卡顿瓶颈。
+- **运行事实**：受控启动 `F:\Focused Moment\Focused Moment.exe`（FileVersion `2.11.0`，PID `19860`）后，进程树为主进程 + `10` 个 WebView2 子进程，共 `11` 个进程；连续 idle 采样约 `16` 秒，工作集约 `930.7～943.4 MiB`，PrivateMemorySize 合计约 `1.21～1.38 GiB`，CPU 增长约 `31.09` 秒（约 `194%` 单核等效）。最主要 CPU 来源是 WebView2 GPU process PID `40256`，约 `26.77` 秒；最小化主窗口后仍约 `173%` 单核等效，说明后台窗口/轮询是重要因素，不只是可见页面动画。采样结束后仅停止本次由诊断启动的进程树，未触碰用户原有进程；其余主机内存从约 `0.38 GiB` 空闲回升至约 `0.66 GiB`。
+- **环境事实**：主机物理内存约 `15.22 GiB`；应用运行时系统已用约 `14.84 GiB / 97.5%`。同时存在 MuMuVMMHeadless、ChatGPT/Codex、Edge、MAA、微信、QQ 等较大进程，因此体感卡顿是应用高占用与系统整体内存压力叠加，不能把全部卡顿归因于应用。
+- **代码根因线索**：`src-tauri\tauri.conf.json` 固定创建 `main`、`todo-float`、`todo-unlock`、`focus-float`、`focus-unlock` 五个 WebView 窗口，其中四个默认隐藏但仍产生 renderer；`src\MainShell.tsx` 的 `onMount` 对非解锁窗口开启 `1000ms` interval，主窗口、待办悬浮窗和专注悬浮窗各自调用 `refresh()`，每轮并发读取 timer/todos/records/analytics/preferences 五组数据。当前 WebView2 localStorage 还显示 Night Valley、motion intensity `82`（full），今日路径的多层滤镜/混合模式/无限动画会进一步增加 GPU 压力。
+- **数据口径冲突**：当前磁盘 canonical `C:\Users\yang\AppData\Local\FocusedMoment\focused-moment-state.json` 实际为 `26` 条待办、`69` 条记录，运行态为停止；计划中较新的软件工程筛选记录写的是 `93` 条待办、`nextTodoId=172`。本次不擅自覆盖任一数据，性能结论以实际运行时读取的当前磁盘文件为准；该冲突会影响后续长列表性能验证，需后续单独 reconcile。
+- **当前判断 / 下一步**：磁盘大头是可再生 Rust debug/release 构建缓存，不是安装体积；运行时高占用的优先级嫌疑为“预创建隐藏 WebView + 多窗口重复 1 秒刷新”，其次是 Night Valley 全动画/滤镜与主机整体内存压力。后续若用户授权优化，先做多窗口生命周期/单源刷新，再做 motion/GPU 降级和长列表验证；本诊断本身不触发版本 bump、构建、提交或发布。
+
+### 2026-09-15 Focused Moment 性能优化：按需悬浮窗与单源刷新（本地完成，待发布）
+
+- **根因确认**：五个主题是同一个 WebView 中的主题分支，并不等于五个窗口；真正造成额外资源的是配置中预创建的 `todo-float`、`todo-unlock`、`focus-float`、`focus-unlock` 四个隐藏 WebView。隐藏只是不显示，不会释放 WebView2 renderer/GPU 资源。与此同时，主窗口、两个悬浮窗口各自每秒刷新五组 IPC 数据，形成重复轮询。
+- **实现**：`src-tauri\tauri.conf.json` 只保留 `main`；Rust 改为通过 `WebviewWindowBuilder` 按需创建悬浮/解锁窗口，返回主界面或解锁后关闭窗口释放 WebView；待办与专注悬浮窗继续保留原有交互、置顶、透明和点击穿透能力。`src\MainShell.tsx` 改为只有主窗口每秒刷新，主窗口通过 `app-state-sync` 事件把状态推送给已打开的悬浮窗。
+- **真实运行验证**：隔离 WebView2 用户数据目录启动新 debug 构建并通过 CDP 操作，页面数为 `1（启动）→2（待办悬浮）→3（锁定含解锁按钮）→2（解锁）→1（返回主界面）`；返回后没有遗留悬浮/解锁页面。烟测结束后已停止本次 debug 进程并删除临时用户数据目录；当前用户旧版 PID `32688` 保持未触碰。
+- **本地回归**：`pnpm check` PASS；`cargo fmt --check` PASS；`cargo check --locked` PASS；`pnpm build` PASS（2066 modules）；`pnpm tauri build --debug` PASS；前端新同步测试 PASS，`tests/app.spec.mjs` 完整回归 `40/40 PASS`。此前全套应用回归中除已被新架构替代的旧“悬浮窗每秒轮询”断言外其余 `131` 项通过，替换断言后定向及完整 app 套件均通过。
+- **资源结论**：旧架构实测为主进程加 `10` 个 WebView2 子进程，工作集约 `930.7～943.4 MiB`、PrivateMemory 约 `1.21～1.38 GiB`；新架构隔离启动采样为主进程加 WebView2 内部进程共 `7` 个、工作集约 `508.5 MiB`、PrivateMemory 约 `892.7 MiB`（debug 构建、启动后 8 秒，CPU 约 `17.75` 秒，不能直接与旧 release 构建的 CPU 速率横比）。新架构的关键保证是空闲启动只保留一个主页面，悬浮功能关闭后回到一个应用 WebView 页面。开发机的 `target` 约 `14.60 GiB` 是可再生构建缓存，不是安装包体积。
+- **主题结论**：五个主题全部保留；当前采用“单窗口切换主题 + 悬浮功能按需创建”的结构，不需要为主题创建隐藏窗口。
+- **版本边界**：源码版本仍为 `2.11.0`，本轮只完成本地修复、构建和验证，没有提交、推送或覆盖已发布资产；若要发布用户可见修复，应按项目版本纪律升 patch 版本并同步发布说明。
+- **下一步**：退出当前旧版应用后，启动 `src-tauri\target\debug\focused-moment.exe` 或重新打包后的新版本验证体感；若仍有卡顿，再单独处理 Night Valley 的 full motion/滤镜 GPU 压力和长列表渲染，不与本轮窗口生命周期问题混在一起。
+
+### 2026-09-15 Night Valley 待办/记录页用户反馈修复（已进入 v2.11.1 发布流程）
+
+- **用户问题**：第一套主题的待办数量达到两位数时，侧栏数字与“待办”标签挤压；待办很多时按日期混在一条长列表中；待办页中间“进行中”列没有实际用途；记录页“本周专注总览”的 `i` 悬停没有解释。
+- **根因与实现**：侧栏计数由绝对定位改为与标签同一 flex 流并保留两位数/更大计数的最小宽度；Night Valley 待办改为按截止日期分组、一次展开一组，组内列表有局部最大高度和滚动，过期待办复用同一分组结构；删除“进行中”列和顶部对应统计，待办板变为待办/已完成两列；记录页将装饰性 `i` 改为可聚焦说明按钮，提供 hover/focus tooltip，解释最近 7 个自然日的汇总口径和日期节点回看动作。
+- **修改范围**：`src/components/NightValleyViews.tsx`、`src/MainShell.tsx`、`src/App.css`、`tests/app.spec.mjs`；保留共享 `NightValleyTodoProps.timer` 契约供其它主题使用，未改变其它主题的待办业务。
+- **本地验证**：`pnpm check` PASS；`pnpm build` PASS（2066 modules）；`tests/app.spec.mjs` 完整 `42/42 PASS`；`tests/today-visual.spec.mjs` 完整 `92/92 PASS`；新增断言覆盖两位数计数几何、日期分组单开与局部滚动、移除进行中区域、记录 tooltip 的 hover/focus；`git diff --check` 已执行。
+- **版本与发布边界**：用户要求补发小版本后，本轮按 patch 纪律升为 `2.11.1`，同步 `package.json`、Cargo、Tauri 配置、运行时里程碑和 Release notes；仅发布 Windows x64，macOS 继续冻结。
+- **本地发布候选验证**：`134/134` 前端回归、`pnpm check`、`pnpm build`、Rust fmt/check/test（`35/35`）、`git diff --check` 和 `pnpm package:release` 均 PASS；portable、Setup/NSIS、MSI 产物版本均为 `2.11.1`，SHA-256 已写入 `docs/v2.11.1/RELEASE_NOTES.md`。
+- **当前状态 / 下一步**：REL-24 发布候选已准备完成，接下来提交、推送 `main`、创建 `v2.11.1` tag 并更新 GitHub Release；不停止当前用户进程，不运行 macOS workflow。

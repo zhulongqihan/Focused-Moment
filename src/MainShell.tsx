@@ -1,6 +1,6 @@
 import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount } from "solid-js";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
-import { listen } from "@tauri-apps/api/event";
+import { emit, listen } from "@tauri-apps/api/event";
 import {
   ChartNoAxesCombined,
   CircleDot,
@@ -93,6 +93,13 @@ type UndoAction =
 
 type TodoEditDraft = TodoDraft & { id: number };
 type RecordEditDraft = { id: number; title: string };
+type AppStateSyncPayload = {
+  timer: TimerSnapshot;
+  todos: TodoItem[];
+  records: FocusRecord[];
+  analytics: AnalyticsSnapshot;
+  timerPreferences: TimerPreferences;
+};
 
 function getWindowLabel() {
   try {
@@ -156,6 +163,7 @@ const minFloatingOpacity = 45;
 const alertClaimKeyPrefix = "focused-moment.alert-claimed.";
 const maxCustomAlertSoundBytes = 5 * 1024 * 1024;
 const floatingWorkspaceSyncEvent = "floating-workspace-sync";
+const appStateSyncEvent = "app-state-sync";
 const trayNavigateEvent = "tray-navigate";
 const themeStorageKey = "focused-moment.theme";
 const visualIntensityKey = "focused-moment.visual-intensity";
@@ -841,6 +849,17 @@ function MainShell() {
     }
   }
 
+  function applyAppStateSnapshot(next: AppStateSyncPayload) {
+    applyTimerSnapshot(next.timer);
+    if (editingTodo() !== null || editingRecord() !== null) {
+      return;
+    }
+    setTodos(next.todos);
+    setRecords(next.records);
+    setAnalytics(next.analytics);
+    setTimerPreferences(next.timerPreferences);
+  }
+
   function alertIsVisible() {
     return Boolean(timer().alertTitle && timerPreferences().toastReminderEnabled);
   }
@@ -900,6 +919,15 @@ function MainShell() {
     setAnalytics(nextAnalytics);
     if (nextPreferences) {
       setTimerPreferences(nextPreferences);
+    }
+    if (currentWindowLabel === "main") {
+      void emit<AppStateSyncPayload>(appStateSyncEvent, {
+        timer: nextTimer,
+        todos: nextTodos,
+        records: nextRecords,
+        analytics: nextAnalytics,
+        timerPreferences: nextPreferences,
+      }).catch(() => undefined);
     }
     return true;
   }
@@ -1512,6 +1540,8 @@ function MainShell() {
     let interval: number | undefined;
     let floatingSyncActive = true;
     let floatingSyncUnlisten: (() => void) | undefined;
+    let appStateSyncActive = true;
+    let appStateSyncUnlisten: (() => void) | undefined;
     let trayNavigationActive = true;
     let trayNavigationUnlisten: (() => void) | undefined;
     const onKeyDown = (event: KeyboardEvent) => {
@@ -1571,6 +1601,26 @@ function MainShell() {
         .catch(() => undefined);
     }
 
+    if (isFloatingWindow || isFocusFloatingWindow) {
+      void listen<AppStateSyncPayload>(appStateSyncEvent, ({ payload }) => {
+        if (busy() || editingTodo() !== null || editingRecord() !== null) {
+          return;
+        }
+        applyAppStateSnapshot(payload);
+        setLoadState("ready");
+        setLoadError("");
+        setSyncError("");
+      })
+        .then((unlisten) => {
+          if (appStateSyncActive) {
+            appStateSyncUnlisten = unlisten;
+          } else {
+            void unlisten();
+          }
+        })
+        .catch(() => undefined);
+    }
+
     if (currentWindowLabel === "main") {
       void listen<string>(trayNavigateEvent, ({ payload }) => {
         if (isAppView(payload)) {
@@ -1587,42 +1637,44 @@ function MainShell() {
         .catch(() => undefined);
     }
 
-    if (!isUnlockWindow && !isFocusUnlockWindow) {
+    if (currentWindowLabel === "main" || isFloatingWindow || isFocusFloatingWindow) {
       void loadFromStorage().catch((error) => {
         showMessage(getErrorMessage(error), "error");
       });
 
-      interval = window.setInterval(
-        () => {
-          if (loadState() === "error") {
-            return;
-          }
+      if (currentWindowLabel === "main") {
+        interval = window.setInterval(
+          () => {
+            if (loadState() === "error") {
+              return;
+            }
 
-          const shouldRefreshBusiness = !busy() && editingTodo() === null && editingRecord() === null;
-          const hadSyncError = Boolean(syncError());
-          const refreshTask = shouldRefreshBusiness ? refresh() : refreshTimerSnapshot();
-          void refreshTask
-            .then((refreshed) => {
-              if (!refreshed) {
-                return;
-              }
-              setLoadState("ready");
-              setLoadError("");
-              setSyncError("");
-              if (hadSyncError && messageKind() === "error") {
-                clearMessage();
-              }
-            })
-            .catch((error) => {
-              const text = getErrorMessage(error);
-              setSyncError(text);
-              if (!hadSyncError) {
-                showMessage("本地数据刷新失败，请稍后重试。", "error");
-              }
-            });
-        },
-        1000
-      );
+            const shouldRefreshBusiness = !busy() && editingTodo() === null && editingRecord() === null;
+            const hadSyncError = Boolean(syncError());
+            const refreshTask = shouldRefreshBusiness ? refresh() : refreshTimerSnapshot();
+            void refreshTask
+              .then((refreshed) => {
+                if (!refreshed) {
+                  return;
+                }
+                setLoadState("ready");
+                setLoadError("");
+                setSyncError("");
+                if (hadSyncError && messageKind() === "error") {
+                  clearMessage();
+                }
+              })
+              .catch((error) => {
+                const text = getErrorMessage(error);
+                setSyncError(text);
+                if (!hadSyncError) {
+                  showMessage("本地数据刷新失败，请稍后重试。", "error");
+                }
+              });
+          },
+          1000,
+        );
+      }
     }
 
     onCleanup(() => {
@@ -1636,6 +1688,10 @@ function MainShell() {
       floatingSyncActive = false;
       if (floatingSyncUnlisten) {
         void floatingSyncUnlisten();
+      }
+      appStateSyncActive = false;
+      if (appStateSyncUnlisten) {
+        void appStateSyncUnlisten();
       }
       trayNavigationActive = false;
       if (trayNavigationUnlisten) {
@@ -2154,7 +2210,7 @@ function MainShell() {
             onClick={() => changeView("today")}
           >
             <CircleDot class="trail-nav__icon trail-nav__icon--today" size={23} strokeWidth={1.7} aria-hidden="true" />
-            今日
+            <span class="minimal-nav__label">今日</span>
           </button>
           <button
             type="button"
@@ -2163,7 +2219,7 @@ function MainShell() {
             onClick={() => changeView("focus")}
           >
             <Clock3 class="trail-nav__icon trail-nav__icon--focus" size={23} strokeWidth={1.7} aria-hidden="true" />
-            计时
+            <span class="minimal-nav__label">计时</span>
           </button>
           <button
             type="button"
@@ -2172,8 +2228,8 @@ function MainShell() {
             onClick={() => changeView("todos")}
           >
             <SquareCheck class="trail-nav__icon trail-nav__icon--todos" size={23} strokeWidth={1.7} aria-hidden="true" />
-            待办
-            <span class="minimal-nav__count">{pendingTodos().length}</span>
+            <span class="minimal-nav__label">待办</span>
+            <span class="minimal-nav__count" aria-label={`${pendingTodos().length} 个未完成待办`}>{pendingTodos().length}</span>
           </button>
           <button
             type="button"
@@ -2182,7 +2238,7 @@ function MainShell() {
             onClick={() => changeView("records")}
           >
             <ChartNoAxesCombined class="trail-nav__icon trail-nav__icon--records" size={23} strokeWidth={1.7} aria-hidden="true" />
-            记录
+            <span class="minimal-nav__label">记录</span>
           </button>
           <button
             type="button"
@@ -2191,7 +2247,7 @@ function MainShell() {
             onClick={() => changeView("settings")}
           >
             <Settings class="trail-nav__icon trail-nav__icon--settings" size={23} strokeWidth={1.7} aria-hidden="true" />
-            设置
+            <span class="minimal-nav__label">设置</span>
           </button>
         </nav>
 
