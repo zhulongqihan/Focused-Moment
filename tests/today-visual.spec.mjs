@@ -569,10 +569,15 @@ test("Night Valley uses one shared sidebar tab module across every page", async 
         buttons: buttons.map((button) => {
           const style = getComputedStyle(button);
           const icon = button.querySelector(".trail-nav__icon");
+          const label = button.querySelector(".minimal-nav__label");
           const iconStyle = icon ? getComputedStyle(icon) : null;
+          const iconRect = icon?.getBoundingClientRect();
+          const labelRect = label?.getBoundingClientRect();
           return {
             borderRadius: style.borderRadius,
             display: style.display,
+            justifyContent: style.justifyContent,
+            iconLabelGap: iconRect && labelRect ? labelRect.left - iconRect.right : null,
             iconDisplay: iconStyle?.display,
             iconWidth: iconStyle?.width,
             iconHeight: iconStyle?.height,
@@ -586,6 +591,8 @@ test("Night Valley uses one shared sidebar tab module across every page", async 
   expect(new Set(tabStates.map((state) => state.width))).toEqual(new Set(["130px"]));
   expect(tabStates.map((state) => state.activeIndex)).toEqual([0, 1, 2, 3, 4]);
   expect(tabStates.every((state) => state.buttons.every((button) => button.display === "flex"))).toBe(true);
+  expect(tabStates.every((state) => state.buttons.every((button) => button.justifyContent === "flex-start"))).toBe(true);
+  expect(tabStates.every((state) => state.buttons.every((button) => Math.abs(button.iconLabelGap - 18) < 0.5))).toBe(true);
   expect(tabStates.every((state) => state.buttons.every((button) => button.iconDisplay !== "none"))).toBe(true);
   expect(tabStates.every((state) => state.buttons.every((button) => button.iconWidth === "22px" && button.iconHeight === "22px"))).toBe(true);
   expect(tabStates.every((state) => state.buttons[state.activeIndex].borderRadius === "28px")).toBe(true);

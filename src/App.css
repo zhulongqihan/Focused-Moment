@@ -10758,8 +10758,9 @@ body,
 /* v2.11.0 Night Valley todo/records follow-up: keep counts in the rail's
    flex flow, collapse long todo data by due date, and make the chart info
    affordance explain the chart on hover and focus. */
-.minimal-app--cinematic .minimal-nav__label {
+.minimal-app--cinematic .minimal-nav > button .minimal-nav__label {
   min-width: 0;
+  margin-left: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -10773,6 +10774,11 @@ body,
 }
 
 @media (min-width: 821px) {
+  .minimal-app--cinematic.minimal-app--trail .minimal-nav > button,
+  .minimal-app--cinematic.minimal-app--trail .minimal-nav > button.active {
+    justify-content: flex-start !important;
+  }
+
   .minimal-app--cinematic:not(.minimal-app--trail) .minimal-nav > button,
   .minimal-app--cinematic:not(.minimal-app--trail) .minimal-nav > button.active {
     justify-content: flex-start !important;
