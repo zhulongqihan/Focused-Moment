@@ -1197,11 +1197,13 @@ NV-05 的具体键盘缺口：`CommandPalette.tsx` 声明 modal/listbox，但缺
 - **远端验证**：Windows Checks [`34936326293`](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34936326293) PASS；前端 `135 passed`，Rust fmt/check/test PASS。Node.js 20 弃用提示仅为 Actions 注记，不影响本次验证。
 - **最终状态**：`REL-26 DONE`；发布页为 [`v2.11.3`](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.11.3)；不运行任何 macOS workflow，不停止当前用户进程；后续按项目优先级排队。
 
-### 2026-09-15 Editorial Paper 今日页视觉收口（本地候选进行中）
+### 2026-09-15 Editorial Paper 今日页视觉收口（已完成）
 
 - **用户问题**：第二套“编辑纸页”主题点击“今日”后侧边栏文字颜色变浅；左上角产品图标希望改为大圆套小圆；`DAILY PLAN · VOL. 0905` 含义不清。
 - **根因确认**：共享壳层的 Today 状态会附加 `minimal-app--trail`，旧规则对导航内所有 `span` 设置了浅色，覆盖了 Editorial Paper 标签的主题继承色；`0905` 是静态样稿编号，不来自日期或用户数据。
 - **实现**：`src/components/EditorialPaperViews.css` 将编辑纸页导航标签颜色绑定到按钮状态并移除旧间距污染；顶栏与侧栏产品标记统一为外圆/内圆同心结构，隐藏偏置圆点；`src/components/EditorialPaperViews.tsx` 将计划编号改为 `props.todayDate` 的 `YYYY.MM.DD` 文案；`tests/today-visual.spec.mjs` 新增颜色、几何和文案回归。
-- **本地验证**：`pnpm check` PASS；编辑纸页导航/图标/日期定向回归 PASS；编辑纸页五页桌面渲染截图回归 PASS；截图已核对；待继续执行完整前端回归、构建、Rust fmt/check/test 和 Windows 打包。
+- **本地验证**：`pnpm check` PASS；编辑纸页导航/图标/日期定向回归 PASS；编辑纸页五页桌面渲染截图回归 PASS；完整前端回归 `136/136 PASS`；`pnpm build`（2066 modules）、Cargo fmt/check/test（`35/35 PASS`）、`git diff --check` 和 `pnpm package:release` 均 PASS；截图已核对。
 - **版本边界**：因 `v2.11.3` 后新增用户可见修复，按 patch 纪律升为 `2.11.4`，版本源已同步，`docs/v2.11.4/RELEASE_NOTES.md` 已创建；macOS 继续冻结。
-- **当前状态 / 下一步**：REL-27 DOING；先完成完整回归与发布候选打包，再提交、推送、创建 `v2.11.4` GitHub Release，等待 Windows Checks 通过后回填资产 digest 与最终证据。
+- **发布闭环**：产品提交 [`9400c3b`](https://github.com/zhulongqihan/Focused-Moment/commit/9400c3be7f712ea4307782e4398489d5c2f7d047) 已推送到 `main`；`v2.11.4` tag 已创建并固定指向该产品提交；GitHub Release [`v2.11.4`](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.11.4) 已标记为 latest，三项 Windows x64 资产已上传，远端 digest 与 `docs/v2.11.4/RELEASE_NOTES.md` 一致。
+- **远端验证**：Windows Checks [`34988519919`](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34988519919) PASS；前端 `136 passed`，Rust fmt/check/test PASS。Node.js 20 弃用提示仅为 Actions 注记，不影响本次验证。portable / Setup / MSI digest 分别为 `3a362209dffa7b8b9dc9201d9a41ce813eb6d96d4e40a08d2f6117067ccddf88`、`ce92fa13dacd0d705ddb871c177f73058b4f6c9fc1a34f0ccf05a4cb696bb975`、`6b22f4f67faff3de6c3702429aa2138c86965793d1fb924075e5af08a5a2e095`。
+- **最终状态**：`REL-27 DONE`；不运行任何 macOS workflow，不停止当前用户进程；后续按项目优先级排队。
