@@ -1171,4 +1171,6 @@ NV-05 的具体键盘缺口：`CommandPalette.tsx` 声明 modal/listbox，但缺
 - **本地验证**：`pnpm check` PASS；`pnpm build` PASS（2066 modules）；`tests/app.spec.mjs` 完整 `42/42 PASS`；`tests/today-visual.spec.mjs` 完整 `92/92 PASS`；新增断言覆盖两位数计数几何、日期分组单开与局部滚动、移除进行中区域、记录 tooltip 的 hover/focus；`git diff --check` 已执行。
 - **版本与发布边界**：用户要求补发小版本后，本轮按 patch 纪律升为 `2.11.1`，同步 `package.json`、Cargo、Tauri 配置、运行时里程碑和 Release notes；仅发布 Windows x64，macOS 继续冻结。
 - **本地发布候选验证**：`134/134` 前端回归、`pnpm check`、`pnpm build`、Rust fmt/check/test（`35/35`）、`git diff --check` 和 `pnpm package:release` 均 PASS；portable、Setup/NSIS、MSI 产物版本均为 `2.11.1`，SHA-256 已写入 `docs/v2.11.1/RELEASE_NOTES.md`。
-- **当前状态 / 下一步**：REL-24 发布候选已准备完成，接下来提交、推送 `main`、创建 `v2.11.1` tag 并更新 GitHub Release；不停止当前用户进程，不运行 macOS workflow。
+- **发布闭环**：产品提交 `95509ab1c6e523d27ee1a4067977ce401173a2be` 已推送到 `main`；`v2.11.1` tag 已创建并固定；GitHub Release [v2.11.1](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.11.1) 已标记为 latest，portable、Setup/NSIS、MSI 三项 Windows x64 资产均已上传，远端 digest 已回填 Release notes。
+- **远端验证**：Windows Checks [`34917040454`](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34917040454) PASS；前端 `134 passed`，Rust fmt/check/test PASS。Node.js 20 弃用提示仅为 Actions 注记，不影响本次验证。
+- **最终状态**：`REL-24 DONE`；不运行任何 macOS workflow，不停止当前用户进程；后续按项目优先级排队。

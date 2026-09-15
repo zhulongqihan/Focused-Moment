@@ -17,8 +17,6 @@
 
 ## 本地验证
 
-- `pnpm check`：PASS。
-- `pnpm build`：PASS。
 - `pnpm exec playwright test tests/app.spec.mjs tests/today-visual.spec.mjs --workers=1`：`134/134 PASS`。
 - `pnpm check`：PASS；`pnpm build`：PASS，2066 modules。
 - `cargo fmt --check --manifest-path src-tauri/Cargo.toml`：PASS。
@@ -31,9 +29,9 @@
 
 | 文件 | 字节数 | SHA-256 |
 | --- | ---: | --- |
-| `Focused Moment v2.11.1.exe` | 23,847,936 | `d7a28e2950e22e956c7cf78ddac5c4d78d8170211ae381f156d64a01803ae857` |
-| `Focused Moment Setup v2.11.1.exe` | 16,194,200 | `bb9040e9a62fb7e43c307d8b9103e892e20892befe00bfeb7a33319d9cb4dd5f` |
-| `Focused Moment_2.11.1_x64_en-US.msi` | 17,174,528 | `bd91378623a23d98cdea06ce7346753dd19e9a209689bf76e4bb8d03202f4ea3` |
+| `Focused Moment v2.11.1.exe` | 23,847,936 | `7a2ac3353c817a6640da7db6d19d682cbdc689bf8c0f6492a30f18dd5f584035` |
+| `Focused Moment Setup v2.11.1.exe` | 16,194,153 | `304b31da2d5831c36436a272fb4e965a32062779fc6a84e5b21a3997f6aa0921` |
+| `Focused Moment_2.11.1_x64_en-US.msi` | 17,174,528 | `6f520ade9a5f03f1023363b773ce9b44c59b18c2459e367b666b8eeefc6bbf37` |
 
 本地导出路径：`Focused Moment v2.11.1.exe`、`Focused Moment Setup v2.11.1.exe`、`src-tauri/target/release/bundle/msi/Focused Moment_2.11.1_x64_en-US.msi`。
 
