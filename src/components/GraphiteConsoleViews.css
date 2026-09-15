@@ -1226,3 +1226,153 @@
     grid-column: auto;
   }
 }
+
+/* v2.11.6 console cleanup: keep the trend label readable and make settings
+   a compact control surface instead of a navigation maze. */
+.minimal-app[data-theme="graphite-console"] .gc-trend-panel .gc-panel__heading {
+  align-items: flex-start;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-trend-panel .gc-panel__heading > span {
+  min-width: 0;
+  overflow: visible;
+  line-height: 1.35;
+  white-space: normal;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-trend-panel .gc-panel__heading > small {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-settings-layout {
+  display: block;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-settings-nav {
+  display: none;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-settings-main {
+  grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+  gap: 12px;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-settings-appearance,
+.minimal-app[data-theme="graphite-console"] .gc-audio-panel,
+.minimal-app[data-theme="graphite-console"] .gc-data-panel {
+  grid-column: 1 / -1;
+  grid-row: auto;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-settings-panel-copy {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 5px 10px;
+  margin-bottom: 10px;
+  color: var(--gc-muted);
+  font-family: "Microsoft YaHei UI", sans-serif;
+  font-size: 0.62rem;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-settings-panel-copy strong {
+  color: var(--gc-text);
+  font-size: 0.72rem;
+  font-weight: 400;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-theme-matrix {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-theme-card {
+  min-width: 0;
+  min-height: 126px;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-setting-slider-list {
+  display: none;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-settings-footer {
+  grid-auto-flow: initial;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1px;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-settings-footer > div {
+  display: grid;
+  min-height: 52px;
+  align-content: center;
+  gap: 3px;
+  padding: 7px 14px;
+  background: linear-gradient(180deg, #1b2222, #0e1314) !important;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-settings-footer > div span {
+  color: var(--gc-muted);
+  font-size: 0.58rem;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-settings-footer > div strong {
+  color: var(--gc-lime);
+  font-size: 0.68rem;
+  font-weight: 400;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-settings-footer > small {
+  display: flex;
+  min-height: 52px;
+  align-items: center;
+  padding: 7px 14px;
+  color: var(--gc-muted);
+  font-size: 0.58rem;
+  white-space: nowrap;
+}
+
+@media (max-width: 1120px) {
+  .minimal-app[data-theme="graphite-console"] .gc-settings-main {
+    grid-template-columns: 1fr;
+  }
+
+  .minimal-app[data-theme="graphite-console"] .gc-behavior-panel,
+  .minimal-app[data-theme="graphite-console"] .gc-rhythm-panel {
+    grid-column: auto;
+  }
+
+  .minimal-app[data-theme="graphite-console"] .gc-settings-appearance,
+  .minimal-app[data-theme="graphite-console"] .gc-audio-panel,
+  .minimal-app[data-theme="graphite-console"] .gc-data-panel {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .minimal-app[data-theme="graphite-console"] .gc-theme-matrix {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .minimal-app[data-theme="graphite-console"] .gc-settings-footer {
+    grid-template-columns: 1fr;
+  }
+
+  .minimal-app[data-theme="graphite-console"] .gc-settings-footer > div,
+  .minimal-app[data-theme="graphite-console"] .gc-settings-footer > small {
+    min-height: 44px;
+  }
+
+  .minimal-app[data-theme="graphite-console"] .gc-settings-footer > small {
+    white-space: normal;
+  }
+
+  .minimal-app[data-theme="graphite-console"] .gc-trend-panel .gc-panel__heading {
+    flex-wrap: wrap;
+    gap: 5px 10px;
+  }
+
+  .minimal-app[data-theme="graphite-console"] .gc-trend-panel .gc-panel__heading > small {
+    width: 100%;
+  }
+}

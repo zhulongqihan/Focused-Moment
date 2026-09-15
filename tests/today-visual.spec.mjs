@@ -237,6 +237,7 @@ test("Today reference composition stays aligned at the concept viewport", async 
 });
 
 test("Every theme carries one stable daily focus line on Today", async ({ page }) => {
+  test.setTimeout(90_000);
   await page.setViewportSize({ width: 1487, height: 1058 });
   await bootTodayReferenceMock(page);
 
@@ -248,12 +249,13 @@ test("Every theme carries one stable daily focus line on Today", async ({ page }
     ["botanical-library", "GROWTH / 今日生长"],
   ];
   const copyIds = [];
+  const brandGeometries = [];
 
   for (const [theme, heading] of themeHeadings) {
     await page.evaluate((selectedTheme) => {
       localStorage.setItem("focused-moment.theme", selectedTheme);
     }, theme);
-    await page.reload();
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
     await expect(page.getByRole("heading", { name: heading })).toBeVisible();
 
     const line = page.locator(".daily-focus-line--" + theme);
@@ -261,9 +263,26 @@ test("Every theme carries one stable daily focus line on Today", async ({ page }
     await expect(line).toHaveAttribute("data-copy-id", /^copy-/);
     await expect(line.locator("blockquote")).toHaveText(/\S/);
     copyIds.push(await line.getAttribute("data-copy-id"));
+    brandGeometries.push(await page.locator(".trail-nav__logo").evaluate((logo) => {
+      const ring = logo.querySelector(".trail-nav__logo-ring");
+      const dot = logo.querySelector(".trail-nav__logo-dot");
+      const outer = logo.getBoundingClientRect();
+      const inner = ring.getBoundingClientRect();
+      const point = dot.getBoundingClientRect();
+      const n = (value) => Number(value.toFixed(2));
+      return {
+        outer: `${n(outer.width)}x${n(outer.height)}`,
+        inner: `${n(inner.width)}x${n(inner.height)}`,
+        innerInset: `${n(inner.left - outer.left)}/${n(outer.right - inner.right)}`,
+        dotInset: `${n(point.left - outer.left)}/${n(outer.right - point.right)}/${n(point.top - outer.top)}/${n(outer.bottom - point.bottom)}`,
+        outerRadius: getComputedStyle(logo).borderRadius,
+        innerRadius: getComputedStyle(ring).borderRadius,
+      };
+    }));
   }
 
   expect(new Set(copyIds).size).toBe(1);
+  expect(new Set(brandGeometries.map((geometry) => JSON.stringify(geometry))).size).toBe(1);
 });
 
 test("Today fullscreen keeps the summary visible and uses a smooth winding route", async ({ page }) => {
@@ -517,7 +536,7 @@ test("Night Valley records explain the natural seven-day range and averages", as
   expect(archiveLayout.every((section) => section.width > 0 && section.height > 0 && section.opacity !== "0" && section.visibility !== "hidden")).toBe(true);
 });
 
-test("Night Valley keeps one shared brand mark across every page", async ({ page }) => {
+test("Night Valley keeps one shared circular brand mark across every page", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await bootTodayReferenceMock(page);
 
@@ -528,21 +547,30 @@ test("Night Valley keeps one shared brand mark across every page", async ({ page
       const ring = brand.querySelector(".trail-nav__logo-ring");
       const dot = brand.querySelector(".trail-nav__logo-dot");
       const brandStyle = getComputedStyle(brand);
-      const ringStyle = getComputedStyle(ring);
+      const logoRect = brand.querySelector(".trail-nav__logo").getBoundingClientRect();
       const ringRect = ring.getBoundingClientRect();
       const dotRect = dot.getBoundingClientRect();
-      const ringCenterX = ringRect.left + ringRect.width / 2;
-      const ringCenterY = ringRect.top + ringRect.height / 2;
-      const dotCenterX = dotRect.left + dotRect.width / 2;
-      const dotCenterY = dotRect.top + dotRect.height / 2;
-      const dotAngle = (Math.atan2(dotCenterX - ringCenterX, ringCenterY - dotCenterY) * 180) / Math.PI;
+      const logoStyle = getComputedStyle(brand.querySelector(".trail-nav__logo"));
+      const ringStyle = getComputedStyle(ring);
       return {
         text: brand.textContent?.replace(/\s+/g, "").trim(),
         brandGap: brandStyle.gap,
         brandTextTransform: brandStyle.textTransform,
-        ringBackground: ringStyle.backgroundImage,
-        ringMask: ringStyle.maskImage,
-        dotAngle,
+        outerWidth: logoRect.width,
+        outerHeight: logoRect.height,
+        innerWidth: ringRect.width,
+        innerHeight: ringRect.height,
+        innerLeft: ringRect.left - logoRect.left,
+        innerRight: logoRect.right - ringRect.right,
+        innerTop: ringRect.top - logoRect.top,
+        innerBottom: logoRect.bottom - ringRect.bottom,
+        dotLeft: dotRect.left - logoRect.left,
+        dotRight: logoRect.right - dotRect.right,
+        dotTop: dotRect.top - logoRect.top,
+        dotBottom: logoRect.bottom - dotRect.bottom,
+        outerRadius: logoStyle.borderRadius,
+        innerRadius: ringStyle.borderRadius,
+        dotDisplay: getComputedStyle(dot).display,
       };
     }));
   }
@@ -550,10 +578,14 @@ test("Night Valley keeps one shared brand mark across every page", async ({ page
   expect(new Set(brandStates.map((state) => state.text))).toEqual(new Set(["FocusedMoment"]));
   expect(new Set(brandStates.map((state) => state.brandGap))).toEqual(new Set(["17px"]));
   expect(new Set(brandStates.map((state) => state.brandTextTransform))).toEqual(new Set(["none"]));
-  expect(new Set(brandStates.map((state) => state.ringBackground)).size).toBe(1);
-  expect(new Set(brandStates.map((state) => state.ringMask)).size).toBe(1);
-  expect(brandStates.every((state) => state.ringBackground.includes("from 28deg"))).toBe(true);
-  expect(brandStates.every((state) => state.dotAngle > 28 && state.dotAngle < 82)).toBe(true);
+  expect(new Set(brandStates.map((state) => `${state.outerWidth}x${state.outerHeight}/${state.innerWidth}x${state.innerHeight}`)).size).toBe(1);
+  expect(new Set(brandStates.map((state) => `${state.innerLeft}/${state.innerRight}/${state.innerTop}/${state.innerBottom}`)).size).toBe(1);
+  expect(new Set(brandStates.map((state) => `${state.dotLeft}/${state.dotRight}/${state.dotTop}/${state.dotBottom}`)).size).toBe(1);
+  expect(brandStates.every((state) => state.outerWidth > state.innerWidth && state.outerHeight > state.innerHeight)).toBe(true);
+  expect(brandStates.every((state) => state.innerLeft > 0 && state.innerRight > 0 && state.innerTop > 0 && state.innerBottom > 0)).toBe(true);
+  expect(brandStates.every((state) => state.dotLeft >= 0 && state.dotRight >= 0 && state.dotTop >= 0 && state.dotBottom >= 0)).toBe(true);
+  expect(brandStates.every((state) => state.dotLeft + 0.5 >= state.innerLeft + state.innerWidth)).toBe(true);
+  expect(brandStates.every((state) => state.outerRadius === "50%" && state.innerRadius === "50%" && state.dotDisplay === "block")).toBe(true);
 });
 
 test("Night Valley uses one shared sidebar tab module across every page", async ({ page }) => {
@@ -653,8 +685,9 @@ test("Graphite Console can be selected from settings and persists after reload",
   await page.locator(".nv-theme-card").filter({ hasText: "石墨控制台" }).click({ force: true });
   await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "graphite-console");
   await expect(page.locator(".gc-settings-page")).toBeVisible();
-  await page.getByRole("button", { name: /APPLY \/ 保存更改/ }).click();
-  await expect(page.locator(".app-message--success")).toContainText("下次启动会继续使用");
+  await expect(page.locator(".gc-settings-nav")).toHaveCount(0);
+  await expect(page.locator(".gc-setting-slider-list")).toHaveCount(0);
+  await expect(page.locator(".gc-settings-footer")).toContainText("AUTO-SAVED");
 
   await page.reload();
   await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "graphite-console");
@@ -718,6 +751,16 @@ test("Graphite Console renders all five pages inside the control surface", async
     await page.screenshot({ path: `${graphiteDirectory}/${screenshot}`, animations: "disabled", fullPage: true });
   }
   await pageButton(page, "今日").click();
+  await expect(page.locator(".gc-shortcut")).toHaveCount(0);
+  await pageButton(page, "计时").click();
+  await expect(page.locator(".gc-focus-bottom")).toHaveCount(0);
+  await pageButton(page, "记录").click();
+  await expect(page.locator(".gc-trend-panel .gc-panel__heading > span")).toHaveText("更长的路");
+  await expect(page.locator(".gc-trend-panel .gc-panel__heading > small")).toContainText("30-DAY TREND");
+  await pageButton(page, "设置").click();
+  await expect(page.locator(".gc-settings-nav")).toHaveCount(0);
+  await expect(page.locator(".gc-setting-slider-list")).toHaveCount(0);
+  await pageButton(page, "今日").click();
   await expect(page.locator(".gc-sequence-row")).toHaveCount(7);
   await expect(page.locator(".gc-sequence-row--empty")).toHaveCount(6);
   await expect(page.locator(".gc-status-strip")).toContainText("STORE");
@@ -731,6 +774,7 @@ test("Graphite Console renders all five pages inside the control surface", async
 });
 
 test("Every theme keeps pending todos in date groups with only a done column", async ({ page }) => {
+  test.setTimeout(90_000);
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
@@ -753,7 +797,7 @@ test("Every theme keeps pending todos in date groups with only a done column", a
   for (const theme of themes) {
     await page.addInitScript((themeId) => localStorage.setItem("focused-moment.theme", themeId), theme.id);
     await page.evaluate((themeId) => localStorage.setItem("focused-moment.theme", themeId), theme.id);
-    await page.reload();
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
     await pageButton(page, "待办").click();
     await expect(page.locator(theme.columnSelector)).toHaveCount(2);
     await expect(page.locator(theme.pendingSelector)).toBeVisible();

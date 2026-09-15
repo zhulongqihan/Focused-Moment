@@ -5,12 +5,10 @@ import {
   CheckCircle2,
   ChevronRight,
   CircleDot,
-  Keyboard,
   Pause,
   Play,
   Plus,
   RotateCcw,
-  Save,
   ShieldCheck,
   Volume2,
   X,
@@ -150,7 +148,7 @@ export function GraphiteConsoleToday(props: TodayDashboardProps) {
 
         <GcPanel title="NEXT OPERATION" code="AUTO / 01" class="gc-operation-panel">
           <Show when={nextTodo()} fallback={<div class="gc-operation-empty"><span>QUEUE EMPTY</span><h2>等待下一件事</h2><p>把一个念头放进待办队列。</p><button type="button" class="gc-lime-button" onClick={props.onOpenTodos}><Plus size={17} aria-hidden="true" /> 添加待办</button></div>}>
-            {(item) => <div class="gc-operation-card"><span class="gc-card-kicker">NEXT FOCUS</span><h2>{item().title}</h2><div class="gc-operation-meta"><span>DURATION</span><strong>{props.defaultFocusMinutes()} <small>MIN</small></strong></div><div class="gc-operation-meta"><span>NOTE</span><p>{props.formatTodoDue(item())}</p></div><div class="gc-operation-status"><span><i class="gc-led gc-led--orange" /> STATUS</span><strong>QUEUED</strong></div><button type="button" class="gc-lime-button" disabled={props.busy() || props.timerHasProgress()} onClick={() => props.onUseTodo(item())}><Play size={17} fill="currentColor" aria-hidden="true" /> START / 开始专注 <ArrowRight size={16} aria-hidden="true" /></button><div class="gc-shortcut"><kbd>Ctrl</kbd><span>+</span><kbd>Enter</kbd><small>快捷键</small></div></div>}
+            {(item) => <div class="gc-operation-card"><span class="gc-card-kicker">NEXT FOCUS</span><h2>{item().title}</h2><div class="gc-operation-meta"><span>DURATION</span><strong>{props.defaultFocusMinutes()} <small>MIN</small></strong></div><div class="gc-operation-meta"><span>NOTE</span><p>{props.formatTodoDue(item())}</p></div><div class="gc-operation-status"><span><i class="gc-led gc-led--orange" /> STATUS</span><strong>QUEUED</strong></div><button type="button" class="gc-lime-button" disabled={props.busy() || props.timerHasProgress()} onClick={() => props.onUseTodo(item())}><Play size={17} fill="currentColor" aria-hidden="true" /> START / 开始专注 <ArrowRight size={16} aria-hidden="true" /></button></div>}
           </Show>
           <div class="gc-operation-footer"><span>FOCUS MODULE</span><strong>STANDARD MODE</strong><i class="gc-signal-bars"><b /><b /><b /><b /><b /><b /><b /><b /><b /></i></div>
         </GcPanel>
@@ -210,7 +208,6 @@ export function GraphiteConsoleFocus(props: NightValleyFocusProps) {
           <div class="gc-profile-note"><span class="gc-led gc-led--orange" /> {props.timer().modeSwitchHint ?? "专注配置已就绪"}</div>
         </GcPanel>
       </div>
-      <section class="gc-focus-bottom"><div><span>今日已专注</span><strong>{props.timer().completedFocusCount}</strong><small>段</small></div><div><span>待办连接</span><strong>{props.linkedTodoId() === null ? "FREE" : "LINKED"}</strong><small>{props.linkedTodoId() === null ? "未关联" : "已关联"}</small></div><div><span>当前状态</span><strong>{stateLabel()}</strong></div><div class="gc-focus-key"><Keyboard size={15} aria-hidden="true" /><kbd>Ctrl</kbd><span>+</span><kbd>Enter</kbd><small>开始 / 继续</small></div></section>
     </section>
   );
 }
@@ -261,7 +258,7 @@ export function GraphiteConsoleTodos(props: NightValleyTodoProps) {
           <GcPanel title="QUEUED BY DATE / 按日期待处理" code={`BAY-001.Q · ${pendingTodoCount()}`} class="gc-task-bay gc-task-bay--queued"><div class="gc-task-date-list"><Show when={props.ready()} fallback={<div class="gc-empty-console">正在读取队列…</div>}><Show when={pendingDateGroups().length > 0} fallback={<div class="gc-empty-console">队列为空</div>}><TodoDateGroupList groups={pendingDateGroups} listLabel="按日期分组的待办" renderItem={(item) => <GraphiteTodoCard item={item} {...rowProps} />} editingTodo={props.editingTodo} busy={props.busy} timerHasProgress={props.timerHasProgress} formatTodoDue={props.formatTodoDue} importanceLabel={props.importanceLabel} onToggle={props.onToggle} onBeginEdit={props.onBeginEdit} onUseForFocus={props.onUseForFocus} onRemove={props.onRemove} onPatch={props.onPatch} onSave={props.onSave} onCancel={props.onCancel} /></Show></Show></div></GcPanel>
           <GcPanel title="DONE / 已完成" code={`BAY-002.D · ${props.completedTodos().length}`} class="gc-task-bay gc-task-bay--done"><div class="gc-task-grid gc-task-grid--completed"><For each={props.completedTodos()}>{(item) => <GraphiteTodoCard item={item} {...rowProps} />}</For><Show when={props.completedTodos().length === 0}><div class="gc-empty-console">完成一项后会归档在这里</div></Show></div></GcPanel>
         </div>
-        <GcPanel title="NEXT FOCUS / 下一段专注" code="MOD-NEXT.45" class="gc-next-task-panel"><Show when={props.activeTodos()[0]} fallback={<div class="gc-operation-empty"><span>NO TASK ASSIGNED</span><h2>等待下一段</h2><p>从左侧队列选一项开始。</p></div>}>{(item) => <div class="gc-next-task-content"><span class="gc-card-kicker">TASK.ID</span><strong class="gc-task-id">{String(item().id).padStart(2, "0")}</strong><span class="gc-card-kicker">TASK.TITLE</span><h2>{item().title}</h2><span class="gc-card-kicker">DURATION</span><strong class="gc-duration-readout">{Math.round((props.timer().targetDurationMs ?? 45 * 60 * 1000) / 60000)}<small> MIN</small></strong><span class="gc-card-kicker">NOTE</span><p>{props.formatTodoDue(item())}</p><button type="button" class="gc-lime-button gc-lime-button--wide" disabled={props.busy() || props.timerHasProgress()} onClick={() => props.onUseForFocus(item())}><Play size={17} fill="currentColor" aria-hidden="true" /> START / 开始专注</button><div class="gc-shortcut"><kbd>Ctrl</kbd><span>+</span><kbd>Enter</kbd></div></div>}</Show></GcPanel>
+      <GcPanel title="NEXT FOCUS / 下一段专注" code="MOD-NEXT.45" class="gc-next-task-panel"><Show when={props.activeTodos()[0]} fallback={<div class="gc-operation-empty"><span>NO TASK ASSIGNED</span><h2>等待下一段</h2><p>从左侧队列选一项开始。</p></div>}>{(item) => <div class="gc-next-task-content"><span class="gc-card-kicker">TASK.ID</span><strong class="gc-task-id">{String(item().id).padStart(2, "0")}</strong><span class="gc-card-kicker">TASK.TITLE</span><h2>{item().title}</h2><span class="gc-card-kicker">DURATION</span><strong class="gc-duration-readout">{Math.round((props.timer().targetDurationMs ?? 45 * 60 * 1000) / 60000)}<small> MIN</small></strong><span class="gc-card-kicker">NOTE</span><p>{props.formatTodoDue(item())}</p><button type="button" class="gc-lime-button gc-lime-button--wide" disabled={props.busy() || props.timerHasProgress()} onClick={() => props.onUseForFocus(item())}><Play size={17} fill="currentColor" aria-hidden="true" /> START / 开始专注</button></div>}</Show></GcPanel>
       </div>
       <footer class="gc-todo-footer"><div><span>今日完成</span><strong>{String(props.completedTodos().length).padStart(2, "0")}</strong><small>项</small></div><div><span>待处理</span><strong>{String(pendingTodoCount()).padStart(2, "0")}</strong><small>项</small></div><div class="gc-completion-meter"><span>系统状态</span><i><b style={{ width: `${completion()}%` }} /></i><strong>{completion()}%</strong></div><div><span>CONSOLE ID</span><strong>FM-OPS-{String(props.todos().length).padStart(4, "0")}</strong></div></footer>
     </section>
@@ -298,7 +295,7 @@ export function GraphiteConsoleRecords(props: NightValleyRecordsProps) {
       <GcPanel title="FOCUS SIGNAL / 专注信号" code={`${props.formatAnalyticsDate(selectedDate())} · 7D`} class="gc-signal-panel"><div class="gc-signal-chart"><div class="gc-signal-y"><span>100</span><span>75</span><span>50</span><span>25</span><span>0</span></div><div class="gc-signal-days"><For each={props.archiveDays()}>{(day) => <button type="button" classList={{ "gc-signal-day": true, active: day.date === selectedDate() }} onClick={() => props.onSelectDate(day.date)}><span>{props.formatAnalyticsDate(day.date)}</span><strong>{day.totalDurationLabel}</strong><i><b style={{ height: `${Math.max(6, (day.totalDurationMs / maxDuration()) * 100)}%` }} /></i><small>{day.sessionCount} SEG</small></button>}</For></div></div><div class="gc-chart-foot"><span>0</span><strong>累计 {props.formatDurationMs(props.recentWeekDurationMs())}</strong><span>100</span></div></GcPanel>
       <section class="gc-record-stat-grid"><div><span>累计专注</span><strong>{gcAnalytics(props.analytics(), "totalFocusDurationLabel", "00:00:00")}</strong><small>HH : MM : SS</small></div><div><span>完成段数</span><strong>{gcAnalytics(props.analytics(), "sessionCount", "0")}</strong><small>SEGMENTS</small></div><div><span>平均时长</span><strong>{props.analytics()?.sessionCount ? props.formatDurationMs(props.recentWeekDurationMs() / Math.max(1, props.analytics()?.sessionCount ?? 1)) : "00:00:00"}</strong><small>PER SEGMENT</small></div><div><span>连续天数</span><strong>{gcAnalytics(props.analytics(), "currentStreakDays", "0")}</strong><small>STREAK</small></div></section>
       <div class="gc-records-grid"><GcPanel title="节奏日志 / EVENT LOG" code={`${selectedRecords().length} EVENTS`} class="gc-event-log"><div class="gc-event-log__heading"><span>时间</span><span>事件</span><span>强度</span><span>状态</span></div><Show when={visibleRecords().length > 0} fallback={<div class="gc-empty-console">当前日期没有专注事件</div>}><For each={visibleRecords().slice(0, 12)}>{(record) => <div class="gc-event-row"><i class="gc-led gc-led--lime" /><time>{gcTime(record)}</time><span>{record.title}</span><b><i /><i /><i /><i /><i /></b><strong>OK</strong></div>}</For><Show when={visibleCount() < selectedRecords().length}><button type="button" class="gc-inline-button" onClick={() => setVisibleCount((count) => Math.min(count + 200, selectedRecords().length))}>加载更多 · {visibleCount()} / {selectedRecords().length}</button></Show></Show></GcPanel><GcPanel title="专注分布 / SIGNAL ANALYZER" code="BAND / ALL" class="gc-analyzer-panel"><div class="gc-radar"><i /><i /><i /><span>FOCUS</span></div><div class="gc-band-list"><For each={bandStats()}>{(band) => <div><span>{band.label} <small>{band.range}</small></span><strong>{band.percent}%</strong></div>}</For></div><p>洞察 / INSIGHT<br /><strong>{props.records().length === 0 ? "完成一次专注后，这里会显示真实的时段分布。" : `${dominantBand().label}时段投入最多，可作为下一次深度工作的参考。`}</strong></p></GcPanel></div>
-      <GcPanel title="更长的路 / 30-DAY TREND" code="TREND / ARCHIVE" class="gc-trend-panel"><div class="gc-trend-lines"><For each={props.archiveDays()}>{(day, index) => <button type="button" classList={{ active: day.date === selectedDate() }} style={{ left: `${index() * (100 / Math.max(1, props.archiveDays().length - 1))}%`, bottom: `${Math.max(8, (day.totalDurationMs / maxDuration()) * 80)}%` }} onClick={() => props.onSelectDate(day.date)}><i /><span>{props.formatAnalyticsDate(day.date)}</span></button>}</For></div><div class="gc-trend-footer"><span>最近 7 天</span><strong>{props.recentWeekActiveDays()} 天有投入</strong><button type="button" class="gc-quiet-button" onClick={() => props.onSelectDate(props.archiveDays()[props.archiveDays().length - 1]?.date ?? selectedDate())}>VIEW ALL <ChevronRight size={14} aria-hidden="true" /></button></div></GcPanel>
+      <GcPanel title="更长的路" code="30-DAY TREND / ARCHIVE" class="gc-trend-panel"><div class="gc-trend-lines"><For each={props.archiveDays()}>{(day, index) => <button type="button" classList={{ active: day.date === selectedDate() }} style={{ left: `${index() * (100 / Math.max(1, props.archiveDays().length - 1))}%`, bottom: `${Math.max(8, (day.totalDurationMs / maxDuration()) * 80)}%` }} onClick={() => props.onSelectDate(day.date)}><i /><span>{props.formatAnalyticsDate(day.date)}</span></button>}</For></div><div class="gc-trend-footer"><span>最近 7 天</span><strong>{props.recentWeekActiveDays()} 天有投入</strong><button type="button" class="gc-quiet-button" onClick={() => props.onSelectDate(props.archiveDays()[props.archiveDays().length - 1]?.date ?? selectedDate())}>VIEW ALL <ChevronRight size={14} aria-hidden="true" /></button></div></GcPanel>
       <section class="gc-history-index"><header><span>FULL INDEX / ALL RECORDS</span><strong>{props.records().length} ROUNDS</strong></header><Show when={props.ready() && props.records().length > 0} fallback={<div class="gc-empty-console">完成一次计时后，记录会显示在这里。</div>}><For each={props.recordGroups()}>{(group) => <details open={expandedDate() === group.date}><summary onClick={(event) => { event.preventDefault(); setExpandedDate((date) => date === group.date ? null : group.date); }}><span>{props.formatRecordDay(group.date)}</span><strong>{group.records.length} 轮 · {props.formatDurationMs(group.totalDurationMs)}</strong></summary><Show when={expandedDate() === group.date}><div>{group.records.slice(0, 200).map((record) => <span>{record.title} · {record.durationLabel}</span>)}</div></Show></details>}</For></Show></section>
       <GcStatusStrip analytics={props.analytics} timer={() => ({ ...({} as TimerSnapshot), isRunning: false } as TimerSnapshot)} />
     </section>
@@ -316,15 +313,106 @@ export function GraphiteConsoleSettings(props: NightValleySettingsProps) {
 
   return (
     <section class="gc-page gc-settings-page" aria-label="系统配置">
-      <header class="gc-page-head gc-page-head--split"><div><span class="gc-date-code">SYS-MOD-5A / CONTROL SURFACE</span><h1>SYSTEM CONFIG <em>/ 系统配置</em></h1><p>调整显示、行为和本地安全边界。</p></div><div class="gc-head-status"><i class="gc-led gc-led--lime" /> CONFIG SYNC / READY</div></header>
-      <div class="gc-settings-layout"><nav class="gc-settings-nav" aria-label="设置分组"><a href="#gc-appearance">01 <span>外观</span></a><a href="#gc-behavior">02 <span>行为</span></a><a href="#gc-audio">03 <span>音频</span></a><a href="#gc-rhythm">04 <span>节奏</span></a><a href="#gc-data">05 <span>数据</span></a></nav><div class="gc-settings-main">
-        <GcPanel title="APPEARANCE MATRIX / 外观矩阵" code="THEME / 03" class="gc-settings-appearance" ><div id="gc-appearance" class="gc-theme-matrix"><For each={themes}>{(theme) => <button type="button" classList={{ "gc-theme-card": true, selected: props.themeId() === theme.id, disabled: !theme.implemented }} disabled={!theme.implemented} aria-pressed={props.themeId() === theme.id} onClick={() => props.onThemeSelect(theme.id)}><span class={`gc-theme-card__preview gc-theme-card__preview--${theme.id}`}><i /><b /><em /></span><strong>{theme.name}</strong><small>{theme.implemented ? "可用" : "尚未实现"}</small></button>}</For></div><div class="gc-setting-slider-list"><label><span>亮度 <b>{props.visualIntensity()}%</b></span><input type="range" min="0" max="100" value={props.visualIntensity()} onInput={(event) => props.onVisualIntensityChange(Number(event.currentTarget.value))} /></label><label><span>动效 <b>{props.motionIntensity()}%</b></span><input type="range" min="0" max="100" value={props.motionIntensity()} onInput={(event) => props.onMotionIntensityChange(Number(event.currentTarget.value))} /></label><label><span>界面密度 <b>{props.density() === "roomy" ? "标准" : "紧凑"}</b></span><input type="range" min="0" max="1" step="1" value={props.density() === "compact" ? 1 : 0} onInput={(event) => props.onDensityChange(event.currentTarget.value === "1" ? "compact" : "roomy")} /></label></div></GcPanel>
-        <GcPanel title="INPUT / BEHAVIOR" code="SWITCH / LIVE" class="gc-behavior-panel" ><div id="gc-behavior" class="gc-switch-list"><label><span><strong>完成后自动进入下一段</strong><small>AUTO NEXT SEGMENT</small></span><input type="checkbox" checked={props.timerPreferences().toastReminderEnabled} disabled={props.busy()} onChange={(event) => toggle(event.currentTarget.checked, "toastReminderEnabled")} /><i /></label><label><span><strong>结束时显示总结</strong><small>SHOW SUMMARY AT END</small></span><input type="checkbox" checked={props.timerPreferences().windowAttentionReminderEnabled} disabled={props.busy()} onChange={(event) => toggle(event.currentTarget.checked, "windowAttentionReminderEnabled")} /><i /></label><label><span><strong>持续专注提醒</strong><small>FOCUS REMINDER · 每 60 分钟</small></span><input type="checkbox" checked={props.timerPreferences().soundReminderEnabled} disabled={props.busy()} onChange={(event) => toggle(event.currentTarget.checked, "soundReminderEnabled")} /><i /></label></div></GcPanel>
-        <GcPanel title="AUDIO BUS / 声音与提示" code="BUS / 01" class="gc-audio-panel"><div id="gc-audio" class="gc-audio-grid"><label class="gc-console-field"><span>提醒音效 / ALERT</span><select value={props.timerPreferences().alertSoundKey} disabled={props.busy()} onChange={(event) => void props.onSaveTimerPreferences({ alertSoundKey: event.currentTarget.value as AlertSoundKey })}><option value="soft_chime">柔和铃音</option><option value="bright_bell">明亮三连</option><option value="deep_pulse">沉稳脉冲</option><option value="wooden_tick">木鱼单击</option><option value="glass_ping">玻璃回响</option><option value="morning_chord">晨光和弦</option><option value="viral_quote">老牧师原声</option><option value="custom" disabled={!props.customAlertSoundName()}>自定义音效</option></select></label><div class="gc-audio-actions"><button type="button" class="gc-dark-button" disabled={props.busy()} onClick={props.onPreviewAlertSound}><Volume2 size={15} aria-hidden="true" />试听</button><button type="button" class="gc-dark-button" disabled={props.busy()} onClick={() => customAlertSoundInput?.click()}>导入</button><Show when={props.customAlertSoundName()}><button type="button" class="gc-quiet-button" onClick={() => void props.onClearCustomAlertSound()}>移除</button></Show><input ref={(element) => { customAlertSoundInput = element; }} class="sr-only" type="file" accept="audio/*" aria-label="导入自定义音效" onChange={(event) => void props.onChooseCustomAlertSound(event)} /></div></div></GcPanel>
-        <GcPanel title="RHYTHM BUS / 专注节奏" code="TIMER / 04" class="gc-rhythm-panel"><div id="gc-rhythm" class="gc-rhythm-grid"><label class="gc-console-field"><span>默认专注 / FOCUS MIN</span><input type="number" min="5" max="180" step="5" value={props.timerPreferences().pomodoroFocusMinutes} disabled={props.busy()} onChange={(event) => saveRhythmMinutes("pomodoroFocusMinutes", event.currentTarget.value, 5, 180)} /></label><label class="gc-console-field"><span>默认休息 / BREAK MIN</span><input type="number" min="1" max="60" step="1" value={props.timerPreferences().pomodoroBreakMinutes} disabled={props.busy()} onChange={(event) => saveRhythmMinutes("pomodoroBreakMinutes", event.currentTarget.value, 1, 60)} /></label><label class="gc-console-field"><span>长专注提醒 / LONG RUN</span><input type="number" min="5" max="180" step="5" value={props.timerPreferences().stopwatchReminderMinutes ?? props.timerPreferences().pomodoroFocusMinutes} disabled={props.busy()} onChange={(event) => saveRhythmMinutes("stopwatchReminderMinutes", event.currentTarget.value, 5, 180)} /></label></div></GcPanel>
-        <GcPanel title="LOCAL SAFETY / 本地数据" code="DATA / SAFE" class="gc-data-panel"><div id="gc-data" class="gc-data-copy"><ShieldCheck size={20} aria-hidden="true" /><p>待办、专注记录和未完成计时状态只保存在这台电脑上。</p></div><div class="gc-data-actions"><button type="button" class="gc-lime-button" disabled={props.busy()} onClick={() => void props.onCreateBackup()}>{props.busy() ? props.busyLabel() : "导出备份"}</button><button type="button" class="gc-dark-button" disabled={props.busy()} onClick={() => void props.onOpenBackupFolder()}>打开目录</button><button type="button" class="gc-danger-button" disabled={props.busy()} onClick={() => void props.onClearAllData()}>清空数据</button></div><Show when={props.lastBackupPath()}><p class="gc-path">最近备份：{props.lastBackupPath()}</p></Show><Show when={props.backupLoadState() === "error"}><div class="gc-error"><strong>备份列表读取失败</strong><span>{props.backupLoadError()}</span><button type="button" class="gc-inline-button" onClick={() => void props.onLoadBackups()}>重试</button></div></Show><Show when={props.backupLoadState() === "ready" && props.backups().length > 0}><label class="gc-console-field"><span>选择备份</span><select value={props.selectedBackupFile()} onChange={(event) => props.onSelectedBackupFile(event.currentTarget.value)}><For each={props.backups()}>{(backup) => <option value={backup.fileName}>{backup.fileName}</option>}</For></select></label><button type="button" class="gc-dark-button" disabled={props.busy() || !props.selectedBackupFile()} onClick={() => void props.onRestoreBackup()}>导入并替换当前数据</button></Show></GcPanel>
-      </div></div>
-      <footer class="gc-settings-footer"><span>ACTIVE SURFACE / {activeTheme().englishName.toUpperCase()}</span><strong>{activeTheme().name}</strong><button type="button" class="gc-lime-button" onClick={props.onSaveVisualSettings}><Save size={15} aria-hidden="true" /> APPLY / 保存更改</button></footer>
+      <header class="gc-page-head gc-page-head--split">
+        <div>
+          <span class="gc-date-code">SYS-MOD-5A / CONTROL SURFACE</span>
+          <h1>SYSTEM CONFIG <em>/ 系统配置</em></h1>
+          <p>管理主题、提醒、节奏和本地数据。</p>
+        </div>
+        <div class="gc-head-status"><i class="gc-led gc-led--lime" /> CONFIG SYNC / READY</div>
+      </header>
+
+      <div class="gc-settings-layout">
+        <div class="gc-settings-main">
+          <GcPanel title="APPEARANCE MATRIX / 外观矩阵" code="THEME / 03" class="gc-settings-appearance">
+            <div class="gc-settings-panel-copy">
+              <strong>选择一个工作环境</strong>
+              <span>主题会立即应用到全部页面。</span>
+            </div>
+            <div id="gc-appearance" class="gc-theme-matrix">
+              <For each={themes}>
+                {(theme) => <button type="button" classList={{ "gc-theme-card": true, selected: props.themeId() === theme.id, disabled: !theme.implemented }} disabled={!theme.implemented} aria-pressed={props.themeId() === theme.id} onClick={() => props.onThemeSelect(theme.id)}>
+                  <span class={"gc-theme-card__preview gc-theme-card__preview--" + theme.id}><i /><b /><em /></span>
+                  <strong>{theme.name}</strong>
+                  <small>{theme.implemented ? "可用" : "尚未实现"}</small>
+                </button>}
+              </For>
+            </div>
+          </GcPanel>
+
+          <GcPanel title="INPUT / BEHAVIOR" code="SWITCH / LIVE" class="gc-behavior-panel">
+            <div id="gc-behavior" class="gc-switch-list">
+              <label>
+                <span><strong>完成时显示提示</strong><small>IN-APP COMPLETION NOTICE</small></span>
+                <input type="checkbox" checked={props.timerPreferences().toastReminderEnabled} disabled={props.busy()} onChange={(event) => toggle(event.currentTarget.checked, "toastReminderEnabled")} />
+                <i />
+              </label>
+              <label>
+                <span><strong>任务栏提醒</strong><small>WINDOW ATTENTION</small></span>
+                <input type="checkbox" checked={props.timerPreferences().windowAttentionReminderEnabled} disabled={props.busy()} onChange={(event) => toggle(event.currentTarget.checked, "windowAttentionReminderEnabled")} />
+                <i />
+              </label>
+              <label>
+                <span><strong>声音提醒</strong><small>SOUND ALERT</small></span>
+                <input type="checkbox" checked={props.timerPreferences().soundReminderEnabled} disabled={props.busy()} onChange={(event) => toggle(event.currentTarget.checked, "soundReminderEnabled")} />
+                <i />
+              </label>
+            </div>
+          </GcPanel>
+
+          <GcPanel title="RHYTHM / 专注节奏" code="TIMER / 04" class="gc-rhythm-panel">
+            <div id="gc-rhythm" class="gc-rhythm-grid">
+              <label class="gc-console-field"><span>默认专注 / FOCUS MIN</span><input type="number" min="5" max="180" step="5" value={props.timerPreferences().pomodoroFocusMinutes} disabled={props.busy()} onChange={(event) => saveRhythmMinutes("pomodoroFocusMinutes", event.currentTarget.value, 5, 180)} /></label>
+              <label class="gc-console-field"><span>默认休息 / BREAK MIN</span><input type="number" min="1" max="60" step="1" value={props.timerPreferences().pomodoroBreakMinutes} disabled={props.busy()} onChange={(event) => saveRhythmMinutes("pomodoroBreakMinutes", event.currentTarget.value, 1, 60)} /></label>
+              <label class="gc-console-field"><span>长专注提醒 / LONG RUN</span><input type="number" min="5" max="180" step="5" value={props.timerPreferences().stopwatchReminderMinutes ?? props.timerPreferences().pomodoroFocusMinutes} disabled={props.busy()} onChange={(event) => saveRhythmMinutes("stopwatchReminderMinutes", event.currentTarget.value, 5, 180)} /></label>
+            </div>
+          </GcPanel>
+
+          <GcPanel title="AUDIO / 提醒音效" code="BUS / 01" class="gc-audio-panel">
+            <div id="gc-audio" class="gc-audio-grid">
+              <label class="gc-console-field">
+                <span>提醒音效 / ALERT SOUND</span>
+                <select value={props.timerPreferences().alertSoundKey} disabled={props.busy()} onChange={(event) => void props.onSaveTimerPreferences({ alertSoundKey: event.currentTarget.value as AlertSoundKey })}>
+                  <option value="soft_chime">柔和铃音</option>
+                  <option value="bright_bell">明亮三连</option>
+                  <option value="deep_pulse">沉稳脉冲</option>
+                  <option value="wooden_tick">木鱼单击</option>
+                  <option value="glass_ping">玻璃回响</option>
+                  <option value="morning_chord">晨光和弦</option>
+                  <option value="viral_quote">老牧师原声</option>
+                  <option value="custom" disabled={!props.customAlertSoundName()}>自定义音效</option>
+                </select>
+              </label>
+              <div class="gc-audio-actions">
+                <button type="button" class="gc-dark-button" disabled={props.busy()} onClick={props.onPreviewAlertSound}><Volume2 size={15} aria-hidden="true" />试听</button>
+                <button type="button" class="gc-dark-button" disabled={props.busy()} onClick={() => customAlertSoundInput?.click()}>导入</button>
+                <Show when={props.customAlertSoundName()}><button type="button" class="gc-quiet-button" onClick={() => void props.onClearCustomAlertSound()}>移除</button></Show>
+                <input ref={(element) => { customAlertSoundInput = element; }} class="sr-only" type="file" accept="audio/*" aria-label="导入自定义音效" onChange={(event) => void props.onChooseCustomAlertSound(event)} />
+              </div>
+            </div>
+          </GcPanel>
+
+          <GcPanel title="LOCAL SAFETY / 本地数据" code="DATA / SAFE" class="gc-data-panel">
+            <div id="gc-data" class="gc-data-copy"><ShieldCheck size={20} aria-hidden="true" /><p>待办、专注记录和未完成计时状态只保存在这台电脑上。</p></div>
+            <div class="gc-data-actions">
+              <button type="button" class="gc-lime-button" disabled={props.busy()} onClick={() => void props.onCreateBackup()}>{props.busy() ? props.busyLabel() : "导出备份"}</button>
+              <button type="button" class="gc-dark-button" disabled={props.busy()} onClick={() => void props.onOpenBackupFolder()}>打开目录</button>
+              <button type="button" class="gc-danger-button" disabled={props.busy()} onClick={() => void props.onClearAllData()}>清空数据</button>
+            </div>
+            <Show when={props.lastBackupPath()}><p class="gc-path">最近备份：{props.lastBackupPath()}</p></Show>
+            <Show when={props.backupLoadState() === "error"}><div class="gc-error"><strong>备份列表读取失败</strong><span>{props.backupLoadError()}</span><button type="button" class="gc-inline-button" onClick={() => void props.onLoadBackups()}>重试</button></div></Show>
+            <Show when={props.backupLoadState() === "ready" && props.backups().length > 0}>
+              <label class="gc-console-field"><span>选择备份</span><select value={props.selectedBackupFile()} onChange={(event) => props.onSelectedBackupFile(event.currentTarget.value)}><For each={props.backups()}>{(backup) => <option value={backup.fileName}>{backup.fileName}</option>}</For></select></label>
+              <button type="button" class="gc-dark-button" disabled={props.busy() || !props.selectedBackupFile()} onClick={() => void props.onRestoreBackup()}>导入并替换当前数据</button>
+            </Show>
+          </GcPanel>
+        </div>
+      </div>
+
+      <footer class="gc-settings-footer">
+        <div><span>LOCAL SETTINGS / AUTO-SAVED</span><strong>{activeTheme().name}</strong></div>
+        <small>主题、提醒和节奏参数会立即保存。</small>
+      </footer>
     </section>
   );
 }

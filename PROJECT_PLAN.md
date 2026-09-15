@@ -1218,3 +1218,13 @@ NV-05 的具体键盘缺口：`CommandPalette.tsx` 声明 modal/listbox，但缺
 - **发布闭环**：产品提交 [`eac691f`](https://github.com/zhulongqihan/Focused-Moment/commit/eac691ff0989a9935de375b2bbc9cddd588c79b7) 已推送到 `main`；`v2.11.5` tag 已创建并固定指向该提交；GitHub Release [`v2.11.5`](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.11.5) 已创建并标记为 latest，三项 Windows x64 资产已上传且远端 digest 与本地 SHA-256 一致。portable / Setup / MSI digest 分别为 `01009c0175f724fec7369991825a44cb6ca9d71159d99e7b38512bc2c3e597fc`、`99578c2177f3323abb9e2105d18defe875828336e55674946f3f6a2da735b29a`、`96925fb2df13a7606c1c3e810d9aee67ac6fe75adacec1e528995bcb0099b5a7`。
 - **远端验证**：Windows Checks [`34999195731`](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34999195731) PASS；报告 `137 passed`，跨主题日期分组测试首次 `page.reload` 超时后重试通过并被标记为 flaky；Rust check/test PASS。Node.js 20 弃用提示仅为 Actions 注记，不影响本次验证。
 - **最终状态 / 下一步**：`REL-28 DONE`；不运行任何 macOS workflow，不停止用户正在运行的应用进程；下一任务按项目优先级排队。
+
+### 2026-09-16 REL-29 v2.11.6 石墨控制台与跨主题品牌标记收口（实现完成，待候选发布）
+
+- **用户问题**：石墨控制台首页仍显示快捷键；所有主题左上角品牌图标形态不一致；记录页“更长的路”标题被挤压；专注页底部状态条冗余；设置页保留无用滑杆和侧边目录，行为文案与真实开关含义也不完全对应。
+- **根因与实现**：移除 Graphite Today/Todo 的快捷键提示和 Focus 底部状态条；新增最后加载的共享 `BrandMark.css`，用统一的外圆、内环、偏置小圆点几何覆盖五个主题的高优先级旧规则，并清理 Aurora/Botanical 的旧 `left` 定位；记录页拆分中文标题与英文归档码；设置页改成主题选择、提醒行为、节奏、音效、本地数据五组紧凑控制区，移除侧边分组导航、亮度/动效/密度滑杆与手动 Apply。
+- **修改范围**：`src/components/GraphiteConsoleViews.tsx/.css`、`src/components/BrandMark.css`、`src/MainShell.tsx`、`tests/today-visual.spec.mjs`；版本源同步为 `2.11.6`，新增 `docs/v2.11.6/RELEASE_NOTES.md`。
+- **本地候选验证**：`npm run test:frontend -- tests/app.spec.mjs tests/today-visual.spec.mjs --workers=1` 为 `138/138 PASS`；`npm run check`、`npm run build`（2067 modules）、`git diff --check`、`cargo fmt --check`、`cargo check --locked`、`cargo test --locked`（35/35）均 PASS；`npm run package:release` PASS，版本化 portable/Setup/MSI 产物已生成并完成版本与 SHA-256 核对。
+- **候选资产**：`Focused Moment v2.11.6.exe` 23,850,496 bytes / `2bd80378637c623386a2244bc2bc65ffbbcfdb2b76e98b43ed55cae01c12903a`；`Focused Moment Setup v2.11.6.exe` 16,197,615 bytes / `4c7388db52c56c9e4f7afc3109f8592794d9a78fe902d6b9b774e5a8f47bd944`；`Focused Moment_2.11.6_x64_en-US.msi` 17,178,624 bytes / `6aae342164a1e97884d8c218886b7d2b50e4e626d46a55a0ff5e6570c8c42e49`。
+- **发布边界**：按 `v2.11.5` 后用户可见 patch 变化升为 `v2.11.6`；仅发布 Windows x64 portable、Setup/NSIS、MSI；不运行 macOS workflow，不停止用户正在运行的应用进程。
+- **下一步**：提交并推送候选，创建 `v2.11.6` tag 与 GitHub Release，回填远程 Windows Checks 与 Release 资产证据。

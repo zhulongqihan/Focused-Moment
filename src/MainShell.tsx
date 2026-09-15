@@ -81,6 +81,7 @@ import "./components/GraphiteConsoleViews.css";
 import "./components/AuroraOceanViews.css";
 import "./components/BotanicalLibraryViews.css";
 import "./components/DailyFocusLine.css";
+import "./components/BrandMark.css";
 
 type AppView = "today" | "focus" | "todos" | "records" | "settings";
 type TimerMode = "stopwatch" | "countdown";
