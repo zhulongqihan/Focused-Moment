@@ -32,6 +32,7 @@
 - `cargo check --locked`: PASS.
 - `cargo test --locked`: `35/35 PASS`.
 - `npm run package:release`: PASS; Tauri produced Windows x64 MSI and NSIS installers, plus portable/Setup exports.
+- Windows Checks [`35008136360`](https://github.com/zhulongqihan/Focused-Moment/actions/runs/35008136360): PASS in 18m18s; frontend reported `137 passed`, with one cross-theme date-todo reload timeout recovered on retry and marked flaky; TypeScript/build and Rust fmt/check/test all passed remotely.
 
 ## Windows assets
 
