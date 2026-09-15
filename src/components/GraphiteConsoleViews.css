@@ -1116,3 +1116,113 @@
   .minimal-app[data-theme="graphite-console"] .gc-dial { width: 90%; }
   .minimal-app[data-theme="graphite-console"] .gc-dial__face > strong { font-size: 2.05rem; }
 }
+
+/* v2.11.5 todo flow: one date-aware queue plus one archive bay. */
+.minimal-app[data-theme="graphite-console"] .gc-task-bays {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-task-date-list,
+.minimal-app[data-theme="graphite-console"] .gc-task-grid--completed {
+  max-height: min(560px, 58vh);
+  overflow-y: auto;
+  padding-right: 5px;
+  scrollbar-color: rgba(200, 245, 29, 0.32) transparent;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  overscroll-behavior: contain;
+}
+
+.minimal-app[data-theme="graphite-console"] .nv-todo-date-groups {
+  display: grid;
+  gap: 7px;
+}
+
+.minimal-app[data-theme="graphite-console"] .nv-todo-date-group {
+  overflow: hidden;
+  border: 1px solid var(--gc-line);
+  background: #111718;
+}
+
+.minimal-app[data-theme="graphite-console"] .nv-todo-date-group.is-expanded {
+  border-color: var(--gc-lime);
+}
+
+.minimal-app[data-theme="graphite-console"] .nv-todo-date-group__toggle {
+  display: flex;
+  width: 100%;
+  min-height: 48px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 9px;
+  border: 0;
+  background: transparent;
+  color: var(--gc-text);
+  text-align: left;
+}
+
+.minimal-app[data-theme="graphite-console"] .nv-todo-date-group__toggle:hover {
+  background: rgba(200, 245, 29, 0.08);
+}
+
+.minimal-app[data-theme="graphite-console"] .nv-todo-date-group__label {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.minimal-app[data-theme="graphite-console"] .nv-todo-date-group__label strong {
+  overflow: hidden;
+  color: var(--gc-lime);
+  font-family: "Microsoft YaHei UI", sans-serif;
+  font-size: 0.68rem;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.minimal-app[data-theme="graphite-console"] .nv-todo-date-group__label small,
+.minimal-app[data-theme="graphite-console"] .nv-todo-date-group__state {
+  color: var(--gc-muted);
+  font-size: 0.55rem;
+}
+
+.minimal-app[data-theme="graphite-console"] .nv-todo-date-group__items {
+  display: grid;
+  gap: 6px;
+  max-height: none;
+  padding: 0 7px 7px;
+  overflow: visible;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-rhythm-panel {
+  grid-column: 2;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-rhythm-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-rhythm-grid .gc-console-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 100px;
+  align-items: center;
+  gap: 9px;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-rhythm-grid input {
+  width: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 1120px) {
+  .minimal-app[data-theme="graphite-console"] .gc-task-bays {
+    grid-template-columns: 1fr;
+  }
+
+  .minimal-app[data-theme="graphite-console"] .gc-rhythm-panel {
+    grid-column: auto;
+  }
+}

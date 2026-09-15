@@ -1207,3 +1207,12 @@ NV-05 的具体键盘缺口：`CommandPalette.tsx` 声明 modal/listbox，但缺
 - **发布闭环**：产品提交 [`9400c3b`](https://github.com/zhulongqihan/Focused-Moment/commit/9400c3be7f712ea4307782e4398489d5c2f7d047) 已推送到 `main`；`v2.11.4` tag 已创建并固定指向该产品提交；GitHub Release [`v2.11.4`](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.11.4) 已标记为 latest，三项 Windows x64 资产已上传，远端 digest 与 `docs/v2.11.4/RELEASE_NOTES.md` 一致。
 - **远端验证**：Windows Checks [`34988519919`](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34988519919) PASS；前端 `136 passed`，Rust fmt/check/test PASS。Node.js 20 弃用提示仅为 Actions 注记，不影响本次验证。portable / Setup / MSI digest 分别为 `3a362209dffa7b8b9dc9201d9a41ce813eb6d96d4e40a08d2f6117067ccddf88`、`ce92fa13dacd0d705ddb871c177f73058b4f6c9fc1a34f0ccf05a4cb696bb975`、`6b22f4f67faff3de6c3702429aa2138c86965793d1fb924075e5af08a5a2e095`。
 - **最终状态**：`REL-27 DONE`；不运行任何 macOS workflow，不停止当前用户进程；后续按项目优先级排队。
+
+### 2026-09-16 REL-28 v2.11.5 编辑纸页与跨主题待办体验修复（发布进行中）
+
+- **用户问题**：编辑纸页品牌标记需要恢复偏置小圆点并修正圆环层级；切换计时页时工作区向中间收缩；五个页面标题字号不一致；待办页仍保留无用的中间列且长列表缺少按日期折叠；设置里的快捷键区缺少实际价值。
+- **根因与实现**：高优先级共享 cinematic 导航规则把品牌内环推出外环并隐藏了圆点，已增加编辑纸页专用收口规则；计时页的固有宽度改变了桌面网格，已固定 focus workspace 的宽度/列约束并补窄桌面断点；五个编辑纸页标题统一使用 Today 标题尺度；四个旧三列主题待办页改为共享日期分组待办 + 已完成两列，主动待办与过期待办合并进入分组，展开组保留局部滚动；设置快捷键区替换为可持久化的专注/休息/秒表提醒时长。
+- **修改范围**：`src/components/NightValleyViews.tsx`、`src/components/EditorialPaperViews.tsx/.css`、`src/components/GraphiteConsoleViews.tsx/.css`、`src/components/AuroraOceanViews.tsx/.css`、`src/components/BotanicalLibraryViews.tsx/.css`、`tests/today-visual.spec.mjs`；版本源同步为 `2.11.5`，新增 `docs/v2.11.5/RELEASE_NOTES.md`。
+- **本地验证**：`pnpm exec playwright test tests/app.spec.mjs tests/today-visual.spec.mjs --workers=1` 为 `138/138 PASS`；`pnpm check` PASS；`pnpm build` PASS（2066 modules）；`git diff --check` PASS。最终 Rust fmt/check/test、Windows 打包、提交、推送和 Release 资产核验待完成。
+- **发布边界**：本批按 `v2.11.4` 后用户可见 patch 变化升为 `v2.11.5`；仅发布 Windows x64 portable、Setup/NSIS、MSI；不运行 macOS workflow，不停止用户正在运行的应用进程。
+- **当前状态 / 下一步**：`REL-28 DOING`；源码与发布说明已升版，下一步执行 Rust/Windows 打包验证、补齐资产 SHA-256、提交推送、创建 `v2.11.5` tag 并更新 GitHub Release。

@@ -24,7 +24,7 @@ function pageButton(page, label) {
   return page.locator(".minimal-nav > button").filter({ hasText: label });
 }
 
-async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一件事开始", recordCount = 7, includeTodo = true, todoTitles = ["明日规划"], completedTodoTitles = [], dailyBreakdown = [], recordDates = [], recordTitlePrefix = "", analyticsPatch = {}, freezeClock = true } = {}) {
+async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一件事开始", recordCount = 7, includeTodo = true, todoTitles = ["明日规划"], todoDates = [], completedTodoTitles = [], dailyBreakdown = [], recordDates = [], recordTitlePrefix = "", analyticsPatch = {}, freezeClock = true } = {}) {
   if (freezeClock) {
     await page.addInitScript(() => {
       const NativeDate = Date;
@@ -42,7 +42,7 @@ async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一
     });
   }
 
-  await page.addInitScript(({ today, recordCount, includeTodo, todoTitles, completedTodoTitles, dailyBreakdown, recordDates, recordTitlePrefix, analyticsPatch }) => {
+  await page.addInitScript(({ today, recordCount, includeTodo, todoTitles, todoDates, completedTodoTitles, dailyBreakdown, recordDates, recordTitlePrefix, analyticsPatch }) => {
     const focusRecordSeeds = [
       ["晨间计划", "08:10"],
       ["阅读行业报告", "09:35"],
@@ -77,7 +77,7 @@ async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一
         id: 101 + index,
         title,
         isCompleted: false,
-        scheduledDate: today,
+        scheduledDate: todoDates[index] ?? today,
         scheduledTime: "21:00",
         importanceKey: "medium",
       })),
@@ -169,6 +169,9 @@ async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一
             return timer;
           case "get_timer_preferences":
             return timerPreferences;
+          case "update_timer_preferences":
+            Object.assign(timerPreferences, args.preferences ?? {});
+            return timerPreferences;
           case "get_todo_items":
             return todos;
           case "get_focus_records":
@@ -209,7 +212,7 @@ async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一
         }
       },
     };
-  }, { today: referenceDate, recordCount, includeTodo, todoTitles, completedTodoTitles, dailyBreakdown, recordDates, recordTitlePrefix, analyticsPatch });
+  }, { today: referenceDate, recordCount, includeTodo, todoTitles, todoDates, completedTodoTitles, dailyBreakdown, recordDates, recordTitlePrefix, analyticsPatch });
 
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
@@ -721,10 +724,44 @@ test("Graphite Console renders all five pages inside the control surface", async
   await expect(page.locator(".minimal-nav > button.active")).toHaveCSS("border-radius", "0px");
 
   await pageButton(page, "待办").click();
-  await expect(page.locator(".gc-task-bays > .gc-task-bay")).toHaveCount(3);
+  await expect(page.locator(".gc-task-bays > .gc-task-bay")).toHaveCount(2);
   const addTaskBox = await page.getByRole("button", { name: /ADD TASK/ }).boundingBox();
   expect(addTaskBox?.width ?? Number.POSITIVE_INFINITY).toBeLessThan(220);
   writeFileSync(`${graphiteDirectory}/geometry.json`, JSON.stringify({ viewport: { width: 1487, height: 1058 }, pages: geometry }, null, 2));
+});
+
+test("Every theme keeps pending todos in date groups with only a done column", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page, {
+    expectedHeading: "今日节奏",
+    todoTitles: ["今天的第一件事", "明天的第二件事", "已过期的第三件事"],
+    todoDates: [referenceDate, "2026-09-06", "2026-09-04"],
+    completedTodoTitles: ["已经完成的事项"],
+  });
+
+  const themes = [
+    { id: "night-valley", columnSelector: ".nv-todo-column", pendingSelector: ".nv-todo-column--start", doneSelector: ".nv-todo-column--done", dateSelector: ".nv-todo-date-group", legacySelector: ".nv-todo-column--focus" },
+    { id: "editorial-paper", columnSelector: ".ep-todo-column", pendingSelector: ".ep-todo-column--pending", doneSelector: ".ep-todo-column--done", dateSelector: ".nv-todo-date-group", legacySelector: ".ep-todo-column--focus" },
+    { id: "graphite-console", columnSelector: ".gc-task-bay", pendingSelector: ".gc-task-bay--queued", doneSelector: ".gc-task-bay--done", dateSelector: ".nv-todo-date-group", legacySelector: ".gc-task-bay--active" },
+    { id: "aurora-ocean", columnSelector: ".ao-reef-zone", pendingSelector: ".ao-reef-zone--now", doneSelector: ".ao-reef-zone--arrived", dateSelector: ".nv-todo-date-group", legacySelector: ".ao-reef-zone--later" },
+    { id: "botanical-library", columnSelector: ".bl-desk-column", pendingSelector: ".bl-desk-column--seed", doneSelector: ".bl-desk-column--harvest", dateSelector: ".nv-todo-date-group", legacySelector: ".bl-desk-column--sprout" },
+  ];
+
+  for (const theme of themes) {
+    await page.addInitScript((themeId) => localStorage.setItem("focused-moment.theme", themeId), theme.id);
+    await page.evaluate((themeId) => localStorage.setItem("focused-moment.theme", themeId), theme.id);
+    await page.reload();
+    await pageButton(page, "待办").click();
+    await expect(page.locator(theme.columnSelector)).toHaveCount(2);
+    await expect(page.locator(theme.pendingSelector)).toBeVisible();
+    await expect(page.locator(theme.doneSelector)).toBeVisible();
+    await expect(page.locator(theme.legacySelector)).toHaveCount(0);
+    await expect(page.locator(theme.pendingSelector).locator(theme.dateSelector)).toHaveCount(3);
+    await expect(page.locator(theme.pendingSelector).locator(`${theme.dateSelector}__toggle`)).toHaveCount(3);
+  }
 });
 
 test("Graphite Console keeps shared actions and page bounds usable at pressure widths", async ({ page }) => {
@@ -944,13 +981,49 @@ test("Editorial Paper renders all five pages inside the desktop surface", async 
     await expect(surface).toBeVisible();
     geometry[label] = await surface.evaluate((element) => {
       const rect = element.getBoundingClientRect();
-      return { width: Number(rect.width.toFixed(2)), height: Number(rect.height.toFixed(2)), right: Number(rect.right.toFixed(2)) };
+      const heading = element.querySelector("h1");
+      return {
+        width: Number(rect.width.toFixed(2)),
+        height: Number(rect.height.toFixed(2)),
+        right: Number(rect.right.toFixed(2)),
+        headingFontSize: heading ? getComputedStyle(heading).fontSize : "",
+      };
     });
     expect(geometry[label].width).toBeGreaterThan(600);
     expect(geometry[label].right).toBeLessThanOrEqual(1487);
     await page.screenshot({ path: `${editorialDirectory}/${screenshot}`, animations: "disabled", fullPage: true });
   }
+  expect(new Set(Object.values(geometry).map((item) => item.headingFontSize)).size).toBe(1);
   writeFileSync(`${editorialDirectory}/geometry.json`, JSON.stringify({ viewport: { width: 1487, height: 1058 }, pages: geometry }, null, 2));
+});
+
+test("Editorial Paper keeps the focus tab shell at the same desktop width", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+
+  const readShell = () => page.locator(".minimal-workspace").evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    return { left: rect.left, width: rect.width, right: rect.right };
+  });
+  const before = await readShell();
+  await pageButton(page, "计时").click();
+  const samples = await page.locator(".minimal-workspace").evaluate(async (element) => {
+    const values = [];
+    for (let index = 0; index < 8; index += 1) {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      const rect = element.getBoundingClientRect();
+      values.push({ left: rect.left, width: rect.width, right: rect.right });
+    }
+    return values;
+  });
+  for (const sample of samples) {
+    expect(Math.abs(sample.left - before.left)).toBeLessThanOrEqual(1);
+    expect(Math.abs(sample.width - before.width)).toBeLessThanOrEqual(1);
+    expect(Math.abs(sample.right - before.right)).toBeLessThanOrEqual(1);
+  }
 });
 
 test("Editorial Paper keeps Today navigation colors, logo geometry, and plan date meaningful", async ({ page }) => {
@@ -988,9 +1061,11 @@ test("Editorial Paper keeps Today navigation colors, logo geometry, and plan dat
     if (!ring || !dot) return null;
     const logoRect = logo.getBoundingClientRect();
     const ringRect = ring.getBoundingClientRect();
+    const dotRect = dot.getBoundingClientRect();
     return {
-      outer: { width: logoRect.width, height: logoRect.height },
-      inner: { width: ringRect.width, height: ringRect.height },
+      outer: { left: logoRect.left, right: logoRect.right, top: logoRect.top, bottom: logoRect.bottom, width: logoRect.width, height: logoRect.height },
+      inner: { left: ringRect.left, right: ringRect.right, top: ringRect.top, bottom: ringRect.bottom, width: ringRect.width, height: ringRect.height },
+      dot: { left: dotRect.left, right: dotRect.right, top: dotRect.top, bottom: dotRect.bottom, width: dotRect.width, height: dotRect.height },
       dotDisplay: getComputedStyle(dot).display,
       outerRadius: getComputedStyle(logo).borderRadius,
       innerRadius: getComputedStyle(ring).borderRadius,
@@ -1002,7 +1077,16 @@ test("Editorial Paper keeps Today navigation colors, logo geometry, and plan dat
   expect(logoEvidence.outer.height).toBeGreaterThan(logoEvidence.inner.height);
   expect(logoEvidence.outerRadius).toBe("50%");
   expect(logoEvidence.innerRadius).toBe("50%");
-  expect(logoEvidence.dotDisplay).toBe("none");
+  expect(logoEvidence.dotDisplay).toBe("block");
+  expect(logoEvidence.inner.left).toBeGreaterThan(logoEvidence.outer.left);
+  expect(logoEvidence.inner.right).toBeLessThan(logoEvidence.outer.right);
+  expect(logoEvidence.inner.top).toBeGreaterThan(logoEvidence.outer.top);
+  expect(logoEvidence.inner.bottom).toBeLessThan(logoEvidence.outer.bottom);
+  expect(logoEvidence.dot.left).toBeGreaterThanOrEqual(logoEvidence.outer.left);
+  expect(logoEvidence.dot.right).toBeLessThanOrEqual(logoEvidence.outer.right);
+  expect(logoEvidence.dot.top).toBeGreaterThanOrEqual(logoEvidence.outer.top);
+  expect(logoEvidence.dot.bottom).toBeLessThanOrEqual(logoEvidence.outer.bottom);
+  expect(logoEvidence.dot.left).toBeGreaterThanOrEqual(logoEvidence.inner.right);
   await expect(page.locator(".ep-kicker").first()).toHaveText("DAILY PLAN · 2026.09.05");
   await expect(page.locator(".ep-kicker").first()).not.toContainText("0905");
 });
@@ -1672,7 +1756,7 @@ test("REFINE-19 TIMER-09 makes Editorial Paper reset explicit and usable", async
   await page.screenshot({ path: "output/qa/REFINE-19/TIMER-09-after-clear-9ecaf59.png", animations: "disabled", fullPage: true });
 });
 
-test("REFINE-19 TIMER-10 keeps only real Editorial Paper shortcut guidance", async ({ page }) => {
+test("REFINE-19 TIMER-10 keeps keyboard actions global without a shortcut panel", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
@@ -1683,12 +1767,10 @@ test("REFINE-19 TIMER-10 keeps only real Editorial Paper shortcut guidance", asy
   await expect(page.locator(".ep-focus-page kbd")).toHaveCount(0);
 
   await pageButton(page, "设置").click();
-  const shortcuts = page.locator(".ep-settings-paper--shortcuts");
-  await expect(shortcuts).toBeVisible();
-  await expect(shortcuts).toContainText("开始 / 继续");
-  await expect(shortcuts).toContainText("结束本段");
-  await expect(shortcuts).toContainText("命令面板");
-  await expect(shortcuts.locator("kbd")).toHaveCount(7);
+  const rhythm = page.locator(".ep-settings-paper--rhythm");
+  await expect(rhythm).toBeVisible();
+  await expect(page.locator(".ep-settings-paper--shortcuts")).toHaveCount(0);
+  await expect(rhythm.locator('input[type="number"]')).toHaveCount(3);
 
   await page.keyboard.press("Control+Enter");
   await expect(page.locator(".app-message")).toContainText("先写下一件要完成的事");
@@ -1698,7 +1780,7 @@ test("REFINE-19 TIMER-10 keeps only real Editorial Paper shortcut guidance", asy
   await expect(page.getByRole("dialog", { name: "你想做什么？" })).toBeVisible();
   await page.keyboard.press("Escape");
   await pageButton(page, "设置").click();
-  await expect(shortcuts).toBeVisible();
+  await expect(rhythm).toBeVisible();
   await page.screenshot({ path: "output/qa/REFINE-19/TIMER-10-pass-9ecaf59.png", animations: "disabled", fullPage: true });
 });
 
@@ -2188,18 +2270,18 @@ test("REFINE-19 TODO-01 checks Editorial Paper todo columns for overlap, bounded
     });
     console.log(`TODO-01 ${width}x${height}: ${JSON.stringify(metrics)}`);
     expect(metrics.documentScrollWidth).toBeLessThanOrEqual(width + 1);
-    expect(metrics.columns).toHaveLength(3);
+    expect(metrics.columns).toHaveLength(2);
     for (const column of metrics.columns) {
       expect(column.column.left).toBeGreaterThanOrEqual(0);
       expect(column.column.right).toBeLessThanOrEqual(width + 1);
       expect(column.overlaps).toEqual([]);
       expect(column.content.every((item) => item.width >= 0 && item.height >= 0 && item.left >= 0 && item.right <= width + 1)).toBe(true);
       expect(column.list.top).toBeGreaterThanOrEqual(column.column.top);
-      if (column.className.includes("ep-todo-column--focus")) expect(column.list.height).toBeLessThan(230);
       expect(column.column.bottom - column.list.bottom).toBeLessThanOrEqual(35);
     }
-    await expect(todoPage.locator(".ep-todo-column--today header")).toContainText("今天");
-    await expect(todoPage.locator(".ep-todo-column--focus .ep-empty-card")).toContainText("还没有进行中的事项");
+    await expect(todoPage.locator(".ep-todo-column--pending header")).toContainText("BY DATE");
+    await expect(todoPage.locator(".ep-todo-column--pending .nv-todo-date-group")).toHaveCount(1);
+    await expect(todoPage.locator(".ep-todo-column--pending .nv-todo-date-group__toggle")).toHaveAttribute("aria-expanded", "true");
     await expect(todoPage.locator(".ep-todo-column--done header")).toContainText("已完成");
   }
   await page.evaluate(() => window.scrollTo(0, 0));
@@ -2243,7 +2325,7 @@ test("REFINE-19 TODO-02 keeps a long completed todo list visible and actionable"
   await pageButton(page, "待办").click();
   const todoPage = page.locator(".ep-todos-page");
   const doneColumn = todoPage.locator(".ep-todo-column--done");
-  const todayColumn = todoPage.locator(".ep-todo-column--today");
+  const pendingColumn = todoPage.locator(".ep-todo-column--pending");
   await expect(doneColumn.locator(".ep-todo-row")).toHaveCount(completedTitles.length);
   const lastRow = doneColumn.locator(".ep-todo-row").last();
   await lastRow.scrollIntoViewIfNeeded();
@@ -2257,7 +2339,7 @@ test("REFINE-19 TODO-02 keeps a long completed todo list visible and actionable"
 
   await lastRow.locator(".ep-todo-check").click();
   await expect(doneColumn.locator(".ep-todo-row")).toHaveCount(completedTitles.length - 1);
-  await expect(todayColumn).toContainText(restoredTitle);
+  await expect(pendingColumn).toContainText(restoredTitle);
 
   const desktopTextEvidence = await todoPage.locator(".ep-todo-row__copy strong").evaluateAll((elements) => elements.map((element) => {
     const style = getComputedStyle(element);
@@ -2864,7 +2946,7 @@ test("REFINE-19 SETTINGS-01 keeps Editorial Paper settings copy and controls sep
       const overlaps = (first, second) => first.left < second.right - 1 && first.right > second.left + 1 && first.top < second.bottom - 1 && first.bottom > second.top + 1;
       const blockSelectors = [
         ".ep-section-heading", ".ep-theme-swatches", ".ep-slider-row", ".ep-density-row", ".ep-live-preview",
-        ".ep-setting-list", ".ep-hand-note", ".ep-select-row", ".ep-sound-actions", ".ep-shortcut-list",
+        ".ep-setting-list", ".ep-hand-note", ".ep-select-row", ".ep-sound-actions", ".ep-rhythm-grid",
         ".ep-settings-paper--backup > p", ".ep-settings-actions", ".ep-error", ".ep-settings-footer",
       ];
       const blockMetrics = [...document.querySelectorAll(".ep-settings-paper")].flatMap((paper, paperIndex) => blockSelectors.map((selector) => {
@@ -3000,7 +3082,7 @@ test("REFINE-19 SETTINGS-03 keeps Editorial Paper sound choices and custom sound
   expect(commands.filter((command) => command === "update_timer_preferences").length).toBe(3);
 });
 
-test("REFINE-19 SETTINGS-04 keeps displayed Editorial Paper shortcuts wired", async ({ page }) => {
+test("REFINE-19 SETTINGS-04 replaces the shortcut panel with useful rhythm settings", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
@@ -3027,16 +3109,16 @@ test("REFINE-19 SETTINGS-04 keeps displayed Editorial Paper shortcuts wired", as
   });
   await pageButton(page, "设置").click();
   const settingsPage = page.locator(".ep-settings-page");
-  const shortcutRows = settingsPage.locator(".ep-shortcut-list > div");
-  await expect(shortcutRows).toHaveCount(3);
-  await expect(shortcutRows.nth(0)).toContainText("开始 / 继续");
-  await expect(shortcutRows.nth(0)).toContainText("Ctrl");
-  await expect(shortcutRows.nth(0)).toContainText("Enter");
-  await expect(shortcutRows.nth(1)).toContainText("结束本段");
-  await expect(shortcutRows.nth(1)).toContainText("Shift");
-  await expect(shortcutRows.nth(1)).toContainText("E");
-  await expect(shortcutRows.nth(2)).toContainText("命令面板");
-  await expect(shortcutRows.nth(2)).toContainText("K");
+  const rhythm = settingsPage.locator(".ep-rhythm-grid");
+  await expect(rhythm).toBeVisible();
+  await expect(settingsPage.locator(".ep-shortcut-list")).toHaveCount(0);
+  await expect(rhythm.locator('input[type="number"]')).toHaveCount(3);
+  await expect(rhythm).toContainText("默认专注");
+  await expect(rhythm).toContainText("默认休息");
+  await expect(rhythm).toContainText("长专注提醒");
+  await rhythm.locator('input[type="number"]').first().fill("50");
+  await rhythm.locator('input[type="number"]').first().press("Tab");
+  await expect.poll(() => page.evaluate(() => window.__epShortcutCommands.filter((command) => command === "update_timer_preferences").length)).toBe(1);
 
   await page.keyboard.press("Control+K");
   await expect(page.locator("#command-palette-dialog")).toBeVisible();
@@ -3055,10 +3137,10 @@ test("REFINE-19 SETTINGS-04 keeps displayed Editorial Paper shortcuts wired", as
   await page.setViewportSize({ width: 420, height: 720 });
   const mobileMetrics = await settingsPage.evaluate(() => ({
     documentScrollWidth: document.documentElement.scrollWidth,
-    shortcutRight: document.querySelector(".ep-shortcut-list")?.getBoundingClientRect().right ?? -1,
+    rhythmRight: document.querySelector(".ep-rhythm-grid")?.getBoundingClientRect().right ?? -1,
   }));
   expect(mobileMetrics.documentScrollWidth).toBeLessThanOrEqual(421);
-  expect(mobileMetrics.shortcutRight).toBeLessThanOrEqual(421);
+  expect(mobileMetrics.rhythmRight).toBeLessThanOrEqual(421);
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: "output/qa/REFINE-19/SETTINGS-04-pass-420-9ecaf59.png", animations: "disabled", fullPage: true });
 });

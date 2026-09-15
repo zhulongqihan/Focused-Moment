@@ -1,4 +1,4 @@
-import { For, Show, createMemo, createSignal } from "solid-js";
+import { For, Show, createMemo, createSignal, type JSX } from "solid-js";
 import {
   ArrowUpRight,
   ChevronDown,
@@ -31,7 +31,7 @@ function localDateKey(date = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
-interface TodoDateGroup {
+export interface TodoDateGroup {
   date: string;
   label: string;
   items: TodoItem[];
@@ -62,7 +62,7 @@ function formatTodoDateGroupLabel(value: string) {
   return `${dateLabel} · ${weekday}`;
 }
 
-function groupTodosByDate(items: TodoItem[]) {
+export function groupTodosByDate(items: TodoItem[]) {
   const groups = new Map<string, TodoDateGroup>();
   for (const item of items) {
     const date = item.scheduledDate.trim() || "未设置日期";
@@ -554,9 +554,10 @@ function TodoCard(props: TodoCardProps) {
 interface TodoDateGroupListProps extends Omit<TodoCardProps, "item"> {
   groups: Accessor<TodoDateGroup[]>;
   listLabel: string;
+  renderItem?: (item: TodoItem) => JSX.Element;
 }
 
-function TodoDateGroupList(props: TodoDateGroupListProps) {
+export function TodoDateGroupList(props: TodoDateGroupListProps) {
   const [requestedOpenDate, setRequestedOpenDate] = createSignal<string | null | undefined>(undefined);
   let previousGroups: TodoDateGroup[] = [];
   const stableGroups = createMemo(() => {
@@ -604,7 +605,7 @@ function TodoDateGroupList(props: TodoDateGroupListProps) {
               <Show when={isOpen()}>
                 <div id={groupId} class="nv-todo-date-group__items">
                   <For each={group.items}>
-                    {(item) => (
+                    {(item) => props.renderItem ? props.renderItem(item) : (
                       <TodoCard
                         item={item}
                         editingTodo={props.editingTodo}
