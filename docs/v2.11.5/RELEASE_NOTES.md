@@ -32,6 +32,7 @@
 - `cargo check --locked`: PASS.
 - `cargo test --locked`: `35/35 PASS`.
 - `pnpm package:release`: PASS; the Tauri release bundle produced Windows x64 MSI and NSIS installers, and the portable/Setup exports were generated.
+- Windows Checks [`34999195731`](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34999195731): PASS. The remote run reported `137 passed`; one cross-theme date-group test was marked flaky after a first `page.reload` timeout, then passed on retry. Rust check/tests also passed.
 
 ## Windows assets
 
