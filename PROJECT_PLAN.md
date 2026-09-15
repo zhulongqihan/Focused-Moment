@@ -1186,11 +1186,13 @@ NV-05 的具体键盘缺口：`CommandPalette.tsx` 声明 modal/listbox，但缺
 - **远端验证**：Windows Checks [`34920124522`](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34920124522) PASS；前端 `135 passed`，Rust fmt/check/test PASS。Node.js 20 弃用提示仅为 Actions 注记，不影响本次验证。
 - **最终状态**：`REL-25 DONE`；不运行任何 macOS workflow，不停止当前用户进程；后续按项目优先级排队。
 
-### 2026-09-15 Night Valley 今日侧边栏对齐修复（本地候选完成，待发布）
+### 2026-09-15 Night Valley 今日侧边栏对齐修复（已完成）
 
 - **用户问题**：点击“今日”后，侧边栏文字间距被拉开并出现覆盖；切换到计时、待办、记录、设置时没有该问题。
 - **根因确认**：只有 Today 根容器带有 `minimal-app--trail`；其旧规则 `.minimal-app--trail .minimal-nav span { margin-left: auto; }` 把所有导航文字当成计数元素推向右侧，同时 Today 激活态未覆盖共享导航的左对齐规则。
 - **实现**：在 `src/App.css` 的共享导航收口规则中提高导航标签选择器优先级并重置 `margin-left`，为 Today 桌面导航及激活态统一 `justify-content: flex-start`；待办数量保持独立的计数布局。`tests/today-visual.spec.mjs` 新增图标/文字几何与五个 Tab 循环断言。
 - **本地验证**：定向导航回归 PASS；完整前端回归为 `135/135 PASS`；`pnpm check`、`pnpm build`（2066 modules）、Cargo fmt/check/test（35/35）和 `pnpm package:release` 均 PASS。
 - **版本边界**：按 `v2.11.2` 之后的用户可见 UI bug-fix 纪律升为 `2.11.3`，已同步版本源并生成 Windows x64 三项资产及 `docs/v2.11.3/RELEASE_NOTES.md`，macOS 继续冻结。
-- **当前状态 / 下一步**：本地发布候选完成，待提交、推送、创建 `v2.11.3` GitHub Release，并等待 Windows Checks 通过后回填远端 digest 与最终发布证据。
+- **发布闭环**：产品提交 [`e9fb459`](https://github.com/zhulongqihan/Focused-Moment/commit/e9fb459f229216d1e7c4766f89906113a58f1291) 已推送到 `main`；`v2.11.3` tag 已创建并固定指向该产品提交；Windows x64 三项安装资产已上传，远端 digest 与本地打包结果一致。
+- **远端验证**：Windows Checks [`34936326293`](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34936326293) PASS；前端 `135 passed`，Rust fmt/check/test PASS。Node.js 20 弃用提示仅为 Actions 注记，不影响本次验证。
+- **最终状态**：`REL-26 DONE`；发布页为 [`v2.11.3`](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.11.3)；不运行任何 macOS workflow，不停止当前用户进程；后续按项目优先级排队。
