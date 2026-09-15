@@ -76,6 +76,41 @@ function groupTodosByDate(items: TodoItem[]) {
   return Array.from(groups.values());
 }
 
+function sameTodoItem(left: TodoItem, right: TodoItem) {
+  return left.id === right.id
+    && left.title === right.title
+    && left.isCompleted === right.isCompleted
+    && left.scheduledDate === right.scheduledDate
+    && left.scheduledTime === right.scheduledTime
+    && left.importanceKey === right.importanceKey;
+}
+
+function stabilizeTodoDateGroups(nextGroups: TodoDateGroup[], previousGroups: TodoDateGroup[]) {
+  const previousByDate = new Map(previousGroups.map((group) => [group.date, group]));
+  let unchanged = nextGroups.length === previousGroups.length
+    && nextGroups.every((group, index) => previousGroups[index]?.date === group.date);
+  const stableGroups = nextGroups.map((group) => {
+    const previous = previousByDate.get(group.date);
+    if (!previous || previous.label !== group.label || previous.items.length !== group.items.length) {
+      unchanged = false;
+      return group;
+    }
+
+    const previousItemsById = new Map(previous.items.map((item) => [item.id, item]));
+    const stableItems = group.items.map((item) => {
+      const previousItem = previousItemsById.get(item.id);
+      return previousItem && sameTodoItem(previousItem, item) ? previousItem : item;
+    });
+    const sameGroup = stableItems.every((item, index) => item === previous.items[index]);
+    if (sameGroup) return previous;
+
+    unchanged = false;
+    return { ...group, items: stableItems };
+  });
+
+  return unchanged ? previousGroups : stableGroups;
+}
+
 function currentDateLabel() {
   return new Date()
     .toLocaleDateString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" })
@@ -523,9 +558,16 @@ interface TodoDateGroupListProps extends Omit<TodoCardProps, "item"> {
 
 function TodoDateGroupList(props: TodoDateGroupListProps) {
   const [requestedOpenDate, setRequestedOpenDate] = createSignal<string | null | undefined>(undefined);
+  let previousGroups: TodoDateGroup[] = [];
+  const stableGroups = createMemo(() => {
+    const nextGroups = props.groups();
+    const nextStableGroups = stabilizeTodoDateGroups(nextGroups, previousGroups);
+    previousGroups = nextStableGroups;
+    return nextStableGroups;
+  });
   const openDate = createMemo(() => {
     const requested = requestedOpenDate();
-    const groups = props.groups();
+    const groups = stableGroups();
     if (requested === null) return null;
     if (requested && groups.some((group) => group.date === requested)) return requested;
     return groups[0]?.date ?? null;
@@ -537,7 +579,7 @@ function TodoDateGroupList(props: TodoDateGroupListProps) {
 
   return (
     <div class="nv-todo-date-groups" aria-label={props.listLabel}>
-      <For each={props.groups()}>
+      <For each={stableGroups()}>
         {(group) => {
           const isOpen = () => openDate() === group.date;
           const groupId = `todo-date-group-${group.date.replace(/[^a-zA-Z0-9_-]/g, "-")}`;

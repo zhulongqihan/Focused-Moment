@@ -8,8 +8,8 @@ function localDate() {
   return `${year}-${month}-${day}`;
 }
 
-async function bootWithTauriMock(page, { includeOverdue = false, includeRecords = false, windowLabel = "main", pausedFocus = false, completedCountdown = false, initialLoadError = false, todayRecordCount = includeRecords ? 1 : 0, todayTodoCount = 1, futureTodoCount = 0, completedTodoCount = 0, historyDayCount = 0 } = {}) {
-  await page.addInitScript(({ today, includeOverdue, includeRecords, windowLabel, pausedFocus, completedCountdown, initialLoadError, todayRecordCount, todayTodoCount, futureTodoCount, completedTodoCount, historyDayCount }) => {
+async function bootWithTauriMock(page, { includeOverdue = false, includeRecords = false, windowLabel = "main", pausedFocus = false, completedCountdown = false, initialLoadError = false, todayRecordCount = includeRecords ? 1 : 0, todayTodoCount = 1, futureTodoCount = 0, completedTodoCount = 0, historyDayCount = 0, freshTodoSnapshots = false } = {}) {
+  await page.addInitScript(({ today, includeOverdue, includeRecords, windowLabel, pausedFocus, completedCountdown, initialLoadError, todayRecordCount, todayTodoCount, futureTodoCount, completedTodoCount, historyDayCount, freshTodoSnapshots }) => {
     const yesterday = new Date(`${today}T00:00:00`);
     yesterday.setDate(yesterday.getDate() - 1);
     const dateKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -327,7 +327,7 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
             return timerPreferences;
           case "get_todo_items":
             window.__todoItemsCalls += 1;
-            return todos;
+            return freshTodoSnapshots ? todos.map((item) => ({ ...item })) : todos;
           case "get_focus_records":
             return focusRecords;
           case "update_focus_record_title":
@@ -475,7 +475,7 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
         }
       },
     };
-  }, { today: localDate(), includeOverdue, includeRecords, windowLabel, pausedFocus, completedCountdown, initialLoadError, todayRecordCount, todayTodoCount, futureTodoCount, completedTodoCount, historyDayCount });
+  }, { today: localDate(), includeOverdue, includeRecords, windowLabel, pausedFocus, completedCountdown, initialLoadError, todayRecordCount, todayTodoCount, futureTodoCount, completedTodoCount, historyDayCount, freshTodoSnapshots });
 
   await page.goto("/");
   if (windowLabel === "main") {
@@ -1309,6 +1309,23 @@ test("todo board groups pending items by date and keeps one group open", async (
   await expect(groups.nth(0).locator(".nv-todo-date-group__toggle")).toHaveAttribute("aria-expanded", "false");
   await expect(groups.nth(1).locator(".nv-todo-date-group__toggle")).toHaveAttribute("aria-expanded", "true");
   await expect(groups.nth(1).locator(".nv-todo-card")).toHaveCount(2);
+});
+
+test("todo date group keeps its scroll position during background refresh", async ({ page }) => {
+  await bootWithTauriMock(page, { todayTodoCount: 18, freshTodoSnapshots: true });
+
+  await page.getByRole("button", { name: /^待办/ }).click();
+
+  const items = page.locator(".nv-todo-date-group").first().locator(".nv-todo-date-group__items");
+  const callsBeforeScroll = await page.evaluate(() => window.__todoItemsCalls);
+  await items.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
+  expect(await items.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+
+  await expect.poll(() => page.evaluate(() => window.__todoItemsCalls), { timeout: 3000 })
+    .toBeGreaterThan(callsBeforeScroll);
+  expect(await items.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
 });
 
 test("records overview info explains the seven-day chart on hover and focus", async ({ page }) => {
