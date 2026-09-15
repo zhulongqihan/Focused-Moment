@@ -28,9 +28,9 @@
 
 | 文件 | 字节数 | SHA-256 |
 | --- | ---: | --- |
-| `Focused Moment v2.11.2.exe` | 23,848,960 | `a274ba4df659a51575a278d61860f4ca9ed41a67ba56ece935ae8dc03f45e319` |
-| `Focused Moment Setup v2.11.2.exe` | 16,197,366 | `4c3da75baf4c496ae6123c80be0a81faad17ecedcf310b0232adcc036e724d1a` |
-| `Focused Moment_2.11.2_x64_en-US.msi` | 17,182,720 | `17b649b18dda5d83628573344e4b80974eeef2fc09b69b1080280634a0d8a00d` |
+| `Focused Moment v2.11.2.exe` | 23,848,960 | `b45c6e6fa5acfc344f6ef411c0051c36f2970c064bd106998ac9f9756bae337d` |
+| `Focused Moment Setup v2.11.2.exe` | 16,199,697 | `e512ac2493e615790f3be34fbfe3a13d51f0e602167af7b3f8138ae25d3eae72` |
+| `Focused Moment_2.11.2_x64_en-US.msi` | 17,182,720 | `86249b0d7cb0304112a694f9b671c0dfc0025aece6a5855e3f07041655a5eccf` |
 
 本地导出路径：`Focused Moment v2.11.2.exe`、`Focused Moment Setup v2.11.2.exe`、`src-tauri/target/release/bundle/msi/Focused Moment_2.11.2_x64_en-US.msi`。
 

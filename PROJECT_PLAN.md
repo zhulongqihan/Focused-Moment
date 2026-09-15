@@ -1175,11 +1175,13 @@ NV-05 的具体键盘缺口：`CommandPalette.tsx` 声明 modal/listbox，但缺
 - **远端验证**：Windows Checks [`34917040454`](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34917040454) PASS；前端 `134 passed`，Rust fmt/check/test PASS。Node.js 20 弃用提示仅为 Actions 注记，不影响本次验证。
 - **最终状态**：`REL-24 DONE`；不运行任何 macOS workflow，不停止当前用户进程；后续按项目优先级排队。
 
-### 2026-09-15 Night Valley 日期待办滚动持久化修复（本地候选完成，待发布）
+### 2026-09-15 Night Valley 日期待办滚动持久化修复（已完成）
 
 - **用户问题**：Night Valley 待办页展开某一天后，组内滚动条向下拖动会立即回到顶部。
 - **根因确认**：主窗口每秒刷新待办数据；刷新返回新的数组/对象后，日期分组的 Solid `<For>` 以对象身份判断节点，导致日期组和局部滚动容器被重建，浏览器将 `scrollTop` 重置为 `0`。这不是滚动条 CSS 高度本身的问题。
 - **实现**：在 `src/components/NightValleyViews.tsx` 增加日期组与待办项的语义稳定化；日期、标题、数量和待办字段未变化时复用上一轮组/项对象，只有内容真正变化时才替换节点。测试 mock 增加“每次刷新返回新对象快照”模式，并加入滚动位置回归断言。
 - **本地验证**：定向滚动回归 PASS；`pnpm exec playwright test tests/app.spec.mjs tests/today-visual.spec.mjs --workers=1` 为 `135/135 PASS`；`pnpm check`、`pnpm build`（2066 modules）、Cargo fmt/check/test（35/35）和 `pnpm package:release` 均 PASS。
 - **版本边界**：按 `v2.11.1` 之后的用户可见 bug-fix 纪律升为 `2.11.2`，已同步 `package.json`、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock`、`src-tauri/tauri.conf.json` 和 `src-tauri/src/runtime.rs`；Windows x64 三项资产及 `docs/v2.11.2/RELEASE_NOTES.md` 已生成，macOS 继续冻结。
-- **当前状态 / 下一步**：本地发布候选完成，待提交、推送、创建 `v2.11.2` GitHub Release，并等待 Windows Checks 通过后回填远端 digest 与最终发布证据。
+- **发布闭环**：产品提交 `5e5aa2743e0282c8cfa6667a672c270e4f39f678` 已推送到 `main`；`v2.11.2` tag 已创建且 peeled commit 固定为同一提交；GitHub Release [v2.11.2](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.11.2) 已标记为 latest，portable、Setup/NSIS、MSI 三项 Windows x64 资产均已上传，远端 digest 与 Release notes 一致。
+- **远端验证**：Windows Checks [`34920124522`](https://github.com/zhulongqihan/Focused-Moment/actions/runs/34920124522) PASS；前端 `135 passed`，Rust fmt/check/test PASS。Node.js 20 弃用提示仅为 Actions 注记，不影响本次验证。
+- **最终状态**：`REL-25 DONE`；不运行任何 macOS workflow，不停止当前用户进程；后续按项目优先级排队。
