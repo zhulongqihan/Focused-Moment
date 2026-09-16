@@ -463,6 +463,55 @@ test("Every theme uses the enclosed brand mark with its point in the orbit gap",
   }
 });
 
+test("REFINE-19 Editorial Paper keeps the sidebar mark and labels aligned across all five pages", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "editorial-paper");
+  });
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+
+  const states = [];
+  for (const label of ["今日", "计时", "待办", "记录", "设置"]) {
+    await pageButton(page, label).click();
+    states.push(await page.locator(".minimal-nav").evaluate((nav) => {
+      const logo = nav.querySelector(".trail-nav__logo");
+      const ring = nav.querySelector(".trail-nav__logo-ring");
+      const dot = nav.querySelector(".trail-nav__logo-dot");
+      const brand = nav.querySelector(".trail-nav__brand");
+      const rect = (element) => {
+        const box = element.getBoundingClientRect();
+        return { left: box.left, right: box.right, top: box.top, bottom: box.bottom, width: box.width, height: box.height };
+      };
+      const labels = [...nav.querySelectorAll(":scope > button")].map((button) => {
+        const labelElement = button.querySelector(".minimal-nav__label");
+        const buttonRect = button.getBoundingClientRect();
+        const labelRect = labelElement.getBoundingClientRect();
+        return {
+          buttonCenter: (buttonRect.left + buttonRect.right) / 2,
+          labelCenter: (labelRect.left + labelRect.right) / 2,
+          justifyContent: getComputedStyle(button).justifyContent,
+        };
+      });
+      return {
+        labels,
+        brandJustifyItems: getComputedStyle(brand).justifyItems,
+        outer: rect(logo),
+        inner: rect(ring),
+        dot: rect(dot),
+        outerBorder: getComputedStyle(logo).borderTopColor,
+        ringBackground: getComputedStyle(ring).backgroundImage,
+        dotBackground: getComputedStyle(dot).backgroundColor,
+      };
+    }));
+  }
+
+  expect(states.every((state) => state.labels.every((label) => Math.abs(label.buttonCenter - label.labelCenter) < 1))).toBe(true);
+  expect(states.every((state) => state.labels.every((label) => label.justifyContent === "center"))).toBe(true);
+  expect(new Set(states.map((state) => `${state.outer.width}x${state.outer.height}/${state.inner.width}x${state.inner.height}`)).size).toBe(1);
+  expect(states.every((state) => state.outer.width === 42 && state.outer.height === 42 && state.inner.left > state.outer.left && state.inner.right < state.outer.right && state.inner.top > state.outer.top && state.inner.bottom < state.outer.bottom)).toBe(true);
+  expect(states.every((state) => state.brandJustifyItems === "center" && state.outerBorder === "rgb(45, 77, 57)" && state.ringBackground.includes("conic-gradient") && state.dotBackground === "rgb(170, 76, 45)")).toBe(true);
+});
+
 test("Night Valley tabs share the live clock and hide the command trigger", async ({ page }) => {
   await page.setViewportSize({ width: 1487, height: 1058 });
   await bootTodayReferenceMock(page);
@@ -2015,10 +2064,10 @@ test("REFINE-19 TIMER-10 keeps keyboard actions global without a shortcut panel"
   await expect(page.locator(".ep-focus-page kbd")).toHaveCount(0);
 
   await pageButton(page, "设置").click();
-  const rhythm = page.locator(".ep-settings-paper--rhythm");
-  await expect(rhythm).toBeVisible();
+  const workspace = page.locator(".ep-settings-paper--workspace");
+  await expect(workspace).toBeVisible();
   await expect(page.locator(".ep-settings-paper--shortcuts")).toHaveCount(0);
-  await expect(rhythm.locator('input[type="number"]')).toHaveCount(3);
+  await expect(workspace.locator('input[type="range"]')).toHaveCount(2);
 
   await page.keyboard.press("Control+Enter");
   await expect(page.locator(".app-message")).toContainText("先写下一件要完成的事");
@@ -2028,7 +2077,7 @@ test("REFINE-19 TIMER-10 keeps keyboard actions global without a shortcut panel"
   await expect(page.getByRole("dialog", { name: "你想做什么？" })).toBeVisible();
   await page.keyboard.press("Escape");
   await pageButton(page, "设置").click();
-  await expect(rhythm).toBeVisible();
+  await expect(workspace).toBeVisible();
   await page.screenshot({ path: "output/qa/REFINE-19/TIMER-10-pass-9ecaf59.png", animations: "disabled", fullPage: true });
 });
 
@@ -3088,15 +3137,28 @@ test("REFINE-19 RECORDS-06 keeps all Editorial Paper records usable at scale", a
   await historyDay.locator("summary").click();
   await expect(historyDay.locator(":scope > div span")).toHaveCount(204);
   await expect(historyDay.locator(":scope > div")).toContainText(editedTitle);
+  const historyList = history.locator(".ep-full-history__list");
+  await expect(historyList).toBeVisible();
+  await expect(historyDay.locator("summary")).toHaveAttribute("aria-expanded", "true");
   const desktopMetrics = await recordsPage.evaluate(() => ({
     documentScrollWidth: document.documentElement.scrollWidth,
     documentScrollHeight: document.documentElement.scrollHeight,
     historyTextCount: document.querySelectorAll(".ep-full-history details > div span").length,
     selectedCount: document.querySelectorAll(".ep-records-list .ep-record-entry").length,
+    historyListClientHeight: document.querySelector(".ep-full-history__list")?.clientHeight ?? 0,
+    historyListScrollHeight: document.querySelector(".ep-full-history__list")?.scrollHeight ?? 0,
+    historyListOverflowY: document.querySelector(".ep-full-history__list") ? getComputedStyle(document.querySelector(".ep-full-history__list")).overflowY : "",
   }));
   expect(desktopMetrics.documentScrollWidth).toBeLessThanOrEqual(1488);
   expect(desktopMetrics.documentScrollHeight).toBeGreaterThan(1058);
   expect(desktopMetrics.historyTextCount).toBe(204);
+  expect(desktopMetrics.historyListClientHeight).toBeGreaterThan(0);
+  expect(desktopMetrics.historyListScrollHeight).toBeGreaterThan(desktopMetrics.historyListClientHeight);
+  expect(desktopMetrics.historyListOverflowY).toBe("auto");
+  await historyList.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
+  expect(await historyList.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
   await history.screenshot({ path: "output/qa/REFINE-19/RECORDS-06-pass-1487-9ecaf59.png", animations: "disabled" });
 
   await page.setViewportSize({ width: 420, height: 720 });
@@ -3228,7 +3290,7 @@ test("REFINE-19 SETTINGS-01 keeps Editorial Paper settings copy and controls sep
   }
 });
 
-test("REFINE-19 SETTINGS-02 removes Editorial Paper controls with no visible effect", async ({ page }) => {
+test("REFINE-19 SETTINGS-02 exposes Editorial Paper appearance controls with visible effect", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
@@ -3238,8 +3300,8 @@ test("REFINE-19 SETTINGS-02 removes Editorial Paper controls with no visible eff
     await pageButton(page, "设置").click();
     const settingsPage = page.locator(".ep-settings-page");
     await expect(settingsPage).toBeVisible();
-    await expect(settingsPage.locator(".ep-slider-row")).toHaveCount(0);
-    await expect(settingsPage.locator(".ep-density-row")).toHaveCount(0);
+    await expect(settingsPage.locator(".ep-slider-row")).toHaveCount(2);
+    await expect(settingsPage.locator(".ep-density-row")).toHaveCount(1);
     await expect(settingsPage.locator(".ep-theme-swatch")).toHaveCount(5);
     await expect(settingsPage.locator(".ep-live-preview")).toBeVisible();
     const metrics = await settingsPage.evaluate(() => ({
@@ -3252,6 +3314,14 @@ test("REFINE-19 SETTINGS-02 removes Editorial Paper controls with no visible eff
     expect(metrics.rootMotion).toMatch(/^(off|subtle|full)$/);
     expect(metrics.visualIntensityVariable).not.toBe("");
     expect(metrics.documentScrollWidth).toBeLessThanOrEqual(width + 1);
+    await settingsPage.locator('input[aria-label="画面明暗"]').evaluate((input) => {
+      const range = input;
+      range.value = "88";
+      range.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await expect(settingsPage.locator('input[aria-label="画面明暗"]')).toHaveValue("88");
+    await settingsPage.getByRole("button", { name: "紧凑", exact: true }).click();
+    await expect(page.locator(".minimal-app")).toHaveAttribute("data-density", "compact");
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({ path: `output/qa/REFINE-19/SETTINGS-02-after-${width}-9ecaf59.png`, animations: "disabled", fullPage: true });
   }
@@ -3330,71 +3400,43 @@ test("REFINE-19 SETTINGS-03 keeps Editorial Paper sound choices and custom sound
   expect(commands.filter((command) => command === "update_timer_preferences").length).toBe(3);
 });
 
-test("REFINE-19 SETTINGS-04 replaces the shortcut panel with useful rhythm settings", async ({ page }) => {
+test("REFINE-19 SETTINGS-04 replaces rhythm settings with useful workspace controls", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
   await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-  await page.evaluate(() => {
-    const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
-    window.__epShortcutCommands = [];
-    window.__TAURI_INTERNALS__.invoke = async (command, args = {}) => {
-      window.__epShortcutCommands.push(command);
-      if (command === "start_timer") {
-        const snapshot = await nativeInvoke(command, args);
-        return { ...snapshot, elapsedMs: 1000, elapsedLabel: "00:00:01", hasUnsubmittedProgress: true, canCompleteSession: true };
-      }
-      if (command === "complete_focus_session") {
-        const snapshot = await nativeInvoke("get_timer_snapshot");
-        return {
-          records: await nativeInvoke("get_focus_records"),
-          todoItems: await nativeInvoke("get_todo_items"),
-          timerSnapshot: { ...snapshot, isRunning: false, status: "待开始", elapsedMs: 0, elapsedLabel: "00:00:00", remainingMs: 0, hasUnsubmittedProgress: false, canCompleteSession: false },
-        };
-      }
-      return nativeInvoke(command, args);
-    };
-  });
   await pageButton(page, "设置").click();
   const settingsPage = page.locator(".ep-settings-page");
-  const rhythm = settingsPage.locator(".ep-rhythm-grid");
-  await expect(rhythm).toBeVisible();
+  const workspace = settingsPage.locator(".ep-settings-paper--workspace");
+  await expect(workspace).toBeVisible();
+  await expect(workspace).toContainText("工作台布局");
+  await expect(workspace).toContainText("画面明暗");
+  await expect(workspace).toContainText("动效程度");
+  await expect(workspace).toContainText("信息密度");
   await expect(settingsPage.locator(".ep-shortcut-list")).toHaveCount(0);
-  await expect(rhythm.locator('input[type="number"]')).toHaveCount(3);
-  await expect(rhythm).toContainText("默认专注");
-  await expect(rhythm).toContainText("默认休息");
-  await expect(rhythm).toContainText("秒表提醒");
-  await expect(settingsPage.locator(".ep-rhythm-preset")).toHaveCount(3);
-  await expect(settingsPage.locator(".ep-rhythm-summary")).toContainText("下一次番茄钟");
-  await settingsPage.locator(".ep-rhythm-preset").filter({ hasText: "深度 50/10" }).click();
-  await expect.poll(() => page.evaluate(() => window.__epShortcutCommands.filter((command) => command === "update_timer_preferences").length)).toBe(1);
-  await expect(rhythm.locator('input[aria-label="默认专注分钟"]')).toHaveValue("50");
-  await expect(rhythm.locator('input[aria-label="默认休息分钟"]')).toHaveValue("10");
-  await rhythm.locator('input[type="number"]').first().fill("45");
-  await rhythm.locator('input[type="number"]').first().press("Tab");
-  await expect.poll(() => page.evaluate(() => window.__epShortcutCommands.filter((command) => command === "update_timer_preferences").length)).toBe(2);
-
-  await page.keyboard.press("Control+K");
-  await expect(page.locator("#command-palette-dialog")).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(page.locator("#command-palette-dialog")).toHaveCount(0);
-  await page.keyboard.press("Control+Enter");
-  await expect.poll(() => page.evaluate(() => window.__epShortcutCommands.filter((command) => command === "start_timer").length)).toBe(1);
-  await page.keyboard.press("Control+Shift+E");
-  await expect.poll(() => page.evaluate(() => window.__epShortcutCommands.filter((command) => command === "complete_focus_session").length)).toBe(1);
-  await expect(page.locator(".app-message")).toContainText("已保存为一条专注记录");
-  const commands = await page.evaluate(() => window.__epShortcutCommands);
-  expect(commands).toEqual(expect.arrayContaining(["start_timer", "complete_focus_session"]));
+  await expect(settingsPage.locator(".ep-rhythm-grid")).toHaveCount(0);
+  await expect(settingsPage.locator(".ep-rhythm-preset")).toHaveCount(0);
+  await expect(workspace.locator('input[type="range"]')).toHaveCount(2);
+  await expect(workspace.getByRole("button", { name: "舒展", exact: true })).toBeVisible();
+  await expect(workspace.getByRole("button", { name: "紧凑", exact: true })).toBeVisible();
+  await workspace.locator('input[aria-label="动效程度"]').evaluate((input) => {
+    const range = input;
+    range.value = "12";
+    range.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await expect(workspace.locator('input[aria-label="动效程度"]')).toHaveValue("12");
+  await workspace.getByRole("button", { name: "紧凑", exact: true }).click();
+  await expect(page.locator(".minimal-app")).toHaveAttribute("data-density", "compact");
 
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: "output/qa/REFINE-19/SETTINGS-04-pass-1487-9ecaf59.png", animations: "disabled", fullPage: true });
   await page.setViewportSize({ width: 420, height: 720 });
   const mobileMetrics = await settingsPage.evaluate(() => ({
     documentScrollWidth: document.documentElement.scrollWidth,
-    rhythmRight: document.querySelector(".ep-rhythm-grid")?.getBoundingClientRect().right ?? -1,
+    workspaceRight: document.querySelector(".ep-settings-paper--workspace")?.getBoundingClientRect().right ?? -1,
   }));
   expect(mobileMetrics.documentScrollWidth).toBeLessThanOrEqual(421);
-  expect(mobileMetrics.rhythmRight).toBeLessThanOrEqual(421);
+  expect(mobileMetrics.workspaceRight).toBeLessThanOrEqual(421);
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: "output/qa/REFINE-19/SETTINGS-04-pass-420-9ecaf59.png", animations: "disabled", fullPage: true });
 });

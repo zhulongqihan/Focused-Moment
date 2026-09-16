@@ -5,6 +5,10 @@
 
 ## 0. 当前看板
 
+> **当前有效快照（2026-09-16 21:55，Asia/Shanghai）**：当前公开稳定版本为 `v2.11.9`，版本源与 Windows x64 Release 资产已对齐；本轮用户要求的 README 用户向重写已完成，README 已切换到五套 `public/theme-previews/` 主题预览，并移除旧的五张根目录生成图。工作树中另有用户已有的 Editorial Paper 修改，未纳入本轮文档与资源清理范围；除明确删除的五张图外均保留。
+
+> 下方表格和历史记录保留发布追溯信息；若旧版本描述与本快照冲突，以当前源码、最新 Release 说明和本文件末尾的最新工作单元记录为准。
+
 | 字段 | 当前值 |
 | --- | --- |
 | as_of / updated_at | 2026-09-14 02:41（Asia/Shanghai）；UX-AUDIT-01 已完成 25 页 × 3 轮 = 75 轮真实浏览器体验、50 组紧凑密度专项、20 个设置锚点检查和人工视觉复核；本地旧归档与生成物清理已按用户授权完成；REL-14 v2.10.11 五套主题“今日一句”已完成构建、提交、正常推送、tag、GitHub Release、远程 Checks、macOS Native Smoke、Universal DMG 和四项资产 digest 核对；新增用户决策：暂时冻结 macOS 版本更新，直到用户明确授权恢复；REL-15 v2.10.12 Windows-only 对齐修复已完成本地验证、打包、提交、推送、tag、Release、远程 Checks 和三项资产 digest 核对；新增用户决策：同一界面内的小修复先本地合并验证，界面整体完成后再一次性提交、推送和发布，不按单个小 bug 推送；`TRAY-01/REL-16` v2.10.13 Windows 通知区域托盘快速操作已实现、完成本地和远程 Windows 验收，并完成 Windows-only Release，证据见 `docs/v2.10.13/RELEASE_NOTES.md` 与 `docs/qa/TRAY-01-windows-tray-menu-v2.10.13.md`；`REFINE-14/REL-17` Night Valley“记录”页三项问题已完成本地实现、71/71 前端回归、Windows 构建打包、提交推送、远程 Checks 与三项 Release 资产 digest 核对，v2.10.14 已完成 Windows-only 发布；`REFINE-15/REL-18` 本轮记录页点线对齐、专注时段分布和全部记录可见性修复已完成本地实现、72/72 前端回归、Windows v2.10.15 打包与三项资产 SHA-256 核对、提交推送、tag、GitHub Release 和远程 Checks 收口；`REFINE-16/REL-19` 记录页窗口控件回归已完成 v2.10.16 Windows-only 修复、73/73 前端回归、Windows 打包、远程 Checks、tag、GitHub Release 与三项资产 digest 核对；`REFINE-17/REL-20` Night Valley 待办工作台重构已完成 v2.10.17 Windows-only 发布、本地与远程 75/75 前端回归、Windows 打包、tag、GitHub Release 和三项资产 digest 核对；`REFINE-18/REL-21` Night Valley 设置工作台重构已完成 v2.10.18 Windows-only 发布，远程 Checks 与三项资产 digest 已核对 |
@@ -1265,3 +1269,31 @@ NV-05 的具体键盘缺口：`CommandPalette.tsx` 声明 modal/listbox，但缺
 - **发布闭环**：产品提交 [`4f1fcc3`](https://github.com/zhulongqihan/Focused-Moment/commit/4f1fcc395bce5fe04b1777e65d9177d03e741cb9) 已推送到 `main`；`v2.11.9` tag 已创建并固定指向该提交；GitHub Release [`v2.11.9`](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.11.9) 已发布，三项 Windows x64 资产均为 `uploaded`，远端 digest 与本地 SHA-256 一致。
 - **远端验证**：Windows Checks [`35072818110`](https://github.com/zhulongqihan/Focused-Moment/actions/runs/35072818110) success（20 分 13 秒）；前端报告 `141 passed`、`4 flaky`（导航/reload 超时在重试后恢复），Rust fmt/check/test 均 PASS；Node.js 20 弃用提示为现有 Actions 注记，不影响本次验证。
 - **最终状态 / 下一步**：`REL-32 DONE`；发布说明已回填远程验证与三项资产 digest，macOS 继续冻结，不停止用户正在运行的应用进程；后续按项目优先级排队。
+
+### 2026-09-16 README 用户向重写与无用预览资源清理（已完成）
+
+- **目标**：将根目录 README 从过期的 v2.10.18 发布说明重写为 GitHub 常见的用户向入口，准确说明当前 v2.11.9、下载平台、产品功能、五套主题、隐私/备份、源码运行和反馈入口。
+- **文档更新**：README 已改为以当前 `public/theme-previews/` 五套主题预览为主的产品介绍；更新 v2.11.9 Windows x64 三项资产名称和 macOS 冻结说明；将桌面开发命令修正为 `pnpm tauri dev`，并保留前端预览、检查、测试和构建说明。
+- **资源清理**：按用户明确要求删除根目录五张未被产品使用的生成图：`安静开始.png`、`本地保护.png`、`管理待办.png`、`专注计时.png`、`状态复盘.png`；删除目标均为 Git 已跟踪单文件，README 旧引用已清零。
+- **状态核对**：以当前 `package.json`、`src-tauri/Cargo.toml`、`src-tauri/tauri.conf.json`、`docs/v2.11.9/RELEASE_NOTES.md` 和源码为事实来源；状态审计初始唯一告警为旧 README 晚于最新发布事实，已通过本轮重写处理。当前工作树另有用户已有的 Editorial Paper 相关修改，未触碰。
+- **验收**：已核对 README 所有本地文档/主题预览路径存在，已核对旧五张图片没有残留引用；本轮仅涉及 README、项目计划和用户明确要求删除的五张图片，不触发应用版本 bump、构建或 Release。
+- **最终状态 / 下一步**：本工作单元 DONE；五张图片已从工作树删除，可通过 Git 历史恢复；后续若 Editorial Paper 界面修改进入发布批次，再按版本与 Windows-only 发布纪律单独处理。
+
+### 2026-09-16 小红书推广素材与渠道调研（已完成）
+
+- **目标**：为 Focused Moment 准备可直接用于小红书发布的视觉素材、标题、正文和话题，并基于公开资料筛选后续推广渠道。
+- **内容结论**：公开样本更适合“真实使用场景 + 产品截图 + 单一痛点”的软件推荐表达；小红书公开尺寸参考常用 3:4 竖版，当前素材输出为 1086 × 1448。聚光帮助中心要求素材与真实产品、事实性描述保持一致，并限制绝对化用语和伪装成新闻的商业推广，因此文案只使用当前真实的 Windows x64、本地优先、五套主题、待办/计时/记录和悬浮工作台能力。
+- **视觉资产**：新增 `output/xiaohongshu/focused-moment-xhs-01-night-valley.png`、`focused-moment-xhs-02-editorial-paper.png`、`focused-moment-xhs-03-graphite-console.png`；分别覆盖情绪路径、安静工作台和执行效率三个传播角度，均基于现有主题预览制作。
+- **发布文案**：新增 `output/xiaohongshu/POST_COPY.md`，包含推荐发布顺序、首发标题与正文、备用标题、按图片切换的短文案、话题、下载入口和发布前检查。
+- **渠道结论**：首发优先小红书；同步在 V2EX 独立开发者节点分享开发故事/技术选择/痛点复盘，在少数派 Matrix 以开发者自荐或真实工作流文章投稿，在 W2Solo、SOLO、新趣集发布产品并收集早期反馈；英文版本稳定后再考虑 Product Hunt 和 Show HN。渠道均应以内容价值和真实试用为主，不把曝光量直接等同于下载转化。
+- **验收**：三张图片已用本地文件复核，尺寸为 1086 × 1448；文案文件可直接复制；`git diff --check` 通过。该工作单元只新增营销素材和文案，不触发应用版本 bump、构建或 Release。
+- **最终状态 / 下一步**：本工作单元 DONE；下一步可从三张图中选定主封面，再补一套同风格的轮播页或录制一段 30–60 秒真实操作演示。
+
+### 2026-09-16 REL-33 v2.11.10 编辑纸页第二主题视觉与信息架构修复（实现完成，待候选发布）
+
+- **用户问题**：编辑纸页首屏品牌图标过淡且与其他主题几何不一致；五个左侧页面标签未居中；记录页按天展开后长列表会撑高整页；设置页存在空缺，原“专注节奏”区缺少实际使用价值。
+- **根因与实现**：第二主题继承了多个晚加载的 cinematic 绝对定位和五列网格规则，覆盖了它自己的文档流导航；现在用主题边界规则恢复单列流式布局，统一五个页面的标签居中、图标外圈/内圈/缺口圆点几何与高对比度。全部记录改为一个有界的按日期滚动区，日期组仍保持单组展开并带有展开/收起语义。设置页改为“工作台布局”，提供真实的画面明暗、动效程度和信息密度控制，删除旧的专注节奏预设。
+- **修改范围**：`src/components/EditorialPaperViews.tsx/.css`、`tests/today-visual.spec.mjs`；版本源已同步为 `2.11.10`（`package.json`、Tauri Cargo/配置、运行时版本与发布里程碑）。工作树中用户已有的 README 重写、营销素材和五张根目录图片删除保持原样，未混入本工作单元的产品修改。
+- **本地验证**：`pnpm test:frontend -- --workers=1` 为 `146/146 PASS`；`pnpm check` PASS；`pnpm build` PASS（2067 modules）；`git diff --check` PASS；`cargo fmt --check`、`cargo check --locked`、`cargo test --locked`（35/35）均 PASS。窄桌面导航、五主题品牌几何、记录有界滚动、设置新控件和跨主题页面回归均已覆盖。
+- **发布状态**：当前仍为 `v2.11.9` 公开稳定版本；v2.11.10 已完成版本同步和本地验证，待生成 Windows x64 portable / Setup/NSIS / MSI 候选资产后提交、推送、tag、GitHub Release 和远程 Windows Checks 收口；macOS 继续冻结。
+- **最终状态 / 下一步**：`REL-33` 实现 DONE、发布 PENDING；先完成候选打包与资产 SHA-256 核对，再进入一次性 Windows-only 发布。

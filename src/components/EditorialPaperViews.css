@@ -1375,3 +1375,290 @@
     white-space: normal;
   }
 }
+
+/* v2.11.10: keep the Editorial Paper shell visually stable across all five
+   pages. The shared cinematic shell has page-specific legacy rules; these
+   final theme-boundary rules give the paper rail one geometry and one mark. */
+@media (min-width: 821px) {
+  .minimal-app.minimal-app.minimal-app--cinematic[data-theme="editorial-paper"] .minimal-nav .trail-nav__logo {
+    width: 42px !important;
+    height: 42px !important;
+    box-sizing: border-box !important;
+    border: 2px solid var(--ep-green) !important;
+    border-radius: 50% !important;
+    background: transparent !important;
+    opacity: 1 !important;
+    filter: none !important;
+  }
+
+  .minimal-app.minimal-app.minimal-app--cinematic[data-theme="editorial-paper"] .minimal-nav .trail-nav__logo-ring {
+    position: absolute !important;
+    inset: 8px !important;
+    width: auto !important;
+    height: auto !important;
+    box-sizing: border-box !important;
+    border: 0 !important;
+    border-radius: 50% !important;
+    background: conic-gradient(from 28deg, transparent 0deg 54deg, var(--ep-green) 54deg 360deg) !important;
+    box-shadow: 0 0 0 1px rgba(45, 77, 57, 0.08) !important;
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px)) !important;
+    mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px)) !important;
+    transform: none !important;
+  }
+
+  .minimal-app.minimal-app.minimal-app--cinematic[data-theme="editorial-paper"] .minimal-nav .trail-nav__logo-dot {
+    position: absolute !important;
+    top: 10px !important;
+    left: 27px !important;
+    right: auto !important;
+    width: 6px !important;
+    height: 6px !important;
+    box-sizing: border-box !important;
+    border: 1px solid var(--ep-rust-dark) !important;
+    border-radius: 50% !important;
+    background: var(--ep-rust) !important;
+    box-shadow: 0 0 0 2px rgba(170, 76, 45, 0.16) !important;
+  }
+
+  .minimal-app[data-theme="editorial-paper"] .trail-nav__brand {
+    width: auto !important;
+    justify-items: center !important;
+    margin-right: 0 !important;
+    padding-right: 0 !important;
+    text-align: center !important;
+  }
+
+  .minimal-app[data-theme="editorial-paper"] .trail-nav__brand > span:not(.trail-nav__logo) {
+    padding-left: 0 !important;
+  }
+
+  .minimal-app[data-theme="editorial-paper"] .minimal-nav > button,
+  .minimal-app[data-theme="editorial-paper"] .minimal-nav > button:nth-of-type(1),
+  .minimal-app[data-theme="editorial-paper"] .minimal-nav > button:nth-of-type(2),
+  .minimal-app[data-theme="editorial-paper"] .minimal-nav > button:nth-of-type(3),
+  .minimal-app[data-theme="editorial-paper"] .minimal-nav > button:nth-of-type(4),
+  .minimal-app[data-theme="editorial-paper"] .minimal-nav > button:nth-of-type(5) {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: auto !important;
+    min-height: 54px !important;
+    margin-right: 0 !important;
+    padding: 0 42px !important;
+    text-align: center !important;
+  }
+
+  .minimal-app[data-theme="editorial-paper"] .minimal-nav > button::before,
+  .minimal-app[data-theme="editorial-paper"] .minimal-nav > button.active::before {
+    left: 17px !important;
+  }
+
+  .minimal-app[data-theme="editorial-paper"] .minimal-nav > button .minimal-nav__label {
+    display: block !important;
+    margin: 0 !important;
+    text-align: center !important;
+  }
+
+  .minimal-app[data-theme="editorial-paper"] .minimal-nav > button .minimal-nav__count {
+    position: absolute !important;
+    right: 15px !important;
+    margin: 0 !important;
+  }
+}
+
+/* Keep long archive histories inside their own reading surface. Each date is
+   still a native details disclosure, while the list itself no longer grows
+   the whole document when one day contains hundreds of records. */
+.minimal-app[data-theme="editorial-paper"] .ep-full-history__list {
+  max-height: min(560px, max(240px, calc(100vh - 430px)));
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding-right: 12px;
+  border-bottom: 1px solid var(--ep-line-soft);
+  scrollbar-color: var(--ep-sage) transparent;
+  scrollbar-width: thin;
+}
+
+.minimal-app[data-theme="editorial-paper"] .ep-full-history__list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.minimal-app[data-theme="editorial-paper"] .ep-full-history__list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.minimal-app[data-theme="editorial-paper"] .ep-full-history__list::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background: var(--ep-sage);
+  background-clip: padding-box;
+}
+
+.minimal-app[data-theme="editorial-paper"] .ep-history-day summary::after {
+  flex: 0 0 auto;
+  min-width: 30px;
+  color: var(--ep-rust);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+  text-align: right;
+  content: "展开";
+}
+
+.minimal-app[data-theme="editorial-paper"] .ep-history-day[open] summary::after {
+  content: "收起";
+}
+
+/* The settings spread now uses one full-width appearance row, three balanced
+   utility cards, and one full-width data row. This removes the old two-column
+   hole without making the useful controls feel like a long form. */
+.minimal-app[data-theme="editorial-paper"] .ep-settings-spread {
+  grid-template-columns: repeat(12, minmax(0, 1fr)) !important;
+  align-items: stretch !important;
+}
+
+.minimal-app[data-theme="editorial-paper"] .ep-settings-paper--appearance,
+.minimal-app[data-theme="editorial-paper"] .ep-settings-paper--backup {
+  grid-column: 1 / -1 !important;
+}
+
+.minimal-app[data-theme="editorial-paper"] .ep-settings-paper--behavior,
+.minimal-app[data-theme="editorial-paper"] .ep-settings-paper--sound,
+.minimal-app[data-theme="editorial-paper"] .ep-settings-paper--workspace {
+  grid-column: span 4 !important;
+  align-content: start;
+}
+
+.minimal-app[data-theme="editorial-paper"] .ep-workspace-note,
+.minimal-app[data-theme="editorial-paper"] .ep-workspace-apply-note {
+  margin: 0;
+  color: var(--ep-muted);
+  font-size: 0.72rem;
+  line-height: 1.7;
+}
+
+.minimal-app[data-theme="editorial-paper"] .ep-workspace-controls {
+  display: grid;
+  gap: 15px;
+  align-content: start;
+}
+
+.minimal-app[data-theme="editorial-paper"] .ep-workspace-controls .ep-slider-row {
+  display: grid !important;
+  grid-template-columns: 1fr auto;
+  gap: 8px 12px;
+  align-items: center;
+  color: var(--ep-muted);
+  font-size: 0.72rem;
+}
+
+.minimal-app[data-theme="editorial-paper"] .ep-workspace-controls .ep-slider-row input {
+  grid-column: 1 / -1;
+  width: 100%;
+  accent-color: var(--ep-rust);
+}
+
+.minimal-app[data-theme="editorial-paper"] .ep-workspace-controls .ep-slider-row b {
+  color: var(--ep-rust);
+  font-weight: 600;
+}
+
+.minimal-app[data-theme="editorial-paper"] .ep-workspace-controls .ep-density-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--ep-muted);
+  font-size: 0.72rem;
+}
+
+.minimal-app[data-theme="editorial-paper"] .ep-workspace-controls .ep-density-row > div {
+  display: flex;
+  border-bottom: 1px solid var(--ep-line);
+}
+
+.minimal-app[data-theme="editorial-paper"] .ep-workspace-controls .ep-density-row button {
+  padding: 6px 10px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--ep-muted);
+  font-family: var(--ep-body);
+  font-size: 0.72rem;
+}
+
+.minimal-app[data-theme="editorial-paper"] .ep-workspace-controls .ep-density-row button.selected,
+.minimal-app[data-theme="editorial-paper"] .ep-workspace-controls .ep-density-row button:focus-visible {
+  border-bottom-color: var(--ep-rust);
+  color: var(--ep-rust-dark);
+  outline: none;
+}
+
+@media (min-width: 821px) and (max-width: 1120px) {
+  .minimal-app[data-theme="editorial-paper"] .ep-settings-spread {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .minimal-app[data-theme="editorial-paper"] .ep-settings-paper--behavior,
+  .minimal-app[data-theme="editorial-paper"] .ep-settings-paper--sound,
+  .minimal-app[data-theme="editorial-paper"] .ep-settings-paper--workspace {
+    grid-column: span 1 !important;
+  }
+}
+
+@media (max-width: 820px) {
+  .minimal-app[data-theme="editorial-paper"] .ep-full-history__list {
+    max-height: min(480px, max(240px, calc(100vh - 310px)));
+    padding-right: 8px;
+  }
+
+  .minimal-app[data-theme="editorial-paper"] .ep-settings-spread {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .minimal-app[data-theme="editorial-paper"] .ep-settings-paper--appearance,
+  .minimal-app[data-theme="editorial-paper"] .ep-settings-paper--behavior,
+  .minimal-app[data-theme="editorial-paper"] .ep-settings-paper--sound,
+  .minimal-app[data-theme="editorial-paper"] .ep-settings-paper--workspace,
+  .minimal-app[data-theme="editorial-paper"] .ep-settings-paper--backup {
+    grid-column: 1 / -1 !important;
+  }
+
+  .minimal-app[data-theme="editorial-paper"] .ep-workspace-controls .ep-density-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+/* The shared cinematic rail has legacy absolute offsets for narrow desktop
+   shells.  Editorial Paper uses a real document-flow rail, so explicitly
+   neutralize every positional value here before the five labels are laid out.
+   The repeated app class keeps this invariant ahead of the shared theme rules. */
+@media (min-width: 821px) {
+  .minimal-app.minimal-app.minimal-app--cinematic[data-theme="editorial-paper"] .minimal-nav {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: auto !important;
+    grid-auto-flow: row !important;
+    grid-auto-rows: auto !important;
+  }
+
+  .minimal-app.minimal-app.minimal-app--cinematic[data-theme="editorial-paper"] .minimal-nav > button,
+  .minimal-app.minimal-app.minimal-app--cinematic[data-theme="editorial-paper"] .minimal-nav > button:nth-of-type(1),
+  .minimal-app.minimal-app.minimal-app--cinematic[data-theme="editorial-paper"] .minimal-nav > button:nth-of-type(2),
+  .minimal-app.minimal-app.minimal-app--cinematic[data-theme="editorial-paper"] .minimal-nav > button:nth-of-type(3),
+  .minimal-app.minimal-app.minimal-app--cinematic[data-theme="editorial-paper"] .minimal-nav > button:nth-of-type(4),
+  .minimal-app.minimal-app.minimal-app--cinematic[data-theme="editorial-paper"] .minimal-nav > button:nth-of-type(5) {
+    position: relative !important;
+    inset: auto !important;
+    top: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    left: auto !important;
+    transform: none !important;
+    grid-area: auto !important;
+    grid-row: auto !important;
+    grid-column: auto !important;
+  }
+}
