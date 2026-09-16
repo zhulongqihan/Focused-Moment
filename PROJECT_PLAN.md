@@ -1289,11 +1289,13 @@ NV-05 的具体键盘缺口：`CommandPalette.tsx` 声明 modal/listbox，但缺
 - **验收**：三张图片已用本地文件复核，尺寸为 1086 × 1448；文案文件可直接复制；`git diff --check` 通过。该工作单元只新增营销素材和文案，不触发应用版本 bump、构建或 Release。
 - **最终状态 / 下一步**：本工作单元 DONE；下一步可从三张图中选定主封面，再补一套同风格的轮播页或录制一段 30–60 秒真实操作演示。
 
-### 2026-09-16 REL-33 v2.11.10 编辑纸页第二主题视觉与信息架构修复（实现完成，待候选发布）
+### 2026-09-16 REL-33 v2.11.10 编辑纸页第二主题视觉与信息架构修复（已完成）
 
 - **用户问题**：编辑纸页首屏品牌图标过淡且与其他主题几何不一致；五个左侧页面标签未居中；记录页按天展开后长列表会撑高整页；设置页存在空缺，原“专注节奏”区缺少实际使用价值。
 - **根因与实现**：第二主题继承了多个晚加载的 cinematic 绝对定位和五列网格规则，覆盖了它自己的文档流导航；现在用主题边界规则恢复单列流式布局，统一五个页面的标签居中、图标外圈/内圈/缺口圆点几何与高对比度。全部记录改为一个有界的按日期滚动区，日期组仍保持单组展开并带有展开/收起语义。设置页改为“工作台布局”，提供真实的画面明暗、动效程度和信息密度控制，删除旧的专注节奏预设。
 - **修改范围**：`src/components/EditorialPaperViews.tsx/.css`、`tests/today-visual.spec.mjs`；版本源已同步为 `2.11.10`（`package.json`、Tauri Cargo/配置、运行时版本与发布里程碑）。工作树中用户已有的 README 重写、营销素材和五张根目录图片删除保持原样，未混入本工作单元的产品修改。
 - **本地验证**：`pnpm test:frontend -- --workers=1` 为 `146/146 PASS`；`pnpm check` PASS；`pnpm build` PASS（2067 modules）；`git diff --check` PASS；`cargo fmt --check`、`cargo check --locked`、`cargo test --locked`（35/35）均 PASS。窄桌面导航、五主题品牌几何、记录有界滚动、设置新控件和跨主题页面回归均已覆盖。
-- **发布状态**：当前仍为 `v2.11.9` 公开稳定版本；v2.11.10 已完成版本同步和本地验证，待生成 Windows x64 portable / Setup/NSIS / MSI 候选资产后提交、推送、tag、GitHub Release 和远程 Windows Checks 收口；macOS 继续冻结。
-- **最终状态 / 下一步**：`REL-33` 实现 DONE、发布 PENDING；先完成候选打包与资产 SHA-256 核对，再进入一次性 Windows-only 发布。
+- **候选资产**：Windows x64 portable / Setup / MSI 已生成；portable / Setup / MSI 分别为 `23,852,544` / `16,201,726` / `17,182,720` bytes，SHA-256 已写入 `docs/v2.11.10/RELEASE_NOTES.md`，远端 digest 与本地值一致。
+- **发布闭环**：产品提交 [`ce8c7c7`](https://github.com/zhulongqihan/Focused-Moment/commit/ce8c7c776e8d6b35420d1e4b673406cffd8e18cc) 已推送到 `main`；`v2.11.10` tag 已创建并固定指向该提交；GitHub Release [`v2.11.10`](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.11.10) 已发布，三项 Windows x64 资产均为 `uploaded`。
+- **远端验证**：Windows Checks [`35111971488`](https://github.com/zhulongqihan/Focused-Moment/actions/runs/35111971488) success（20 分 09 秒）；前端报告 `141 passed`、`5 flaky`（长单 worker 导航/reload 压力用例经重试恢复），Rust fmt/check/test 与汇总均 PASS。Node.js 20 弃用提示仅为 Actions 注记，不影响本次验证。
+- **最终状态 / 下一步**：`REL-33 DONE`；发布说明已回填远程验证和三项资产 digest，macOS 继续冻结，不停止用户正在运行的应用进程；后续按项目优先级排队。

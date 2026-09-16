@@ -45,7 +45,8 @@ Local export paths: `Focused Moment v2.11.10.exe`, `Focused Moment Setup v2.11.1
 
 ## Remote verification
 
-The Windows Checks run and GitHub Release URL will be recorded here after `v2.11.10` is pushed and published. No macOS workflow will be run.
+- Windows Checks [`35111971488`](https://github.com/zhulongqihan/Focused-Moment/actions/runs/35111971488): success in 20m09s; the frontend report was `141 passed` with `5 flaky` entries recovered by the configured retry flow, and Rust format/check/tests plus the verification summary passed. The flaky entries were long single-worker navigation/reload pressure cases; the local run was `146/146 PASS`.
+- GitHub Release [`v2.11.10`](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.11.10) contains all three Windows x64 assets; remote asset sizes and SHA-256 digests match the local values above.
 
 ## Release boundary
 
