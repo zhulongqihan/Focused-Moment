@@ -272,7 +272,8 @@ export function EditorialPaperTodos(props: NightValleyTodoProps) {
   const [createOpen, setCreateOpen] = createSignal(true);
   const pendingDateGroups = createMemo(() => groupTodosByDate([...props.overdueTodos(), ...props.activeTodos()]));
   const pendingTodoCount = createMemo(() => props.overdueTodos().length + props.activeTodos().length);
-  const completionPercent = createMemo(() => props.todos().length === 0 ? 0 : Math.round((props.completedTodos().length / props.todos().length) * 100));
+  const todayTodoTotal = createMemo(() => props.todayTodos().length + props.todayCompletedTodos().length);
+  const completionPercent = createMemo(() => todayTodoTotal() === 0 ? 0 : Math.round((props.todayCompletedTodos().length / todayTodoTotal()) * 100));
 
   const rowProps = {
     editingTodo: props.editingTodo,
@@ -298,7 +299,7 @@ export function EditorialPaperTodos(props: NightValleyTodoProps) {
         <p>把杂乱的念头整理成下一步。</p>
       </header>
 
-      <div class="ep-todo-toolbar"><div><span>今日完成</span><strong>{props.completedTodos().length}</strong><span>项 · 待处理 <b>{props.activeTodos().length}</b> 项</span></div><button type="button" class="ep-paper-button" onClick={() => setCreateOpen((value) => !value)}>{createOpen() ? <X size={16} strokeWidth={1.6} aria-hidden="true" /> : <Plus size={16} strokeWidth={1.6} aria-hidden="true" />}{createOpen() ? "收起" : "新增待办"}</button></div>
+      <div class="ep-todo-toolbar"><div><span>今日完成</span><strong>{props.todayCompletedTodos().length}</strong><span>项 · 待处理 <b>{props.activeTodos().length}</b> 项</span></div><button type="button" class="ep-paper-button" onClick={() => setCreateOpen((value) => !value)}>{createOpen() ? <X size={16} strokeWidth={1.6} aria-hidden="true" /> : <Plus size={16} strokeWidth={1.6} aria-hidden="true" />}{createOpen() ? "收起" : "新增待办"}</button></div>
 
       <Show when={createOpen()}>
         <form class="ep-create-paper" onSubmit={(event) => { event.preventDefault(); void props.onAddTodo(); }}>
@@ -330,12 +331,17 @@ export function EditorialPaperRecords(props: NightValleyRecordsProps) {
   const [visibleRecordCount, setVisibleRecordCount] = createSignal(initialVisibleRecordCount);
   const [expandedHistoryDate, setExpandedHistoryDate] = createSignal<string | null>(null);
   const visibleSelectedRecords = createMemo(() => selectedRecords().slice(0, visibleRecordCount()));
+  const selectedRecordCount = createMemo(() => selectedRecords().length);
+  let previousHistoryKey: string | null = null;
 
   createEffect(() => {
     const date = selectedDate();
-    const records = selectedRecords();
+    const recordCount = selectedRecordCount();
+    const historyKey = `${date}:${recordCount}`;
+    if (historyKey === previousHistoryKey) return;
+    previousHistoryKey = historyKey;
     setVisibleRecordCount(initialVisibleRecordCount);
-    setExpandedHistoryDate(records.length <= initialVisibleRecordCount ? date : null);
+    setExpandedHistoryDate(recordCount <= initialVisibleRecordCount ? date : null);
   });
 
   return (

@@ -2404,6 +2404,8 @@ function MainShell() {
               activeTodos,
               overdueTodos,
               completedTodos,
+              todayTodos,
+              todayCompletedTodos,
               timer: () => timer(),
               timerHasProgress,
               ready,

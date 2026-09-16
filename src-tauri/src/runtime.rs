@@ -73,9 +73,9 @@ const DEFAULT_COUNTDOWN_MINUTES: u64 = 25;
 const MIN_COUNTDOWN_MINUTES: u64 = 1;
 const MAX_COUNTDOWN_MINUTES: u64 = 12 * 60;
 const MAX_TODO_TITLE_CHARS: usize = 200;
-const APP_VERSION: &str = "2.11.8";
+const APP_VERSION: &str = "2.11.9";
 const APP_MILESTONE: &str =
-    "v2.11.8 cross-theme shell, notification, and Aurora layout polish; Windows-only release";
+    "v2.11.9 cross-theme records, brand mark, and today progress fixes; Windows-only release";
 const APP_BACKUP_KIND: &str = "focused-moment-backup";
 const APP_BACKUP_FORMAT_VERSION: u64 = 2;
 const FLOATING_WORKSPACE_SYNC_EVENT: &str = "floating-workspace-sync";

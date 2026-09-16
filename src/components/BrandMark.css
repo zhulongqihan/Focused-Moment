@@ -1,4 +1,6 @@
-/* v2.11.6: one shared brand mark across every cinematic theme. */
+/* v2.11.9: one shared brand mark across every cinematic theme.  The warm
+   point sits in the inner orbit's upper-right opening, while both shapes stay
+   inside the outer circle. */
 .minimal-app.minimal-app--cinematic[data-theme] .minimal-nav .trail-nav__logo {
   --fm-brand-ring: #c8e8d2;
   --fm-brand-dot: #f0b866;
@@ -43,24 +45,24 @@
 
 .minimal-app.minimal-app--cinematic[data-theme] .minimal-nav .trail-nav__logo-ring {
   position: absolute !important;
-  inset: 10px !important;
+  inset: 9px !important;
   width: auto !important;
   height: auto !important;
   box-sizing: border-box !important;
-  border: 2px solid var(--fm-brand-ring) !important;
-  border-top-color: transparent !important;
+  border: 0 !important;
   border-radius: 50% !important;
-  background: transparent !important;
+  background: conic-gradient(from 28deg, transparent 0deg 54deg, var(--fm-brand-ring) 54deg 360deg) !important;
   box-shadow: 0 0 12px color-mix(in srgb, var(--fm-brand-ring) 18%, transparent) !important;
-  mask: none !important;
-  transform: rotate(-32deg) !important;
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px)) !important;
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px)) !important;
+  transform: none !important;
 }
 
 .minimal-app.minimal-app--cinematic[data-theme] .minimal-nav .trail-nav__logo-dot {
   position: absolute !important;
-  top: 2px !important;
-  left: auto !important;
-  right: 0 !important;
+  top: 11px !important;
+  left: 28px !important;
+  right: auto !important;
   width: 6px !important;
   height: 6px !important;
   box-sizing: border-box !important;
@@ -78,14 +80,15 @@
   }
 
   .minimal-app.minimal-app--cinematic[data-theme] .minimal-nav .trail-nav__logo-ring {
-    inset: 6px !important;
+    inset: 5px !important;
     border-width: 1px !important;
     transform: none !important;
   }
 
   .minimal-app.minimal-app--cinematic[data-theme] .minimal-nav .trail-nav__logo-dot {
-    top: 1px !important;
-    right: 0 !important;
+    top: 6px !important;
+    left: 15px !important;
+    right: auto !important;
     width: 5px !important;
     height: 5px !important;
     border-width: 1px !important;

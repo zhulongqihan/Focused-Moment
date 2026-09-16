@@ -638,6 +638,8 @@ export interface NightValleyTodoProps {
   activeTodos: Accessor<TodoItem[]>;
   overdueTodos: Accessor<TodoItem[]>;
   completedTodos: Accessor<TodoItem[]>;
+  todayTodos: Accessor<TodoItem[]>;
+  todayCompletedTodos: Accessor<TodoItem[]>;
   timer: Accessor<TimerSnapshot>;
   timerHasProgress: Accessor<boolean>;
   ready: Accessor<boolean>;
@@ -668,9 +670,10 @@ export function NightValleyTodo(props: NightValleyTodoProps) {
   const [createOpen, setCreateOpen] = createSignal(false);
   const activeDateGroups = createMemo(() => groupTodosByDate(props.activeTodos()));
   const overdueDateGroups = createMemo(() => groupTodosByDate(props.overdueTodos()));
+  const todayTodoTotal = createMemo(() => props.todayTodos().length + props.todayCompletedTodos().length);
   const completionPercent = createMemo(() => {
-    const total = props.todos().length;
-    return total === 0 ? 0 : Math.round((props.completedTodos().length / total) * 100);
+    const total = todayTodoTotal();
+    return total === 0 ? 0 : Math.round((props.todayCompletedTodos().length / total) * 100);
   });
 
   return (
@@ -705,7 +708,7 @@ export function NightValleyTodo(props: NightValleyTodoProps) {
           <div class="nv-todo-board__header-copy">
             <span class="nv-section-kicker">TODAY'S ROUTE / 今日路径</span>
             <strong>{props.todos().length ? "把今天的下一步排出来" : "今天还没有要推进的事项"}</strong>
-            <small>{props.completedTodos().length} / {props.todos().length} 项已完成 · 先从一件最清楚的事开始</small>
+            <small>{props.todayCompletedTodos().length} / {todayTodoTotal()} 项已完成 · 先从一件最清楚的事开始</small>
           </div>
           <div class="nv-todo-board__progress" aria-label={`今日完成度 ${completionPercent()}%`}>
             <span><i style={{ width: `${completionPercent()}%` }} /></span>
@@ -757,7 +760,7 @@ export function NightValleyTodo(props: NightValleyTodoProps) {
         <div class="nv-todo-focus-panel__meter"><span style={{ width: `${completionPercent()}%` }} /><small>{completionPercent()}% 今日完成</small></div>
       </aside>
 
-      <footer class="nv-todo-footer"><div><span>今日完成度</span><strong>{completionPercent()}%</strong></div><div><span>当前路径</span><strong>{props.todos().length ? `${props.completedTodos().length} / ${props.todos().length}` : "0"}</strong></div><div class="nv-todo-footer__hint">每一个完成的事项，都会成为今天的新坐标。</div></footer>
+      <footer class="nv-todo-footer"><div><span>今日完成度</span><strong>{completionPercent()}%</strong></div><div><span>当前路径</span><strong>{todayTodoTotal() ? `${props.todayCompletedTodos().length} / ${todayTodoTotal()}` : "0"}</strong></div><div class="nv-todo-footer__hint">每一个完成的事项，都会成为今天的新坐标。</div></footer>
     </section>
   );
 }
@@ -896,6 +899,19 @@ export interface NightValleyRecordsProps {
 
 export function NightValleyRecords(props: NightValleyRecordsProps) {
   const recentWeekAverageDurationLabel = () => props.formatDurationMs(props.recentWeekDurationMs() / 7);
+  const [collapsedRecordDates, setCollapsedRecordDates] = createSignal<Set<string>>(new Set());
+  const isRecordDayExpanded = (date: string) => !collapsedRecordDates().has(date);
+  const toggleRecordDay = (date: string) => {
+    setCollapsedRecordDates((current) => {
+      const next = new Set(current);
+      if (next.has(date)) {
+        next.delete(date);
+      } else {
+        next.add(date);
+      }
+      return next;
+    });
+  };
   let previousRecordGroups: RecordGroupShape[] = [];
   const stableRecordGroups = createMemo(() => {
     const nextGroups = props.recordGroups();
@@ -1049,8 +1065,8 @@ export function NightValleyRecords(props: NightValleyRecordsProps) {
           <Show when={props.ready() && props.records().length > 0}>
             <For each={stableRecordGroups()}>
               {(group) => (
-                <details class="record-day" open>
-                  <summary class="record-day__summary"><span class="record-day__date"><strong>{props.formatRecordDay(group.date)}</strong><small>{group.records.length} 轮 · {props.formatDurationMs(group.totalDurationMs)}</small></span><span class="record-day__chevron" aria-hidden="true">⌄</span></summary>
+                <details class="record-day" open={isRecordDayExpanded(group.date)}>
+                  <summary class="record-day__summary" aria-expanded={isRecordDayExpanded(group.date)} onClick={(event) => { event.preventDefault(); toggleRecordDay(group.date); }}><span class="record-day__date"><strong>{props.formatRecordDay(group.date)}</strong><small>{group.records.length} 轮 · {props.formatDurationMs(group.totalDurationMs)}</small></span><span class="record-day__chevron" aria-hidden="true">⌄</span></summary>
                   <div class="record-day__items">
                     <For each={group.records}>
                       {(record) => (

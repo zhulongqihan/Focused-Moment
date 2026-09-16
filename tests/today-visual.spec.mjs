@@ -24,7 +24,7 @@ function pageButton(page, label) {
   return page.locator(".minimal-nav > button").filter({ hasText: label });
 }
 
-async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一件事开始", recordCount = 7, includeTodo = true, todoTitles = ["明日规划"], todoDates = [], completedTodoTitles = [], dailyBreakdown = [], recordDates = [], recordTitlePrefix = "", analyticsPatch = {}, freezeClock = true } = {}) {
+async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一件事开始", recordCount = 7, includeTodo = true, todoTitles = ["明日规划"], todoDates = [], completedTodoTitles = [], completedTodoDates = [], dailyBreakdown = [], recordDates = [], recordTitlePrefix = "", analyticsPatch = {}, freezeClock = true, freshRecordSnapshots = false } = {}) {
   if (freezeClock) {
     await page.addInitScript(() => {
       const NativeDate = Date;
@@ -42,7 +42,7 @@ async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一
     });
   }
 
-  await page.addInitScript(({ today, recordCount, includeTodo, todoTitles, todoDates, completedTodoTitles, dailyBreakdown, recordDates, recordTitlePrefix, analyticsPatch }) => {
+  await page.addInitScript(({ today, recordCount, includeTodo, todoTitles, todoDates, completedTodoTitles, completedTodoDates, dailyBreakdown, recordDates, recordTitlePrefix, analyticsPatch, freshRecordSnapshots }) => {
     const focusRecordSeeds = [
       ["晨间计划", "08:10"],
       ["阅读行业报告", "09:35"],
@@ -85,7 +85,7 @@ async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一
         id: 201 + index,
         title,
         isCompleted: true,
-        scheduledDate: today,
+        scheduledDate: completedTodoDates[index] ?? today,
         scheduledTime: "18:00",
         importanceKey: "low",
       })),
@@ -150,6 +150,7 @@ async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一
     };
 
     window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
+    window.__focusRecordCalls = 0;
     window.__TAURI_INTERNALS__ = {
       metadata: {
         currentWindow: { label: "main" },
@@ -175,7 +176,8 @@ async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一
           case "get_todo_items":
             return todos;
           case "get_focus_records":
-            return focusRecords;
+            window.__focusRecordCalls += 1;
+            return freshRecordSnapshots ? focusRecords.map((record) => ({ ...record })) : focusRecords;
           case "get_analytics_snapshot":
             return analytics;
           case "list_app_backups":
@@ -212,7 +214,7 @@ async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一
         }
       },
     };
-  }, { today: referenceDate, recordCount, includeTodo, todoTitles, todoDates, completedTodoTitles, dailyBreakdown, recordDates, recordTitlePrefix, analyticsPatch });
+  }, { today: referenceDate, recordCount, includeTodo, todoTitles, todoDates, completedTodoTitles, completedTodoDates, dailyBreakdown, recordDates, recordTitlePrefix, analyticsPatch, freshRecordSnapshots });
 
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
@@ -366,6 +368,98 @@ test("Night Valley pages expose the measured reference surfaces", async ({ page 
     await page.getByRole("button", { name: label === "待办" ? /^待办/ : label, exact: label !== "待办" }).click();
     await expect(page.locator(".nv-page").first()).toBeVisible();
     await page.screenshot({ path: `output/playwright/${screenshotName}`, animations: "disabled" });
+  }
+});
+
+test("Every theme keeps record day expansion stable during snapshot refresh", async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "night-valley");
+  });
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page, {
+    recordCount: 4,
+    recordDates: [referenceDate, "2026-09-04", "2026-09-04", "2026-09-03"],
+    freshRecordSnapshots: true,
+  });
+
+  const themes = [
+    { id: "night-valley", historySelector: ".record-history" },
+    { id: "editorial-paper", historySelector: ".ep-full-history" },
+    { id: "graphite-console", historySelector: ".gc-history-index" },
+    { id: "aurora-ocean", historySelector: ".ao-history-index" },
+    { id: "botanical-library", historySelector: ".bl-history-index" },
+  ];
+
+  for (const [index, theme] of themes.entries()) {
+    if (index > 0) {
+      await page.addInitScript((themeId) => localStorage.setItem("focused-moment.theme", themeId), theme.id);
+      await page.evaluate((themeId) => localStorage.setItem("focused-moment.theme", themeId), theme.id);
+      await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
+    }
+    await pageButton(page, "记录").click();
+    const history = page.locator(theme.historySelector);
+    const target = history.locator("details").last();
+    const content = target.locator(":scope > div");
+    await expect(target).toBeVisible();
+    await expect(target).toHaveCount(1);
+
+    if (await target.evaluate((element) => element.open)) {
+      await target.locator("summary").click();
+      await expect(content).toBeHidden();
+    }
+
+    await target.locator("summary").click();
+    await expect(target).toHaveAttribute("open", "");
+    await expect(content).toBeVisible();
+    const callsBeforeRefresh = await page.evaluate(() => window.__focusRecordCalls);
+    await expect.poll(() => page.evaluate(() => window.__focusRecordCalls), { timeout: 3500 }).toBeGreaterThan(callsBeforeRefresh);
+    await expect(content).toBeVisible();
+  }
+});
+
+test("Every theme uses the enclosed brand mark with its point in the orbit gap", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "night-valley");
+  });
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page);
+
+  const themeIds = ["night-valley", "editorial-paper", "graphite-console", "aurora-ocean", "botanical-library"];
+  for (const [index, themeId] of themeIds.entries()) {
+    if (index > 0) {
+      await page.addInitScript((nextThemeId) => localStorage.setItem("focused-moment.theme", nextThemeId), themeId);
+      await page.evaluate((nextThemeId) => localStorage.setItem("focused-moment.theme", nextThemeId), themeId);
+      await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
+    }
+
+    const evidence = await page.locator(".trail-nav__logo").evaluate((logo) => {
+      const ring = logo.querySelector(".trail-nav__logo-ring");
+      const dot = logo.querySelector(".trail-nav__logo-dot");
+      if (!ring || !dot) return null;
+      const rect = (element) => {
+        const value = element.getBoundingClientRect();
+        return { left: value.left, right: value.right, top: value.top, bottom: value.bottom, width: value.width, height: value.height };
+      };
+      return { outer: rect(logo), inner: rect(ring), dot: rect(dot), ringBackground: getComputedStyle(ring).backgroundImage };
+    });
+
+    expect(evidence).not.toBeNull();
+    expect(evidence.outer.width).toBe(42);
+    expect(evidence.outer.height).toBe(42);
+    expect(evidence.inner.width).toBeLessThan(evidence.outer.width);
+    expect(evidence.inner.height).toBeLessThan(evidence.outer.height);
+    expect(evidence.inner.left).toBeGreaterThan(evidence.outer.left);
+    expect(evidence.inner.right).toBeLessThan(evidence.outer.right);
+    expect(evidence.inner.top).toBeGreaterThan(evidence.outer.top);
+    expect(evidence.inner.bottom).toBeLessThan(evidence.outer.bottom);
+    expect(evidence.dot.left).toBeGreaterThanOrEqual(evidence.outer.left);
+    expect(evidence.dot.right).toBeLessThanOrEqual(evidence.outer.right);
+    expect(evidence.dot.top).toBeGreaterThanOrEqual(evidence.outer.top);
+    expect(evidence.dot.bottom).toBeLessThanOrEqual(evidence.outer.bottom);
+    expect((evidence.dot.left + evidence.dot.right) / 2).toBeGreaterThan((evidence.inner.left + evidence.inner.right) / 2);
+    expect((evidence.dot.top + evidence.dot.bottom) / 2).toBeLessThan((evidence.inner.top + evidence.inner.bottom) / 2);
+    expect(evidence.ringBackground).toContain("conic-gradient");
   }
 });
 
@@ -584,7 +678,8 @@ test("Night Valley keeps one shared circular brand mark across every page", asyn
   expect(brandStates.every((state) => state.outerWidth > state.innerWidth && state.outerHeight > state.innerHeight)).toBe(true);
   expect(brandStates.every((state) => state.innerLeft > 0 && state.innerRight > 0 && state.innerTop > 0 && state.innerBottom > 0)).toBe(true);
   expect(brandStates.every((state) => state.dotLeft >= 0 && state.dotRight >= 0 && state.dotTop >= 0 && state.dotBottom >= 0)).toBe(true);
-  expect(brandStates.every((state) => state.dotLeft + 0.5 >= state.innerLeft + state.innerWidth)).toBe(true);
+  expect(brandStates.every((state) => state.dotLeft < state.innerLeft + state.innerWidth && state.outerWidth - state.dotRight > state.innerLeft)).toBe(true);
+  expect(brandStates.every((state) => state.dotTop < state.innerTop + state.innerHeight && state.outerHeight - state.dotBottom > state.innerTop)).toBe(true);
   expect(brandStates.every((state) => state.outerRadius === "50%" && state.innerRadius === "50%" && state.dotDisplay === "block")).toBe(true);
 });
 
@@ -888,14 +983,15 @@ test("Every theme keeps pending todos in date groups with only a done column", a
     todoTitles: ["今天的第一件事", "明天的第二件事", "已过期的第三件事"],
     todoDates: [referenceDate, "2026-09-06", "2026-09-04"],
     completedTodoTitles: ["已经完成的事项"],
+    completedTodoDates: ["2026-09-04"],
   });
 
   const themes = [
-    { id: "night-valley", columnSelector: ".nv-todo-column", pendingSelector: ".nv-todo-column--start", doneSelector: ".nv-todo-column--done", dateSelector: ".nv-todo-date-group", legacySelector: ".nv-todo-column--focus" },
-    { id: "editorial-paper", columnSelector: ".ep-todo-column", pendingSelector: ".ep-todo-column--pending", doneSelector: ".ep-todo-column--done", dateSelector: ".nv-todo-date-group", legacySelector: ".ep-todo-column--focus" },
-    { id: "graphite-console", columnSelector: ".gc-task-bay", pendingSelector: ".gc-task-bay--queued", doneSelector: ".gc-task-bay--done", dateSelector: ".nv-todo-date-group", legacySelector: ".gc-task-bay--active" },
-    { id: "aurora-ocean", columnSelector: ".ao-reef-zone", pendingSelector: ".ao-reef-zone--now", doneSelector: ".ao-reef-zone--arrived", dateSelector: ".nv-todo-date-group", legacySelector: ".ao-reef-zone--later" },
-    { id: "botanical-library", columnSelector: ".bl-desk-column", pendingSelector: ".bl-desk-column--seed", doneSelector: ".bl-desk-column--harvest", dateSelector: ".nv-todo-date-group", legacySelector: ".bl-desk-column--sprout" },
+    { id: "night-valley", columnSelector: ".nv-todo-column", pendingSelector: ".nv-todo-column--start", doneSelector: ".nv-todo-column--done", dateSelector: ".nv-todo-date-group", legacySelector: ".nv-todo-column--focus", progressSelector: ".nv-todo-board__progress" },
+    { id: "editorial-paper", columnSelector: ".ep-todo-column", pendingSelector: ".ep-todo-column--pending", doneSelector: ".ep-todo-column--done", dateSelector: ".nv-todo-date-group", legacySelector: ".ep-todo-column--focus", progressSelector: ".ep-todo-footer" },
+    { id: "graphite-console", columnSelector: ".gc-task-bay", pendingSelector: ".gc-task-bay--queued", doneSelector: ".gc-task-bay--done", dateSelector: ".nv-todo-date-group", legacySelector: ".gc-task-bay--active", progressSelector: ".gc-completion-meter" },
+    { id: "aurora-ocean", columnSelector: ".ao-reef-zone", pendingSelector: ".ao-reef-zone--now", doneSelector: ".ao-reef-zone--arrived", dateSelector: ".nv-todo-date-group", legacySelector: ".ao-reef-zone--later", progressSelector: ".ao-todo-dock > div:first-child" },
+    { id: "botanical-library", columnSelector: ".bl-desk-column", pendingSelector: ".bl-desk-column--seed", doneSelector: ".bl-desk-column--harvest", dateSelector: ".nv-todo-date-group", legacySelector: ".bl-desk-column--sprout", progressSelector: ".bl-desk-ledger > div:first-child" },
   ];
 
   for (const theme of themes) {
@@ -909,6 +1005,7 @@ test("Every theme keeps pending todos in date groups with only a done column", a
     await expect(page.locator(theme.legacySelector)).toHaveCount(0);
     await expect(page.locator(theme.pendingSelector).locator(theme.dateSelector)).toHaveCount(3);
     await expect(page.locator(theme.pendingSelector).locator(`${theme.dateSelector}__toggle`)).toHaveCount(3);
+    await expect(page.locator(theme.progressSelector)).toContainText("0%");
   }
 });
 
@@ -1234,7 +1331,10 @@ test("Editorial Paper keeps Today navigation colors, logo geometry, and plan dat
   expect(logoEvidence.dot.right).toBeLessThanOrEqual(logoEvidence.outer.right);
   expect(logoEvidence.dot.top).toBeGreaterThanOrEqual(logoEvidence.outer.top);
   expect(logoEvidence.dot.bottom).toBeLessThanOrEqual(logoEvidence.outer.bottom);
-  expect(logoEvidence.dot.left).toBeGreaterThanOrEqual(logoEvidence.inner.right);
+  expect(logoEvidence.dot.left).toBeLessThan(logoEvidence.inner.right);
+  expect(logoEvidence.dot.right).toBeGreaterThan(logoEvidence.inner.left);
+  expect(logoEvidence.dot.top).toBeLessThan(logoEvidence.inner.bottom);
+  expect(logoEvidence.dot.bottom).toBeGreaterThan(logoEvidence.inner.top);
   await expect(page.locator(".ep-kicker").first()).toHaveText("DAILY PLAN · 2026.09.05");
   await expect(page.locator(".ep-kicker").first()).not.toContainText("0905");
 });

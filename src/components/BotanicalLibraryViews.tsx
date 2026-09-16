@@ -191,7 +191,8 @@ export function BotanicalLibraryTodos(props: NightValleyTodoProps) {
   const pendingDateGroups = createMemo(() => groupTodosByDate([...props.overdueTodos(), ...props.activeTodos()]));
   const pendingTodoCount = createMemo(() => props.overdueTodos().length + props.activeTodos().length);
   const rowProps = { editingTodo: props.editingTodo, busy: props.busy, timerHasProgress: props.timerHasProgress, formatTodoDue: props.formatTodoDue, importanceLabel: props.importanceLabel, onToggle: props.onToggle, onBeginEdit: props.onBeginEdit, onUseForFocus: props.onUseForFocus, onRemove: props.onRemove, onPatch: props.onPatch, onSave: props.onSave, onCancel: props.onCancel };
-  const completion = createMemo(() => props.todos().length ? Math.round((props.completedTodos().length / props.todos().length) * 100) : 0);
+  const todayTodoTotal = createMemo(() => props.todayTodos().length + props.todayCompletedTodos().length);
+  const completion = createMemo(() => todayTodoTotal() ? Math.round((props.todayCompletedTodos().length / todayTodoTotal()) * 100) : 0);
 
   return (
     <section class="bl-page bl-todos-page" aria-label="书房待办">
@@ -215,7 +216,17 @@ export function BotanicalLibraryRecords(props: NightValleyRecordsProps) {
   const [visibleCount, setVisibleCount] = createSignal(12);
   const [expandedDate, setExpandedDate] = createSignal<string | null>(null);
   const visibleRecords = createMemo(() => selectedRecords().slice(0, visibleCount()));
-  createEffect(() => { selectedDate(); setVisibleCount(12); setExpandedDate(null); });
+  const selectedRecordCount = createMemo(() => selectedRecords().length);
+  let previousHistoryKey: string | null = null;
+  createEffect(() => {
+    const date = selectedDate();
+    const count = selectedRecordCount();
+    const historyKey = `${date}:${count}`;
+    if (historyKey === previousHistoryKey) return;
+    previousHistoryKey = historyKey;
+    setVisibleCount(12);
+    setExpandedDate(null);
+  });
 
   return (
     <section class="bl-page bl-records-page" aria-label="成长记录">

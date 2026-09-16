@@ -246,7 +246,8 @@ export function GraphiteConsoleTodos(props: NightValleyTodoProps) {
   const [createOpen, setCreateOpen] = createSignal(false);
   const pendingDateGroups = createMemo(() => groupTodosByDate([...props.overdueTodos(), ...props.activeTodos()]));
   const pendingTodoCount = createMemo(() => props.overdueTodos().length + props.activeTodos().length);
-  const completion = createMemo(() => props.todos().length === 0 ? 0 : Math.round((props.completedTodos().length / props.todos().length) * 100));
+  const todayTodoTotal = createMemo(() => props.todayTodos().length + props.todayCompletedTodos().length);
+  const completion = createMemo(() => todayTodoTotal() === 0 ? 0 : Math.round((props.todayCompletedTodos().length / todayTodoTotal()) * 100));
   const rowProps = { editingTodo: props.editingTodo, busy: props.busy, timerHasProgress: props.timerHasProgress, formatTodoDue: props.formatTodoDue, importanceLabel: props.importanceLabel, onToggle: props.onToggle, onBeginEdit: props.onBeginEdit, onUseForFocus: props.onUseForFocus, onRemove: props.onRemove, onPatch: props.onPatch, onSave: props.onSave, onCancel: props.onCancel };
 
   return (
@@ -260,7 +261,7 @@ export function GraphiteConsoleTodos(props: NightValleyTodoProps) {
         </div>
       <GcPanel title="NEXT FOCUS / 下一段专注" code="MOD-NEXT.45" class="gc-next-task-panel"><Show when={props.activeTodos()[0]} fallback={<div class="gc-operation-empty"><span>NO TASK ASSIGNED</span><h2>等待下一段</h2><p>从左侧队列选一项开始。</p></div>}>{(item) => <div class="gc-next-task-content"><span class="gc-card-kicker">TASK.ID</span><strong class="gc-task-id">{String(item().id).padStart(2, "0")}</strong><span class="gc-card-kicker">TASK.TITLE</span><h2>{item().title}</h2><span class="gc-card-kicker">DURATION</span><strong class="gc-duration-readout">{Math.round((props.timer().targetDurationMs ?? 45 * 60 * 1000) / 60000)}<small> MIN</small></strong><span class="gc-card-kicker">NOTE</span><p>{props.formatTodoDue(item())}</p><button type="button" class="gc-lime-button gc-lime-button--wide" disabled={props.busy() || props.timerHasProgress()} onClick={() => props.onUseForFocus(item())}><Play size={17} fill="currentColor" aria-hidden="true" /> START / 开始专注</button></div>}</Show></GcPanel>
       </div>
-      <footer class="gc-todo-footer"><div><span>今日完成</span><strong>{String(props.completedTodos().length).padStart(2, "0")}</strong><small>项</small></div><div><span>待处理</span><strong>{String(pendingTodoCount()).padStart(2, "0")}</strong><small>项</small></div><div class="gc-completion-meter"><span>系统状态</span><i><b style={{ width: `${completion()}%` }} /></i><strong>{completion()}%</strong></div><div><span>CONSOLE ID</span><strong>FM-OPS-{String(props.todos().length).padStart(4, "0")}</strong></div></footer>
+      <footer class="gc-todo-footer"><div><span>今日完成</span><strong>{String(props.todayCompletedTodos().length).padStart(2, "0")}</strong><small>项</small></div><div><span>待处理</span><strong>{String(pendingTodoCount()).padStart(2, "0")}</strong><small>项</small></div><div class="gc-completion-meter"><span>系统状态</span><i><b style={{ width: `${completion()}%` }} /></i><strong>{completion()}%</strong></div><div><span>CONSOLE ID</span><strong>FM-OPS-{String(props.todos().length).padStart(4, "0")}</strong></div></footer>
     </section>
   );
 }
@@ -287,7 +288,17 @@ export function GraphiteConsoleRecords(props: NightValleyRecordsProps) {
     return bands.map((band) => ({ ...band, percent: totalMs === 0 ? 0 : Math.round((band.totalMs / totalMs) * 100) }));
   });
   const dominantBand = createMemo(() => bandStats().reduce((current, band) => band.totalMs > current.totalMs ? band : current, bandStats()[0]));
-  createEffect(() => { const date = selectedDate(); const count = selectedRecords().length; setVisibleCount(200); setExpandedDate(count <= 200 ? date : null); });
+  const selectedRecordCount = createMemo(() => selectedRecords().length);
+  let previousHistoryKey: string | null = null;
+  createEffect(() => {
+    const date = selectedDate();
+    const count = selectedRecordCount();
+    const historyKey = `${date}:${count}`;
+    if (historyKey === previousHistoryKey) return;
+    previousHistoryKey = historyKey;
+    setVisibleCount(200);
+    setExpandedDate(count <= 200 ? date : null);
+  });
 
   return (
     <section class="gc-page gc-records-page" aria-label="专注遥测">
