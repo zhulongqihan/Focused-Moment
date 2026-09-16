@@ -5,7 +5,7 @@
 
 ## 0. 当前看板
 
-> **当前有效快照（2026-09-17，Asia/Shanghai）**：当前公开稳定版本为 `v2.11.10`，版本源与 Windows x64 Release 资产已对齐；REL-33 编辑纸页修复已完成并已推送。README 的用户向重写已在本地完成但尚未同步到 GitHub，本轮用户要求将 README 推送到远端，并把小红书文案改成更像开发者真实分享的口吻；五张无用根目录生成图的删除仍按用户要求保留。
+> **当前有效快照（2026-09-17，Asia/Shanghai）**：当前公开稳定版本为 `v2.11.10`，版本源与 Windows x64 Release 资产已对齐；REL-33 编辑纸页修复已完成并已推送。README 已按当前版本同步到 GitHub `main`，小红书文案已改成更像开发者真实分享的口吻；五张无用根目录生成图已按用户要求删除并随文档提交推送。
 
 > 下方表格和历史记录保留发布追溯信息；若旧版本描述与本快照冲突，以当前源码、最新 Release 说明和本文件末尾的最新工作单元记录为准。
 
@@ -1299,3 +1299,12 @@ NV-05 的具体键盘缺口：`CommandPalette.tsx` 声明 modal/listbox，但缺
 - **发布闭环**：产品提交 [`ce8c7c7`](https://github.com/zhulongqihan/Focused-Moment/commit/ce8c7c776e8d6b35420d1e4b673406cffd8e18cc) 已推送到 `main`；`v2.11.10` tag 已创建并固定指向该提交；GitHub Release [`v2.11.10`](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.11.10) 已发布，三项 Windows x64 资产均为 `uploaded`。
 - **远端验证**：Windows Checks [`35111971488`](https://github.com/zhulongqihan/Focused-Moment/actions/runs/35111971488) success（20 分 09 秒）；前端报告 `141 passed`、`5 flaky`（长单 worker 导航/reload 压力用例经重试恢复），Rust fmt/check/test 与汇总均 PASS。Node.js 20 弃用提示仅为 Actions 注记，不影响本次验证。
 - **最终状态 / 下一步**：`REL-33 DONE`；发布说明已回填远程验证和三项资产 digest，macOS 继续冻结，不停止用户正在运行的应用进程；后续按项目优先级排队。
+
+### 2026-09-17 README 远端同步与小红书文案修订（已完成）
+
+- **用户反馈**：GitHub 网页仍显示旧 README；此前小红书文案过于像功能说明和 AI 营销稿，缺少开发者本人分享的语气。
+- **README 修订**：README 已对齐当前 `v2.11.10`，更新 Release 链接、Windows x64 安装包文件名和当前平台说明；同时把开场介绍收紧为更直接的“待办、计时、记录”表达。
+- **文案修订**：本地 `output/xiaohongshu/POST_COPY.md` 已改为第一人称开发者口吻，围绕“为什么做、自己怎么用、还在继续打磨”展开，删除功能清单式表达和夸张营销词。
+- **远端提交**：文档与五张无用根目录图片删除已由提交 [`b41394f`](https://github.com/zhulongqihan/Focused-Moment/commit/b41394f) 推送到 `origin/main`；GitHub 网页 README 应以该提交后的 `main` 内容为准。
+- **验收**：README 中当前版本、三个 Windows x64 安装包文件名和 Release 链接均指向 `v2.11.10`；`git diff --check` 通过。营销文案只涉及当前真实功能，不运行应用构建或发布流程。
+- **最终状态 / 下一步**：本工作单元 DONE；后续可直接用夜谷图作为首帖封面，先观察真实评论和下载反馈，再决定是否补充轮播页或短视频。
