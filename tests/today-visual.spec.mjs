@@ -171,7 +171,7 @@ async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一
             return timerPreferences;
           case "update_timer_preferences":
             Object.assign(timerPreferences, args.preferences ?? {});
-            return timerPreferences;
+            return { ...timerPreferences };
           case "get_todo_items":
             return todos;
           case "get_focus_records":
@@ -692,6 +692,110 @@ test("Graphite Console can be selected from settings and persists after reload",
   await page.reload();
   await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "graphite-console");
   await expect(page.getByRole("heading", { name: "TODAY / 节奏调度" })).toBeVisible();
+});
+
+test("Graphite Console restores native window controls and a drag surface", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "graphite-console");
+  });
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page, { expectedHeading: "TODAY / 节奏调度" });
+  await page.evaluate(() => {
+    const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
+    window.__gcWindowCommands = [];
+    window.__TAURI_INTERNALS__.invoke = async (command, args = {}) => {
+      if (["start_dragging_main_window", "minimize_main_window", "toggle_maximize_main_window", "close_main_window"].includes(command)) {
+        window.__gcWindowCommands.push(command);
+      }
+      return nativeInvoke(command, args);
+    };
+  });
+
+  const controls = page.locator(".window-controls");
+  const buttons = controls.locator(".window-control");
+  await expect(controls).toBeVisible();
+  await expect(buttons).toHaveCount(3);
+  for (const button of await buttons.all()) {
+    await expect(button).toBeVisible();
+  }
+  await page.locator(".app-bar .app-brand").click({ position: { x: 90, y: 20 } });
+  await expect.poll(() => page.evaluate(() => window.__gcWindowCommands.filter((command) => command === "start_dragging_main_window").length)).toBe(1);
+  await buttons.nth(0).click();
+  await buttons.nth(1).click();
+  await buttons.nth(2).click();
+  await expect.poll(() => page.evaluate(() => window.__gcWindowCommands)).toEqual([
+    "start_dragging_main_window",
+    "minimize_main_window",
+    "toggle_maximize_main_window",
+    "close_main_window",
+  ]);
+});
+
+test("feedback toasts keep their position and dismissal behavior across themes", async ({ page }) => {
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page);
+
+  const themes = [
+    ["night-valley", "夜谷", ".nv-theme-card"],
+    ["editorial-paper", "编辑纸页", ".ep-theme-swatch"],
+    ["graphite-console", "石墨控制台", ".gc-theme-card"],
+    ["aurora-ocean", "极光海面", ".ao-theme-bubble"],
+    ["botanical-library", "植物书房", ".bl-theme-book"],
+  ];
+
+  await pageButton(page, "设置").click();
+  for (const [index, [theme, label, selector]] of themes.entries()) {
+    await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", theme);
+    await page.locator(selector).filter({ hasText: label }).click({ force: true });
+    const toast = page.locator(".app-message");
+    await expect(toast).toBeVisible();
+    await expect(toast).toHaveCSS("position", "fixed");
+    const bounds = await toast.boundingBox();
+    expect(bounds?.x ?? 0).toBeGreaterThan(700);
+    expect(bounds?.y ?? 999).toBeLessThan(140);
+    await toast.click();
+    await expect(toast).toBeHidden();
+    const nextTheme = themes[index + 1];
+    if (nextTheme) {
+      await page.locator(selector).filter({ hasText: nextTheme[1] }).click({ force: true });
+      await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", nextTheme[0]);
+      await expect(page.locator(".app-message")).toBeVisible();
+      await page.locator(".app-message").click();
+    }
+  }
+});
+
+test("Aurora Ocean keeps full labels and removes the stray archive ellipse", async ({ page }) => {
+  const longTodoTitle = "北京市定向选调和优培计划｜仙林校区就业中心303现场核对与材料整理";
+  await page.addInitScript(() => {
+    localStorage.setItem("focused-moment.theme", "aurora-ocean");
+  });
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootTodayReferenceMock(page, { expectedHeading: "TIDE / 潮汐轨迹", todoTitles: [longTodoTitle] });
+
+  const orbitNode = page.locator(".ao-orbit-node").first();
+  await expect(orbitNode).toHaveAttribute("title", longTodoTitle);
+  await expect(orbitNode).toHaveAttribute("aria-label", new RegExp(longTodoTitle));
+  const todayLayout = await page.locator(".ao-today-page").evaluate((element) => ({
+    overflow: getComputedStyle(element).overflow,
+    nodeWhiteSpace: getComputedStyle(element.querySelector(".ao-orbit-node strong")).whiteSpace,
+    documentScrollWidth: document.documentElement.scrollWidth,
+  }));
+  expect(todayLayout.overflow).toBe("visible");
+  expect(todayLayout.nodeWhiteSpace).toBe("normal");
+  expect(todayLayout.documentScrollWidth).toBeLessThanOrEqual(1487);
+
+  await pageButton(page, "记录").click();
+  const recordsLayout = await page.locator(".ao-records-page").evaluate((element) => ({
+    overflow: getComputedStyle(element).overflow,
+    ellipse: getComputedStyle(element, "::after").display,
+    titleWhiteSpace: getComputedStyle(element.querySelector(".ao-wave-row strong")).whiteSpace,
+    titleOverflowWrap: getComputedStyle(element.querySelector(".ao-wave-row strong")).overflowWrap,
+  }));
+  expect(recordsLayout.overflow).toBe("visible");
+  expect(recordsLayout.ellipse).toBe("none");
+  expect(recordsLayout.titleWhiteSpace).toBe("normal");
+  expect(recordsLayout.titleOverflowWrap).toBe("anywhere");
 });
 
 test("an invalid persisted theme keeps the Night Valley surface available", async ({ page }) => {
@@ -3159,10 +3263,16 @@ test("REFINE-19 SETTINGS-04 replaces the shortcut panel with useful rhythm setti
   await expect(rhythm.locator('input[type="number"]')).toHaveCount(3);
   await expect(rhythm).toContainText("默认专注");
   await expect(rhythm).toContainText("默认休息");
-  await expect(rhythm).toContainText("长专注提醒");
-  await rhythm.locator('input[type="number"]').first().fill("50");
-  await rhythm.locator('input[type="number"]').first().press("Tab");
+  await expect(rhythm).toContainText("秒表提醒");
+  await expect(settingsPage.locator(".ep-rhythm-preset")).toHaveCount(3);
+  await expect(settingsPage.locator(".ep-rhythm-summary")).toContainText("下一次番茄钟");
+  await settingsPage.locator(".ep-rhythm-preset").filter({ hasText: "深度 50/10" }).click();
   await expect.poll(() => page.evaluate(() => window.__epShortcutCommands.filter((command) => command === "update_timer_preferences").length)).toBe(1);
+  await expect(rhythm.locator('input[aria-label="默认专注分钟"]')).toHaveValue("50");
+  await expect(rhythm.locator('input[aria-label="默认休息分钟"]')).toHaveValue("10");
+  await rhythm.locator('input[type="number"]').first().fill("45");
+  await rhythm.locator('input[type="number"]').first().press("Tab");
+  await expect.poll(() => page.evaluate(() => window.__epShortcutCommands.filter((command) => command === "update_timer_preferences").length)).toBe(2);
 
   await page.keyboard.press("Control+K");
   await expect(page.locator("#command-palette-dialog")).toBeVisible();

@@ -1376,3 +1376,86 @@
     width: 100%;
   }
 }
+
+/* v2.11.8: keep the shared native window affordances available on the
+   console surface without adding a second visible header. */
+.minimal-app[data-theme="graphite-console"] .app-bar {
+  position: fixed !important;
+  top: 0 !important;
+  right: 0 !important;
+  left: 0 !important;
+  z-index: 150 !important;
+  display: flex !important;
+  width: auto !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  padding: 0 10px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  pointer-events: none;
+}
+
+.minimal-app[data-theme="graphite-console"] .app-brand {
+  display: flex !important;
+  position: relative !important;
+  inset: auto !important;
+  flex: 0 0 clamp(180px, 16vw, 250px) !important;
+  width: clamp(180px, 16vw, 250px) !important;
+  height: 40px !important;
+  color: transparent !important;
+  cursor: move;
+  pointer-events: auto;
+  user-select: none;
+}
+
+.minimal-app[data-theme="graphite-console"] .app-brand > * {
+  visibility: hidden;
+}
+
+.minimal-app[data-theme="graphite-console"] .app-bar__actions {
+  flex: 1;
+  pointer-events: none;
+}
+
+.minimal-app[data-theme="graphite-console"] .app-bar__actions .command-trigger,
+.minimal-app[data-theme="graphite-console"] .app-bar__actions .quiet-button {
+  display: none !important;
+}
+
+.minimal-app[data-theme="graphite-console"] .app-bar__actions .window-controls {
+  position: fixed !important;
+  top: 10px !important;
+  right: 14px !important;
+  z-index: 160 !important;
+  display: flex !important;
+  pointer-events: auto;
+}
+
+.minimal-app[data-theme="graphite-console"] .window-control {
+  border-color: rgba(200, 245, 29, 0.22);
+  border-radius: 2px;
+  background: rgba(20, 25, 26, 0.92);
+  color: var(--gc-muted);
+}
+
+.minimal-app[data-theme="graphite-console"] .window-control:hover,
+.minimal-app[data-theme="graphite-console"] .window-control:focus-visible {
+  border-color: var(--gc-lime);
+  background: var(--gc-panel-raised);
+  color: var(--gc-lime);
+  outline: none;
+}
+
+.minimal-app[data-theme="graphite-console"] .window-control--close:hover,
+.minimal-app[data-theme="graphite-console"] .window-control--close:focus-visible {
+  border-color: var(--gc-danger);
+  background: rgba(93, 40, 34, 0.9);
+  color: #ffd8cf;
+}
+
+.minimal-app[data-theme="graphite-console"] .minimal-nav .trail-nav__brand[data-tauri-drag-region] {
+  cursor: move;
+  user-select: none;
+}

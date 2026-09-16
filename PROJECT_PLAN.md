@@ -1242,3 +1242,11 @@ NV-05 的具体键盘缺口：`CommandPalette.tsx` 声明 modal/listbox，但缺
 - **远端验证**：Windows Checks [`35053044558`](https://github.com/zhulongqihan/Focused-Moment/actions/runs/35053044558) PASS（17 分 26 秒）；报告 `140 passed`，Rust fmt/check/test 均 PASS。Node.js 20 弃用提示仅为 Actions 注记，不影响本次验证。
 - **发布边界**：仅发布 Windows x64 portable、Setup/NSIS、MSI；不运行 macOS workflow，不停止用户正在运行的应用进程。
 - **最终状态 / 下一步**：`REL-30 DONE`；发布说明已回填远程验证证据，后续按项目优先级排队。
+
+### 2026-09-16 REL-31 v2.11.8 跨主题壳层、通知与极光海面布局修复（实现完成，待候选发布）
+
+- **用户问题**：编辑纸页节奏设置缺少明确用途；通知需要在五个主题统一适配为右上角可关闭并自动消失；石墨控制台缺少窗口按钮和拖拽；极光海面今日/记录页信息显示不完整且记录页有异常装饰线。
+- **根因与实现**：编辑纸页节奏区补充深度/标准/短冲三组可直接保存的专注/休息预设，并把秒表提醒单独标注；共享通知保留统一行为并增加五个主题的颜色适配；石墨控制台将隐藏的共享顶栏改为透明交互层，恢复最小化、最大化/还原、关闭和拖拽命中区；极光海面移除记录页伪元素椭圆，解除页面固定裁剪和标题单行省略，保留完整任务、轨道节点、记录和日期范围信息。
+- **修改范围**：`src/App.css`、`src/components/EditorialPaperViews.tsx/.css`、`src/components/GraphiteConsoleViews.css`、`src/components/AuroraOceanViews.tsx/.css`、`tests/today-visual.spec.mjs`；版本源同步为 `2.11.8`，新增 `docs/v2.11.8/RELEASE_NOTES.md`。
+- **本地验证**：`npm run test:frontend -- --workers=1` 为 `143/143 PASS`；`npm run check` PASS；`npm run build` PASS（2067 modules）；`git diff --check` PASS；`cargo fmt --check`、`cargo check --locked`、`cargo test --locked`（35/35）均 PASS。
+- **候选边界**：按 `v2.11.7` 后新增用户可见跨主题修复升为 `2.11.8`；下一步生成 Windows x64 portable、Setup/NSIS、MSI 候选包并完成发布闭环，macOS 继续冻结。

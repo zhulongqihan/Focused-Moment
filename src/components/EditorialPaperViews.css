@@ -1273,3 +1273,105 @@
     font-size: 2.3rem;
   }
 }
+
+/* v2.11.8: turn rhythm settings into an immediately understandable control. */
+.minimal-app[data-theme="editorial-paper"] .ep-rhythm-presets {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 18px 0 14px;
+}
+
+.minimal-app[data-theme="editorial-paper"] .ep-rhythm-presets > span {
+  grid-column: 1 / -1;
+  color: var(--ep-muted);
+  font-size: 0.64rem;
+  letter-spacing: 0.08em;
+}
+
+.minimal-app[data-theme="editorial-paper"] .ep-rhythm-preset {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px 9px;
+  border: 1px solid var(--ep-line-soft);
+  border-radius: 0;
+  background: rgba(255, 250, 236, 0.34);
+  color: var(--ep-muted);
+  text-align: left;
+  transition: 160ms ease;
+}
+
+.minimal-app[data-theme="editorial-paper"] .ep-rhythm-preset:hover,
+.minimal-app[data-theme="editorial-paper"] .ep-rhythm-preset:focus-visible,
+.minimal-app[data-theme="editorial-paper"] .ep-rhythm-preset.selected {
+  border-color: var(--ep-rust);
+  background: rgba(170, 76, 45, 0.08);
+  color: var(--ep-rust-dark);
+  outline: none;
+}
+
+.minimal-app[data-theme="editorial-paper"] .ep-rhythm-preset strong,
+.minimal-app[data-theme="editorial-paper"] .ep-rhythm-preset small {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.minimal-app[data-theme="editorial-paper"] .ep-rhythm-preset strong {
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.minimal-app[data-theme="editorial-paper"] .ep-rhythm-preset small {
+  color: var(--ep-muted);
+  font-size: 0.59rem;
+}
+
+.minimal-app[data-theme="editorial-paper"] .ep-rhythm-summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--ep-line-soft);
+  color: var(--ep-muted);
+  font-size: 0.63rem;
+}
+
+.minimal-app[data-theme="editorial-paper"] .ep-rhythm-summary strong {
+  color: var(--ep-green);
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+
+.minimal-app[data-theme="editorial-paper"] .ep-rhythm-summary span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.minimal-app[data-theme="editorial-paper"] .ep-rhythm-summary small {
+  color: var(--ep-rust);
+  white-space: nowrap;
+}
+
+.minimal-app[data-theme="editorial-paper"] .ep-rhythm-apply-note {
+  margin: 10px 0 0;
+  color: var(--ep-muted);
+  font-size: 0.63rem;
+}
+
+@media (max-width: 640px) {
+  .minimal-app[data-theme="editorial-paper"] .ep-rhythm-presets {
+    grid-template-columns: 1fr;
+  }
+
+  .minimal-app[data-theme="editorial-paper"] .ep-rhythm-summary {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .minimal-app[data-theme="editorial-paper"] .ep-rhythm-summary small {
+    white-space: normal;
+  }
+}

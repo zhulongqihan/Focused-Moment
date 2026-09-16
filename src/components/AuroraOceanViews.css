@@ -2663,3 +2663,63 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* v2.11.8: keep the ocean surface ornamental but never let decoration or
+   ellipsis hide the user's actual records. */
+.minimal-app.minimal-app--cinematic[data-theme="aurora-ocean"] .ao-page {
+  min-height: max-content;
+  overflow: visible;
+}
+
+.minimal-app.minimal-app--cinematic[data-theme="aurora-ocean"] .ao-page::after {
+  display: none;
+}
+
+.minimal-app.minimal-app--cinematic[data-theme="aurora-ocean"] .ao-today-page,
+.minimal-app.minimal-app--cinematic[data-theme="aurora-ocean"] .ao-records-page {
+  padding-bottom: 24px;
+}
+
+.minimal-app.minimal-app--cinematic[data-theme="aurora-ocean"] .ao-orbit-node strong {
+  display: -webkit-box;
+  min-height: 2.6em;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-height: 1.3;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.minimal-app.minimal-app--cinematic[data-theme="aurora-ocean"] .ao-next-capsule strong {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.minimal-app.minimal-app--cinematic[data-theme="aurora-ocean"] .ao-archive-range {
+  grid-template-columns: auto minmax(0, 1fr);
+  min-width: 0;
+}
+
+.minimal-app.minimal-app--cinematic[data-theme="aurora-ocean"] .ao-wave-row {
+  align-items: start;
+}
+
+.minimal-app.minimal-app--cinematic[data-theme="aurora-ocean"] .ao-wave-row strong,
+.minimal-app.minimal-app--cinematic[data-theme="aurora-ocean"] .ao-wave-row small,
+.minimal-app.minimal-app--cinematic[data-theme="aurora-ocean"] .ao-history-items span {
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.minimal-app.minimal-app--cinematic[data-theme="aurora-ocean"] .ao-wave-row strong {
+  line-height: 1.45;
+}
+
+.minimal-app.minimal-app--cinematic[data-theme="aurora-ocean"] .ao-wave-row small,
+.minimal-app.minimal-app--cinematic[data-theme="aurora-ocean"] .ao-history-items span {
+  line-height: 1.5;
+}
