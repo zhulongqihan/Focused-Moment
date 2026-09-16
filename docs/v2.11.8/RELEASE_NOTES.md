@@ -33,8 +33,8 @@
 
 ## Remote verification
 
-- Windows Checks: pending the release commit.
-- GitHub Release: pending candidate packaging and Windows asset upload.
+- Windows Checks [`35058574978`](https://github.com/zhulongqihan/Focused-Moment/actions/runs/35058574978): PASS in 17m45s; frontend reported `143 passed`, and Rust format/check/test all passed. The only annotation is the repository's existing Node.js 20 deprecation notice for GitHub Actions.
+- GitHub Release [`v2.11.8`](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.11.8) is published with all three Windows x64 assets uploaded; remote digests match the local SHA-256 values below.
 
 ## Windows assets
 
