@@ -9502,7 +9502,7 @@ body,
   position: static !important;
   grid-area: board;
   display: grid !important;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   grid-template-rows: auto 1fr;
   gap: 12px;
   width: auto !important;
@@ -9645,7 +9645,7 @@ body,
 }
 
 .minimal-app--todos .nv-todo-column--done .nv-todo-column__list {
-  max-height: 352px;
+  max-height: none;
   padding-right: 4px;
   overflow: auto;
 }
@@ -10998,4 +10998,94 @@ body,
     right: -8px;
     left: auto;
   }
+}
+
+/* v2.11.7 feedback: keep transient feedback in a single, dismissible
+   viewport layer instead of appending it after the page content. */
+.app-message {
+  position: fixed;
+  top: 72px;
+  right: 24px;
+  z-index: 160;
+  display: flex;
+  width: min(420px, calc(100vw - 48px));
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+  padding: 12px 12px 12px 15px;
+  border: 1px solid currentColor;
+  border-radius: 10px;
+  background: #eef5ef;
+  color: #315a45;
+  box-shadow: 0 7px 8px rgba(4, 18, 12, 0.18);
+  cursor: pointer;
+  animation: app-message-in 180ms ease-out both;
+}
+
+.app-message > span {
+  min-width: 0;
+  line-height: 1.45;
+}
+
+.app-message:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}
+
+.app-message__dismiss {
+  display: inline-grid;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: currentColor;
+  font-size: 20px;
+  line-height: 1;
+  opacity: 0.72;
+}
+
+.app-message__dismiss:hover,
+.app-message__dismiss:focus-visible {
+  background: rgba(255, 255, 255, 0.16);
+  opacity: 1;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail) .app-message {
+  border-color: rgba(196, 237, 211, 0.28);
+  background: rgba(10, 31, 36, 0.96);
+  color: #d8efdf;
+}
+
+@keyframes app-message-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-message { animation: none; }
+}
+
+@media (max-width: 560px) {
+  .app-message {
+    top: 68px;
+    right: 14px;
+    width: calc(100vw - 28px);
+  }
+}
+
+/* The completed column should fill the same board track as the pending
+   column. Scroll only when its content exceeds that available track. */
+.minimal-app--todos .nv-todo-column--done .nv-todo-column__list {
+  max-height: none;
+  min-height: 0;
+  overflow: auto;
+}
+
+.minimal-app--todos .nv-todo-column--done {
+  margin-top: 0;
 }

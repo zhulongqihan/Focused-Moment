@@ -1230,3 +1230,13 @@ NV-05 的具体键盘缺口：`CommandPalette.tsx` 声明 modal/listbox，但缺
 - **发布闭环**：产品提交 [`dbe7300`](https://github.com/zhulongqihan/Focused-Moment/commit/dbe73007fce89122428660bb5e94881b5699169a) 已推送到 `main`；`v2.11.6` tag 已创建并固定指向该产品提交；GitHub Release [`v2.11.6`](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.11.6) 已标记为 latest，portable、Setup/NSIS、MSI 三项 Windows x64 资产均已上传，远端资产与本地 SHA-256 一致。
 - **远端验证**：Windows Checks [`35008136360`](https://github.com/zhulongqihan/Focused-Moment/actions/runs/35008136360) PASS（18 分 18 秒）；前端报告 `137 passed`，其中跨主题日期待办用例首次 reload 超时后重试通过并标记为 flaky；TypeScript/build、Rust fmt/check/test 均 PASS。Node.js 20 弃用提示仅为 Actions 注记，不影响本次验证。
 - **最终状态 / 下一步**：`REL-29 DONE`；发布说明已回填远程验证证据；不运行任何 macOS workflow，不停止用户正在运行的应用进程；后续按项目优先级排队。
+
+### 2026-09-16 REL-30 v2.11.7 Night Valley 记录、待办与通知修复（候选已完成，待发布）
+
+- **用户问题**：夜色记录页展开日期后会被一秒刷新重新打开；待办页已完成列与待办列高度不一致且出现无必要的滚动条；操作通知固定在页面底部且不会自动消失或响应点击。
+- **根因与实现**：记录日期组每秒生成新对象，原生 `<details>` 节点被 Solid 重建并重置展开状态；已增加日期组/记录项的语义稳定化，仅在内容变化时替换节点。待办板清除遗留的第三网格轨道，完成列取消固定高度与旧顶部偏移，使两列对齐并仅在内容超出可用空间时滚动。通知改为右上角固定 toast，5 秒自动关闭，并支持整条通知、关闭按钮和键盘操作主动关闭。
+- **修改范围**：`src/components/NightValleyViews.tsx`、`src/MainShell.tsx`、`src/App.css`、`tests/app.spec.mjs`；版本源同步为 `2.11.7`，新增 `docs/v2.11.7/RELEASE_NOTES.md`。
+- **本地验证**：`npm run test:frontend -- tests/app.spec.mjs tests/today-visual.spec.mjs --workers=1` 为 `140/140 PASS`；`npm run check`、`npm run build`（2067 modules）、`git diff --check`、`cargo fmt --check`、`cargo check --locked`、`cargo test --locked`（35/35）和 `npm run package:release` 均 PASS。
+- **候选资产**：Windows x64 portable、Setup/NSIS、MSI 已生成，SHA-256 已写入 `docs/v2.11.7/RELEASE_NOTES.md`；macOS 继续冻结。
+- **发布边界**：产品提交、推送、`v2.11.7` tag、GitHub Release 与 Windows Checks 尚未执行；不运行 macOS workflow，不停止用户正在运行的应用进程。
+- **下一步**：提交候选修复并推送 `main`，创建 `v2.11.7` Windows-only Release，等待远端 Checks 完成后回填远程证据并闭环。

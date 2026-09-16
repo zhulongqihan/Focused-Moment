@@ -8,8 +8,8 @@ function localDate() {
   return `${year}-${month}-${day}`;
 }
 
-async function bootWithTauriMock(page, { includeOverdue = false, includeRecords = false, windowLabel = "main", pausedFocus = false, completedCountdown = false, initialLoadError = false, todayRecordCount = includeRecords ? 1 : 0, todayTodoCount = 1, futureTodoCount = 0, completedTodoCount = 0, historyDayCount = 0, freshTodoSnapshots = false } = {}) {
-  await page.addInitScript(({ today, includeOverdue, includeRecords, windowLabel, pausedFocus, completedCountdown, initialLoadError, todayRecordCount, todayTodoCount, futureTodoCount, completedTodoCount, historyDayCount, freshTodoSnapshots }) => {
+async function bootWithTauriMock(page, { includeOverdue = false, includeRecords = false, windowLabel = "main", pausedFocus = false, completedCountdown = false, initialLoadError = false, todayRecordCount = includeRecords ? 1 : 0, todayTodoCount = 1, futureTodoCount = 0, completedTodoCount = 0, historyDayCount = 0, freshTodoSnapshots = false, freshRecordSnapshots = false } = {}) {
+  await page.addInitScript(({ today, includeOverdue, includeRecords, windowLabel, pausedFocus, completedCountdown, initialLoadError, todayRecordCount, todayTodoCount, futureTodoCount, completedTodoCount, historyDayCount, freshTodoSnapshots, freshRecordSnapshots }) => {
     const yesterday = new Date(`${today}T00:00:00`);
     yesterday.setDate(yesterday.getDate() - 1);
     const dateKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -153,6 +153,7 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
       });
     }
     window.__todoItemsCalls = 0;
+    window.__focusRecordCalls = 0;
     window.__timerSnapshotCalls = 0;
     window.__focusFloatingShown = false;
     window.__floatingTodosShown = false;
@@ -329,7 +330,8 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
             window.__todoItemsCalls += 1;
             return freshTodoSnapshots ? todos.map((item) => ({ ...item })) : todos;
           case "get_focus_records":
-            return focusRecords;
+            window.__focusRecordCalls += 1;
+            return freshRecordSnapshots ? focusRecords.map((record) => ({ ...record })) : focusRecords;
           case "update_focus_record_title":
             focusRecords = focusRecords.map((record) => record.id === args.id
               ? { ...record, title: args.title }
@@ -475,7 +477,7 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
         }
       },
     };
-  }, { today: localDate(), includeOverdue, includeRecords, windowLabel, pausedFocus, completedCountdown, initialLoadError, todayRecordCount, todayTodoCount, futureTodoCount, completedTodoCount, historyDayCount, freshTodoSnapshots });
+  }, { today: localDate(), includeOverdue, includeRecords, windowLabel, pausedFocus, completedCountdown, initialLoadError, todayRecordCount, todayTodoCount, futureTodoCount, completedTodoCount, historyDayCount, freshTodoSnapshots, freshRecordSnapshots });
 
   await page.goto("/");
   if (windowLabel === "main") {
@@ -876,6 +878,22 @@ test("records page keeps a long archive inside a bounded history viewport", asyn
   await expect(recordDays.last()).toContainText("历史归档 28");
 });
 
+test("record day keeps its collapsed state during background refresh", async ({ page }) => {
+  await bootWithTauriMock(page, { includeRecords: true, freshRecordSnapshots: true });
+
+  await page.getByRole("button", { name: "记录", exact: true }).click();
+
+  const recordDays = page.locator(".record-day");
+  await recordDays.nth(1).locator("summary").click();
+  await expect(recordDays.nth(1).locator(".record-row").first()).toBeHidden();
+
+  const callsBeforeRefresh = await page.evaluate(() => window.__focusRecordCalls);
+  await expect.poll(() => page.evaluate(() => window.__focusRecordCalls), { timeout: 3000 })
+    .toBeGreaterThan(callsBeforeRefresh);
+  await expect(recordDays.nth(1).locator(".record-row").first()).toBeHidden();
+  await expect(recordDays.nth(1)).not.toHaveAttribute("open", "");
+});
+
 test("records page aligns route points and explains focus hours", async ({ page }) => {
   await bootWithTauriMock(page, { includeRecords: true });
 
@@ -1194,7 +1212,33 @@ test("completing a todo keeps it visible in the completed section", async ({ pag
   await expect(page.locator(".app-message")).toContainText("已完成“写完产品复盘”");
 });
 
-test("todo board keeps completed actions aligned and scrollable", async ({ page }) => {
+test("app messages appear as dismissible top-right toasts and auto-dismiss", async ({ page }) => {
+  await bootWithTauriMock(page, { includeRecords: true });
+
+  await page.getByRole("button", { name: "记录", exact: true }).click();
+  const record = page.locator(".record-row").first();
+  await record.getByRole("button", { name: "编辑记录“完成产品复盘”" }).click();
+  await record.locator('input[name="editRecordTitle-3"]').fill("完成季度复盘");
+  await page.getByRole("button", { name: "保存", exact: true }).click();
+
+  const toast = page.locator(".app-message");
+  await expect(toast).toBeVisible();
+  await expect(toast).toHaveCSS("position", "fixed");
+  const toastBox = await toast.boundingBox();
+  expect(toastBox?.x ?? 0).toBeGreaterThan(700);
+  expect(toastBox?.y ?? 999).toBeLessThan(140);
+
+  await toast.click();
+  await expect(toast).toBeHidden();
+
+  await record.getByRole("button", { name: "编辑记录“完成季度复盘”" }).click();
+  await record.locator('input[name="editRecordTitle-3"]').fill("完成季度复盘二次");
+  await page.getByRole("button", { name: "保存", exact: true }).click();
+  await expect(toast).toBeVisible();
+  await expect(toast).toBeHidden({ timeout: 6500 });
+});
+
+test("todo board keeps completed actions aligned without a needless scrollbar", async ({ page }) => {
   await page.setViewportSize({ width: 1487, height: 1058 });
   await bootWithTauriMock(page, { todayTodoCount: 0, completedTodoCount: 9 });
 
@@ -1222,11 +1266,11 @@ test("todo board keeps completed actions aligned and scrollable", async ({ page 
       scrollWidth: document.documentElement.scrollWidth,
     };
   });
-
   expect(layout.board?.width).toBeGreaterThan(700);
   expect(layout.columns).toHaveLength(2);
   expect(layout.columns[0].right).toBeLessThanOrEqual(layout.columns[1].left + 0.5);
-  expect(layout.completedList?.scrollHeight).toBeGreaterThan(layout.completedList?.clientHeight ?? 0);
+  expect(Math.abs(layout.columns[0].height - layout.columns[1].height)).toBeLessThan(2);
+  expect(layout.completedList?.scrollHeight).toBe(layout.completedList?.clientHeight);
   expect(layout.title?.right).toBeLessThanOrEqual(layout.actions[0].left + 1);
   expect(Math.abs(layout.actions[0].top - layout.actions[1].top)).toBeLessThan(2);
   expect(layout.scrollWidth).toBeLessThanOrEqual(1487);

@@ -770,6 +770,47 @@ interface RecordGroupShape {
   totalDurationMs: number;
 }
 
+function sameFocusRecord(left: FocusRecord, right: FocusRecord) {
+  return left.id === right.id
+    && left.title === right.title
+    && left.durationMs === right.durationMs
+    && left.durationLabel === right.durationLabel
+    && left.modeKey === right.modeKey
+    && left.modeLabel === right.modeLabel
+    && left.phaseLabel === right.phaseLabel
+    && left.linkedTodoId === right.linkedTodoId
+    && left.linkedTodoTitle === right.linkedTodoTitle
+    && left.completedAt === right.completedAt
+    && left.completedDate === right.completedDate
+    && left.completedTime === right.completedTime;
+}
+
+function stabilizeRecordGroups(nextGroups: RecordGroupShape[], previousGroups: RecordGroupShape[]) {
+  const previousByDate = new Map(previousGroups.map((group) => [group.date, group]));
+  let unchanged = nextGroups.length === previousGroups.length
+    && nextGroups.every((group, index) => previousGroups[index]?.date === group.date);
+  const stableGroups = nextGroups.map((group) => {
+    const previous = previousByDate.get(group.date);
+    if (!previous || previous.totalDurationMs !== group.totalDurationMs || previous.records.length !== group.records.length) {
+      unchanged = false;
+      return group;
+    }
+
+    const previousRecordsById = new Map(previous.records.map((record) => [record.id, record]));
+    const stableRecords = group.records.map((record) => {
+      const previousRecord = previousRecordsById.get(record.id);
+      return previousRecord && sameFocusRecord(previousRecord, record) ? previousRecord : record;
+    });
+    const sameGroup = stableRecords.every((record, index) => record === previous.records[index]);
+    if (sameGroup) return previous;
+
+    unchanged = false;
+    return { ...group, records: stableRecords };
+  });
+
+  return unchanged ? previousGroups : stableGroups;
+}
+
 interface FocusTimeBand {
   key: "late-night" | "morning" | "afternoon" | "evening";
   label: string;
@@ -855,6 +896,13 @@ export interface NightValleyRecordsProps {
 
 export function NightValleyRecords(props: NightValleyRecordsProps) {
   const recentWeekAverageDurationLabel = () => props.formatDurationMs(props.recentWeekDurationMs() / 7);
+  let previousRecordGroups: RecordGroupShape[] = [];
+  const stableRecordGroups = createMemo(() => {
+    const nextGroups = props.recordGroups();
+    const nextStableGroups = stabilizeRecordGroups(nextGroups, previousRecordGroups);
+    previousRecordGroups = nextStableGroups;
+    return nextStableGroups;
+  });
   const focusTimeBands = createMemo<FocusTimeBand[]>(() => {
     const bands = focusTimeBandSeeds.map((band) => ({
       ...band,
@@ -999,7 +1047,7 @@ export function NightValleyRecords(props: NightValleyRecordsProps) {
         <div class="record-list">
           <Show when={!props.ready()}><p class="load-copy">正在读取专注记录…</p></Show>
           <Show when={props.ready() && props.records().length > 0}>
-            <For each={props.recordGroups()}>
+            <For each={stableRecordGroups()}>
               {(group) => (
                 <details class="record-day" open>
                   <summary class="record-day__summary"><span class="record-day__date"><strong>{props.formatRecordDay(group.date)}</strong><small>{group.records.length} 轮 · {props.formatDurationMs(group.totalDurationMs)}</small></span><span class="record-day__chevron" aria-hidden="true">⌄</span></summary>

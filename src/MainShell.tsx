@@ -619,6 +619,7 @@ function MainShell() {
   const [motionIntensity, setMotionIntensity] = createSignal(readPercentage(motionIntensityKey, 44));
   const [density, setDensity] = createSignal<"roomy" | "compact">(readDensity());
   let undoTimer: number | undefined;
+  let messageTimer: number | undefined;
   let commandInput: HTMLInputElement | undefined;
   let commandTrigger: HTMLButtonElement | undefined;
   let refreshVersion = 0;
@@ -703,11 +704,23 @@ function MainShell() {
   });
 
   function showMessage(text: string, kind: FeedbackKind = "info") {
+    if (messageTimer !== undefined) {
+      window.clearTimeout(messageTimer);
+    }
     setMessage(text);
     setMessageKind(kind);
+    messageTimer = window.setTimeout(() => {
+      setMessage("");
+      setMessageKind("info");
+      messageTimer = undefined;
+    }, 5_000);
   }
 
   function clearMessage() {
+    if (messageTimer !== undefined) {
+      window.clearTimeout(messageTimer);
+      messageTimer = undefined;
+    }
     setMessage("");
     setMessageKind("info");
   }
@@ -1701,6 +1714,9 @@ function MainShell() {
       if (undoTimer !== undefined) {
         window.clearTimeout(undoTimer);
       }
+      if (messageTimer !== undefined) {
+        window.clearTimeout(messageTimer);
+      }
       window.removeEventListener("keydown", onKeyDown);
       document.documentElement.classList.remove("floating-window");
     });
@@ -2478,9 +2494,34 @@ function MainShell() {
           />
 
           <Show when={message()}>
-            <p classList={{ "app-message": true, [`app-message--${messageKind()}`]: true }} role="status" aria-live="polite">
-              {message()}
-            </p>
+            <div
+              classList={{ "app-message": true, [`app-message--${messageKind()}`]: true }}
+              role="status"
+              aria-live="polite"
+              aria-label="通知，点击关闭"
+              tabindex="0"
+              title="点击关闭"
+              onClick={clearMessage}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " " || event.key === "Escape") {
+                  event.preventDefault();
+                  clearMessage();
+                }
+              }}
+            >
+              <span>{message()}</span>
+              <button
+                type="button"
+                class="app-message__dismiss"
+                aria-label="关闭通知"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  clearMessage();
+                }}
+              >
+                ×
+              </button>
+            </div>
           </Show>
 
           <Show when={undoAction()}>
