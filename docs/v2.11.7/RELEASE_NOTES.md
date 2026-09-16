@@ -31,6 +31,11 @@
 - `cargo test --locked`: `35/35 PASS`.
 - `npm run package:release`: PASS; Tauri produced Windows x64 MSI and NSIS installers, plus portable/Setup exports.
 
+## Remote verification
+
+- Windows Checks [`35053044558`](https://github.com/zhulongqihan/Focused-Moment/actions/runs/35053044558): PASS in 17m26s; frontend reported `140 passed` and Rust fmt/check/test all passed.
+- GitHub Release [`v2.11.7`](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.11.7) is published with all three Windows x64 assets uploaded; remote digests match the local SHA-256 values below.
+
 ## Windows assets
 
 | File | Size | SHA-256 |
