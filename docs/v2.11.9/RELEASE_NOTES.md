@@ -41,6 +41,11 @@
 
 Local export paths: `Focused Moment v2.11.9.exe`, `Focused Moment Setup v2.11.9.exe`, and `src-tauri/target/release/bundle/msi/Focused Moment_2.11.9_x64_en-US.msi`.
 
+## Remote verification
+
+- Windows Checks [`35072818110`](https://github.com/zhulongqihan/Focused-Moment/actions/runs/35072818110): success in 20m13s; frontend reported `141 passed` and `4 flaky` after retries, while Rust format/check/tests and the verification summary passed. The flaky entries were navigation/reload timeouts under the long single-worker browser run; the local run was `145/145 PASS`.
+- GitHub Release [`v2.11.9`](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.11.9) contains all three Windows x64 assets; remote digests match the local SHA-256 values above.
+
 ## Release boundary
 
 - Release targets: Windows x64 portable, Setup/NSIS, and MSI.

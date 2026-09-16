@@ -1254,11 +1254,14 @@ NV-05 的具体键盘缺口：`CommandPalette.tsx` 声明 modal/listbox，但缺
 - **远端验证**：Windows Checks [`35058574978`](https://github.com/zhulongqihan/Focused-Moment/actions/runs/35058574978) PASS（17 分 45 秒）；报告 `143 passed`，Rust fmt/check/test 均 PASS。Node.js 20 弃用提示仅为 Actions 注记，不影响本次验证。
 - **最终状态 / 下一步**：`REL-31 DONE`；发布说明已回填远程验证证据，macOS 继续冻结，不停止用户正在运行的应用进程；后续按项目优先级排队。
 
-### 2026-09-16 REL-32 v2.11.9 跨主题记录、品牌标记与今日进度修复（候选验证完成，待发布）
+### 2026-09-16 REL-32 v2.11.9 跨主题记录、品牌标记与今日进度修复（已完成）
 
 - **用户问题**：记录页日期组点击后会在刷新时回到顶部/无法打开；左上角品牌标记在主题间变形且圆点位置不符合预期；今日进度显示混入历史待办，未完成任何今日待办时仍可能显示非零。
 - **根因与实现**：记录页在每秒收到新快照时重置受控展开状态，夜谷还依赖原生 `details` 的隐式状态；五个主题现在都按日期键保留展开状态，夜谷也改为显式维护日期组状态。共享品牌样式统一为外圆包住内层缺口圆，偏置小圆点落在内层缺口且不越出外圆。五个主题的今日完成度统一按“当天已完成 ÷ 当天待办总数（当天待办 + 当天已完成）”计算。
 - **修改范围**：`src/MainShell.tsx`、`src/components/NightValleyViews.tsx`、`src/components/EditorialPaperViews.tsx`、`src/components/GraphiteConsoleViews.tsx`、`src/components/AuroraOceanViews.tsx`、`src/components/BotanicalLibraryViews.tsx`、`src/components/BrandMark.css`、`tests/today-visual.spec.mjs`；版本源同步为 `2.11.9`，新增 `docs/v2.11.9/RELEASE_NOTES.md`。
 - **本地候选验证**：`pnpm exec playwright test --workers=1` 为 `145/145 PASS`；`pnpm check` PASS；`pnpm build` PASS（2067 modules）；`git diff --check` PASS；`cargo fmt --check`、`cargo check --locked`、`cargo test --locked`（35/35）均 PASS。
+- **候选资产**：Windows x64 portable / Setup / MSI 已生成；portable / Setup / MSI 分别为 `23,851,520` / `16,199,247` / `17,182,720` bytes，SHA-256 已写入 `docs/v2.11.9/RELEASE_NOTES.md`。
 - **发布边界**：按 `v2.11.8` 后用户可见 patch 变化升为 `v2.11.9`；仅发布 Windows x64 portable、Setup/NSIS、MSI；不运行 macOS workflow，不停止用户正在运行的应用进程。
-- **当前状态 / 下一步**：代码与测试候选已完成；待执行 Windows x64 打包、提交、推送、tag、GitHub Release 和远端 Windows Checks，随后回填资产 digest 与最终证据。
+- **发布闭环**：产品提交 [`4f1fcc3`](https://github.com/zhulongqihan/Focused-Moment/commit/4f1fcc395bce5fe04b1777e65d9177d03e741cb9) 已推送到 `main`；`v2.11.9` tag 已创建并固定指向该提交；GitHub Release [`v2.11.9`](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.11.9) 已发布，三项 Windows x64 资产均为 `uploaded`，远端 digest 与本地 SHA-256 一致。
+- **远端验证**：Windows Checks [`35072818110`](https://github.com/zhulongqihan/Focused-Moment/actions/runs/35072818110) success（20 分 13 秒）；前端报告 `141 passed`、`4 flaky`（导航/reload 超时在重试后恢复），Rust fmt/check/test 均 PASS；Node.js 20 弃用提示为现有 Actions 注记，不影响本次验证。
+- **最终状态 / 下一步**：`REL-32 DONE`；发布说明已回填远程验证与三项资产 digest，macOS 继续冻结，不停止用户正在运行的应用进程；后续按项目优先级排队。
