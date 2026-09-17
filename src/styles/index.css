@@ -1,0 +1,13 @@
+/*
+ * CSS entrypoint. Imports stay in source order so the cascade, specificity,
+ * animations, resources, and final override passes remain equivalent to the
+ * pre-refactor App.css stream.
+ */
+@import "./00-foundation.css";
+@import "./10-trail-reference.css";
+@import "./20-theme-shell.css";
+@import "./30-measured-surfaces.css";
+@import "./40-responsive-layout.css";
+@import "./50-trail-polish.css";
+@import "./60-focus-todos-records.css";
+@import "./70-settings-feedback.css";

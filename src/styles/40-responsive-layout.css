@@ -1,0 +1,575 @@
+/* Narrow compositions retain every action, while allowing the measured
+   panels to become a vertical reading order. */
+
+@media (max-width: 1160px) {
+  .minimal-app--trail { overflow-y: auto; }
+  .minimal-app--trail .today-page { min-height: 1160px; overflow: visible; }
+  .minimal-app--trail .trail-stage { position: relative; top: 245px; min-height: 950px; }
+  .minimal-app--trail .trail-map { position: relative; inset: auto; width: 100%; height: 630px; }
+  .minimal-app--trail .trail-map__viewport { position: relative; width: 100%; height: 575px; }
+  .minimal-app--trail .trail-focus-panel { position: relative; top: 0; right: auto; width: min(360px, calc(100% - 48px)); height: 443px; margin: 25px 24px 0 auto; }
+  .minimal-app--trail .trail-add-button { right: 25px; bottom: 25px; }
+  .minimal-app--trail .trail-map__footer { top: 630px; right: 25px; left: 25px; }
+  .minimal-app--focus .nv-focus-panel { right: 18px; }
+  .minimal-app--focus .nv-chronograph { left: min(331px, 27vw); transform: scale(0.84); transform-origin: top left; }
+  .minimal-app--focus .nv-focus-route { left: 35px; transform: scale(0.88); transform-origin: top left; }
+  .minimal-app--focus .nv-focus-footer { left: 22%; width: 55%; }
+  .minimal-app--todos .nv-todo-summary { left: 49%; }
+  .minimal-app--todos .nv-todo-create { right: 24px; left: 42px; }
+  .minimal-app--todos .nv-todo-board { right: 250px; left: 25px; }
+  .minimal-app--todos .nv-todo-focus-panel { right: 15px; width: 205px; }
+  .minimal-app--records .nv-records-archive { width: calc(100% - 110px); margin-left: 50px; }
+  .minimal-app--records .nv-record-history,
+  .minimal-app--records .nv-records-trend { width: calc(100% - 124px); margin-left: 62px; }
+  .minimal-app--settings .nv-settings-panels { left: 220px; }
+  .minimal-app--settings .nv-settings-subnav { left: 22px; }
+  .minimal-app--settings .nv-settings-preview { left: 920px; }
+}
+
+@media (max-width: 820px) {
+  .minimal-app--cinematic { height: auto; min-height: 100dvh; overflow: visible; }
+  .minimal-workspace { display: block; height: auto; min-height: 100dvh; }
+  .minimal-nav { position: sticky; top: 0; display: grid; width: 100%; height: 66px; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; padding: 7px; border-right: 0; border-bottom: 1px solid rgba(186, 207, 193, 0.18); }
+  .minimal-nav::after { display: none; }
+  .trail-nav__brand { display: none; }
+  .minimal-nav > button,
+  .minimal-nav > button:nth-of-type(1),
+  .minimal-nav > button:nth-of-type(2),
+  .minimal-nav > button:nth-of-type(3),
+  .minimal-nav > button:nth-of-type(4),
+  .minimal-nav > button:nth-of-type(5) { position: relative; top: auto; left: auto; width: auto; height: 52px; justify-content: center; padding: 0 5px; border-radius: 5px; font-size: 11px; }
+  .minimal-nav > button.active::before { display: none; }
+  .trail-nav__icon { display: none; }
+  .minimal-nav__count { position: relative; right: auto; margin-left: 3px; }
+  .minimal-content { height: auto; min-height: calc(100dvh - 66px); overflow: visible; }
+  .minimal-app--cinematic .app-bar { position: fixed !important; top: 0; height: 1px; min-height: 1px; margin: 0; }
+  .minimal-app--cinematic .command-trigger { right: 16px; bottom: 16px; left: auto; }
+  .minimal-app--cinematic .load-copy { top: 80px; left: 18px; }
+  .minimal-app--cinematic .nv-page { min-height: 930px; height: auto; overflow: visible; }
+  .nv-page-heading,
+  .minimal-app--focus .nv-focus-heading,
+  .minimal-app--todos .nv-todo-heading,
+  .minimal-app--records .nv-records-heading,
+  .minimal-app--settings .nv-settings-heading { position: relative; top: auto !important; left: auto !important; padding: 39px 22px 0; }
+  .nv-page-heading h1 { font-size: clamp(38px, 10vw, 54px); }
+  .nv-page-heading__date { font-size: 16px; }
+  .nv-page-heading p { font-size: 13px; }
+  .minimal-app--trail .trail-page__heading { position: relative; top: auto; left: auto; padding: 42px 22px 0; }
+  .minimal-app--trail .trail-page__heading h1 { font-size: clamp(40px, 11vw, 56px); }
+  .minimal-app--trail .trail-page__headline-actions { position: relative; top: auto; right: auto; gap: 12px; justify-content: space-between; padding: 22px; }
+  .minimal-app--trail .trail-stage { top: auto; min-height: 960px; margin-top: 12px; }
+  .minimal-app--trail .trail-map { height: 610px; }
+  .minimal-app--trail .trail-map__footer { top: 585px; }
+  .minimal-app--trail .trail-focus-panel { width: calc(100% - 44px); margin: 30px 22px 0; }
+  .minimal-app--trail .trail-add-button { right: 22px; bottom: 10px; }
+  .minimal-app--focus .nv-focus-layout { position: relative; min-height: 860px; margin-top: 24px; }
+  .minimal-app--focus .nv-focus-route { top: 16px; left: 22px; width: 120px; height: 350px; transform: scale(0.68); transform-origin: top left; }
+  .minimal-app--focus .nv-chronograph { top: 0; left: 50%; width: 370px; height: 500px; transform: translateX(-50%) scale(0.58); transform-origin: top center; }
+  .minimal-app--focus .nv-focus-panel { position: relative; top: auto; right: auto; width: calc(100% - 44px); height: auto; min-height: 470px; margin: 8px 22px 0; }
+  .minimal-app--focus .nv-focus-footer { position: relative; top: auto; left: auto; width: calc(100% - 44px); height: auto; min-height: 100px; margin: 24px 22px 40px; }
+  .minimal-app--todos .nv-todo-summary { position: relative; top: auto; left: auto; flex-wrap: wrap; padding: 24px 22px 0; }
+  .minimal-app--todos .nv-todo-create { position: relative; top: auto; right: auto; left: auto; height: auto; grid-template-columns: 1fr 1fr; margin: 20px 22px 0; padding: 10px; }
+  .nv-todo-create__label { grid-column: 1 / -1; }
+  .minimal-app--todos .nv-todo-board { position: relative; top: auto; right: auto; bottom: auto; left: auto; grid-template-columns: 1fr; margin: 24px 22px 0; padding: 57px 13px 18px; }
+  .minimal-app--todos .nv-todo-column { min-height: 170px; }
+  .minimal-app--todos .nv-todo-focus-panel { position: relative; top: auto; right: auto; width: calc(100% - 44px); height: 330px; margin: 20px 22px 0; }
+  .minimal-app--todos .nv-todo-footer { position: relative; right: auto; bottom: auto; left: auto; height: auto; min-height: 98px; grid-template-columns: 1fr 1fr; margin-top: 24px; padding: 22px; }
+  .nv-todo-footer__hint { grid-column: 1 / -1; margin-top: 15px; font-size: 14px; }
+  .minimal-app--records .nv-records-archive { width: auto; margin: 24px 22px 0; padding-top: 0; }
+  .minimal-app--records .records-archive__summary { grid-template-columns: 1fr 1fr; }
+  .records-archive__summary-copy { grid-column: 1 / -1; }
+  .minimal-app--records .records-archive__body { grid-template-columns: 1fr; }
+  .minimal-app--records .nv-records-trend,
+  .minimal-app--records .nv-record-history { width: auto; margin-right: 22px; margin-left: 22px; }
+  .minimal-app--records .nv-records-trend { grid-template-columns: 1fr; gap: 14px; padding: 18px; }
+  .minimal-app--settings .nv-settings-layout { min-height: 0; margin-top: 24px; padding: 0 22px 50px; }
+  .minimal-app--settings .nv-settings-subnav { position: relative; top: auto; left: auto; width: auto; height: auto; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .nv-settings-subnav a { height: 45px; justify-content: center; gap: 4px; padding: 0 3px; font-size: 9px; }
+  .nv-settings-subnav a span { font-size: 11px; }
+  .minimal-app--settings .nv-settings-panels { position: relative; top: auto; left: auto; width: auto; margin-top: 18px; }
+  .minimal-app--settings .nv-settings-panel { width: auto; height: auto !important; min-height: 0; margin-bottom: 16px; }
+  .nv-theme-grid { grid-template-columns: repeat(3, 1fr); }
+  .nv-setting-sliders,
+  .nv-toggle-row { grid-template-columns: 1fr; gap: 12px; }
+  .minimal-app--settings .nv-settings-preview { position: relative; top: auto; left: auto; width: auto; height: 600px; margin-top: 18px; }
+  .minimal-app--settings .nv-settings-preview__screen { height: 430px; }
+}
+
+@media (max-width: 560px) {
+  .minimal-app--trail .trail-page__headline-actions { align-items: flex-start; flex-direction: column; }
+  .minimal-app--trail .trail-link-button { width: 100%; justify-content: center; }
+  .minimal-app--trail .trail-map__viewport { margin-right: 0; }
+  .minimal-app--trail .trail-map__footer { right: 20px; left: 20px; }
+  .minimal-app--focus .nv-focus-panel { padding: 22px 18px; }
+  .minimal-app--focus .nv-focus-controls { grid-template-columns: 1fr; }
+  .nv-focus-finish { grid-column: auto; }
+  .nv-focus-reset { grid-column: auto; }
+  .minimal-app--todos .nv-todo-create { grid-template-columns: 1fr; }
+  .nv-todo-create__label { grid-column: auto; }
+  .minimal-app--todos .nv-todo-board { margin-right: 14px; margin-left: 14px; }
+  .minimal-app--todos .nv-todo-focus-panel { width: calc(100% - 28px); margin-right: 14px; margin-left: 14px; }
+  .minimal-app--records .records-archive__summary { grid-template-columns: 1fr; }
+  .records-archive__summary-copy { grid-column: auto; }
+  .minimal-app--records .records-archive__stats { grid-template-columns: 1fr 1fr; gap: 12px 0; padding: 16px 0; }
+  .minimal-app--records .records-archive__stats > div { min-height: 54px; }
+  .minimal-app--records .records-archive__stats > div:nth-child(2) { border-right: 0; }
+  .minimal-app--records .records-archive__stats > div:last-child { grid-column: 1 / -1; padding-top: 10px; border-top: 1px solid rgba(194, 204, 184, 0.14); }
+  .record-row { grid-template-columns: minmax(0, 1fr) auto; gap: 9px; }
+  .record-row__actions { grid-column: 1 / -1; }
+  .nv-theme-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .minimal-app--cinematic * ,
+  .minimal-app--cinematic *::before,
+  .minimal-app--cinematic *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* The earlier shell pass has a more specific mobile-style rule for nav
+   buttons.  Re-assert the measured desktop rail after that legacy layer. */
+.minimal-app--cinematic .minimal-nav > button {
+  position: absolute;
+  top: auto;
+  left: 0;
+  margin: 0;
+  width: 100%;
+  min-height: 0;
+}
+
+.minimal-app--cinematic .minimal-nav > button:nth-of-type(1) { top: 177px; }
+.minimal-app--cinematic .minimal-nav > button:nth-of-type(2) { top: 264px; }
+.minimal-app--cinematic .minimal-nav > button:nth-of-type(3) { top: 351px; }
+.minimal-app--cinematic .minimal-nav > button:nth-of-type(4) { top: 438px; }
+.minimal-app--cinematic .minimal-nav > button:nth-of-type(5) { top: 525px; }
+
+.minimal-app--cinematic .minimal-workspace {
+  grid-template-columns: var(--nv-nav-width) minmax(0, 1fr);
+  gap: 0;
+  min-height: 0;
+}
+
+.minimal-app--cinematic .minimal-nav {
+  display: block;
+  width: var(--nv-nav-width);
+  min-height: 0;
+  padding: 0;
+}
+
+.minimal-app--cinematic .minimal-content {
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.minimal-app--trail .trail-page__heading {
+  display: block;
+  width: auto;
+  height: auto;
+  padding: 0;
+}
+
+.minimal-app--cinematic .minimal-nav > button.active {
+  transform: none;
+}
+
+@media (max-width: 820px) {
+  .minimal-app--cinematic .minimal-nav {
+    display: grid;
+    width: 100%;
+    height: 66px;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 4px;
+    padding: 7px;
+  }
+
+  .minimal-app--cinematic .minimal-nav > button,
+  .minimal-app--cinematic .minimal-nav > button:nth-of-type(1),
+  .minimal-app--cinematic .minimal-nav > button:nth-of-type(2),
+  .minimal-app--cinematic .minimal-nav > button:nth-of-type(3),
+  .minimal-app--cinematic .minimal-nav > button:nth-of-type(4),
+  .minimal-app--cinematic .minimal-nav > button:nth-of-type(5) {
+    position: relative;
+    top: auto;
+    left: auto;
+    width: auto;
+    height: 52px;
+    min-height: 0;
+    margin: 0;
+  }
+
+  .minimal-app--trail .trail-stage {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    overflow: visible;
+  }
+
+  .minimal-app--trail .trail-map {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+}
+
+/* The former non-Today shell used a padded card layout with a stronger
+   selector.  The reference pages are full-canvas compositions, so reset that
+   shell explicitly before applying each page's measured coordinates. */
+.minimal-app--cinematic:not(.minimal-app--trail) .minimal-workspace {
+  grid-template-columns: var(--nv-nav-width) minmax(0, 1fr);
+  gap: 0;
+  min-height: 0;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail) .minimal-nav {
+  display: block;
+  width: var(--nv-nav-width);
+  min-height: 0;
+  padding: 0;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail) .minimal-content {
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail) .app-bar {
+  position: sticky !important;
+  top: 0;
+  height: 48px;
+  min-height: 48px;
+  margin-bottom: -48px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail) .app-bar__actions {
+  position: absolute;
+  inset: 0;
+  display: block;
+  pointer-events: none;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail) .app-brand,
+.minimal-app--cinematic:not(.minimal-app--trail) .app-bar__actions .quiet-button,
+.minimal-app--cinematic:not(.minimal-app--trail) .app-bar__actions > .icon-button {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail) .command-trigger {
+  position: fixed;
+  top: auto;
+  right: auto;
+  bottom: 18px;
+  left: 25px;
+  pointer-events: auto;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail) .minimal-nav > button {
+  position: absolute;
+  top: auto;
+  left: 0;
+  width: 100%;
+  margin: 0;
+}
+
+.minimal-app--cinematic:not(.minimal-app--trail) .minimal-nav > button:nth-of-type(1) { top: 177px; }
+.minimal-app--cinematic:not(.minimal-app--trail) .minimal-nav > button:nth-of-type(2) { top: 264px; }
+.minimal-app--cinematic:not(.minimal-app--trail) .minimal-nav > button:nth-of-type(3) { top: 351px; }
+.minimal-app--cinematic:not(.minimal-app--trail) .minimal-nav > button:nth-of-type(4) { top: 438px; }
+.minimal-app--cinematic:not(.minimal-app--trail) .minimal-nav > button:nth-of-type(5) { top: 525px; }
+
+.minimal-app--records { --nv-nav-width: 122px; }
+.minimal-app--settings { --nv-nav-width: 126px; }
+
+/* The reference pages retain their legacy semantic class names for the
+   existing interaction tests.  Clear the old card-layout geometry before
+   the measured Night Valley coordinates are applied. */
+@media (min-width: 821px) {
+  .minimal-app--cinematic:not(.minimal-app--trail) .nv-page.focus-page,
+  .minimal-app--cinematic:not(.minimal-app--trail) .nv-page.todo-page,
+  .minimal-app--cinematic:not(.minimal-app--trail) .nv-page.records-page,
+  .minimal-app--cinematic:not(.minimal-app--trail) .nv-page.settings-page {
+    display: block;
+    width: 100%;
+    max-width: none;
+    height: 100%;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+}
+
+@media (max-width: 820px) {
+  .minimal-app--cinematic:not(.minimal-app--trail) .minimal-nav {
+    display: grid;
+    width: 100%;
+    height: 66px;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 4px;
+    padding: 7px;
+  }
+
+  .minimal-app--cinematic:not(.minimal-app--trail) .minimal-nav > button,
+  .minimal-app--cinematic:not(.minimal-app--trail) .minimal-nav > button:nth-of-type(1),
+  .minimal-app--cinematic:not(.minimal-app--trail) .minimal-nav > button:nth-of-type(2),
+  .minimal-app--cinematic:not(.minimal-app--trail) .minimal-nav > button:nth-of-type(3),
+  .minimal-app--cinematic:not(.minimal-app--trail) .minimal-nav > button:nth-of-type(4),
+  .minimal-app--cinematic:not(.minimal-app--trail) .minimal-nav > button:nth-of-type(5) {
+    position: relative;
+    top: auto;
+    left: auto;
+    width: auto;
+    height: 52px;
+    margin: 0;
+  }
+
+  .minimal-app--cinematic:not(.minimal-app--trail) .minimal-content {
+    height: auto;
+    min-height: calc(100dvh - 66px);
+    overflow: visible;
+  }
+}
+
+@media (max-width: 820px) {
+  .minimal-app--cinematic .minimal-nav > button,
+  .minimal-app--cinematic .minimal-nav > button:nth-of-type(1),
+  .minimal-app--cinematic .minimal-nav > button:nth-of-type(2),
+  .minimal-app--cinematic .minimal-nav > button:nth-of-type(3),
+  .minimal-app--cinematic .minimal-nav > button:nth-of-type(4),
+  .minimal-app--cinematic .minimal-nav > button:nth-of-type(5) {
+    position: relative;
+    top: auto;
+    left: auto;
+    width: auto;
+    margin: 0;
+  }
+}
+
+/* Last-in-file reference coordinates win over legacy shell selectors. */
+@media (min-width: 821px) {
+  .minimal-app--focus .nv-focus-route { top: 292px; left: 74px; width: 860px; height: 486px; }
+  .nv-focus-route__labels span:nth-child(1) { top: 14px; left: 5px; }
+  .nv-focus-route__labels span:nth-child(2) { top: 202px; left: 83px; }
+  .nv-focus-route__labels span:nth-child(3) { top: 386px; left: 178px; }
+  .nv-focus-route__labels span:nth-child(4) { right: 3px; bottom: 19px; }
+  .minimal-app--focus .nv-chronograph { height: 730px; }
+
+  .minimal-app--todos .nv-todo-create-trigger { position: absolute; top: 103px; right: 261px; display: inline-flex; width: 162px; height: 55px; align-items: center; justify-content: center; gap: 8px; padding: 0 14px; border: 1px solid rgba(218, 172, 93, 0.72); border-radius: 8px; background: rgba(5, 16, 22, 0.48); color: rgba(239, 229, 202, 0.9); font-size: 14px; box-shadow: 0 10px 28px rgba(0, 0, 0, 0.2); }
+  .minimal-app--todos .nv-todo-create-trigger:hover { border-color: rgba(231, 193, 117, 0.94); background: rgba(45, 39, 29, 0.7); color: #fff0c7; }
+  .minimal-app--todos .nv-todo-create--expanded { top: 169px; right: 261px; left: 90px; z-index: 42; padding-right: 62px; }
+  .minimal-app--todos .nv-todo-create__close { position: absolute; right: 10px; min-height: 30px; color: rgba(225, 210, 181, 0.66); font-size: 10px; }
+  .minimal-app--todos .nv-todo-board { top: 240px; right: 266px; bottom: 104px; left: 40px; display: block; padding: 0; background: linear-gradient(180deg, rgba(39, 28, 20, 0.2), transparent 16%, rgba(4, 10, 13, 0.3)), linear-gradient(145deg, rgba(54, 45, 33, 0.26), rgba(4, 11, 14, 0.82)); }
+  .minimal-app--todos .nv-todo-column { position: absolute; top: 0; bottom: 0; padding: 0; border: 0; border-radius: 0; background: transparent; }
+  .minimal-app--todos .nv-todo-column:nth-child(1) { left: 59px; width: 286px; }
+  .minimal-app--todos .nv-todo-column:nth-child(2) { left: 390px; width: 288px; }
+  .minimal-app--todos .nv-todo-column:nth-child(3) { left: 703px; width: 286px; }
+  .minimal-app--todos .nv-todo-column__heading { top: 57px; left: 56px; width: 192px; height: 58px; justify-content: center; padding: 0 12px; border: 1px solid rgba(201, 171, 112, 0.44); border-radius: 4px; background: linear-gradient(180deg, rgba(92, 69, 44, 0.64), rgba(22, 24, 22, 0.72)); box-shadow: inset 0 1px rgba(255, 225, 169, 0.12), 0 5px 12px rgba(0, 0, 0, 0.18); }
+  .minimal-app--todos .nv-todo-column:nth-child(2) .nv-todo-column__heading { left: 40px; }
+  .minimal-app--todos .nv-todo-column:nth-child(3) .nv-todo-column__heading { left: 45px; width: 185px; }
+  .minimal-app--todos .nv-todo-column__heading h2 { font-size: 21px; }
+  .minimal-app--todos .nv-todo-column__heading small { display: none; }
+  .minimal-app--todos .nv-todo-column__list { position: absolute; top: 142px; left: 0; width: 100%; height: 360px; max-height: none; overflow: visible; }
+  .minimal-app--todos .nv-todo-card { min-height: 81px; box-sizing: border-box; }
+  .minimal-app--todos .nv-todo-column__signal { position: absolute; top: 212px; left: 10px; color: rgba(222, 224, 201, 0.76); font-size: 13px; }
+  .minimal-app--todos .nv-overdue-section { position: absolute; top: 520px; left: 0; width: 100%; }
+
+  .minimal-app--records .nv-records-heading { left: 79px; }
+  .minimal-app--records .nv-records-archive { display: block; width: 1135px; height: auto; min-height: 0; margin-left: 79px; padding-top: 181px; }
+  .minimal-app--records .records-archive__summary { position: absolute; top: 0; left: 0; width: 1px; height: 1px; min-height: 0; overflow: hidden; padding: 0; border: 0; opacity: 0; pointer-events: none; }
+  .minimal-app--records .nv-records-top-actions { position: absolute; top: 93px; right: -90px; display: flex; gap: 35px; align-items: center; }
+  .minimal-app--records .nv-records-range { display: inline-flex; width: 285px; height: 47px; align-items: center; justify-content: space-between; padding: 0 17px; border: 1px solid rgba(204, 168, 97, 0.28); border-radius: 8px; background: rgba(4, 14, 22, 0.48); color: rgba(232, 222, 195, 0.78); font: 15px/1 "Source Han Serif SC", "Noto Serif CJK SC", "Songti SC", SimSun, serif; }
+  .minimal-app--records .nv-records-range span:first-child { color: var(--nv-gold); font-family: "Segoe UI Symbol", sans-serif; }
+  .minimal-app--records .nv-records-range span:last-child { color: rgba(219, 199, 158, 0.62); }
+  .minimal-app--records .nv-records-top-actions .nv-export-button { width: 143px; height: 47px; min-height: 47px !important; }
+  .minimal-app--records .records-archive__timeline { display: block; width: 1135px; height: 243px; box-sizing: border-box; padding: 18px 20px 13px; }
+  .nv-records-chart__heading { display: flex; height: 28px; align-items: center; gap: 9px; color: rgba(236, 225, 198, 0.9); font: 400 20px/1 "Source Han Serif SC", "Noto Serif CJK SC", "Songti SC", SimSun, serif; }
+  .nv-records-chart__heading i { display: grid; width: 14px; height: 14px; place-items: center; border: 1px solid rgba(216, 198, 157, 0.56); border-radius: 50%; color: rgba(220, 204, 166, 0.72); font: 10px/1 Georgia, serif; font-style: normal; }
+  .minimal-app--records .nv-records-chart__labels { position: absolute; top: 58px; right: 20px; left: 20px; z-index: 2; color: rgba(216, 209, 181, 0.5); }
+  .minimal-app--records .records-archive__map { position: absolute; top: 62px; right: 20px; bottom: 33px; left: 20px; height: auto; margin-top: 0; }
+  .minimal-app--records .records-archive__timeline-footer { position: absolute; right: 20px; bottom: 11px; left: 20px; margin-top: 0; }
+  .minimal-app--records .records-archive__stats { width: 1090px; height: 88px; min-height: 0; margin: 17px 0 0 34px; }
+  .minimal-app--records .records-archive__body { display: grid; width: 1099px; height: 323px; min-height: 0; grid-template-columns: 532px 551px; gap: 16px; margin: 15px 0 0 23px; padding: 0; }
+  .minimal-app--records .records-archive__detail,
+  .minimal-app--records .nv-records-distribution { width: auto; height: 323px; min-height: 0; box-sizing: border-box; }
+  .minimal-app--records .records-page > .nv-records-trend { display: grid !important; width: 1091px; height: 100px; min-height: 100px; margin: 44px 0 0 104px; box-sizing: border-box; }
+
+  .minimal-app--settings .nv-settings-panel--appearance { margin-bottom: 34px; }
+  .minimal-app--settings .nv-settings-panel--behavior { margin-bottom: 11px; }
+  .minimal-app--settings .nv-settings-panel--audio { margin-bottom: 12px; }
+  .minimal-app--settings .nv-settings-preview { padding: 12px 10px 10px; }
+  .minimal-app--settings .nv-settings-save { right: 6px; bottom: 60px; left: 23px; height: 66px; min-height: 66px !important; }
+}
+
+/* Secondary desktop widths follow the reverse-engineering responsive rule:
+   keep the rail readable, then stack the page-specific work surfaces instead
+   of allowing fixed 1487px coordinates to be clipped by the viewport. */
+@media (min-width: 821px) and (max-width: 1300px) {
+  .minimal-app--trail .minimal-nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    height: 100dvh;
+    min-height: 100dvh;
+  }
+
+  .minimal-app--focus,
+  .minimal-app--todos,
+  .minimal-app--records,
+  .minimal-app--settings { --nv-nav-width: 92px; }
+
+  .minimal-app--cinematic:not(.minimal-app--trail) {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+
+  .minimal-app--cinematic:not(.minimal-app--trail) .minimal-workspace {
+    height: auto;
+    min-height: 100dvh;
+    grid-template-columns: var(--nv-nav-width) minmax(0, 1fr);
+  }
+
+  .minimal-app--cinematic:not(.minimal-app--trail) .minimal-nav {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    width: var(--nv-nav-width);
+    height: 100dvh;
+    min-height: 100dvh;
+  }
+
+  .minimal-app--cinematic:not(.minimal-app--trail) .minimal-nav > button {
+    width: var(--nv-nav-width);
+    padding: 0 10px 0 12px;
+    font-size: 0.78rem;
+  }
+
+  .minimal-app--cinematic:not(.minimal-app--trail) .trail-nav__icon {
+    width: 19px;
+    height: 19px;
+    flex-basis: 19px;
+    margin-right: 8px;
+  }
+
+  .minimal-app--cinematic:not(.minimal-app--trail) .minimal-nav__count { display: none; }
+
+  .minimal-app--cinematic:not(.minimal-app--trail) .minimal-content {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+
+  .minimal-app--cinematic:not(.minimal-app--trail) .nv-page.focus-page,
+  .minimal-app--cinematic:not(.minimal-app--trail) .nv-page.todo-page,
+  .minimal-app--cinematic:not(.minimal-app--trail) .nv-page.records-page,
+  .minimal-app--cinematic:not(.minimal-app--trail) .nv-page.settings-page {
+    height: auto;
+    min-height: 1320px;
+    overflow: visible;
+  }
+
+  /* Timer */
+  .minimal-app--cinematic:not(.minimal-app--trail) .nv-page.focus-page { min-height: 1760px; }
+  .minimal-app--focus .nv-focus-heading { top: 32px; left: 32px; }
+  .minimal-app--focus .nv-focus-layout { position: relative; min-height: 1700px; }
+  .minimal-app--focus .nv-focus-route { top: 650px; right: 32px; left: 32px; width: auto; height: 320px; transform: none; }
+  .minimal-app--focus .nv-chronograph { top: 170px; left: 50%; width: 565px; height: 730px; transform: translateX(-50%) scale(0.78); transform-origin: top center; }
+  .minimal-app--focus .nv-focus-panel { top: 1010px; right: 32px; left: 32px; width: auto; height: 574px; }
+  .minimal-app--focus .nv-focus-footer { top: 1610px; right: 32px; left: 32px; width: auto; height: 115px; }
+
+  /* Todo */
+  .minimal-app--cinematic:not(.minimal-app--trail) .nv-page.todo-page { min-height: 1660px; }
+  .minimal-app--todos .nv-todo-heading { top: 32px; left: 32px; }
+  .minimal-app--todos .nv-todo-summary { top: 174px; left: 32px; gap: 18px; }
+  .minimal-app--todos .nv-todo-create-trigger { top: 96px; right: 32px; }
+  .minimal-app--todos .nv-todo-create--expanded { top: 168px; right: 32px; left: 32px; }
+  .minimal-app--todos .nv-todo-board { top: 240px; right: 32px; bottom: auto; left: 32px; display: grid; width: auto; height: 720px; min-height: 0; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; padding: 57px 18px 20px; }
+  .minimal-app--todos .nv-todo-column,
+  .minimal-app--todos .nv-todo-column:nth-child(1),
+  .minimal-app--todos .nv-todo-column:nth-child(2),
+  .minimal-app--todos .nv-todo-column:nth-child(3) { position: relative; top: auto; right: auto; bottom: auto; left: auto; width: auto; height: auto; min-height: 642px; padding: 15px 10px; border: 1px solid rgba(169, 173, 152, 0.16); border-radius: 4px; background: rgba(5, 12, 15, 0.46); }
+  .minimal-app--todos .nv-todo-column__heading,
+  .minimal-app--todos .nv-todo-column:nth-child(2) .nv-todo-column__heading,
+  .minimal-app--todos .nv-todo-column:nth-child(3) .nv-todo-column__heading { top: -48px; right: auto; left: 0; width: auto; height: 43px; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+  .minimal-app--todos .nv-todo-column__list { position: relative; top: auto; left: auto; width: auto; height: 560px; max-height: 560px; overflow: auto; }
+  .minimal-app--todos .nv-overdue-section { position: relative; top: auto; left: auto; width: auto; margin-top: 14px; }
+  .minimal-app--todos .nv-todo-focus-panel { top: 1000px; right: 32px; left: 32px; width: auto; height: 470px; }
+  .minimal-app--todos .nv-todo-footer { right: 0; bottom: 0; left: calc(-1 * var(--nv-nav-width)); width: auto; }
+
+  /* Records */
+  .minimal-app--cinematic:not(.minimal-app--trail) .nv-page.records-page { min-height: 1750px; overflow: visible; }
+  .minimal-app--records .nv-records-heading { top: 32px; left: 32px; }
+  .minimal-app--records .nv-records-archive { width: calc(100% - 64px); margin-left: 32px; padding-top: 160px; }
+  .minimal-app--records .nv-records-top-actions { top: 82px; right: 32px; gap: 12px; }
+  .minimal-app--records .nv-records-range { width: 220px; }
+  .minimal-app--records .nv-records-top-actions .nv-export-button { width: 120px; }
+  .minimal-app--records .records-archive__timeline { width: 100%; }
+  .minimal-app--records .records-archive__stats { width: 100%; margin: 17px 0 0; }
+  .minimal-app--records .records-archive__body { width: 100%; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin: 15px 0 0; }
+  .minimal-app--records .records-page > .nv-records-trend { width: calc(100% - 64px); margin: 44px 32px 0; }
+  .minimal-app--records .nv-record-history { width: calc(100% - 64px); margin: 28px 32px 72px; }
+
+  /* Settings */
+  .minimal-app--cinematic:not(.minimal-app--trail) .nv-page.settings-page { min-height: 2340px; }
+  .minimal-app--settings .nv-settings-heading { top: 32px; left: 32px; }
+  .minimal-app--settings .nv-settings-layout { min-height: 2340px; }
+  .minimal-app--settings .nv-settings-subnav { top: 180px; left: 32px; width: calc(100% - 64px); height: 58px; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .minimal-app--settings .nv-settings-subnav a { height: 58px; justify-content: center; padding: 0 8px; }
+  .minimal-app--settings .nv-settings-panels { top: 260px; left: 32px; width: calc(100% - 64px); }
+  .minimal-app--settings .nv-settings-panel { width: 100%; box-sizing: border-box; }
+  .minimal-app--settings .nv-settings-preview { position: absolute; top: 1740px; left: 32px; width: calc(100% - 64px); height: 600px; box-sizing: border-box; }
+  .minimal-app--settings .nv-settings-preview__screen { height: 430px; }
+  .minimal-app--settings .nv-settings-save { right: 23px; bottom: 60px; left: 23px; }
+}
+
+/* Mobile pages must grow with their real content.  The desktop reference
+   shell clips the content viewport, which otherwise hides the lower half of
+   the Today composition once the window becomes shorter than the route. */
+@media (max-width: 820px) {
+  .minimal-app--cinematic .minimal-workspace {
+    height: auto;
+    min-height: 100dvh;
+  }
+
+  .minimal-app--cinematic .minimal-content {
+    height: auto;
+    min-height: calc(100dvh - 66px);
+    overflow: visible;
+  }
+
+  /* Keep the decorative layers inside the mobile page while leaving the
+     nested trail viewport free to scroll its wide route canvas. */
+  .minimal-app--cinematic.minimal-app--trail .today-page {
+    overflow-x: clip;
+  }
+
+  .minimal-app--cinematic:not(.minimal-app--trail) .app-bar {
+    position: fixed !important;
+    top: 0;
+    height: 1px;
+    min-height: 1px;
+    margin: 0;
+    pointer-events: none;
+  }
+
+  .minimal-app--cinematic:not(.minimal-app--trail) .command-trigger {
+    pointer-events: auto;
+  }
+}
