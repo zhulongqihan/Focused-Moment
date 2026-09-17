@@ -1,4 +1,12 @@
+mod domain;
 mod storage;
+
+pub(crate) use domain::{
+    stopwatch_next_target_ms, stopwatch_stage_index_for_elapsed, AlertKind, AlertSoundKey,
+    TimerPreferences, TimerPreferencesSnapshot, DEFAULT_COUNTDOWN_MINUTES,
+    DEFAULT_STOPWATCH_REMINDER_MINUTES, MAX_COUNTDOWN_MINUTES, MAX_TODO_TITLE_CHARS,
+    MIN_COUNTDOWN_MINUTES, STOPWATCH_STAGE_MINUTES,
+};
 
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, HashSet};
@@ -59,20 +67,6 @@ const TRAY_OPEN_RECORDS_ID: &str = "tray_open_records";
 #[cfg(windows)]
 const TRAY_NAVIGATE_EVENT: &str = "tray-navigate";
 
-const DEFAULT_POMODORO_FOCUS_MINUTES: u64 = 25;
-const DEFAULT_POMODORO_BREAK_MINUTES: u64 = 5;
-const MIN_POMODORO_FOCUS_MINUTES: u64 = 5;
-const MAX_POMODORO_FOCUS_MINUTES: u64 = 90;
-const MIN_POMODORO_BREAK_MINUTES: u64 = 1;
-const MAX_POMODORO_BREAK_MINUTES: u64 = 30;
-const MIN_STOPWATCH_REMINDER_MINUTES: u64 = 1;
-const MAX_STOPWATCH_REMINDER_MINUTES: u64 = 12 * 60;
-const DEFAULT_STOPWATCH_REMINDER_MINUTES: u64 = 25;
-const STOPWATCH_STAGE_MINUTES: [u64; 5] = [25, 45, 60, 90, 120];
-const DEFAULT_COUNTDOWN_MINUTES: u64 = 25;
-const MIN_COUNTDOWN_MINUTES: u64 = 1;
-const MAX_COUNTDOWN_MINUTES: u64 = 12 * 60;
-const MAX_TODO_TITLE_CHARS: usize = 200;
 const APP_VERSION: &str = "2.11.10";
 const APP_MILESTONE: &str =
     "v2.11.10 Editorial Paper rail, archive, and workspace settings refinements; Windows-only release";
@@ -164,219 +158,6 @@ struct TrayMenuState {
 
 #[cfg(windows)]
 static TRAY_MENU_STATE: OnceLock<TrayMenuState> = OnceLock::new();
-
-#[derive(Clone, Copy, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TimerPreferences {
-    pomodoro_focus_minutes: u64,
-    pomodoro_break_minutes: u64,
-    stopwatch_reminder_minutes: Option<u64>,
-    toast_reminder_enabled: bool,
-    window_attention_reminder_enabled: bool,
-    #[serde(default = "default_sound_reminder_enabled")]
-    sound_reminder_enabled: bool,
-    #[serde(default)]
-    alert_sound_key: AlertSoundKey,
-}
-
-#[derive(Clone, Copy, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-enum AlertSoundKey {
-    SoftChime,
-    BrightBell,
-    DeepPulse,
-    WoodenTick,
-    GlassPing,
-    MorningChord,
-    ViralQuote,
-    Custom,
-}
-
-impl Default for AlertSoundKey {
-    fn default() -> Self {
-        Self::SoftChime
-    }
-}
-
-fn default_sound_reminder_enabled() -> bool {
-    true
-}
-
-impl Default for TimerPreferences {
-    fn default() -> Self {
-        Self {
-            pomodoro_focus_minutes: DEFAULT_POMODORO_FOCUS_MINUTES,
-            pomodoro_break_minutes: DEFAULT_POMODORO_BREAK_MINUTES,
-            stopwatch_reminder_minutes: Some(DEFAULT_STOPWATCH_REMINDER_MINUTES),
-            toast_reminder_enabled: true,
-            window_attention_reminder_enabled: true,
-            sound_reminder_enabled: true,
-            alert_sound_key: AlertSoundKey::SoftChime,
-        }
-    }
-}
-
-#[derive(Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct TimerPreferencesSnapshot {
-    pomodoro_focus_minutes: u64,
-    pomodoro_break_minutes: u64,
-    stopwatch_reminder_minutes: Option<u64>,
-    toast_reminder_enabled: bool,
-    window_attention_reminder_enabled: bool,
-    sound_reminder_enabled: bool,
-    alert_sound_key: &'static str,
-}
-
-impl AlertSoundKey {
-    fn key(self) -> &'static str {
-        match self {
-            Self::SoftChime => "soft_chime",
-            Self::BrightBell => "bright_bell",
-            Self::DeepPulse => "deep_pulse",
-            Self::WoodenTick => "wooden_tick",
-            Self::GlassPing => "glass_ping",
-            Self::MorningChord => "morning_chord",
-            Self::ViralQuote => "viral_quote",
-            Self::Custom => "custom",
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum AlertKind {
-    PomodoroFocusComplete,
-    PomodoroBreakComplete,
-    StopwatchTargetReached,
-    CountdownComplete,
-}
-
-impl AlertKind {
-    fn key(self) -> &'static str {
-        match self {
-            AlertKind::PomodoroFocusComplete => "pomodoro_focus_complete",
-            AlertKind::PomodoroBreakComplete => "pomodoro_break_complete",
-            AlertKind::StopwatchTargetReached => "stopwatch_target_reached",
-            AlertKind::CountdownComplete => "countdown_complete",
-        }
-    }
-
-    fn title(self) -> &'static str {
-        match self {
-            AlertKind::PomodoroFocusComplete => "本轮番茄已完成",
-            AlertKind::PomodoroBreakComplete => "休息时间结束了",
-            AlertKind::StopwatchTargetReached => "已达到阶段性目标",
-            AlertKind::CountdownComplete => "倒计时已结束",
-        }
-    }
-
-    fn message(self, preferences: TimerPreferences) -> String {
-        match self {
-            AlertKind::PomodoroFocusComplete => format!(
-                "已经完成一轮 {} 分钟专注，可以休息一下，或者直接补记这轮专注。",
-                preferences.pomodoro_focus_minutes
-            ),
-            AlertKind::PomodoroBreakComplete => format!(
-                "{} 分钟休息已经结束，可以回来继续下一轮专注了。",
-                preferences.pomodoro_break_minutes
-            ),
-            AlertKind::StopwatchTargetReached => {
-                if let Some(minutes) = preferences.stopwatch_reminder_minutes {
-                    format!("已经达到你设置的 {} 分钟提醒目标。", minutes)
-                } else {
-                    "已经达到这轮正向计时的提醒目标。".to_string()
-                }
-            }
-            AlertKind::CountdownComplete => "计时已到 00:00，可以立即完成并记录。".to_string(),
-        }
-    }
-}
-
-impl TimerPreferences {
-    fn snapshot(self) -> TimerPreferencesSnapshot {
-        TimerPreferencesSnapshot {
-            pomodoro_focus_minutes: self.pomodoro_focus_minutes,
-            pomodoro_break_minutes: self.pomodoro_break_minutes,
-            stopwatch_reminder_minutes: self.stopwatch_reminder_minutes,
-            toast_reminder_enabled: self.toast_reminder_enabled,
-            window_attention_reminder_enabled: self.window_attention_reminder_enabled,
-            sound_reminder_enabled: self.sound_reminder_enabled,
-            alert_sound_key: self.alert_sound_key.key(),
-        }
-    }
-
-    fn normalized(self) -> Result<Self, String> {
-        let focus_minutes = self
-            .pomodoro_focus_minutes
-            .clamp(MIN_POMODORO_FOCUS_MINUTES, MAX_POMODORO_FOCUS_MINUTES);
-        let break_minutes = self
-            .pomodoro_break_minutes
-            .clamp(MIN_POMODORO_BREAK_MINUTES, MAX_POMODORO_BREAK_MINUTES);
-        let stopwatch_reminder_minutes = match self.stopwatch_reminder_minutes {
-            Some(minutes) if minutes == 0 => None,
-            Some(minutes) => Some(minutes.clamp(
-                MIN_STOPWATCH_REMINDER_MINUTES,
-                MAX_STOPWATCH_REMINDER_MINUTES,
-            )),
-            None => None,
-        };
-
-        if self.pomodoro_focus_minutes < MIN_POMODORO_FOCUS_MINUTES
-            || self.pomodoro_focus_minutes > MAX_POMODORO_FOCUS_MINUTES
-        {
-            return Err("番茄专注时长需要在 5 到 90 分钟之间。".to_string());
-        }
-
-        if self.pomodoro_break_minutes < MIN_POMODORO_BREAK_MINUTES
-            || self.pomodoro_break_minutes > MAX_POMODORO_BREAK_MINUTES
-        {
-            return Err("番茄休息时长需要在 1 到 30 分钟之间。".to_string());
-        }
-
-        if let Some(minutes) = self.stopwatch_reminder_minutes {
-            if !(MIN_STOPWATCH_REMINDER_MINUTES..=MAX_STOPWATCH_REMINDER_MINUTES).contains(&minutes)
-            {
-                return Err("正向计时提醒需要在 1 到 720 分钟之间，或留空关闭。".to_string());
-            }
-        }
-
-        Ok(Self {
-            pomodoro_focus_minutes: focus_minutes,
-            pomodoro_break_minutes: break_minutes,
-            stopwatch_reminder_minutes,
-            toast_reminder_enabled: self.toast_reminder_enabled,
-            window_attention_reminder_enabled: self.window_attention_reminder_enabled,
-            sound_reminder_enabled: self.sound_reminder_enabled,
-            alert_sound_key: self.alert_sound_key,
-        })
-    }
-
-    fn pomodoro_focus_ms(self) -> u64 {
-        self.pomodoro_focus_minutes.saturating_mul(60_000)
-    }
-
-    fn pomodoro_break_ms(self) -> u64 {
-        self.pomodoro_break_minutes.saturating_mul(60_000)
-    }
-
-    fn stopwatch_reminder_ms(self) -> Option<u64> {
-        self.stopwatch_reminder_minutes
-            .map(|minutes| minutes.saturating_mul(60_000))
-    }
-}
-
-fn stopwatch_stage_index_for_elapsed(elapsed_ms: u64) -> usize {
-    STOPWATCH_STAGE_MINUTES
-        .iter()
-        .take_while(|minutes| elapsed_ms >= minutes.saturating_mul(60_000))
-        .count()
-}
-
-fn stopwatch_next_target_ms(stage_index: usize) -> Option<u64> {
-    STOPWATCH_STAGE_MINUTES
-        .get(stage_index)
-        .map(|minutes| minutes.saturating_mul(60_000))
-}
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
