@@ -1,4 +1,5 @@
 use super::*;
+use std::process::Command;
 
 #[tauri::command]
 pub(crate) fn bootstrap_shell() -> ShellSnapshot {
