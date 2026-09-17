@@ -60,7 +60,7 @@ function extractRegisteredCommands(runtimeSource) {
 }
 
 function extractCommandFunctions(runtimeSource) {
-  return [...runtimeSource.matchAll(/#\[tauri::command\]\s*(?:async\s+)?fn\s+([a-z][a-z0-9_]*)/g)]
+  return [...runtimeSource.matchAll(/#\[tauri::command\]\s*(?:pub(?:\([^)]*\))?\s+)?(?:async\s+)?fn\s+([a-z][a-z0-9_]*)/g)]
     .map((match) => match[1]);
 }
 
@@ -90,21 +90,23 @@ function uniqueSorted(values) {
 }
 
 export function verifyNativeContracts(projectRoot = resolve(new URL("..", import.meta.url).pathname, "..")) {
-  const runtimePaths = [
-    join(projectRoot, "src-tauri", "src", "runtime.rs"),
-    join(projectRoot, "src-tauri", "src", "main.rs"),
-  ];
-  const runtimeSource = runtimePaths.map((path) => readFileSync(path, "utf8")).join("\n");
+  const rustSourceDirectory = join(projectRoot, "src-tauri", "src");
+  const rustSourcePaths = readdirSync(rustSourceDirectory)
+    .filter((name) => name.endsWith(".rs"))
+    .sort()
+    .map((name) => join(rustSourceDirectory, name));
+  const runtimeSource = readFileSync(join(rustSourceDirectory, "runtime.rs"), "utf8");
+  const nativeSource = rustSourcePaths.map((path) => readFileSync(path, "utf8")).join("\n");
   const frontendFiles = collectSourceFiles(join(projectRoot, "src"));
   const frontendSource = frontendFiles.map((path) => readFileSync(path, "utf8")).join("\n");
 
   const registeredCommands = uniqueSorted(extractRegisteredCommands(runtimeSource));
-  const commandFunctions = uniqueSorted(extractCommandFunctions(runtimeSource));
+  const commandFunctions = uniqueSorted(extractCommandFunctions(nativeSource));
   const frontendInvokes = uniqueSorted(extractFrontendInvokes(frontendSource));
   const frontendEvents = uniqueSorted(extractFrontendEvents(frontendSource));
   const frontendEmittedEvents = uniqueSorted(extractEventCalls(frontendSource, "emit"));
   const runtimeEvents = uniqueSorted([
-    ...runtimeSource.matchAll(/"([a-z][a-z0-9-]+)"/g),
+    ...nativeSource.matchAll(/"([a-z][a-z0-9-]+)"/g),
   ].map((match) => match[1]).filter((value) => frontendEvents.includes(value)));
 
   const missingCommandFunctions = registeredCommands.filter((name) => !commandFunctions.includes(name));
