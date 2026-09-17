@@ -4,7 +4,15 @@
 
 - Read `PROJECT_PLAN.md` at the repository root before continuing project work. It is the maintained project-wide status, priorities, acceptance criteria, and handoff entry for every model, including Luna.
 - Reconcile its baseline with the current source, Git state, and latest user instructions before acting. Historical roadmaps and context summaries do not define current progress.
-- Update the relevant task status, verification evidence, and next task in `PROJECT_PLAN.md` after each work unit. Planning-only documentation changes do not require an application version bump or rebuilt Release assets.
+- Update the relevant task status, verification evidence, and next task in `PROJECT_PLAN.md` after each work unit, unless the task explicitly protects that user-owned file; in that case record the exception in the handoff report and leave it byte-for-byte unchanged. Planning-only documentation changes do not require an application version bump or rebuilt Release assets.
+
+## Controlled verification guardrails
+
+- Run project commands from the real repository root `F:\Focused Moment`; do not use a Junction, symlink, mirror, temporary checkout, or disposable worktree to make a test pass.
+- Playwright evidence belongs under the ignored `output/qa/frontend/<unique-run-id>/` directory. Use one run ID for the whole invocation and `test.info().outputPath(...)` for screenshots and JSON evidence; never write fixed-path test output that can collide with another run.
+- Keep `PROJECT_PLAN.md`, the root `Focused Moment.exe`, installers, `.release/`, user data, backups, and pre-existing user changes protected unless a task explicitly authorizes them. A root executable is a directly testable entry only when its source/build provenance is recorded; an old binary or installer is not a substitute.
+- Report browser-mock tests, Rust checks, and Windows-native application checks as separate evidence classes. Never treat a mock or a prior result as proof that an unrun native check passed.
+- A bug-fix batch may be committed and pushed to its explicitly confirmed repository and branch after its required checks pass. Commit/push, CI, tag, GitHub Release, and asset upload are separate actions; do not infer tag/release/upload or run them automatically unless the task authorizes them.
 
 ## Release discipline
 

@@ -1,7 +1,15 @@
+import { resolve } from "node:path";
+
 import { defineConfig, devices } from "@playwright/test";
+
+const configuredRunId = process.env.FOCUSED_MOMENT_TEST_RUN_ID;
+const generatedRunId = `run-${new Date().toISOString().replace(/[^0-9TZ-]/g, "-")}-${process.pid}`;
+const runId = (configuredRunId ?? generatedRunId).replace(/[^a-zA-Z0-9_-]/g, "-") || "run";
+const outputDir = resolve("output", "qa", "frontend", runId);
 
 export default defineConfig({
   testDir: "./tests",
+  outputDir,
   timeout: 30_000,
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),

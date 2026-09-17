@@ -1,16 +1,12 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 
 import { expect, test } from "@playwright/test";
 
+import { testOutputPath } from "./helpers/test-output.mjs";
+
 const referenceDate = "2026-09-05";
 const baselineSha = process.env.NV04_BASELINE_SHA ?? execFileSync("git", ["rev-parse", "--short", "HEAD"], { encoding: "utf8" }).trim();
-const baselineDirectory = `output/qa/NV-04/${baselineSha}`;
-const editorialDirectory = `output/qa/TH-02/${process.env.TH02_BASELINE_SHA ?? baselineSha}`;
-const graphiteDirectory = `output/qa/TH-03/${process.env.TH03_BASELINE_SHA ?? baselineSha}`;
-const auroraDirectory = `output/qa/TH-04/${process.env.TH04_BASELINE_SHA ?? baselineSha}`;
-const botanicalDirectory = `output/qa/TH-05/${process.env.TH05_BASELINE_SHA ?? baselineSha}`;
-const performanceDirectory = `output/qa/PERF-01/${process.env.PERF_BASELINE_SHA ?? baselineSha}`;
 
 const nightValleyPages = [
   ["今日", ".trail-map", ".trail-page"],
@@ -235,7 +231,7 @@ test("Today reference composition stays aligned at the concept viewport", async 
   await expect(page.getByRole("button", { name: "查看计时", exact: true })).toHaveCount(0);
   await expect(page.locator(".trail-timer")).toHaveCount(0);
   await expect(page.locator(".minimal-app--trail .command-trigger")).toBeHidden();
-  await page.screenshot({ path: "output/playwright/today-after.png", animations: "disabled" });
+  await page.screenshot({ path: testOutputPath("screenshots", "today-after.png"), animations: "disabled" });
 });
 
 test("Every theme carries one stable daily focus line on Today", async ({ page }) => {
@@ -308,7 +304,7 @@ test("Today fullscreen keeps the summary visible and uses a smooth winding route
   expect((routePath?.match(/\bC\b/g) ?? []).length).toBeGreaterThanOrEqual(12);
   await expect(page.getByRole("heading", { name: "今日概览", exact: true })).toBeVisible();
   await expect(page.locator(".trail-page__clock")).toHaveText(/^\d{2}:\d{2}:\d{2}$/);
-  await page.screenshot({ path: "output/playwright/today-fullscreen-refined.png", animations: "disabled" });
+  await page.screenshot({ path: testOutputPath("screenshots", "today-fullscreen-refined.png"), animations: "disabled" });
 });
 
 test("Today keeps node information visible and keeps timing in the focus tab", async ({ page }) => {
@@ -326,8 +322,8 @@ test("Today keeps node information visible and keeps timing in the focus tab", a
 test("Today route keeps the panel and path usable as the window narrows", async ({ page }) => {
   test.setTimeout(60_000);
   for (const [width, height, screenshotPath] of [
-    [1280, 900, "output/playwright/today-1280.png"],
-    [1024, 900, "output/playwright/today-1024.png"],
+    [1280, 900, "today-1280.png"],
+    [1024, 900, "today-1024.png"],
   ]) {
     await page.setViewportSize({ width, height });
     await bootTodayReferenceMock(page);
@@ -349,7 +345,7 @@ test("Today route keeps the panel and path usable as the window narrows", async 
       await expect(page.locator(".trail-nav__icon").first()).toBeVisible();
       await expect(page.getByRole("heading", { name: "今日概览", exact: true })).toBeVisible();
     }
-    await page.screenshot({ path: screenshotPath, animations: "disabled" });
+    await page.screenshot({ path: testOutputPath("screenshots", screenshotPath), animations: "disabled" });
   }
 });
 
@@ -367,7 +363,7 @@ test("Night Valley pages expose the measured reference surfaces", async ({ page 
   for (const [label, screenshotName] of pages) {
     await page.getByRole("button", { name: label === "待办" ? /^待办/ : label, exact: label !== "待办" }).click();
     await expect(page.locator(".nv-page").first()).toBeVisible();
-    await page.screenshot({ path: `output/playwright/${screenshotName}`, animations: "disabled" });
+    await page.screenshot({ path: testOutputPath("screenshots", screenshotName), animations: "disabled" });
   }
 });
 
@@ -574,8 +570,7 @@ test("Night Valley baseline records five-page geometry and environment metadata"
     documentFonts: Array.from(document.fonts).map((font) => ({ family: font.family, status: font.status })),
   }));
 
-  mkdirSync(baselineDirectory, { recursive: true });
-  writeFileSync(`${baselineDirectory}/geometry.json`, JSON.stringify({
+  writeFileSync(testOutputPath("qa", "NV-04", "geometry.json"), JSON.stringify({
     taskId: "NV-04",
     sha: baselineSha,
     capturedAt,
@@ -642,8 +637,7 @@ test("Night Valley baseline checks native-size and desktop-scale proxies", async
     }
   }
 
-  mkdirSync(baselineDirectory, { recursive: true });
-  writeFileSync(`${baselineDirectory}/scale-matrix.json`, JSON.stringify({
+  writeFileSync(testOutputPath("qa", "NV-04", "scale-matrix.json"), JSON.stringify({
     taskId: "NV-04",
     sha: baselineSha,
     capturedAt: new Date().toISOString(),
@@ -974,8 +968,6 @@ test("Graphite Console renders all five pages inside the control surface", async
   });
   await page.setViewportSize({ width: 1487, height: 1058 });
   await bootTodayReferenceMock(page, { expectedHeading: "TODAY / 节奏调度" });
-  mkdirSync(graphiteDirectory, { recursive: true });
-
   const pages = [
     ["今日", ".gc-today-page", "today.png"],
     ["计时", ".gc-focus-page", "focus.png"],
@@ -996,7 +988,7 @@ test("Graphite Console renders all five pages inside the control surface", async
     });
     expect(geometry[label].width).toBeGreaterThan(600);
     expect(geometry[label].right).toBeLessThanOrEqual(1487);
-    await page.screenshot({ path: `${graphiteDirectory}/${screenshot}`, animations: "disabled", fullPage: true });
+    await page.screenshot({ path: testOutputPath("qa", "TH-03", screenshot), animations: "disabled", fullPage: true });
   }
   await pageButton(page, "今日").click();
   await expect(page.locator(".gc-shortcut")).toHaveCount(0);
@@ -1018,7 +1010,7 @@ test("Graphite Console renders all five pages inside the control surface", async
   await expect(page.locator(".gc-task-bays > .gc-task-bay")).toHaveCount(2);
   const addTaskBox = await page.getByRole("button", { name: /ADD TASK/ }).boundingBox();
   expect(addTaskBox?.width ?? Number.POSITIVE_INFINITY).toBeLessThan(220);
-  writeFileSync(`${graphiteDirectory}/geometry.json`, JSON.stringify({ viewport: { width: 1487, height: 1058 }, pages: geometry }, null, 2));
+  writeFileSync(testOutputPath("qa", "TH-03", "geometry.json"), JSON.stringify({ viewport: { width: 1487, height: 1058 }, pages: geometry }, null, 2));
 });
 
 test("Every theme keeps pending todos in date groups with only a done column", async ({ page }) => {
@@ -1103,8 +1095,6 @@ test("Aurora Ocean renders all five pages inside the light field", async ({ page
   });
   await page.setViewportSize({ width: 1487, height: 1058 });
   await bootTodayReferenceMock(page, { expectedHeading: "TIDE / 潮汐轨迹" });
-  mkdirSync(auroraDirectory, { recursive: true });
-
   const pages = [
     ["今日", ".ao-today-page", "today.png"],
     ["计时", ".ao-focus-page", "focus.png"],
@@ -1130,9 +1120,9 @@ test("Aurora Ocean renders all five pages inside the light field", async ({ page
     });
     expect(geometry[label].width).toBeGreaterThan(600);
     expect(geometry[label].right).toBeLessThanOrEqual(1487);
-    await page.screenshot({ path: `${auroraDirectory}/${screenshot}`, animations: "disabled", fullPage: true });
+    await page.screenshot({ path: testOutputPath("qa", "TH-04", screenshot), animations: "disabled", fullPage: true });
   }
-  writeFileSync(`${auroraDirectory}/geometry.json`, JSON.stringify({ viewport: { width: 1487, height: 1058 }, pages: geometry }, null, 2));
+  writeFileSync(testOutputPath("qa", "TH-04", "geometry.json"), JSON.stringify({ viewport: { width: 1487, height: 1058 }, pages: geometry }, null, 2));
 });
 
 test("Aurora Ocean keeps shared actions and page bounds usable at pressure widths", async ({ page }) => {
@@ -1180,8 +1170,6 @@ test("Botanical Library renders all five pages inside the reading room", async (
   });
   await page.setViewportSize({ width: 1487, height: 1058 });
   await bootTodayReferenceMock(page, { expectedHeading: "GROWTH / 今日生长" });
-  mkdirSync(botanicalDirectory, { recursive: true });
-
   const pages = [
     ["今日", ".bl-today-page", "today.png"],
     ["计时", ".bl-focus-page", "focus.png"],
@@ -1207,9 +1195,9 @@ test("Botanical Library renders all five pages inside the reading room", async (
     });
     expect(geometry[label].width).toBeGreaterThan(600);
     expect(geometry[label].right).toBeLessThanOrEqual(1487);
-    await page.screenshot({ path: `${botanicalDirectory}/${screenshot}`, animations: "disabled", fullPage: true });
+    await page.screenshot({ path: testOutputPath("qa", "TH-05", screenshot), animations: "disabled", fullPage: true });
   }
-  writeFileSync(`${botanicalDirectory}/geometry.json`, JSON.stringify({ viewport: { width: 1487, height: 1058 }, pages: geometry }, null, 2));
+  writeFileSync(testOutputPath("qa", "TH-05", "geometry.json"), JSON.stringify({ viewport: { width: 1487, height: 1058 }, pages: geometry }, null, 2));
 });
 
 test("Botanical Library keeps shared actions and page bounds usable at pressure widths", async ({ page }) => {
@@ -1257,8 +1245,6 @@ test("Editorial Paper renders all five pages inside the desktop surface", async 
   });
   await page.setViewportSize({ width: 1487, height: 1058 });
   await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-  mkdirSync(editorialDirectory, { recursive: true });
-
   const pages = [
     ["今日", ".ep-today-page", "today.png"],
     ["计时", ".ep-focus-page", "focus.png"],
@@ -1285,10 +1271,10 @@ test("Editorial Paper renders all five pages inside the desktop surface", async 
     });
     expect(geometry[label].width).toBeGreaterThan(600);
     expect(geometry[label].right).toBeLessThanOrEqual(1487);
-    await page.screenshot({ path: `${editorialDirectory}/${screenshot}`, animations: "disabled", fullPage: true });
+    await page.screenshot({ path: testOutputPath("qa", "REFINE-19", screenshot), animations: "disabled", fullPage: true });
   }
   expect(new Set(Object.values(geometry).map((item) => item.headingFontSize)).size).toBe(1);
-  writeFileSync(`${editorialDirectory}/geometry.json`, JSON.stringify({ viewport: { width: 1487, height: 1058 }, pages: geometry }, null, 2));
+  writeFileSync(testOutputPath("qa", "REFINE-19", "geometry.json"), JSON.stringify({ viewport: { width: 1487, height: 1058 }, pages: geometry }, null, 2));
 });
 
 test("Editorial Paper keeps the focus tab shell at the same desktop width", async ({ page }) => {
@@ -1419,8 +1405,7 @@ test("REFINE-19 TODAY-01 keeps Editorial Paper long node text readable", async (
   const desktopEvidence = await readEvidence();
   await page.setViewportSize({ width: 420, height: 720 });
   const narrowEvidence = await readEvidence();
-  mkdirSync("output/qa/REFINE-19", { recursive: true });
-  await page.screenshot({ path: "output/qa/REFINE-19/TODAY-01-after-9ecaf59-420.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-01-after-9ecaf59-420.png"), animations: "disabled", fullPage: true });
   console.log(`TODAY-01 desktop evidence: ${JSON.stringify(desktopEvidence)}`);
   console.log(`TODAY-01 narrow evidence: ${JSON.stringify(narrowEvidence)}`);
   for (const item of [...desktopEvidence, ...narrowEvidence]) {
@@ -1439,7 +1424,7 @@ test("REFINE-19 TODAY-02 hides the visual command trigger but keeps Ctrl+K", asy
   await expect(commandTrigger).toBeHidden();
   await page.keyboard.press("Control+K");
   await expect(page.getByRole("dialog", { name: "你想做什么？" })).toBeVisible();
-  await page.screenshot({ path: "output/qa/REFINE-19/TODAY-02-after-9ecaf59.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-02-after-9ecaf59.png"), animations: "disabled", fullPage: true });
   await page.keyboard.press("Escape");
 });
 
@@ -1472,7 +1457,7 @@ test("REFINE-19 TODAY-03 keeps Editorial Paper Today whitespace bounded", async 
       };
     }));
   }
-  await page.screenshot({ path: "output/qa/REFINE-19/TODAY-03-pass-9ecaf59-420.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-03-pass-9ecaf59-420.png"), animations: "disabled", fullPage: true });
   console.log(`TODAY-03 measurements: ${JSON.stringify(measurements)}`);
   for (const measurement of measurements) {
     expect(measurement.gap).toBeLessThanOrEqual(32);
@@ -1490,7 +1475,7 @@ test("REFINE-19 TODAY-04 keeps timer work in the Editorial Paper focus page", as
   await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
   const timerStrip = page.locator(".ep-today-timer-strip");
   await expect(timerStrip).toHaveCount(0);
-  await page.screenshot({ path: "output/qa/REFINE-19/TODAY-04-after-9ecaf59.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-04-after-9ecaf59.png"), animations: "disabled", fullPage: true });
   await page.locator(".ep-next-card").getByRole("button", { name: /开始专注/ }).click();
   await expect(page.locator(".ep-focus-page")).toBeVisible();
   await expect(page.locator(".ep-focus-page").getByRole("button", { name: "开始专注", exact: true })).toBeVisible();
@@ -1532,10 +1517,9 @@ test("REFINE-19 TODAY-05 keeps Editorial Paper Today summary within the viewport
       };
     }));
   }
-  mkdirSync("output/qa/REFINE-19", { recursive: true });
   await page.setViewportSize({ width: 1707, height: 912 });
   await expect.poll(() => page.locator(".ep-today-page").evaluate((element) => getComputedStyle(element).gap)).toBe("14px");
-  await page.screenshot({ path: "output/qa/REFINE-19/TODAY-05-after-9ecaf59-1707x912.png", animations: "disabled" });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-05-after-9ecaf59-1707x912.png"), animations: "disabled" });
   console.log(`TODAY-05 measurements: ${JSON.stringify(measurements)}`);
   for (const item of measurements) {
     expect(item.documentScrollWidth).toBeLessThanOrEqual(item.viewport.width);
@@ -1570,9 +1554,9 @@ test("REFINE-19 TODAY-05 keeps the summary in document flow with long todo data"
     expect(evidence.documentScrollHeight).toBeGreaterThan(height);
     expect(evidence.facts.bottom).toBeLessThanOrEqual(evidence.documentScrollHeight);
     if (width === 1487) {
-      await page.screenshot({ path: "output/qa/REFINE-19/TODAY-05-reaudit-data-1487.png", animations: "disabled", fullPage: true });
+      await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-05-reaudit-data-1487.png"), animations: "disabled", fullPage: true });
     } else {
-      await page.screenshot({ path: "output/qa/REFINE-19/TODAY-05-reaudit-data-420.png", animations: "disabled", fullPage: true });
+      await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-05-reaudit-data-420.png"), animations: "disabled", fullPage: true });
     }
   }
 });
@@ -1586,7 +1570,7 @@ test("REFINE-19 TODAY-06 marks the Editorial Paper winding route as not applicab
   await expect(page.locator(".ep-today-page")).toBeVisible();
   await expect(page.locator(".trail-map__route-line")).toHaveCount(0);
   await expect(page.locator(".ep-field-list")).toBeVisible();
-  await page.screenshot({ path: "output/qa/REFINE-19/TODAY-06-not-applicable-9ecaf59.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-06-not-applicable-9ecaf59.png"), animations: "disabled", fullPage: true });
 });
 
 test("REFINE-19 TODAY-07 keeps the Editorial Paper bottom summary visible", async ({ page }) => {
@@ -1603,7 +1587,7 @@ test("REFINE-19 TODAY-07 keeps the Editorial Paper bottom summary visible", asyn
   });
   expect(bounds.top).toBeGreaterThanOrEqual(0);
   expect(bounds.bottom).toBeLessThanOrEqual(bounds.viewportHeight);
-  await page.screenshot({ path: "output/qa/REFINE-19/TODAY-07-pass-9ecaf59-1707x912.png", animations: "disabled" });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-07-pass-9ecaf59-1707x912.png"), animations: "disabled" });
 });
 
 test("REFINE-19 TODAY-08 marks the Editorial Paper hard route geometry as not applicable", async ({ page }) => {
@@ -1615,7 +1599,7 @@ test("REFINE-19 TODAY-08 marks the Editorial Paper hard route geometry as not ap
   await expect(page.locator(".ep-today-page")).toBeVisible();
   await expect(page.locator(".trail-map__route-line")).toHaveCount(0);
   await expect(page.locator(".ep-field-row").first()).toBeVisible();
-  await page.screenshot({ path: "output/qa/REFINE-19/TODAY-08-not-applicable-9ecaf59.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-08-not-applicable-9ecaf59.png"), animations: "disabled", fullPage: true });
 });
 
 test("REFINE-19 TODAY-09 Editorial Paper Today exposes a live clock after the date", async ({ page }) => {
@@ -1634,7 +1618,7 @@ test("REFINE-19 TODAY-09 Editorial Paper Today exposes a live clock after the da
     clock: getComputedStyle(element.querySelector(".ep-date-time__clock")).fontFamily,
   }));
   expect(fonts.date).not.toBe(fonts.clock);
-  await page.screenshot({ path: "output/qa/REFINE-19/TODAY-09-after-9ecaf59.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-09-after-9ecaf59.png"), animations: "disabled", fullPage: true });
 });
 
 test("REFINE-19 TODAY-10 keeps real next-step value in the Editorial Paper side card", async ({ page }) => {
@@ -1648,7 +1632,7 @@ test("REFINE-19 TODAY-10 keeps real next-step value in the Editorial Paper side 
   await expect(nextCard.locator(".ep-next-card__duration strong")).toHaveText("45");
   await expect(nextCard).toContainText("今天截止");
   await expect(nextCard.getByRole("button", { name: /开始专注/ })).toHaveCount(1);
-  await page.screenshot({ path: "output/qa/REFINE-19/TODAY-10-pass-9ecaf59.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-10-pass-9ecaf59.png"), animations: "disabled", fullPage: true });
 });
 
 test("REFINE-19 TODAY-11 records the undefined audit-plan item without inventing a UI issue", async ({ page }) => {
@@ -1659,7 +1643,7 @@ test("REFINE-19 TODAY-11 records the undefined audit-plan item without inventing
   await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
   await expect(page.locator(".ep-today-page")).toBeVisible();
   await expect(page.locator(".ep-page-header h1")).toHaveText("今日节奏");
-  await page.screenshot({ path: "output/qa/REFINE-19/TODAY-11-not-applicable-9ecaf59.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-11-not-applicable-9ecaf59.png"), animations: "disabled", fullPage: true });
 });
 
 test("Editorial Paper keeps shared actions and page bounds usable at pressure widths", async ({ page }) => {
@@ -1740,7 +1724,7 @@ test("REFINE-19 TIMER-01 gives every Editorial Paper tab the same live date and 
         clock: getComputedStyle(element.querySelector(".ep-date-time__clock")).fontFamily,
       }));
       expect(fonts.date).not.toBe(fonts.clock);
-      await page.screenshot({ path: `output/qa/REFINE-19/TIMER-01-after-9ecaf59-${slug}-${width}.png`, animations: "disabled", fullPage: true });
+      await page.screenshot({ path: testOutputPath("qa", "REFINE-19", `TIMER-01-after-9ecaf59-${slug}-${width}.png`), animations: "disabled", fullPage: true });
     }
   }
 });
@@ -1785,7 +1769,7 @@ test("REFINE-19 TIMER-02 keeps Editorial Paper timer hierarchy readable", async 
     expect(metrics.readout.bottom).toBeLessThan(metrics.mode.top);
     expect(metrics.mode.bottom).toBeLessThan(metrics.inlineField.top);
     expect(metrics.primaryAction.bottom).toBeLessThanOrEqual(metrics.clockCard.bottom);
-    await page.screenshot({ path: `output/qa/REFINE-19/TIMER-02-reaudit-pass-${viewport.width}.png`, animations: "disabled", fullPage: true });
+    await page.screenshot({ path: testOutputPath("qa", "REFINE-19", `TIMER-02-reaudit-pass-${viewport.width}.png`), animations: "disabled", fullPage: true });
   }
 });
 
@@ -1803,7 +1787,7 @@ test("REFINE-19 TIMER-03 keeps Editorial Paper lines semantic", async ({ page })
   expect(await page.locator(".ep-focus-page .trail-map__route-line").count()).toBe(0);
   expect(await page.locator(".ep-focus-page .nv-focus-route").count()).toBe(0);
   expect(await page.locator(".ep-focus-page [data-route]").count()).toBe(0);
-  await page.screenshot({ path: "output/qa/REFINE-19/TIMER-03-not-applicable-9ecaf59.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TIMER-03-not-applicable-9ecaf59.png"), animations: "disabled", fullPage: true });
 });
 
 test("REFINE-19 TIMER-04 keeps Editorial Paper focus content in the full-screen safe area", async ({ page }) => {
@@ -1840,9 +1824,8 @@ test("REFINE-19 TIMER-04 keeps Editorial Paper focus content in the full-screen 
       };
     }));
   }
-  mkdirSync("output/qa/REFINE-19", { recursive: true });
   await page.setViewportSize({ width: 1707, height: 912 });
-  await page.screenshot({ path: "output/qa/REFINE-19/TIMER-04-pass-9ecaf59-1707x912.png", animations: "disabled" });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TIMER-04-pass-9ecaf59-1707x912.png"), animations: "disabled" });
   console.log(`TIMER-04 measurements: ${JSON.stringify(measurements)}`);
   for (const item of measurements) {
     expect(item.page).not.toBeNull();
@@ -1889,7 +1872,7 @@ test("REFINE-19 TIMER-05 keeps Editorial Paper timer fields explicit", async ({ 
   expect(noteFields[0].bottom).toBeLessThanOrEqual(noteFields[1].top);
   expect(noteFields[1].bottom).toBeLessThanOrEqual(noteFields[2].top);
   expect(await focusPage.locator(".ep-focus-notes").locator(".ep-note-paper").count()).toBe(1);
-  await page.screenshot({ path: "output/qa/REFINE-19/TIMER-05-pass-9ecaf59.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TIMER-05-pass-9ecaf59.png"), animations: "disabled", fullPage: true });
 });
 
 test("REFINE-19 TIMER-06 hides the command trigger on every Editorial Paper tab", async ({ page }) => {
@@ -1908,7 +1891,7 @@ test("REFINE-19 TIMER-06 hides the command trigger on every Editorial Paper tab"
     if (label !== "今日") await pageButton(page, label).click();
     await expect(page.locator(selector)).toBeVisible();
     await expect(page.locator(".command-trigger")).toBeHidden();
-    await page.screenshot({ path: `output/qa/REFINE-19/TIMER-06-after-9ecaf59-${slug}.png`, animations: "disabled", fullPage: true });
+    await page.screenshot({ path: testOutputPath("qa", "REFINE-19", `TIMER-06-after-9ecaf59-${slug}.png`), animations: "disabled", fullPage: true });
   }
   await page.keyboard.press("Control+K");
   await expect(page.getByRole("dialog", { name: "你想做什么？" })).toBeVisible();
@@ -1969,7 +1952,7 @@ test("REFINE-19 TIMER-07 makes Editorial Paper focus fields drive the real timer
   await expect(clockCard).toContainText("已暂停");
   await expect(clockCard.getByRole("button", { name: "继续专注", exact: true })).toBeVisible();
   await expect(clockCard.getByRole("button", { name: "重置本次专注", exact: true })).toBeEnabled();
-  await page.screenshot({ path: "output/qa/REFINE-19/TIMER-07-after-9ecaf59.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TIMER-07-after-9ecaf59.png"), animations: "disabled", fullPage: true });
   await expect(clockCard.getByRole("button", { name: "完成并记录", exact: true })).toBeEnabled();
   await clockCard.getByRole("button", { name: "完成并记录", exact: true }).click();
   await expect(focusPage.locator(".ep-inline-confirmation")).toContainText("这一段已经收进记录");
@@ -2006,7 +1989,7 @@ test("REFINE-19 TIMER-08 keeps long Editorial Paper focus-note text readable", a
     expect(bounds.textBlocks.every((block) => block.left >= 0 && block.right <= bounds.viewportWidth + 1 && block.scrollWidth <= block.clientWidth + 1)).toBe(true);
     expect(bounds.documentScrollWidth).toBeLessThanOrEqual(bounds.viewportWidth + 1);
     await page.evaluate(() => window.scrollTo(0, 0));
-    await page.screenshot({ path: `output/qa/REFINE-19/TIMER-08-pass-9ecaf59-${width}.png`, animations: "disabled", fullPage: true });
+    await page.screenshot({ path: testOutputPath("qa", "REFINE-19", `TIMER-08-pass-9ecaf59-${width}.png`), animations: "disabled", fullPage: true });
   }
 });
 
@@ -2044,13 +2027,13 @@ test("REFINE-19 TIMER-09 makes Editorial Paper reset explicit and usable", async
   await clockCard.getByRole("button", { name: "开始专注", exact: true }).click();
   await expect(clockCard.getByRole("button", { name: "重置本次专注", exact: true })).toBeEnabled();
   await expect(clockCard.getByRole("button", { name: "重置本次专注", exact: true })).toHaveAttribute("title", "放弃当前计时并清除本次专注设置");
-  await page.screenshot({ path: "output/qa/REFINE-19/TIMER-09-after-active-9ecaf59.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TIMER-09-after-active-9ecaf59.png"), animations: "disabled", fullPage: true });
   await clockCard.getByRole("button", { name: "重置本次专注", exact: true }).click();
   await expect(clockCard.getByRole("button", { name: "清空设置", exact: true })).toBeEnabled();
   await expect(focusPage.locator('input[name="editorialSessionTitle"]')).toHaveValue("");
   await expect(focusPage.locator('input[name="editorialCountdownMinutes"]')).toHaveValue("45");
   await expect(page.locator(".app-message")).toContainText("本轮已重置，没有生成记录");
-  await page.screenshot({ path: "output/qa/REFINE-19/TIMER-09-after-clear-9ecaf59.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TIMER-09-after-clear-9ecaf59.png"), animations: "disabled", fullPage: true });
 });
 
 test("REFINE-19 TIMER-10 keeps keyboard actions global without a shortcut panel", async ({ page }) => {
@@ -2078,7 +2061,7 @@ test("REFINE-19 TIMER-10 keeps keyboard actions global without a shortcut panel"
   await page.keyboard.press("Escape");
   await pageButton(page, "设置").click();
   await expect(workspace).toBeVisible();
-  await page.screenshot({ path: "output/qa/REFINE-19/TIMER-10-pass-9ecaf59.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TIMER-10-pass-9ecaf59.png"), animations: "disabled", fullPage: true });
 });
 
 test("REFINE-19 TIMER-11 keeps the Editorial Paper right note readable fullscreen", async ({ page }) => {
@@ -2115,7 +2098,7 @@ test("REFINE-19 TIMER-11 keeps the Editorial Paper right note readable fullscree
     });
     measurements.push(result);
     if (width === 1707) {
-      await page.screenshot({ path: "output/qa/REFINE-19/TIMER-11-pass-9ecaf59-1707x912.png", animations: "disabled", fullPage: true });
+      await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TIMER-11-pass-9ecaf59-1707x912.png"), animations: "disabled", fullPage: true });
     }
   }
   console.log(`TIMER-11 measurements: ${JSON.stringify(measurements)}`);
@@ -2161,7 +2144,7 @@ test("REFINE-19 TIMER-12 keeps a 01:00:00 Editorial Paper readout away from stat
       };
     }));
     if (width === 1707) {
-      await page.screenshot({ path: "output/qa/REFINE-19/TIMER-12-pass-9ecaf59-1707x912.png", animations: "disabled", fullPage: true });
+      await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TIMER-12-pass-9ecaf59-1707x912.png"), animations: "disabled", fullPage: true });
     }
   }
   console.log(`TIMER-12 measurements: ${JSON.stringify(measurements)}`);
@@ -2218,7 +2201,7 @@ test("REFINE-19 TIMER-13 keeps Editorial Paper status and mode copy separated", 
     }
     if (width === 1707) {
       await page.evaluate(() => window.scrollTo(0, 0));
-      await page.screenshot({ path: "output/qa/REFINE-19/TIMER-13-pass-9ecaf59-1707x912.png", animations: "disabled", fullPage: true });
+      await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TIMER-13-pass-9ecaf59-1707x912.png"), animations: "disabled", fullPage: true });
     }
   }
   console.log(`TIMER-13 measurements: ${JSON.stringify(measurements)}`);
@@ -2269,7 +2252,7 @@ test("REFINE-19 TIMER-14 keeps Editorial Paper focus safe at Windows high DPI", 
       });
       measurements.push({ ...item, ...measurement });
       await page.evaluate(() => window.scrollTo(0, 0));
-      await page.screenshot({ path: `output/qa/REFINE-19/TIMER-14-pass-9ecaf59-${item.slug}.png`, animations: "disabled", fullPage: true });
+      await page.screenshot({ path: testOutputPath("qa", "REFINE-19", `TIMER-14-pass-9ecaf59-${item.slug}.png`), animations: "disabled", fullPage: true });
     } finally {
       await context.close();
     }
@@ -2301,7 +2284,7 @@ test("REFINE-19 TIMER-15 uses the same daily session count on Today and Focus", 
   const focus = page.locator(".ep-focus-page");
   await expect(focus.locator(".ep-taped-note--sage strong")).toHaveText("1 段完成");
   await expect(focus.locator(".ep-taped-note--sage")).toContainText("今日专注");
-  await page.screenshot({ path: "output/qa/REFINE-19/TIMER-15-after-9ecaf59.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TIMER-15-after-9ecaf59.png"), animations: "disabled", fullPage: true });
 });
 
 test("REFINE-19 TIMER-16 restores the Editorial Paper floating entry after returning", async ({ page }) => {
@@ -2330,7 +2313,7 @@ test("REFINE-19 TIMER-16 restores the Editorial Paper floating entry after retur
   const callsBeforeReturn = await page.evaluate(() => window.__epFloatingCalls);
   await floatingEntry.click();
   await expect.poll(() => page.evaluate(() => window.__epFloatingCalls)).toBe(callsBeforeReturn + 1);
-  await page.screenshot({ path: "output/qa/REFINE-19/TIMER-16-after-9ecaf59.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TIMER-16-after-9ecaf59.png"), animations: "disabled", fullPage: true });
 });
 
 test("REFINE-19 TIMER-17 still opens the floating timer after Editorial Paper starts", async ({ page }) => {
@@ -2353,7 +2336,7 @@ test("REFINE-19 TIMER-17 still opens the floating timer after Editorial Paper st
   await focusPage.getByRole("button", { name: "开始专注", exact: true }).click();
   await expect(focusPage).toContainText("倒计时中");
   await expect.poll(() => page.evaluate(() => window.__epFloatingCalls)).toBe(1);
-  await page.screenshot({ path: "output/qa/REFINE-19/TIMER-17-pass-9ecaf59.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TIMER-17-pass-9ecaf59.png"), animations: "disabled", fullPage: true });
 });
 
 test("REFINE-19 TIMER-18 delegates main-window hiding to the focus floating command", async ({ page }) => {
@@ -2379,7 +2362,7 @@ test("REFINE-19 TIMER-18 delegates main-window hiding to the focus floating comm
   const commands = await page.evaluate(() => window.__epWindowCommands);
   expect(commands.filter((command) => command === "show_focus_floating")).toHaveLength(1);
   expect(commands).not.toContain("hide_main_window");
-  await page.screenshot({ path: "output/qa/REFINE-19/TIMER-18-pass-9ecaf59.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TIMER-18-pass-9ecaf59.png"), animations: "disabled", fullPage: true });
 });
 
 test("REFINE-19 TIMER-19 keeps the floating entry visible and clickable in Editorial Paper focus states", async ({ page }) => {
@@ -2419,7 +2402,7 @@ test("REFINE-19 TIMER-19 keeps the floating entry visible and clickable in Edito
   await expect(floatingEntry).toBeVisible();
   await floatingEntry.click();
   await expect.poll(() => page.evaluate(() => window.__epFloatingCalls)).toBe(callsAfterStart + 2);
-  await page.screenshot({ path: "output/qa/REFINE-19/TIMER-19-pass-9ecaf59.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TIMER-19-pass-9ecaf59.png"), animations: "disabled", fullPage: true });
 });
 
 test("REFINE-19 TIMER-20 keeps Editorial Paper timer and interface state synchronized", async ({ page }) => {
@@ -2506,7 +2489,7 @@ test("REFINE-19 TIMER-20 keeps Editorial Paper timer and interface state synchro
   await pageButton(page, "计时").click();
   await expect(page.locator(".ep-clock-card")).toContainText("待开始");
   await expect(page.locator('input[name="editorialSessionTitle"]')).toHaveValue("");
-  await page.screenshot({ path: "output/qa/REFINE-19/TIMER-20-pass-9ecaf59.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TIMER-20-pass-9ecaf59.png"), animations: "disabled", fullPage: true });
 });
 
 test("REFINE-19 TIMER-21 records when the Editorial Paper focus page has no matching records button", async ({ page }) => {
@@ -2523,7 +2506,7 @@ test("REFINE-19 TIMER-21 records when the Editorial Paper focus page has no matc
   await pageButton(page, "今日").click();
   await expect(page.getByRole("button", { name: "回看记录", exact: true })).toBeVisible();
   await pageButton(page, "计时").click();
-  await page.screenshot({ path: "output/qa/REFINE-19/TIMER-21-not-applicable-9ecaf59.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TIMER-21-not-applicable-9ecaf59.png"), animations: "disabled", fullPage: true });
 });
 
 test("REFINE-19 TODO-01 checks Editorial Paper todo columns for overlap, bounded whitespace, and clear states", async ({ page }) => {
@@ -2582,7 +2565,7 @@ test("REFINE-19 TODO-01 checks Editorial Paper todo columns for overlap, bounded
     await expect(todoPage.locator(".ep-todo-column--done header")).toContainText("已完成");
   }
   await page.evaluate(() => window.scrollTo(0, 0));
-  await page.screenshot({ path: "output/qa/REFINE-19/TODO-01-after-9ecaf59.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODO-01-after-9ecaf59.png"), animations: "disabled", fullPage: true });
 });
 
 test("REFINE-19 TODO-02 keeps a long completed todo list visible and actionable", async ({ page }) => {
@@ -2657,7 +2640,7 @@ test("REFINE-19 TODO-02 keeps a long completed todo list visible and actionable"
   expect(desktopMetrics.doneRows).toBe(completedTitles.length - 2);
   expect(desktopMetrics.doneScrollHeight).toBeGreaterThan(800);
   await page.evaluate(() => window.scrollTo(0, 0));
-  await page.screenshot({ path: "output/qa/REFINE-19/TODO-02-reaudit-pass-1487.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODO-02-reaudit-pass-1487.png"), animations: "disabled", fullPage: true });
 
   for (const [width, height] of [[820, 720], [560, 720], [420, 720]]) {
     await page.setViewportSize({ width, height });
@@ -2682,7 +2665,7 @@ test("REFINE-19 TODO-02 keeps a long completed todo list visible and actionable"
     expect(metrics.rows.every((row) => row.left >= 0 && row.right <= width + 1 && row.overlaps.length === 0 && row.blocks.every((block) => block.width >= 0 && block.height >= 0))).toBe(true);
     const textEvidence = await todoPage.locator(".ep-todo-row__copy strong").evaluateAll((elements) => elements.map((element) => ({ clientWidth: element.clientWidth, scrollWidth: element.scrollWidth, whiteSpace: getComputedStyle(element).whiteSpace })));
     expect(textEvidence.every((item) => item.scrollWidth <= item.clientWidth && item.whiteSpace === "normal")).toBe(true);
-    if (width === 420) await page.screenshot({ path: "output/qa/REFINE-19/TODO-02-reaudit-pass-420.png", animations: "disabled", fullPage: true });
+    if (width === 420) await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODO-02-reaudit-pass-420.png"), animations: "disabled", fullPage: true });
   }
   const commands = await page.evaluate(() => window.__epTodoCommands);
   expect(commands).toEqual(expect.arrayContaining(["update_todo_item", "toggle_todo_item", "delete_todo_item"]));
@@ -2734,7 +2717,7 @@ test("REFINE-19 TODO-03 keeps all three Editorial Paper window controls availabl
     await expect.poll(() => page.evaluate((expectedCommand) => window.__epWindowCommands.filter((item) => item === expectedCommand).length, command)).toBe(1);
   }
   await page.evaluate(() => window.scrollTo(0, 0));
-  await page.screenshot({ path: "output/qa/REFINE-19/TODO-03-pass-1487-9ecaf59.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODO-03-pass-1487-9ecaf59.png"), animations: "disabled", fullPage: true });
 
   await page.setViewportSize({ width: 420, height: 720 });
   await page.evaluate(() => window.scrollTo(0, 0));
@@ -2744,7 +2727,7 @@ test("REFINE-19 TODO-03 keeps all three Editorial Paper window controls availabl
     return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, viewportWidth: innerWidth, viewportHeight: innerHeight };
   }));
   expect(mobileBounds.every((bounds) => bounds.left >= 0 && bounds.right <= bounds.viewportWidth + 1 && bounds.top >= 0 && bounds.bottom <= bounds.viewportHeight)).toBe(true);
-  await page.screenshot({ path: "output/qa/REFINE-19/TODO-03-pass-420-9ecaf59.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODO-03-pass-420-9ecaf59.png"), animations: "disabled", fullPage: true });
 });
 
 test("REFINE-19 RECORDS-01 checks the Editorial Paper records first screen", async ({ page }) => {
@@ -2807,7 +2790,7 @@ test("REFINE-19 RECORDS-01 checks the Editorial Paper records first screen", asy
       expect(metrics.firstHeading.bottom).toBeLessThanOrEqual(height);
       expect(metrics.entries[0].bottom).toBeLessThanOrEqual(height);
       await page.evaluate(() => window.scrollTo(0, 0));
-      await page.screenshot({ path: "output/qa/REFINE-19/RECORDS-01-before-9ecaf59-1487.png", animations: "disabled", fullPage: true });
+      await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "RECORDS-01-before-9ecaf59-1487.png"), animations: "disabled", fullPage: true });
     } else {
       await recordsPage.locator(".ep-record-entry").first().scrollIntoViewIfNeeded();
       await expect(recordsPage.locator(".ep-record-entry").first()).toBeVisible();
@@ -2854,10 +2837,10 @@ test("REFINE-19 RECORDS-02 keeps the Editorial Paper records hierarchy inside it
     expect(styleMetrics.regions.find((region) => region.selector === ".ep-archive-paper").backgroundImage).toContain("linear-gradient");
     if (width === 1487) {
       await page.evaluate(() => window.scrollTo(0, 0));
-      await page.screenshot({ path: "output/qa/REFINE-19/RECORDS-02-pass-1487-9ecaf59.png", animations: "disabled", fullPage: true });
+      await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "RECORDS-02-pass-1487-9ecaf59.png"), animations: "disabled", fullPage: true });
     } else {
       await page.evaluate(() => window.scrollTo(0, 0));
-      await page.screenshot({ path: "output/qa/REFINE-19/RECORDS-02-pass-420-9ecaf59.png", animations: "disabled", fullPage: true });
+      await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "RECORDS-02-pass-420-9ecaf59.png"), animations: "disabled", fullPage: true });
     }
   }
 });
@@ -2946,7 +2929,7 @@ test("REFINE-19 RECORDS-03 keeps 28-day Editorial Paper history navigable", asyn
   expect(desktopMetrics.historyGroups).toBe(28);
   expect(desktopMetrics.oldestExpanded).toBe(true);
   await page.evaluate(() => window.scrollTo(0, 0));
-  await page.screenshot({ path: "output/qa/REFINE-19/RECORDS-03-reaudit-pass-1487.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "RECORDS-03-reaudit-pass-1487.png"), animations: "disabled", fullPage: true });
 
   await page.setViewportSize({ width: 420, height: 720 });
   await page.evaluate(() => window.scrollTo(0, 0));
@@ -2959,7 +2942,7 @@ test("REFINE-19 RECORDS-03 keeps 28-day Editorial Paper history navigable", asyn
   expect(mobileTitleEvidence.every((item) => item.scrollWidth <= item.clientWidth && item.whiteSpace === "normal")).toBe(true);
   await oldest.scrollIntoViewIfNeeded();
   await expect(oldest).toBeVisible();
-  await page.screenshot({ path: "output/qa/REFINE-19/RECORDS-03-reaudit-pass-420.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "RECORDS-03-reaudit-pass-420.png"), animations: "disabled", fullPage: true });
   const commands = await page.evaluate(() => window.__epRecordCommands);
   expect(commands).toEqual(expect.arrayContaining(["update_focus_record_title", "delete_focus_record"]));
 });
@@ -3018,7 +3001,7 @@ test("REFINE-19 RECORDS-04 verifies Editorial Paper uses aligned natural-day bar
     expect(metrics.bars.every((bar) => Math.abs(bar.barCenter - bar.columnCenter) < 1 && bar.columnBottom <= bar.labelTop && bar.barWidth > 0 && bar.columnWidth > 0)).toBe(true);
     expect(metrics.documentScrollWidth).toBeLessThanOrEqual(width + 1);
     await page.evaluate(() => window.scrollTo(0, 0));
-    await page.screenshot({ path: `output/qa/REFINE-19/RECORDS-04-not-applicable-${width}-9ecaf59.png`, animations: "disabled", fullPage: true });
+    await page.screenshot({ path: testOutputPath("qa", "REFINE-19", `RECORDS-04-not-applicable-${width}-9ecaf59.png`), animations: "disabled", fullPage: true });
   }
 });
 
@@ -3061,7 +3044,7 @@ test("REFINE-19 RECORDS-05 keeps Editorial Paper history statistics non-duplicat
     expect(metrics.historySections).toBe(1);
     expect(metrics.documentScrollWidth).toBeLessThanOrEqual(width + 1);
     await page.evaluate(() => window.scrollTo(0, 0));
-    await page.screenshot({ path: `output/qa/REFINE-19/RECORDS-05-not-applicable-${width}-9ecaf59.png`, animations: "disabled", fullPage: true });
+    await page.screenshot({ path: testOutputPath("qa", "REFINE-19", `RECORDS-05-not-applicable-${width}-9ecaf59.png`), animations: "disabled", fullPage: true });
   }
 });
 
@@ -3159,7 +3142,7 @@ test("REFINE-19 RECORDS-06 keeps all Editorial Paper records usable at scale", a
     element.scrollTop = element.scrollHeight;
   });
   expect(await historyList.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
-  await history.screenshot({ path: "output/qa/REFINE-19/RECORDS-06-pass-1487-9ecaf59.png", animations: "disabled" });
+  await history.screenshot({ path: testOutputPath("qa", "REFINE-19", "RECORDS-06-pass-1487-9ecaf59.png"), animations: "disabled" });
 
   await page.setViewportSize({ width: 420, height: 720 });
   const mobileMetrics = await recordsPage.evaluate(() => {
@@ -3173,7 +3156,7 @@ test("REFINE-19 RECORDS-06 keeps all Editorial Paper records usable at scale", a
   expect(mobileMetrics.listRight).toBeLessThanOrEqual(mobileMetrics.viewportWidth + 1);
   expect(mobileMetrics.historyRight).toBeLessThanOrEqual(mobileMetrics.viewportWidth + 1);
   await expect(historyDay.locator(":scope > div span")).toHaveCount(204);
-  await history.screenshot({ path: "output/qa/REFINE-19/RECORDS-06-pass-420-9ecaf59.png", animations: "disabled" });
+  await history.screenshot({ path: testOutputPath("qa", "REFINE-19", "RECORDS-06-pass-420-9ecaf59.png"), animations: "disabled" });
   const commands = await page.evaluate(() => window.__epRecordCommands);
   expect(commands).toEqual(expect.arrayContaining(["update_focus_record_title", "delete_focus_record"]));
 });
@@ -3225,7 +3208,7 @@ test("REFINE-19 RECORDS-07 keeps all Editorial Paper window controls usable", as
     await expect.poll(() => page.evaluate((expectedCommand) => window.__epRecordsWindowCommands.filter((item) => item === expectedCommand).length, command)).toBe(1);
   }
   await page.evaluate(() => window.scrollTo(0, 0));
-  await page.screenshot({ path: "output/qa/REFINE-19/RECORDS-07-pass-1487-9ecaf59.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "RECORDS-07-pass-1487-9ecaf59.png"), animations: "disabled", fullPage: true });
 
   await page.setViewportSize({ width: 420, height: 720 });
   await page.evaluate(() => window.scrollTo(0, 0));
@@ -3235,7 +3218,7 @@ test("REFINE-19 RECORDS-07 keeps all Editorial Paper window controls usable", as
   }));
   expect(mobileBounds.every((bounds) => bounds.left >= 0 && bounds.right <= bounds.viewportWidth + 1 && bounds.top >= 0 && bounds.bottom <= bounds.viewportHeight)).toBe(true);
   await expect(buttons).toHaveCount(3);
-  await page.screenshot({ path: "output/qa/REFINE-19/RECORDS-07-pass-420-9ecaf59.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "RECORDS-07-pass-420-9ecaf59.png"), animations: "disabled", fullPage: true });
 });
 
 test("REFINE-19 SETTINGS-01 keeps Editorial Paper settings copy and controls separated", async ({ page }) => {
@@ -3282,10 +3265,10 @@ test("REFINE-19 SETTINGS-01 keeps Editorial Paper settings copy and controls sep
     expect(metrics.footerChildren.every((child) => child.left >= 0 && child.right <= width + 1 && child.height > 0)).toBe(true);
     if (width === 1487) {
       await page.evaluate(() => window.scrollTo(0, 0));
-      await page.screenshot({ path: "output/qa/REFINE-19/SETTINGS-01-pass-1487-9ecaf59.png", animations: "disabled", fullPage: true });
+      await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "SETTINGS-01-pass-1487-9ecaf59.png"), animations: "disabled", fullPage: true });
     } else {
       await page.evaluate(() => window.scrollTo(0, 0));
-      await page.screenshot({ path: "output/qa/REFINE-19/SETTINGS-01-pass-420-9ecaf59.png", animations: "disabled", fullPage: true });
+      await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "SETTINGS-01-pass-420-9ecaf59.png"), animations: "disabled", fullPage: true });
     }
   }
 });
@@ -3323,7 +3306,7 @@ test("REFINE-19 SETTINGS-02 exposes Editorial Paper appearance controls with vis
     await settingsPage.getByRole("button", { name: "紧凑", exact: true }).click();
     await expect(page.locator(".minimal-app")).toHaveAttribute("data-density", "compact");
     await page.evaluate(() => window.scrollTo(0, 0));
-    await page.screenshot({ path: `output/qa/REFINE-19/SETTINGS-02-after-${width}-9ecaf59.png`, animations: "disabled", fullPage: true });
+    await page.screenshot({ path: testOutputPath("qa", "REFINE-19", `SETTINGS-02-after-${width}-9ecaf59.png`), animations: "disabled", fullPage: true });
   }
 });
 
@@ -3384,7 +3367,7 @@ test("REFINE-19 SETTINGS-03 keeps Editorial Paper sound choices and custom sound
   await expect(settingsPage.getByRole("button", { name: "移除自定义", exact: true })).toHaveCount(0);
 
   await page.evaluate(() => window.scrollTo(0, 0));
-  await page.screenshot({ path: "output/qa/REFINE-19/SETTINGS-03-pass-1487-9ecaf59.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "SETTINGS-03-pass-1487-9ecaf59.png"), animations: "disabled", fullPage: true });
   await page.setViewportSize({ width: 420, height: 720 });
   const mobileMetrics = await settingsPage.evaluate(() => ({
     documentScrollWidth: document.documentElement.scrollWidth,
@@ -3395,7 +3378,7 @@ test("REFINE-19 SETTINGS-03 keeps Editorial Paper sound choices and custom sound
   expect(mobileMetrics.selectRight).toBeLessThanOrEqual(421);
   expect(mobileMetrics.actionsRight).toBeLessThanOrEqual(421);
   await page.evaluate(() => window.scrollTo(0, 0));
-  await page.screenshot({ path: "output/qa/REFINE-19/SETTINGS-03-pass-420-9ecaf59.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "SETTINGS-03-pass-420-9ecaf59.png"), animations: "disabled", fullPage: true });
   const commands = await page.evaluate(() => window.__epSoundCommands);
   expect(commands.filter((command) => command === "update_timer_preferences").length).toBe(3);
 });
@@ -3429,7 +3412,7 @@ test("REFINE-19 SETTINGS-04 replaces rhythm settings with useful workspace contr
   await expect(page.locator(".minimal-app")).toHaveAttribute("data-density", "compact");
 
   await page.evaluate(() => window.scrollTo(0, 0));
-  await page.screenshot({ path: "output/qa/REFINE-19/SETTINGS-04-pass-1487-9ecaf59.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "SETTINGS-04-pass-1487-9ecaf59.png"), animations: "disabled", fullPage: true });
   await page.setViewportSize({ width: 420, height: 720 });
   const mobileMetrics = await settingsPage.evaluate(() => ({
     documentScrollWidth: document.documentElement.scrollWidth,
@@ -3438,7 +3421,7 @@ test("REFINE-19 SETTINGS-04 replaces rhythm settings with useful workspace contr
   expect(mobileMetrics.documentScrollWidth).toBeLessThanOrEqual(421);
   expect(mobileMetrics.workspaceRight).toBeLessThanOrEqual(421);
   await page.evaluate(() => window.scrollTo(0, 0));
-  await page.screenshot({ path: "output/qa/REFINE-19/SETTINGS-04-pass-420-9ecaf59.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "SETTINGS-04-pass-420-9ecaf59.png"), animations: "disabled", fullPage: true });
 });
 
 test("REFINE-19 SETTINGS-05 keeps Editorial Paper theme preview purposeful", async ({ page }) => {
@@ -3475,7 +3458,7 @@ test("REFINE-19 SETTINGS-05 keeps Editorial Paper theme preview purposeful", asy
     expect(metrics.previewRole).toContain("ep-live-preview__paper--editorial-paper");
     expect(metrics.documentScrollWidth).toBeLessThanOrEqual(width + 1);
     await page.evaluate(() => window.scrollTo(0, 0));
-    await page.screenshot({ path: `output/qa/REFINE-19/SETTINGS-05-pass-${width}-9ecaf59.png`, animations: "disabled", fullPage: true });
+    await page.screenshot({ path: testOutputPath("qa", "REFINE-19", `SETTINGS-05-pass-${width}-9ecaf59.png`), animations: "disabled", fullPage: true });
   }
 });
 
@@ -3557,7 +3540,7 @@ test("REFINE-19 SETTINGS-06 makes Editorial Paper settings immediate and persist
   await expect(settingsPage.getByRole("button", { name: "保存外观设置", exact: true })).toHaveCount(0);
   await expect(settingsPage).toContainText("主题与提醒设置会立即保存。");
   await page.evaluate(() => window.scrollTo(0, 0));
-  await page.screenshot({ path: "output/qa/REFINE-19/SETTINGS-06-pass-1487-9ecaf59.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "SETTINGS-06-pass-1487-9ecaf59.png"), animations: "disabled", fullPage: true });
 
   await page.setViewportSize({ width: 420, height: 720 });
   const mobileMetrics = await settingsPage.evaluate(() => ({
@@ -3567,7 +3550,7 @@ test("REFINE-19 SETTINGS-06 makes Editorial Paper settings immediate and persist
   expect(mobileMetrics.documentScrollWidth).toBeLessThanOrEqual(421);
   expect(mobileMetrics.footerRight).toBeLessThanOrEqual(421);
   await page.evaluate(() => window.scrollTo(0, 0));
-  await page.screenshot({ path: "output/qa/REFINE-19/SETTINGS-06-pass-420-9ecaf59.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "SETTINGS-06-pass-420-9ecaf59.png"), animations: "disabled", fullPage: true });
 });
 
 test("PERF-01 measures synthetic Editorial Paper history rendering", async ({ page }) => {
@@ -3614,8 +3597,7 @@ test("PERF-01 measures synthetic Editorial Paper history rendering", async ({ pa
     });
   }
 
-  mkdirSync(performanceDirectory, { recursive: true });
-  writeFileSync(`${performanceDirectory}/frontend-history.json`, JSON.stringify({
+  writeFileSync(testOutputPath("qa", "PERF-01", "frontend-history.json"), JSON.stringify({
     capturedAt: new Date().toISOString(),
     viewport: { width: 1487, height: 1058 },
     runtime: "Chromium + Tauri mock; synthetic records, not personal data",
@@ -3700,7 +3682,7 @@ test("Night Valley secondary widths keep each page inside the viewport", async (
       expect(layout.left).toBeGreaterThanOrEqual(0);
       expect(layout.right).toBeLessThanOrEqual(width);
       await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
-      await page.screenshot({ path: `output/playwright/night-valley-${label}-${width}.png`, animations: "disabled" });
+      await page.screenshot({ path: testOutputPath("screenshots", `night-valley-${label}-${width}.png`), animations: "disabled" });
     }
   }
 });
@@ -3822,7 +3804,7 @@ test("Night Valley timer fullscreen keeps the working workspace readable", async
   expect(bounds[".nv-focus-brief"].bottom).toBeLessThanOrEqual(viewport.height);
   expect(bounds[".nv-focus-brief"].right).toBeLessThanOrEqual(viewport.width);
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
-  await page.screenshot({ path: "output/playwright/night-valley-timer-fullscreen.png", animations: "disabled" });
+  await page.screenshot({ path: testOutputPath("screenshots", "night-valley-timer-fullscreen.png"), animations: "disabled" });
 });
 
 test("Night Valley timer centers the records link label across viewport sizes", async ({ page }) => {
@@ -3893,7 +3875,7 @@ test("Night Valley timer keeps a one-hour readout separate from session facts", 
   expect(metrics.status).not.toBeNull();
   expect(metrics.readout.bottom).toBeLessThanOrEqual(metrics.session.top - 8);
   expect(metrics.session.bottom).toBeLessThanOrEqual(metrics.status.top - 8);
-  await page.screenshot({ path: "output/playwright/night-valley-timer-one-hour.png", animations: "disabled" });
+  await page.screenshot({ path: testOutputPath("screenshots", "night-valley-timer-one-hour.png"), animations: "disabled" });
 });
 
 test("Night Valley timer survives a scaled fullscreen CSS viewport", async ({ page }) => {
@@ -3934,7 +3916,7 @@ test("Night Valley timer survives a scaled fullscreen CSS viewport", async ({ pa
   expect(metrics.session.bottom).toBeLessThanOrEqual(metrics.status.top - 8);
   expect(metrics.panel.bottom).toBeLessThanOrEqual(viewport.height);
   expect(metrics.panelScroll.scrollHeight).toBeLessThanOrEqual(metrics.panelScroll.clientHeight);
-  await page.screenshot({ path: "output/playwright/night-valley-timer-scaled-fullscreen.png", animations: "disabled" });
+  await page.screenshot({ path: testOutputPath("screenshots", "night-valley-timer-scaled-fullscreen.png"), animations: "disabled" });
 });
 
 test("REFINE-19 SHELL-01 keeps shared window controls usable on every Editorial Paper tab", async ({ page }) => {
@@ -3984,7 +3966,7 @@ test("REFINE-19 SHELL-01 keeps shared window controls usable on every Editorial 
   expect(commands.filter((command) => command === "minimize_main_window")).toHaveLength(5);
   expect(commands.filter((command) => command === "toggle_maximize_main_window")).toHaveLength(5);
   expect(commands.filter((command) => command === "close_main_window")).toHaveLength(5);
-  await page.screenshot({ path: "output/qa/REFINE-19/SHELL-01-pass-1487.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "SHELL-01-pass-1487.png"), animations: "disabled", fullPage: true });
 });
 
 test("REFINE-19 SHELL-02 keeps a live date and clock synchronized across Editorial Paper tabs", async ({ page }) => {
@@ -4037,7 +4019,7 @@ test("REFINE-19 SHELL-02 keeps a live date and clock synchronized across Editori
   expect(new Set(readings.map((item) => item.dateFont)).size).toBe(1);
   expect(new Set(readings.map((item) => item.clockFont)).size).toBe(1);
   expect(readings.every((item) => item.dateFont !== item.clockFont)).toBe(true);
-  await page.screenshot({ path: "output/qa/REFINE-19/SHELL-02-pass-settings.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "SHELL-02-pass-settings.png"), animations: "disabled", fullPage: true });
 });
 
 test("REFINE-19 SHELL-03 hides the visual command entry without removing Ctrl+K", async ({ page }) => {
@@ -4059,7 +4041,7 @@ test("REFINE-19 SHELL-03 hides the visual command entry without removing Ctrl+K"
   }
   await page.keyboard.press("Control+K");
   await expect(page.getByRole("dialog", { name: "你想做什么？" })).toBeVisible();
-  await page.screenshot({ path: "output/qa/REFINE-19/SHELL-03-pass-settings.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "SHELL-03-pass-settings.png"), animations: "disabled", fullPage: true });
   await page.keyboard.press("Escape");
 });
 
@@ -4073,7 +4055,7 @@ test("REFINE-19 SHELL-04 keeps the Editorial Paper daily focus line visible and 
   const quote = line.locator(".daily-focus-line__quote");
   await expect(line).toBeVisible();
   await expect(quote).not.toHaveText(/^“”$/);
-  await page.screenshot({ path: "output/qa/REFINE-19/SHELL-04-pass-1487.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "SHELL-04-pass-1487.png"), animations: "disabled", fullPage: true });
 
   for (const [width, height] of [[1487, 1058], [420, 720]]) {
     await page.setViewportSize({ width, height });
@@ -4122,12 +4104,12 @@ test("REFINE-19 adversarial current-data matrix keeps completed nodes, boundary 
     const today = page.locator(".ep-today-page");
     const completedNodes = today.locator(".ep-completed-notes > span:not(.ep-section-label)");
     if (width === 1487) {
-      await page.screenshot({ path: "output/qa/REFINE-19/TODAY-01-adversarial-completed-before.png", animations: "disabled", fullPage: true });
+      await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-01-adversarial-completed-before.png"), animations: "disabled", fullPage: true });
     }
     await expect(completedNodes).toHaveCount(completedTitles.length);
     expect(new Set(await completedNodes.allTextContents())).toEqual(new Set(completedTitles));
     if (width === 1487) {
-      await page.screenshot({ path: "output/qa/REFINE-19/TODAY-01-adversarial-completed-after.png", animations: "disabled", fullPage: true });
+      await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-01-adversarial-completed-after.png"), animations: "disabled", fullPage: true });
     }
 
     await pageButton(page, "待办").click();
@@ -4147,7 +4129,7 @@ test("REFINE-19 adversarial current-data matrix keeps completed nodes, boundary 
     expect(todoEvidence.documentScrollWidth).toBeLessThanOrEqual(width + 1);
     expect(todoEvidence.rows.every((row) => row.left >= 0 && row.right <= width + 1)).toBe(true);
     expect(todoEvidence.footer.every((item) => item.left >= 0 && item.right <= width + 1)).toBe(true);
-    await page.screenshot({ path: `output/qa/REFINE-19/adversarial-current-todos-${width}.png`, animations: "disabled", fullPage: true });
+    await page.screenshot({ path: testOutputPath("qa", "REFINE-19", `adversarial-current-todos-${width}.png`), animations: "disabled", fullPage: true });
   }
 
   const unbrokenTitle = `RECORD-${"ABCDEFGHIJKLMNOPQRSTUVWXYZ".repeat(12)}`;
@@ -4172,10 +4154,10 @@ test("REFINE-19 adversarial current-data matrix keeps completed nodes, boundary 
       return { left: rect.left, right: rect.right, clientWidth: item.clientWidth, scrollWidth: item.scrollWidth };
     }),
   }));
-  await page.screenshot({ path: "output/qa/REFINE-19/adversarial-unbroken-history-before-420.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "adversarial-unbroken-history-before-420.png"), animations: "disabled", fullPage: true });
   expect(historyEvidence.documentScrollWidth).toBeLessThanOrEqual(421);
   expect(historyEvidence.items.every((item) => item.left >= 0 && item.right <= 421 && item.scrollWidth <= item.clientWidth)).toBe(true);
-  await page.screenshot({ path: "output/qa/REFINE-19/adversarial-unbroken-history-420.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "adversarial-unbroken-history-420.png"), animations: "disabled", fullPage: true });
 });
 
 test("REFINE-19 adversarial boundary matrix keeps every Editorial Paper surface inside the viewport", async ({ page }) => {
@@ -4197,7 +4179,7 @@ test("REFINE-19 adversarial boundary matrix keeps every Editorial Paper surface 
       if (index > 0) await pageButton(page, label).click();
       const surface = page.locator(selector);
       await expect(surface).toBeVisible();
-      await page.screenshot({ path: `output/qa/REFINE-19/adversarial-boundary-${label}-${width}.png`, animations: "disabled", fullPage: true });
+      await page.screenshot({ path: testOutputPath("qa", "REFINE-19", `adversarial-boundary-${label}-${width}.png`), animations: "disabled", fullPage: true });
       const evidence = await surface.evaluate((element) => {
         const rect = element.getBoundingClientRect();
         return {
@@ -4234,7 +4216,7 @@ test("REFINE-19 adversarial boundary matrix keeps every Editorial Paper surface 
     expect(focusEvidence.footer.every((item) => item.left >= 0 && item.right <= width + 1)).toBe(true);
     expect(focusEvidence.linked.every((item) => item.left >= 0 && item.right <= width + 1)).toBe(true);
     expect(focusEvidence.footer.some((item) => item.text.includes(longTodoTitle))).toBe(true);
-    await page.screenshot({ path: `output/qa/REFINE-19/adversarial-boundary-focus-${width}.png`, animations: "disabled", fullPage: true });
+    await page.screenshot({ path: testOutputPath("qa", "REFINE-19", `adversarial-boundary-focus-${width}.png`), animations: "disabled", fullPage: true });
   }
 });
 
@@ -4261,14 +4243,14 @@ test("REFINE-19 adversarial next-page card keeps an unbroken user title visible"
       documentScrollWidth: document.documentElement.scrollWidth,
     };
   });
-  await page.screenshot({ path: "output/qa/REFINE-19/adversarial-next-card-unbroken-before-420.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "adversarial-next-card-unbroken-before-420.png"), animations: "disabled", fullPage: true });
   expect(evidence.text).toBe(unbrokenTitle);
   expect(evidence.scrollWidth).toBeLessThanOrEqual(evidence.clientWidth);
   expect(evidence.overflowWrap).toBe("anywhere");
   expect(evidence.left).toBeGreaterThanOrEqual(0);
   expect(evidence.right).toBeLessThanOrEqual(421);
   expect(evidence.documentScrollWidth).toBeLessThanOrEqual(421);
-  await page.screenshot({ path: "output/qa/REFINE-19/adversarial-next-card-unbroken-420.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "adversarial-next-card-unbroken-420.png"), animations: "disabled", fullPage: true });
 });
 
 test("REFINE-19 TODAY-01 adversarial narrow view keeps todo importance visible", async ({ page }) => {
@@ -4287,10 +4269,10 @@ test("REFINE-19 TODAY-01 adversarial narrow view keeps todo importance visible",
       return { left: box.left, right: box.right, width: box.width, height: box.height };
     })(),
   }));
-  await page.screenshot({ path: "output/qa/REFINE-19/TODAY-01-adversarial-importance-before-420.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-01-adversarial-importance-before-420.png"), animations: "disabled", fullPage: true });
   expect(evidence.text).toBe(" · 中");
   expect(evidence.display).not.toBe("none");
   expect(evidence.rect.width).toBeGreaterThan(0);
   expect(evidence.rect.height).toBeGreaterThan(0);
-  await page.screenshot({ path: "output/qa/REFINE-19/TODAY-01-adversarial-importance-420.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-01-adversarial-importance-420.png"), animations: "disabled", fullPage: true });
 });

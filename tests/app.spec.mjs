@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+import { testOutputPath } from "./helpers/test-output.mjs";
+
 function localDate() {
   const now = new Date();
   const year = now.getFullYear();
@@ -1276,7 +1278,7 @@ test("todo board keeps completed actions aligned without a needless scrollbar", 
   expect(layout.scrollWidth).toBeLessThanOrEqual(1487);
   await expect(page.locator(".completed-row")).toHaveCount(9);
   await expect(page.getByRole("button", { name: "恢复" })).toHaveCount(9);
-  await page.screenshot({ path: "output/playwright/night-valley-todo-completed-layout.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("screenshots", "night-valley-todo-completed-layout.png"), animations: "disabled", fullPage: true });
 });
 
 test("todo workspace stacks cleanly on a phone viewport", async ({ page }) => {
@@ -1314,7 +1316,7 @@ test("todo workspace stacks cleanly on a phone viewport", async ({ page }) => {
   expect(layout.board?.bottom).toBeLessThanOrEqual(layout.focus?.top ?? 0);
   await expect(page.getByRole("button", { name: "添加待办" })).toBeVisible();
   await expect(page.locator(".completed-row")).toHaveCount(3);
-  await page.screenshot({ path: "output/playwright/night-valley-todo-phone-layout.png", animations: "disabled", fullPage: true });
+  await page.screenshot({ path: testOutputPath("screenshots", "night-valley-todo-phone-layout.png"), animations: "disabled", fullPage: true });
 });
 
 test("todo board groups pending items by date and keeps one group open", async ({ page }) => {
