@@ -50,3 +50,12 @@
 
 - Each version bump should have matching release notes in `docs/`.
 - GitHub Release notes should be refreshed to match the current shipped build, rather than pointing at stale notes from the previous state.
+
+## Focused Moment repository boundaries
+
+- 本次连续结构重构对 `PROJECT_PLAN.md` 执行只读保护：保留开始时的真实字节与用户已有 diff，不修改、不暂存、不提交、不移动；需要记录本轮结果时使用 `docs/maintenance/structure-refactor.md`。
+- 长期目录职责见 `docs/architecture.md`；README 是用户和开发命令入口。不要把被忽略且未跟踪的旧维护文档当作本轮文件覆盖或强制添加。
+- `output/qa/` 只存带唯一 run id 的测试、视觉和原生证据；`.release/local/<build-id>/` 存本地交付 provenance；`.release/archive/<run-id>/` 只存经核实的旧入口副本和恢复映射。两者都不进入 Git。
+- `pnpm verify` 只运行静态、契约、fixture、交付脚本测试和 Rust 检查，不启动真实应用、不制作安装包、不发布；隔离 Windows 原生冒烟单独运行 `pnpm native:windows`。
+- 应用输入改变并作为交付时，使用 `pnpm package:local` 更新根目录 `Focused Moment.exe` 及 `.release/local` provenance；Debug、旧 EXE、安装器和日期挑选的文件不能替代 Release candidate。禁止自动 tag、GitHub Release、资产上传和安装器运行。
+- 提交前按路径检查 diff；`PROJECT_PLAN.md`、真实用户数据、用户备份、未知本地文件、旧历史二进制和工作树元数据始终不混入提交。独立验收单元通过后，默认提交并快进推送到已确认的 `main`。

@@ -32,8 +32,8 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Type check
-        run: pnpm check
+      - name: Repository verification
+        run: pnpm verify
 
       - name: Build frontend
         run: pnpm build
@@ -43,15 +43,6 @@ jobs:
 
       - name: Frontend flow tests
         run: pnpm test:frontend
-
-      - name: Rust format check
-        run: cargo fmt --check --manifest-path src-tauri/Cargo.toml
-
-      - name: Rust check
-        run: cargo check --locked --manifest-path src-tauri/Cargo.toml
-
-      - name: Rust tests
-        run: cargo test --locked --manifest-path src-tauri/Cargo.toml
 
       - name: Write verification summary
         if: always()

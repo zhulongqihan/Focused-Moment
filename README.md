@@ -129,14 +129,24 @@ pnpm dev
 
 ```bash
 pnpm check
+pnpm verify
 pnpm build
 pnpm test:frontend
+pnpm test:native-contracts
 cargo fmt --check --manifest-path src-tauri/Cargo.toml
 cargo check --locked --manifest-path src-tauri/Cargo.toml
 cargo test --locked --manifest-path src-tauri/Cargo.toml
 ```
 
-前端流程测试使用 Playwright，覆盖今日、待办、计时、记录、设置、悬浮工作台和五套主题的主要交互。
+`pnpm verify` 是不启动应用的快速治理入口：它会检查前端/原生边界、CSS 顺序、Tauri 命令契约、交付脚本 fixture、TypeScript 和 Rust；它不会构建、制作安装包或发布。Windows 隔离原生验证使用 `pnpm native:windows`，前端流程测试使用 Playwright，覆盖今日、待办、计时、记录、设置、悬浮工作台和五套主题的主要交互。
+
+交付根目录便携入口时使用：
+
+```bash
+pnpm package:local
+```
+
+该命令只执行真实 `tauri build --no-bundle`，验收精确的 `src-tauri/target/release/focused-moment.exe`，再安全更新根目录 `Focused Moment.exe`，并将输入指纹、源码 HEAD、候选与最终 SHA-256 和恢复信息写入 `.release/local/<build-id>/`。`pnpm package:release`、`pnpm release:github` 和 `pnpm release:ship` 是需要单独授权的发布/安装包流程，本轮不调用。
 
 ### 构建 Windows 安装包
 
@@ -165,13 +175,27 @@ macOS 发布工作流目前保持手动冻结，不代表共享源码中的 macO
 ```text
 src/                         SolidJS 应用壳层与主题页面
 src/components/              五套主题、计时、待办、记录和设置视图
+src/features/shell/          MainShell 控制器与应用生命周期协调
+src/features/todos/          待办分组、派生计算和跨主题待办列表
+src/features/records/        记录派生计算
+src/features/shared/         跨页面日期和时间派生工具
 src/lib/                     类型契约、待办/计时/窗口调用封装
+src/styles/                  保持原级联顺序的分段 CSS 入口
 public/theme-previews/       五套主题预览图
-src-tauri/src/               Rust 计时引擎、本地存储、托盘和原生窗口
+src-tauri/src/domain.rs      计时偏好、提醒和中性领域契约
+src-tauri/src/timer_engine.rs Rust 计时核心、运行态和锁定持久化协调
+src-tauri/src/commands.rs    Tauri 数据、备份和计时命令
+src-tauri/src/desktop.rs     托盘、主窗口和悬浮窗口行为
+src-tauri/src/storage.rs     本地状态、运行态和备份文件存储
+src-tauri/src/runtime.rs     Tauri crate path、builder、setup、注册和生命周期
 tests/                       Playwright 前端流程测试
-scripts/                     构建、导出、性能与发布脚本
-docs/                        QA、设计参考和版本记录
+scripts/                     构建、交付、契约、结构、性能与发布脚本
+docs/architecture.md        长期架构和目录职责
+docs/maintenance/            本轮结构重构的有结束状态记录
+docs/qa/                     忽略的 QA 生成物，不作为正式开发文档
 ```
+
+更完整的职责边界、数据路径和验证分类见 [`docs/architecture.md`](./docs/architecture.md)；本轮迁移、提交、证据和保护结果见 [`docs/maintenance/structure-refactor.md`](./docs/maintenance/structure-refactor.md)。
 
 ## 反馈与贡献
 

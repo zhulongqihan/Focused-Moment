@@ -1,7 +1,11 @@
 node_modules
 dist
 src-tauri/target
-docs/
+docs/*
+!docs/architecture.md
+!docs/maintenance/
+docs/maintenance/*
+!docs/maintenance/structure-refactor.md
 .vscode/
 .release/
 *.log
