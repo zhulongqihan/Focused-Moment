@@ -179,7 +179,7 @@ function Invoke-LocalDeliveryGit {
     if ($LASTEXITCODE -ne 0) {
       return $null
     }
-    return ($result | Out-String).Trim()
+    return (($result | ForEach-Object { [string]$_ }) -join [Environment]::NewLine).TrimEnd()
   } finally {
     Pop-Location
   }
