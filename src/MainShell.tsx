@@ -74,6 +74,17 @@ import {
 } from "./lib/window-controls";
 import CommandPalette, { type PaletteCommand } from "./components/CommandPalette";
 import ThemeSurface from "./components/ThemeSurface";
+import {
+  formatAnalyticsDate,
+  formatArchiveRangeDate,
+  formatDurationMs,
+  formatRecordDate,
+  formatRecordDay,
+  getToday,
+  isOverdue,
+} from "./features/shared/date-utils";
+import { createArchivePath, getRecentTrendDays, groupRecordsByDate, mergeArchiveDays, recordDateKey } from "./features/records/derived";
+import { formatTodoDue, importanceLabel, sortTodos } from "./features/todos/derived";
 import { getTheme, implementedThemeId, type ThemeId } from "./lib/themes";
 import "./App.css";
 import "./components/EditorialPaperViews.css";
@@ -313,265 +324,12 @@ function playAlertSound(soundKey: AlertSoundKey) {
   window.setTimeout(() => void context.close(), Math.ceil((profile.release + profile.spacing * profile.frequencies.length + 0.2) * 1000));
 }
 
-function getToday() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = `${now.getMonth() + 1}`.padStart(2, "0");
-  const day = `${now.getDate()}`.padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
 function getErrorMessage(error: unknown) {
   if (error instanceof Error) {
     return error.message;
   }
 
   return typeof error === "string" ? error : "操作未完成，请重试。";
-}
-
-const calendarDateFormatter = new Intl.DateTimeFormat("zh-CN", {
-  month: "numeric",
-  day: "numeric",
-  weekday: "short",
-});
-const recordDateFormatter = new Intl.DateTimeFormat("zh-CN", {
-  month: "numeric",
-  day: "numeric",
-  hour: "2-digit",
-  minute: "2-digit",
-});
-
-function parseLocalDate(value: string) {
-  const date = new Date(`${value}T00:00:00`);
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function formatDueDate(value: string) {
-  const date = parseLocalDate(value);
-  if (!date) {
-    return `截止 ${value}`;
-  }
-
-  const today = parseLocalDate(getToday());
-  const difference = today
-    ? Math.round((date.getTime() - today.getTime()) / 86_400_000)
-    : null;
-  if (difference === 0) {
-    return "今天截止";
-  }
-  if (difference === 1) {
-    return "明天截止";
-  }
-  if (difference !== null && difference < 0) {
-    return `已逾期 · ${calendarDateFormatter.format(date)}`;
-  }
-  return `截止 ${calendarDateFormatter.format(date)}`;
-}
-
-function isOverdue(value: string) {
-  const date = parseLocalDate(value);
-  const today = parseLocalDate(getToday());
-  return Boolean(date && today && date.getTime() < today.getTime());
-}
-
-function formatRecordDate(record: FocusRecord) {
-  const date = new Date(record.completedAt);
-  if (!Number.isNaN(date.getTime())) {
-    return recordDateFormatter.format(date);
-  }
-  return `${record.completedDate} ${record.completedTime}`.trim();
-}
-
-function formatAnalyticsDate(value: string) {
-  const date = parseLocalDate(value);
-  return date ? calendarDateFormatter.format(date) : value;
-}
-
-function formatArchiveRangeDate(value: string) {
-  const date = parseLocalDate(value);
-  return date ? `${date.getMonth() + 1}月${date.getDate()}日` : value;
-}
-
-function sortTodos(items: TodoItem[]) {
-  const importanceRank: Record<TodoImportance, number> = {
-    high: 0,
-    medium: 1,
-    low: 2,
-  };
-
-  return items.slice().sort((left, right) => {
-    if (left.isCompleted !== right.isCompleted) {
-      return Number(left.isCompleted) - Number(right.isCompleted);
-    }
-
-    const leftHasTime = Boolean(left.scheduledTime.trim());
-    const rightHasTime = Boolean(right.scheduledTime.trim());
-
-    return (
-      left.scheduledDate.localeCompare(right.scheduledDate) ||
-      Number(rightHasTime) - Number(leftHasTime) ||
-      left.scheduledTime.localeCompare(right.scheduledTime) ||
-      importanceRank[left.importanceKey] - importanceRank[right.importanceKey] ||
-      right.id - left.id
-    );
-  });
-}
-
-function formatTodoDue(item: TodoItem) {
-  return `${formatDueDate(item.scheduledDate)}${item.scheduledTime ? ` · ${item.scheduledTime}` : ""}`;
-}
-
-function formatDurationMs(value: number) {
-  const totalSeconds = Math.max(0, Math.round(value / 1000));
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  return [hours, minutes, seconds].map((part) => String(part).padStart(2, "0")).join(":");
-}
-
-function recordDateKey(record: FocusRecord) {
-  if (record.completedDate.trim()) {
-    return record.completedDate;
-  }
-
-  const dateMatch = record.completedAt.match(/^\d{4}-\d{2}-\d{2}/);
-  return dateMatch?.[0] ?? "未记录日期";
-}
-
-function formatRecordDay(value: string) {
-  if (value === "未记录日期") {
-    return value;
-  }
-
-  const date = parseLocalDate(value);
-  const today = parseLocalDate(getToday());
-  const difference = date && today
-    ? Math.round((date.getTime() - today.getTime()) / 86_400_000)
-    : null;
-  const dateLabel = formatAnalyticsDate(value);
-
-  if (difference === 0) {
-    return `今天 · ${dateLabel}`;
-  }
-  if (difference === -1) {
-    return `昨天 · ${dateLabel}`;
-  }
-  return dateLabel;
-}
-
-interface RecordDayGroup {
-  date: string;
-  records: FocusRecord[];
-  totalDurationMs: number;
-}
-
-function groupRecordsByDate(items: FocusRecord[]) {
-  const groups = new Map<string, RecordDayGroup>();
-
-  for (const record of items) {
-    const date = recordDateKey(record);
-    const current = groups.get(date);
-    if (current) {
-      current.records.push(record);
-      current.totalDurationMs += record.durationMs;
-    } else {
-      groups.set(date, {
-        date,
-        records: [record],
-        totalDurationMs: record.durationMs,
-      });
-    }
-  }
-
-  return Array.from(groups.values());
-}
-
-function formatLocalDateKey(date: Date) {
-  const year = date.getFullYear();
-  const month = `${date.getMonth() + 1}`.padStart(2, "0");
-  const day = `${date.getDate()}`.padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function getRecentTrendDays(items: AnalyticsSnapshot["dailyBreakdown"]) {
-  const today = parseLocalDate(getToday());
-  if (!today) {
-    return items.slice(0, 7);
-  }
-
-  const byDate = new Map(items.map((day) => [day.date, day]));
-  const days: AnalyticsSnapshot["dailyBreakdown"] = [];
-
-  for (let offset = 6; offset >= 0; offset -= 1) {
-    const date = new Date(today);
-    date.setDate(date.getDate() - offset);
-    const dateKey = formatLocalDateKey(date);
-    days.push(
-      byDate.get(dateKey) ?? {
-        date: dateKey,
-        totalDurationMs: 0,
-        totalDurationLabel: "00:00:00",
-        sessionCount: 0,
-        linkedSessionCount: 0,
-        independentSessionCount: 0,
-      }
-    );
-  }
-
-  return days;
-}
-
-function mergeArchiveDays(days: AnalyticsSnapshot["dailyBreakdown"], items: FocusRecord[]) {
-  const recordsByDate = new Map(
-    groupRecordsByDate(items).map((group) => [group.date, group]),
-  );
-
-  return days.map((day) => {
-    const group = recordsByDate.get(day.date);
-    if (!group || group.records.length === 0 || day.sessionCount > 0 || day.totalDurationMs > 0) {
-      return day;
-    }
-
-    const linkedSessionCount = group.records.filter((record) => record.linkedTodoId !== null).length;
-    return {
-      ...day,
-      totalDurationMs: group.totalDurationMs,
-      totalDurationLabel: formatDurationMs(group.totalDurationMs),
-      sessionCount: group.records.length,
-      linkedSessionCount,
-      independentSessionCount: group.records.length - linkedSessionCount,
-    };
-  });
-}
-
-function createArchivePath(days: AnalyticsSnapshot["dailyBreakdown"]) {
-  if (days.length === 0) {
-    return "M 0 72";
-  }
-
-  const maxDuration = Math.max(1, ...days.map((day) => day.totalDurationMs));
-  const points = days.map((day, index) => {
-    const x = days.length === 1 ? 50 : 7 + (86 * index) / (days.length - 1);
-    const intensity = day.totalDurationMs / maxDuration;
-    return { x, y: 70 - intensity * 42 };
-  });
-
-  if (points.length === 1) {
-    return `M 0 ${points[0].y + 18} C 20 ${points[0].y + 18}, 34 ${points[0].y}, ${points[0].x} ${points[0].y}`;
-  }
-
-  let path = `M ${points[0].x - 8} ${points[0].y + 8} C ${points[0].x - 4} ${points[0].y + 4}, ${points[0].x - 2} ${points[0].y}, ${points[0].x} ${points[0].y}`;
-  for (let index = 1; index < points.length; index += 1) {
-    const previous = points[index - 1];
-    const current = points[index];
-    const distance = (current.x - previous.x) * 0.42;
-    path += ` C ${previous.x + distance} ${previous.y}, ${current.x - distance} ${current.y}, ${current.x} ${current.y}`;
-  }
-  return path;
-}
-
-function importanceLabel(value: TodoImportance) {
-  return value === "high" ? "高" : value === "low" ? "低" : "中";
 }
 
 function MainShell() {
