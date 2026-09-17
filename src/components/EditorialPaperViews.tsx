@@ -14,15 +14,16 @@ import {
 } from "lucide-solid";
 import type { AlertSoundKey, AnalyticsSnapshot, FocusRecord, TodoImportance, TodoItem, TimerSnapshot } from "../lib/contracts";
 import { themes } from "../lib/themes";
-import type { TodayDashboardProps } from "./TodayDashboard";
-import DailyFocusLine from "./DailyFocusLine";
 import type {
-  NightValleyFocusProps,
-  NightValleyRecordsProps,
-  NightValleySettingsProps,
-  NightValleyTodoProps,
-} from "./NightValleyViews";
-import { groupTodosByDate, TodoDateGroupList } from "./NightValleyViews";
+  FocusSurfaceProps,
+  RecordsSurfaceProps,
+  SettingsSurfaceProps,
+  TodaySurfaceProps,
+  TodoSurfaceProps,
+} from "../lib/theme-contracts";
+import DailyFocusLine from "./DailyFocusLine";
+import { TodoDateGroupList } from "../features/todos/TodoDateGroupList";
+import { groupTodosByDate } from "../features/todos/todo-groups";
 import { NightValleyClock } from "./NightValleyDateStamp";
 
 function formatPreviewMinutes(value: number) {
@@ -77,7 +78,7 @@ function EditorialPaperDateTime(props: { date?: string }) {
   );
 }
 
-export function EditorialPaperToday(props: TodayDashboardProps) {
+export function EditorialPaperToday(props: TodaySurfaceProps) {
   const streak = createMemo(() => props.analytics()?.currentStreakDays ?? 0);
   const completionCount = createMemo(() => props.todayCompletedTodos().length);
   const totalTodayCount = createMemo(() => completionCount() + props.todayTodos().length);
@@ -168,7 +169,7 @@ export function EditorialPaperToday(props: TodayDashboardProps) {
   );
 }
 
-export function EditorialPaperFocus(props: NightValleyFocusProps) {
+export function EditorialPaperFocus(props: FocusSurfaceProps) {
   const displayTime = createMemo(() => focusDisplayTime(props.timer(), props.countdownMinutes(), props.countdownDraftDirty()));
   const progress = createMemo(() => timerProgress(props.timer(), props.timerHasProgress()));
   const currentTodo = createMemo(() => props.todos().find((item) => item.id === props.linkedTodoId()) ?? null);
@@ -237,18 +238,18 @@ export function EditorialPaperFocus(props: NightValleyFocusProps) {
 
 interface EditorialTodoRowProps {
   item: TodoItem;
-  editingTodo: NightValleyTodoProps["editingTodo"];
-  busy: NightValleyTodoProps["busy"];
-  timerHasProgress: NightValleyTodoProps["timerHasProgress"];
-  onToggle: NightValleyTodoProps["onToggle"];
-  onBeginEdit: NightValleyTodoProps["onBeginEdit"];
-  onUseForFocus: NightValleyTodoProps["onUseForFocus"];
-  onRemove: NightValleyTodoProps["onRemove"];
-  onPatch: NightValleyTodoProps["onPatch"];
-  onSave: NightValleyTodoProps["onSave"];
-  onCancel: NightValleyTodoProps["onCancel"];
-  formatTodoDue: NightValleyTodoProps["formatTodoDue"];
-  importanceLabel: NightValleyTodoProps["importanceLabel"];
+  editingTodo: TodoSurfaceProps["editingTodo"];
+  busy: TodoSurfaceProps["busy"];
+  timerHasProgress: TodoSurfaceProps["timerHasProgress"];
+  onToggle: TodoSurfaceProps["onToggle"];
+  onBeginEdit: TodoSurfaceProps["onBeginEdit"];
+  onUseForFocus: TodoSurfaceProps["onUseForFocus"];
+  onRemove: TodoSurfaceProps["onRemove"];
+  onPatch: TodoSurfaceProps["onPatch"];
+  onSave: TodoSurfaceProps["onSave"];
+  onCancel: TodoSurfaceProps["onCancel"];
+  formatTodoDue: TodoSurfaceProps["formatTodoDue"];
+  importanceLabel: TodoSurfaceProps["importanceLabel"];
 }
 
 function EditorialTodoRow(props: EditorialTodoRowProps) {
@@ -268,7 +269,7 @@ function EditorialTodoRow(props: EditorialTodoRowProps) {
   );
 }
 
-export function EditorialPaperTodos(props: NightValleyTodoProps) {
+export function EditorialPaperTodos(props: TodoSurfaceProps) {
   const [createOpen, setCreateOpen] = createSignal(true);
   const pendingDateGroups = createMemo(() => groupTodosByDate([...props.overdueTodos(), ...props.activeTodos()]));
   const pendingTodoCount = createMemo(() => props.overdueTodos().length + props.activeTodos().length);
@@ -322,7 +323,7 @@ export function EditorialPaperTodos(props: NightValleyTodoProps) {
   );
 }
 
-export function EditorialPaperRecords(props: NightValleyRecordsProps) {
+export function EditorialPaperRecords(props: RecordsSurfaceProps) {
   const initialVisibleRecordCount = 200;
   const analytics = createMemo(() => props.analytics());
   const maxDuration = createMemo(() => Math.max(1, ...props.archiveDays().map((day) => day.totalDurationMs)));
@@ -368,7 +369,7 @@ export function EditorialPaperRecords(props: NightValleyRecordsProps) {
   );
 }
 
-export function EditorialPaperSettings(props: NightValleySettingsProps) {
+export function EditorialPaperSettings(props: SettingsSurfaceProps) {
   let customAlertSoundInput: HTMLInputElement | undefined;
   const activeTheme = createMemo(() => themes.find((theme) => theme.id === props.themeId()) ?? themes[0]);
 

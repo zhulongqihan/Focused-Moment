@@ -8,35 +8,12 @@ import {
   Flame,
   Plus,
 } from "lucide-solid";
-import type { AnalyticsSnapshot, FocusRecord, TodoImportance, TodoItem, TimerSnapshot } from "../lib/contracts";
+import type { FocusRecord, TodoItem } from "../lib/contracts";
+import type { TodaySurfaceProps } from "../lib/theme-contracts";
 import DailyFocusLine from "./DailyFocusLine";
 import { NightValleyClock } from "./NightValleyDateStamp";
 
-export interface TodayDashboardProps {
-  todayDate: string;
-  todayLabel: string;
-  timer: () => TimerSnapshot;
-  ready: () => boolean;
-  busy: () => boolean;
-  timerHasProgress: () => boolean;
-  timerCanContinue: () => boolean;
-  nextTodo: () => TodoItem | null;
-  todayTodos: () => TodoItem[];
-  todayCompletedTodos: () => TodoItem[];
-  records: () => FocusRecord[];
-  analytics: () => AnalyticsSnapshot | null;
-  defaultFocusMinutes: () => number;
-  formatTodoDue: (item: TodoItem) => string;
-  importanceLabel: (value: TodoImportance) => string;
-  onPause: () => void;
-  onContinue: () => void;
-  onFinish: () => void | Promise<void>;
-  onStartNext: () => void;
-  onOpenFocus: () => void;
-  onOpenRecords: () => void;
-  onUseTodo: (item: TodoItem) => void;
-  onOpenTodos: () => void;
-}
+export type TodayDashboardProps = TodaySurfaceProps;
 
 type TrailNodeState = "done" | "current" | "upcoming";
 
@@ -275,7 +252,7 @@ function createTrailPath(points: TrailPoint[]) {
   return trailCoordinatesToSmoothPath(route);
 }
 
-export default function TodayDashboard(props: TodayDashboardProps) {
+export default function TodayDashboard(props: TodaySurfaceProps) {
   let trailPageElement: HTMLElement | undefined;
   let trailViewportElement: HTMLDivElement | undefined;
   let trailScrollFrame: number | undefined;

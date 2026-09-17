@@ -1,5 +1,5 @@
 import { Match, Show, Switch, createMemo } from "solid-js";
-import TodayDashboard, { type TodayDashboardProps } from "./TodayDashboard";
+import TodayDashboard from "./TodayDashboard";
 import {
   EditorialPaperFocus,
   EditorialPaperRecords,
@@ -33,11 +33,14 @@ import {
   NightValleyRecords,
   NightValleySettings,
   NightValleyTodo,
-  type NightValleyFocusProps,
-  type NightValleyRecordsProps,
-  type NightValleySettingsProps,
-  type NightValleyTodoProps,
 } from "./NightValleyViews";
+import type {
+  FocusSurfaceProps,
+  RecordsSurfaceProps,
+  SettingsSurfaceProps,
+  TodaySurfaceProps,
+  TodoSurfaceProps,
+} from "../lib/theme-contracts";
 import { getTheme, type ThemeId } from "../lib/themes";
 import "./ThemeSurface.css";
 
@@ -46,11 +49,11 @@ export type ThemeSurfaceView = "today" | "focus" | "todos" | "records" | "settin
 export interface ThemeSurfaceProps {
   activeView: () => ThemeSurfaceView;
   themeId: () => ThemeId;
-  today: TodayDashboardProps;
-  focus: NightValleyFocusProps;
-  todos: NightValleyTodoProps;
-  records: NightValleyRecordsProps;
-  settings: NightValleySettingsProps;
+  today: TodaySurfaceProps;
+  focus: FocusSurfaceProps;
+  todos: TodoSurfaceProps;
+  records: RecordsSurfaceProps;
+  settings: SettingsSurfaceProps;
 }
 
 type ThemeImplementation = "night-valley" | "editorial-paper" | "graphite-console" | "aurora-ocean" | "botanical-library";

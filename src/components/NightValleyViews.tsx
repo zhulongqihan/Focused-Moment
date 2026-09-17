@@ -1,7 +1,6 @@
-import { For, Show, createMemo, createSignal, type JSX } from "solid-js";
+import { For, Show, createMemo, createSignal } from "solid-js";
 import {
   ArrowUpRight,
-  ChevronDown,
   CircleCheck,
   Flame,
   Plus,
@@ -9,107 +8,22 @@ import {
   Volume2,
 } from "lucide-solid";
 import type {
-  AnalyticsSnapshot,
   AlertSoundKey,
-  BackupListItem,
-  DailyInsight,
   FocusRecord,
-  TimerPreferences,
   TimerSnapshot,
   TodoImportance,
-  TodoItem,
 } from "../lib/contracts";
-import { themes, type ThemeId } from "../lib/themes";
+import type {
+  FocusSurfaceProps,
+  RecordGroupShape,
+  RecordsSurfaceProps,
+  SettingsSurfaceProps,
+  TodoSurfaceProps,
+} from "../lib/theme-contracts";
+import { themes } from "../lib/themes";
+import { TodoDateGroupList } from "../features/todos/TodoDateGroupList";
+import { groupTodosByDate } from "../features/todos/todo-groups";
 import { NightValleyDateStamp } from "./NightValleyDateStamp";
-
-type Accessor<T> = () => T;
-
-function localDateKey(date = new Date()) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-export interface TodoDateGroup {
-  date: string;
-  label: string;
-  items: TodoItem[];
-}
-
-function parseTodoDateKey(value: string) {
-  const match = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!match) return null;
-
-  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function formatTodoDateGroupLabel(value: string) {
-  const date = parseTodoDateKey(value);
-  if (!date) return value;
-
-  const today = parseTodoDateKey(localDateKey());
-  const difference = today
-    ? Math.round((date.getTime() - today.getTime()) / 86_400_000)
-    : null;
-  const dateLabel = `${date.getMonth() + 1}月${date.getDate()}日`;
-  const weekday = new Intl.DateTimeFormat("zh-CN", { weekday: "short" }).format(date);
-
-  if (difference === 0) return `今天 · ${dateLabel}`;
-  if (difference === 1) return `明天 · ${dateLabel}`;
-  if (difference !== null && difference < 0) return `已过期 · ${dateLabel}`;
-  return `${dateLabel} · ${weekday}`;
-}
-
-export function groupTodosByDate(items: TodoItem[]) {
-  const groups = new Map<string, TodoDateGroup>();
-  for (const item of items) {
-    const date = item.scheduledDate.trim() || "未设置日期";
-    const group = groups.get(date);
-    if (group) {
-      group.items.push(item);
-      continue;
-    }
-    groups.set(date, { date, label: formatTodoDateGroupLabel(date), items: [item] });
-  }
-  return Array.from(groups.values());
-}
-
-function sameTodoItem(left: TodoItem, right: TodoItem) {
-  return left.id === right.id
-    && left.title === right.title
-    && left.isCompleted === right.isCompleted
-    && left.scheduledDate === right.scheduledDate
-    && left.scheduledTime === right.scheduledTime
-    && left.importanceKey === right.importanceKey;
-}
-
-function stabilizeTodoDateGroups(nextGroups: TodoDateGroup[], previousGroups: TodoDateGroup[]) {
-  const previousByDate = new Map(previousGroups.map((group) => [group.date, group]));
-  let unchanged = nextGroups.length === previousGroups.length
-    && nextGroups.every((group, index) => previousGroups[index]?.date === group.date);
-  const stableGroups = nextGroups.map((group) => {
-    const previous = previousByDate.get(group.date);
-    if (!previous || previous.label !== group.label || previous.items.length !== group.items.length) {
-      unchanged = false;
-      return group;
-    }
-
-    const previousItemsById = new Map(previous.items.map((item) => [item.id, item]));
-    const stableItems = group.items.map((item) => {
-      const previousItem = previousItemsById.get(item.id);
-      return previousItem && sameTodoItem(previousItem, item) ? previousItem : item;
-    });
-    const sameGroup = stableItems.every((item, index) => item === previous.items[index]);
-    if (sameGroup) return previous;
-
-    unchanged = false;
-    return { ...group, items: stableItems };
-  });
-
-  return unchanged ? previousGroups : stableGroups;
-}
 
 function currentDateLabel() {
   return new Date()
@@ -128,39 +42,6 @@ const alertSoundOptions: Array<{ key: BuiltInAlertSoundKey; label: string; note:
   { key: "morning_chord", label: "晨光和弦", note: "暖 · 上行" },
   { key: "viral_quote", label: "老牧师原声", note: "经典 · 口播" },
 ];
-
-export interface NightValleyFocusProps {
-  timer: Accessor<TimerSnapshot>;
-  todaySessionCount: Accessor<number>;
-  timerPreferences: Accessor<TimerPreferences>;
-  todos: Accessor<TodoItem[]>;
-  pendingTodos: Accessor<TodoItem[]>;
-  ready: Accessor<boolean>;
-  busy: Accessor<boolean>;
-  timerHasProgress: Accessor<boolean>;
-  timerCanContinue: Accessor<boolean>;
-  canFinish: Accessor<boolean>;
-  savedConfirmation: Accessor<boolean>;
-  sessionTitle: Accessor<string>;
-  linkedTodoId: Accessor<number | null>;
-  completeLinkedTodo: Accessor<boolean>;
-  countdownMinutes: Accessor<number>;
-  countdownDraftDirty: Accessor<boolean>;
-  busyLabel: Accessor<string>;
-  onSessionTitleChange: (value: string) => void;
-  onSessionTitleDirty: () => void;
-  onLinkedTodoChange: (value: number | null) => void;
-  onCompleteLinkedTodoChange: (value: boolean) => void;
-  onCountdownMinutesChange: (value: number) => void;
-  onCountdownDraftDirty: () => void;
-  onChangeMode: (mode: "stopwatch" | "countdown") => void | Promise<void>;
-  onStart: () => void | Promise<void>;
-  onPause: () => void | Promise<void>;
-  onFinish: () => void | Promise<void>;
-  onReset: () => void | Promise<void>;
-  onShowFocusFloating: () => void | Promise<void>;
-  onOpenRecords: () => void;
-}
 
 function formatPreviewMinutes(value: number) {
   const totalSeconds = Math.max(0, Math.round((Number.isFinite(value) ? value : 0) * 60));
@@ -240,7 +121,7 @@ function resolveFocusVisualState(
   };
 }
 
-export function NightValleyFocus(props: NightValleyFocusProps) {
+export function NightValleyFocus(props: FocusSurfaceProps) {
   const visualState = createMemo(() => resolveFocusVisualState(props.timer(), props.timerHasProgress(), props.savedConfirmation()));
 
   const displayTime = createMemo(() => {
@@ -486,187 +367,7 @@ export function NightValleyFocus(props: NightValleyFocusProps) {
   );
 }
 
-export interface TodoEditState {
-  id: number;
-  title: string;
-  scheduledDate: string;
-  scheduledTime: string;
-  importanceKey: TodoImportance;
-}
-
-interface TodoCardProps {
-  item: TodoItem;
-  editingTodo: Accessor<TodoEditState | null>;
-  busy: Accessor<boolean>;
-  timerHasProgress: Accessor<boolean>;
-  formatTodoDue: (item: TodoItem) => string;
-  importanceLabel: (value: TodoImportance) => string;
-  onToggle: (id: number) => void;
-  onBeginEdit: (item: TodoItem) => void;
-  onUseForFocus: (item: TodoItem) => void;
-  onRemove: (id: number) => void;
-  onPatch: (patch: Partial<TodoEditState>) => void;
-  onSave: () => void;
-  onCancel: () => void;
-}
-
-function TodoCard(props: TodoCardProps) {
-  const isOverdue = props.item.scheduledDate < localDateKey();
-
-  return (
-    <article classList={{ "todo-row": true, "nv-todo-card": true, "todo-row--overdue": isOverdue }}>
-      <Show
-        when={props.editingTodo()?.id === props.item.id}
-        fallback={
-          <>
-            <button
-              type="button"
-              class="todo-check nv-todo-check"
-              title="标记完成"
-              aria-label={`标记“${props.item.title}”完成`}
-              disabled={props.busy()}
-              onClick={() => props.onToggle(props.item.id)}
-            />
-            <div class="nv-todo-card__copy">
-              <strong title={props.item.title}>{props.item.title}</strong>
-              <small>{props.formatTodoDue(props.item)} · {props.importanceLabel(props.item.importanceKey)}<Show when={isOverdue}><span class="todo-row__overdue-label">已过期</span></Show></small>
-            </div>
-            <div class="todo-row__actions nv-todo-card__actions">
-              <button type="button" class="row-action" disabled={props.busy()} onClick={() => props.onBeginEdit(props.item)}>编辑</button>
-              <button type="button" class="row-action" disabled={props.busy() || props.timerHasProgress()} onClick={() => props.onUseForFocus(props.item)}>专注</button>
-              <button type="button" class="row-action row-action--danger" disabled={props.busy()} onClick={() => props.onRemove(props.item.id)}>删除</button>
-            </div>
-          </>
-        }
-      >
-        <div class="todo-edit-form nv-todo-edit-form">
-          <label><span>待办事项</span><input type="text" name={`editTodoTitle-${props.item.id}`} autocomplete="off" value={props.editingTodo()?.title ?? ""} onInput={(event) => props.onPatch({ title: event.currentTarget.value })} /></label>
-          <label><span>截止日期</span><input type="date" name={`editTodoDate-${props.item.id}`} autocomplete="off" value={props.editingTodo()?.scheduledDate ?? ""} onChange={(event) => props.onPatch({ scheduledDate: event.currentTarget.value })} /></label>
-          <label><span>时间</span><input type="time" name={`editTodoTime-${props.item.id}`} autocomplete="off" value={props.editingTodo()?.scheduledTime ?? ""} onInput={(event) => props.onPatch({ scheduledTime: event.currentTarget.value })} /></label>
-          <label><span>重要程度</span><select name={`editTodoImportance-${props.item.id}`} value={props.editingTodo()?.importanceKey ?? "medium"} onChange={(event) => props.onPatch({ importanceKey: event.currentTarget.value as TodoImportance })}><option value="high">高</option><option value="medium">中</option><option value="low">低</option></select></label>
-          <div class="todo-edit-form__actions"><button type="button" class="primary-button" disabled={props.busy()} onClick={props.onSave}>保存</button><button type="button" class="text-button" disabled={props.busy()} onClick={props.onCancel}>取消</button></div>
-        </div>
-      </Show>
-    </article>
-  );
-}
-
-interface TodoDateGroupListProps extends Omit<TodoCardProps, "item"> {
-  groups: Accessor<TodoDateGroup[]>;
-  listLabel: string;
-  renderItem?: (item: TodoItem) => JSX.Element;
-}
-
-export function TodoDateGroupList(props: TodoDateGroupListProps) {
-  const [requestedOpenDate, setRequestedOpenDate] = createSignal<string | null | undefined>(undefined);
-  let previousGroups: TodoDateGroup[] = [];
-  const stableGroups = createMemo(() => {
-    const nextGroups = props.groups();
-    const nextStableGroups = stabilizeTodoDateGroups(nextGroups, previousGroups);
-    previousGroups = nextStableGroups;
-    return nextStableGroups;
-  });
-  const openDate = createMemo(() => {
-    const requested = requestedOpenDate();
-    const groups = stableGroups();
-    if (requested === null) return null;
-    if (requested && groups.some((group) => group.date === requested)) return requested;
-    return groups[0]?.date ?? null;
-  });
-
-  const toggleDate = (date: string) => {
-    setRequestedOpenDate(date === openDate() ? null : date);
-  };
-
-  return (
-    <div class="nv-todo-date-groups" aria-label={props.listLabel}>
-      <For each={stableGroups()}>
-        {(group) => {
-          const isOpen = () => openDate() === group.date;
-          const groupId = `todo-date-group-${group.date.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
-          return (
-            <section classList={{ "nv-todo-date-group": true, "is-expanded": isOpen() }}>
-              <button
-                type="button"
-                class="nv-todo-date-group__toggle"
-                aria-expanded={isOpen()}
-                aria-controls={groupId}
-                onClick={() => toggleDate(group.date)}
-              >
-                <span class="nv-todo-date-group__label">
-                  <strong>{group.label}</strong>
-                  <small>{group.items.length} 项待办</small>
-                </span>
-                <span class="nv-todo-date-group__state">
-                  {isOpen() ? "收起" : "展开"}
-                  <ChevronDown size={15} strokeWidth={1.8} aria-hidden="true" />
-                </span>
-              </button>
-              <Show when={isOpen()}>
-                <div id={groupId} class="nv-todo-date-group__items">
-                  <For each={group.items}>
-                    {(item) => props.renderItem ? props.renderItem(item) : (
-                      <TodoCard
-                        item={item}
-                        editingTodo={props.editingTodo}
-                        busy={props.busy}
-                        timerHasProgress={props.timerHasProgress}
-                        formatTodoDue={props.formatTodoDue}
-                        importanceLabel={props.importanceLabel}
-                        onToggle={props.onToggle}
-                        onBeginEdit={props.onBeginEdit}
-                        onUseForFocus={props.onUseForFocus}
-                        onRemove={props.onRemove}
-                        onPatch={props.onPatch}
-                        onSave={props.onSave}
-                        onCancel={props.onCancel}
-                      />
-                    )}
-                  </For>
-                </div>
-              </Show>
-            </section>
-          );
-        }}
-      </For>
-    </div>
-  );
-}
-
-export interface NightValleyTodoProps {
-  todos: Accessor<TodoItem[]>;
-  activeTodos: Accessor<TodoItem[]>;
-  overdueTodos: Accessor<TodoItem[]>;
-  completedTodos: Accessor<TodoItem[]>;
-  todayTodos: Accessor<TodoItem[]>;
-  todayCompletedTodos: Accessor<TodoItem[]>;
-  timer: Accessor<TimerSnapshot>;
-  timerHasProgress: Accessor<boolean>;
-  ready: Accessor<boolean>;
-  busy: Accessor<boolean>;
-  busyLabel: Accessor<string>;
-  todoTitle: Accessor<string>;
-  todoDueDate: Accessor<string>;
-  todoDueTime: Accessor<string>;
-  todoImportance: Accessor<TodoImportance>;
-  editingTodo: Accessor<TodoEditState | null>;
-  onTodoTitleChange: (value: string) => void;
-  onTodoDueDateChange: (value: string) => void;
-  onTodoDueTimeChange: (value: string) => void;
-  onTodoImportanceChange: (value: TodoImportance) => void;
-  onAddTodo: () => void | Promise<void>;
-  onToggle: (id: number) => void;
-  onBeginEdit: (item: TodoItem) => void;
-  onUseForFocus: (item: TodoItem) => void;
-  onRemove: (id: number) => void;
-  onPatch: (patch: Partial<TodoEditState>) => void;
-  onSave: () => void;
-  onCancel: () => void;
-  formatTodoDue: (item: TodoItem) => string;
-  importanceLabel: (value: TodoImportance) => string;
-}
-
-export function NightValleyTodo(props: NightValleyTodoProps) {
+export function NightValleyTodo(props: TodoSurfaceProps) {
   const [createOpen, setCreateOpen] = createSignal(false);
   const activeDateGroups = createMemo(() => groupTodosByDate(props.activeTodos()));
   const overdueDateGroups = createMemo(() => groupTodosByDate(props.overdueTodos()));
@@ -765,14 +466,6 @@ export function NightValleyTodo(props: NightValleyTodoProps) {
   );
 }
 
-export interface ArchiveDayShape extends DailyInsight {}
-
-interface RecordGroupShape {
-  date: string;
-  records: FocusRecord[];
-  totalDurationMs: number;
-}
-
 function sameFocusRecord(left: FocusRecord, right: FocusRecord) {
   return left.id === right.id
     && left.title === right.title
@@ -869,35 +562,7 @@ function formatDistributionDuration(durationMs: number) {
   return minutes === 0 ? `${hours} 小时` : `${hours} 小时 ${minutes} 分钟`;
 }
 
-export interface NightValleyRecordsProps {
-  analytics: Accessor<AnalyticsSnapshot | null>;
-  records: Accessor<FocusRecord[]>;
-  archiveDays: Accessor<ArchiveDayShape[]>;
-  archivePath: Accessor<string>;
-  selectedArchiveDate: Accessor<string>;
-  selectedArchiveDay: Accessor<ArchiveDayShape | null>;
-  selectedArchiveRecords: Accessor<FocusRecord[]>;
-  recordGroups: Accessor<RecordGroupShape[]>;
-  ready: Accessor<boolean>;
-  busy: Accessor<boolean>;
-  editingRecord: Accessor<{ id: number; title: string } | null>;
-  todoCompletionPercent: Accessor<number>;
-  recentWeekActiveDays: Accessor<number>;
-  recentWeekDurationMs: Accessor<number>;
-  formatAnalyticsDate: (value: string) => string;
-  formatArchiveRangeDate: (value: string) => string;
-  formatRecordDate: (record: FocusRecord) => string;
-  formatRecordDay: (value: string) => string;
-  formatDurationMs: (value: number) => string;
-  onSelectDate: (value: string) => void;
-  onBeginEdit: (record: FocusRecord) => void;
-  onPatchEdit: (value: string) => void;
-  onSaveEdit: () => void | Promise<void>;
-  onCancelEdit: () => void;
-  onRemove: (id: number) => void | Promise<void>;
-}
-
-export function NightValleyRecords(props: NightValleyRecordsProps) {
+export function NightValleyRecords(props: RecordsSurfaceProps) {
   const recentWeekAverageDurationLabel = () => props.formatDurationMs(props.recentWeekDurationMs() / 7);
   const [collapsedRecordDates, setCollapsedRecordDates] = createSignal<Set<string>>(new Set());
   const isRecordDayExpanded = (date: string) => !collapsedRecordDates().has(date);
@@ -1092,39 +757,7 @@ export function NightValleyRecords(props: NightValleyRecordsProps) {
   );
 }
 
-export interface NightValleySettingsProps {
-  timerPreferences: Accessor<TimerPreferences>;
-  busy: Accessor<boolean>;
-  busyLabel: Accessor<string>;
-  customAlertSoundName: Accessor<string>;
-  backups: Accessor<BackupListItem[]>;
-  backupLoadState: Accessor<"loading" | "ready" | "error">;
-  backupLoadError: Accessor<string>;
-  selectedBackupFile: Accessor<string>;
-  selectedBackup: Accessor<BackupListItem | null>;
-  lastBackupPath: Accessor<string>;
-  themeId: Accessor<ThemeId>;
-  visualIntensity: Accessor<number>;
-  motionIntensity: Accessor<number>;
-  density: Accessor<"roomy" | "compact">;
-  onThemeSelect: (value: ThemeId) => void;
-  onVisualIntensityChange: (value: number) => void;
-  onMotionIntensityChange: (value: number) => void;
-  onDensityChange: (value: "roomy" | "compact") => void;
-  onSaveVisualSettings: () => void;
-  onSaveTimerPreferences: (patch: Partial<TimerPreferences>) => void | Promise<void>;
-  onPreviewAlertSound: () => void;
-  onChooseCustomAlertSound: (event: Event) => void | Promise<void>;
-  onClearCustomAlertSound: () => void | Promise<void>;
-  onSelectedBackupFile: (value: string) => void;
-  onLoadBackups: () => void | Promise<void>;
-  onCreateBackup: () => void | Promise<void>;
-  onOpenBackupFolder: () => void | Promise<void>;
-  onRestoreBackup: () => void | Promise<void>;
-  onClearAllData: () => void | Promise<void>;
-}
-
-export function NightValleySettings(props: NightValleySettingsProps) {
+export function NightValleySettings(props: SettingsSurfaceProps) {
   const activeTheme = createMemo(() => themes.find((theme) => theme.id === props.themeId()) ?? themes[0]);
   let customAlertSoundInput: HTMLInputElement | undefined;
   return (

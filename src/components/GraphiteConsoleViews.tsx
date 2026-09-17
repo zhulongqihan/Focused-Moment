@@ -15,15 +15,16 @@ import {
 } from "lucide-solid";
 import type { AlertSoundKey, AnalyticsSnapshot, FocusRecord, TodoImportance, TodoItem, TimerSnapshot } from "../lib/contracts";
 import { themes } from "../lib/themes";
-import type { TodayDashboardProps } from "./TodayDashboard";
-import DailyFocusLine from "./DailyFocusLine";
 import type {
-  NightValleyFocusProps,
-  NightValleyRecordsProps,
-  NightValleySettingsProps,
-  NightValleyTodoProps,
-} from "./NightValleyViews";
-import { groupTodosByDate, TodoDateGroupList } from "./NightValleyViews";
+  FocusSurfaceProps,
+  RecordsSurfaceProps,
+  SettingsSurfaceProps,
+  TodaySurfaceProps,
+  TodoSurfaceProps,
+} from "../lib/theme-contracts";
+import DailyFocusLine from "./DailyFocusLine";
+import { TodoDateGroupList } from "../features/todos/TodoDateGroupList";
+import { groupTodosByDate } from "../features/todos/todo-groups";
 import "./GraphiteConsoleViews.css";
 
 function gcDate(value: string) {
@@ -99,7 +100,7 @@ function GcStatusStrip(props: { analytics: () => AnalyticsSnapshot | null; timer
   );
 }
 
-export function GraphiteConsoleToday(props: TodayDashboardProps) {
+export function GraphiteConsoleToday(props: TodaySurfaceProps) {
   const streak = createMemo(() => props.analytics()?.currentStreakDays ?? 0);
   const sequence = createMemo(() => [...props.todayCompletedTodos(), ...props.todayTodos()].slice(0, 7));
   const sequenceSlots = createMemo(() => Array.from({ length: 7 }, (_, index) => sequence()[index] ?? null));
@@ -165,7 +166,7 @@ export function GraphiteConsoleToday(props: TodayDashboardProps) {
   );
 }
 
-export function GraphiteConsoleFocus(props: NightValleyFocusProps) {
+export function GraphiteConsoleFocus(props: FocusSurfaceProps) {
   const displayTime = createMemo(() => props.timer().modeKey === "countdown" && props.countdownDraftDirty() ? `${String(Math.floor(props.countdownMinutes() / 60)).padStart(2, "0")}:${String(props.countdownMinutes() % 60).padStart(2, "0")}:00` : props.timer().elapsedLabel);
   const progress = createMemo(() => gcProgress(props.timer(), props.timerHasProgress()));
   const currentTitle = createMemo(() => props.sessionTitle().trim() || props.timer().activeTaskTitle || "未命名专注");
@@ -214,18 +215,18 @@ export function GraphiteConsoleFocus(props: NightValleyFocusProps) {
 
 interface GraphiteTodoCardProps {
   item: TodoItem;
-  editingTodo: NightValleyTodoProps["editingTodo"];
-  busy: NightValleyTodoProps["busy"];
-  timerHasProgress: NightValleyTodoProps["timerHasProgress"];
-  formatTodoDue: NightValleyTodoProps["formatTodoDue"];
-  importanceLabel: NightValleyTodoProps["importanceLabel"];
-  onToggle: NightValleyTodoProps["onToggle"];
-  onBeginEdit: NightValleyTodoProps["onBeginEdit"];
-  onUseForFocus: NightValleyTodoProps["onUseForFocus"];
-  onRemove: NightValleyTodoProps["onRemove"];
-  onPatch: NightValleyTodoProps["onPatch"];
-  onSave: NightValleyTodoProps["onSave"];
-  onCancel: NightValleyTodoProps["onCancel"];
+  editingTodo: TodoSurfaceProps["editingTodo"];
+  busy: TodoSurfaceProps["busy"];
+  timerHasProgress: TodoSurfaceProps["timerHasProgress"];
+  formatTodoDue: TodoSurfaceProps["formatTodoDue"];
+  importanceLabel: TodoSurfaceProps["importanceLabel"];
+  onToggle: TodoSurfaceProps["onToggle"];
+  onBeginEdit: TodoSurfaceProps["onBeginEdit"];
+  onUseForFocus: TodoSurfaceProps["onUseForFocus"];
+  onRemove: TodoSurfaceProps["onRemove"];
+  onPatch: TodoSurfaceProps["onPatch"];
+  onSave: TodoSurfaceProps["onSave"];
+  onCancel: TodoSurfaceProps["onCancel"];
 }
 
 function GraphiteTodoCard(props: GraphiteTodoCardProps) {
@@ -242,7 +243,7 @@ function GraphiteTodoCard(props: GraphiteTodoCardProps) {
   );
 }
 
-export function GraphiteConsoleTodos(props: NightValleyTodoProps) {
+export function GraphiteConsoleTodos(props: TodoSurfaceProps) {
   const [createOpen, setCreateOpen] = createSignal(false);
   const pendingDateGroups = createMemo(() => groupTodosByDate([...props.overdueTodos(), ...props.activeTodos()]));
   const pendingTodoCount = createMemo(() => props.overdueTodos().length + props.activeTodos().length);
@@ -266,7 +267,7 @@ export function GraphiteConsoleTodos(props: NightValleyTodoProps) {
   );
 }
 
-export function GraphiteConsoleRecords(props: NightValleyRecordsProps) {
+export function GraphiteConsoleRecords(props: RecordsSurfaceProps) {
   const selectedDate = createMemo(() => props.selectedArchiveDay()?.date ?? props.selectedArchiveDate());
   const selectedRecords = createMemo(() => props.selectedArchiveRecords());
   const maxDuration = createMemo(() => Math.max(1, ...props.archiveDays().map((day) => day.totalDurationMs)));
@@ -313,7 +314,7 @@ export function GraphiteConsoleRecords(props: NightValleyRecordsProps) {
   );
 }
 
-export function GraphiteConsoleSettings(props: NightValleySettingsProps) {
+export function GraphiteConsoleSettings(props: SettingsSurfaceProps) {
   let customAlertSoundInput: HTMLInputElement | undefined;
   const activeTheme = createMemo(() => themes.find((theme) => theme.id === props.themeId()) ?? themes[0]);
   const toggle = (checked: boolean, key: "toastReminderEnabled" | "windowAttentionReminderEnabled" | "soundReminderEnabled") => void props.onSaveTimerPreferences({ [key]: checked });
