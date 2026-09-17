@@ -1,11 +1,11 @@
-import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { defineConfig, devices } from "@playwright/test";
 
-const configuredRunId = process.env.FOCUSED_MOMENT_TEST_RUN_ID;
-const generatedRunId = `run-${new Date().toISOString().replace(/[^0-9TZ-]/g, "-")}-${process.pid}`;
-const runId = (configuredRunId ?? generatedRunId).replace(/[^a-zA-Z0-9_-]/g, "-") || "run";
-const outputDir = resolve("output", "qa", "frontend", runId);
+import { getPlaywrightOutputDir } from "./scripts/playwright-output-root.mjs";
+
+const projectRoot = fileURLToPath(new URL(".", import.meta.url));
+const outputDir = getPlaywrightOutputDir({ rootDir: projectRoot });
 
 export default defineConfig({
   testDir: "./tests",
@@ -26,9 +26,9 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "pnpm dev --host 127.0.0.1",
+    command: "pnpm dev --host 127.0.0.1 --strictPort",
     url: "http://127.0.0.1:1420",
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
     timeout: 120_000,
   },
 });

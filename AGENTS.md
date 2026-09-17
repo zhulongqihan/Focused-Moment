@@ -12,17 +12,15 @@
 - Playwright evidence belongs under the ignored `output/qa/frontend/<unique-run-id>/` directory. Use one run ID for the whole invocation and `test.info().outputPath(...)` for screenshots and JSON evidence; never write fixed-path test output that can collide with another run.
 - Keep `PROJECT_PLAN.md`, the root `Focused Moment.exe`, installers, `.release/`, user data, backups, and pre-existing user changes protected unless a task explicitly authorizes them. A root executable is a directly testable entry only when its source/build provenance is recorded; an old binary or installer is not a substitute.
 - Report browser-mock tests, Rust checks, and Windows-native application checks as separate evidence classes. Never treat a mock or a prior result as proof that an unrun native check passed.
-- A bug-fix batch may be committed and pushed to its explicitly confirmed repository and branch after its required checks pass. Commit/push, CI, tag, GitHub Release, and asset upload are separate actions; do not infer tag/release/upload or run them automatically unless the task authorizes them.
+- For one independent bug fix, once its related changes and required checks pass, default to committing and pushing that fix to the explicitly confirmed repository and branch. Multiple related changes for the same bug may share one complete commit, but do not defer an accepted independent fix until an unrelated interface is complete. Commit/push, remote CI, tag, GitHub Release, and asset upload are separate actions; formal release requires explicit authorization.
 
-## Release discipline
+## Delivery and release discipline
 
-- The push/release unit is a complete interface fix, not an individual small bug. Keep related small fixes for the same interface local while iterating and validating; do not push or release after each small bug.
-- After the whole interface fix is complete and its acceptance criteria pass, treat the batch as one release candidate and default to:
-  1. build verification
-  2. package verification
-  3. commit
-  4. push to GitHub
-  5. update the matching GitHub Release assets and notes
+- The confirmed Windows development root is `F:\Focused Moment`; keep `Focused Moment.exe` as the preferred existing entry. If application source or build inputs change, a delivered application entry must have matching build/source provenance; an old EXE, installer, or copied artifact is not a new delivery.
+- Changes limited to tests, rules, or documentation that do not change application build inputs may keep the existing entry. Record “not rebuilt; entry unchanged” instead of inventing new build provenance.
+- Normal CI and other authorized checkouts run from their actual checkout root; repository configuration must not hard-code `F:\Focused Moment`.
+- Preserve the version synchronization and release-note rules below. Root-entry export failure detection remains follow-up work and is not implied by this section.
+- Do not force-push, mix user changes, delete tests, weaken assertions, or increase retries to make verification pass. Junctions and mirrors are not valid test substitutes; this does not prohibit normal Git worktree use when separately authorized.
 
 ## Version discipline
 
