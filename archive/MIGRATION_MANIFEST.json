@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-18T02:11:52.895Z",
+  "generatedAt": "2026-09-18T03:09:30.218Z",
   "workspaceRoot": ".",
   "appRoot": "app",
   "mappings": [
@@ -150,8 +150,8 @@
     {
       "path": "app/scripts",
       "fileCount": 26,
-      "totalBytes": 178972,
-      "contentSha256": "93116ECD0DA22F7FE18AFD9948DDAD3CD96A62AAF3239A371F447CB3D8CEDDE4",
+      "totalBytes": 179229,
+      "contentSha256": "8D825C6B5CB01FC113960BFDA4D345218792ACBBF42E44DD89724051C0546171",
       "links": []
     },
     {
@@ -192,6 +192,16 @@
       "path": "archive/executables/legacy-programs/Focused Moment v2.11.10.exe",
       "length": 23852544,
       "sha256": "9A1985D232CA91508A68A063BF62430C57C999E6CC2CB690C1F6EAF3A171EA9A"
+    },
+    {
+      "path": "archive/executables/local/local-20260918-103807-46a19d6d2a/Focused Moment.exe",
+      "length": 23864320,
+      "sha256": "FD757D77D44187C8F47219E25DC8AFEA821940313E19BC19BF95CC0ECFE338D1"
+    },
+    {
+      "path": "archive/executables/local/local-20260918-110633-6ee14f8490/Focused Moment.exe",
+      "length": 23864320,
+      "sha256": "CD502B2CEFCCBD9745FCFF59D8F4CF0BF4ABC96A1BF8F661FDA09B2954EDA1F0"
     },
     {
       "path": "archive/executables/local-history/local-20260918-031159-e435f4cfec/Focused Moment.exe",
