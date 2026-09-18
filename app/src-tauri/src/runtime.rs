@@ -42,9 +42,9 @@ pub(crate) use domain::{
 };
 pub(crate) use timer_engine::{
     elapsed_since_anchor_ms, elapsed_since_anchor_ms_at, format_duration_ms,
-    normalize_countdown_duration_ms, parse_alert_key_value, parse_mode, parse_mode_key_value,
-    parse_phase_key_value, system_time_to_epoch_ms, with_timer_engine, CompletedSession,
-    PersistedBundle, RunAnchor, TimerEngine, TimerEngineState,
+    normalize_countdown_duration_ms, normalize_focus_plan, parse_alert_key_value, parse_mode,
+    parse_mode_key_value, parse_phase_key_value, system_time_to_epoch_ms, with_timer_engine,
+    CompletedSession, PersistedBundle, RunAnchor, TimerEngine, TimerEngineState,
 };
 
 use std::cmp::Reverse;
@@ -178,7 +178,7 @@ impl AppPreferences {
     }
 }
 
-#[derive(Clone, Default, Serialize, Deserialize)]
+#[derive(Clone, Default, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct FocusPlanState {
     #[serde(default)]
@@ -329,6 +329,13 @@ struct BackupImportResult {
     restored_app_preferences: bool,
 }
 
+#[derive(Clone, Copy)]
+pub(crate) struct BackupImportOptions {
+    pub(crate) restore_todos: bool,
+    pub(crate) restore_records: bool,
+    pub(crate) restore_app_preferences: bool,
+}
+
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct DailyInsight {
@@ -429,6 +436,119 @@ fn normalize_focus_record_title(title: &str) -> Result<String, String> {
     } else {
         Ok(normalized.to_string())
     }
+}
+
+pub(crate) fn normalize_focus_record(
+    mut record: FocusRecord,
+    todo_items: &[TodoItem],
+) -> Result<FocusRecord, String> {
+    record.title = normalize_focus_record_title(&record.title)?;
+    if record.duration_ms == 0 {
+        return Err("专注记录时长必须大于 0。".to_string());
+    }
+
+    let had_completed_date = !record.completed_date.trim().is_empty();
+    let had_completed_time = !record.completed_time.trim().is_empty();
+    let completed_date = if !had_completed_date {
+        record
+            .completed_at
+            .get(..10)
+            .and_then(|value| normalize_scheduled_date(value).ok())
+            .unwrap_or_default()
+    } else {
+        normalize_scheduled_date(&record.completed_date)?
+    };
+    if completed_date.is_empty() {
+        return Err("专注记录需要填写完成日期。".to_string());
+    }
+
+    let completed_time = if !had_completed_time {
+        record
+            .completed_at
+            .get(11..16)
+            .and_then(|value| normalize_scheduled_time(value).ok())
+            .unwrap_or_default()
+    } else {
+        normalize_scheduled_time(&record.completed_time)?
+    };
+
+    record.completed_date = completed_date;
+    record.completed_time = completed_time;
+    if record.completed_at.trim().is_empty() || !had_completed_date || !had_completed_time {
+        record.completed_at = if record.completed_time.is_empty() {
+            format!("{} 00:00:00", record.completed_date)
+        } else {
+            format!("{} {}:00", record.completed_date, record.completed_time)
+        };
+    }
+    if record.duration_label.trim().is_empty() {
+        record.duration_label = format_duration_ms(record.duration_ms);
+    }
+
+    record.mode_key = match record.mode_key.as_str() {
+        "stopwatch" | "countdown" | "pomodoro" => record.mode_key,
+        // Early 2.12 builds used `manual` as a mode key.  The public contract
+        // intentionally keeps manual entry in `source`, so repair that
+        // compatibility value without widening the mode union.
+        "manual" if record.source == "manual" => "stopwatch".to_string(),
+        _ => return Err("专注记录包含不支持的计时模式。".to_string()),
+    };
+    record.source = match record.source.as_str() {
+        "timer" | "manual" => record.source,
+        _ => return Err("专注记录包含不支持的来源。".to_string()),
+    };
+    record.time_basis = match record.time_basis.as_str() {
+        "completion_day" => "completion_day".to_string(),
+        _ => return Err("专注记录包含不支持的日期归属方式。".to_string()),
+    };
+
+    if let Some(todo_id) = record.linked_todo_id {
+        if !todo_items.iter().any(|item| item.id == todo_id) {
+            // Keep the historical title for review, but never keep a dangling
+            // numeric reference after a selective restore or todo deletion.
+            record.linked_todo_id = None;
+        }
+    }
+
+    Ok(record)
+}
+
+pub(crate) fn normalize_todo_item(mut item: TodoItem) -> Result<TodoItem, String> {
+    item.title = normalize_todo_title(&item.title)?;
+    item.scheduled_date = normalize_scheduled_date(&item.scheduled_date)?;
+    item.scheduled_time = normalize_scheduled_time(&item.scheduled_time)?;
+    item.importance_key = normalize_importance_key(&item.importance_key)?;
+    item.continuation_note = normalize_continuation_note(&item.continuation_note)?;
+    if item.continuation_note.is_empty() {
+        item.continuation_updated_at = None;
+    }
+    Ok(item)
+}
+
+fn normalize_persisted_collections(
+    todo_items: Vec<TodoItem>,
+    focus_records: Vec<FocusRecord>,
+) -> Result<(Vec<TodoItem>, Vec<FocusRecord>), String> {
+    let todo_items = todo_items
+        .into_iter()
+        .map(normalize_todo_item)
+        .collect::<Result<Vec<_>, _>>()?;
+    let mut todo_ids = HashSet::new();
+    if todo_items.iter().any(|item| !todo_ids.insert(item.id)) {
+        return Err("待办数据包含重复的 ID。".to_string());
+    }
+    let focus_records = focus_records
+        .into_iter()
+        .map(|record| normalize_focus_record(record, &todo_items))
+        .collect::<Result<Vec<_>, _>>()?;
+    let mut record_ids = HashSet::new();
+    if focus_records
+        .iter()
+        .any(|record| !record_ids.insert(record.id))
+    {
+        return Err("专注记录包含重复的 ID。".to_string());
+    }
+    Ok((todo_items, focus_records))
 }
 
 fn normalize_scheduled_date(value: &str) -> Result<String, String> {
@@ -939,6 +1059,39 @@ mod tests {
         }
     }
 
+    fn fixture_todo(id: u64, title: &str) -> TodoItem {
+        TodoItem {
+            id,
+            title: title.to_string(),
+            is_completed: false,
+            scheduled_date: Local::now().format("%Y-%m-%d").to_string(),
+            scheduled_time: String::new(),
+            importance_key: "medium".to_string(),
+            continuation_note: String::new(),
+            continuation_updated_at: None,
+        }
+    }
+
+    fn fixture_record(id: u64, todo_id: Option<u64>, title: &str) -> FocusRecord {
+        FocusRecord {
+            id,
+            title: title.to_string(),
+            duration_ms: 25 * 60_000,
+            duration_label: "00:25:00".to_string(),
+            mode_key: "stopwatch".to_string(),
+            mode_label: "正向计时".to_string(),
+            phase_label: "正向计时".to_string(),
+            linked_todo_id: todo_id,
+            linked_todo_title: todo_id.map(|id| format!("事项 {id}")),
+            completed_at: "2026-09-19 12:00:00".to_string(),
+            completed_date: "2026-09-19".to_string(),
+            completed_time: "12:00".to_string(),
+            source: "timer".to_string(),
+            time_basis: "completion_day".to_string(),
+            edited_at: None,
+        }
+    }
+
     fn seed_persisted_bundle(root: &std::path::Path) {
         let store = PersistenceStore::for_test(root).expect("create seed store");
         store
@@ -1204,6 +1357,11 @@ mod tests {
             sound_reminder_enabled: false,
             alert_sound_key: AlertSoundKey::Custom,
         };
+        let app_preferences = AppPreferences {
+            custom_alert_sound_name: "migration-check.mp3".to_string(),
+            custom_alert_sound_data: Some("data:audio/mpeg;base64,AA==".to_string()),
+            ..AppPreferences::default()
+        };
         let source_state = TimerEngineState {
             timer: Mutex::new(TimerEngine {
                 mode: TimerMode::Pomodoro,
@@ -1227,7 +1385,7 @@ mod tests {
                 ..TimerEngine::default()
             }),
             timer_preferences: Mutex::new(preferences),
-            app_preferences: Mutex::new(AppPreferences::default()),
+            app_preferences: Mutex::new(app_preferences),
             focus_plan: Mutex::new(FocusPlanState::default()),
             focus_records: Mutex::new(vec![FocusRecord {
                 id: 41,
@@ -1685,6 +1843,252 @@ mod tests {
         assert_eq!(snapshot.total_focus_duration_ms, 20 * 60_000);
         assert_eq!(today_breakdown.total_duration_ms, 20 * 60_000);
         assert_eq!(today_breakdown.session_count, 1);
+    }
+
+    #[test]
+    fn current_backup_migration_is_a_noop_and_remains_idempotent() {
+        let backup = AppBackupFile {
+            kind: APP_BACKUP_KIND.to_string(),
+            format_version: APP_BACKUP_FORMAT_VERSION,
+            schema_version: CURRENT_STORAGE_SCHEMA_VERSION,
+            app_version: APP_VERSION.to_string(),
+            exported_at: "2026-09-19T12:00:00+08:00".to_string(),
+            state: PersistedState {
+                schema_version: CURRENT_STORAGE_SCHEMA_VERSION,
+                ..PersistedState::default()
+            },
+            runtime: PersistedRuntimeState {
+                schema_version: CURRENT_STORAGE_SCHEMA_VERSION,
+                mode_key: "stopwatch".to_string(),
+                ..PersistedRuntimeState::default()
+            },
+        };
+        let original = serde_json::to_value(&backup).expect("serialize current backup");
+        let (first, first_source) = migrate_backup_file(backup).expect("v3 migration succeeds");
+        let (second, second_source) = migrate_backup_file(first.clone()).expect("repeat is safe");
+
+        assert_eq!(first_source, None);
+        assert_eq!(second_source, None);
+        assert_eq!(
+            serde_json::to_value(&first).expect("serialize first"),
+            original
+        );
+        assert_eq!(
+            serde_json::to_value(&second).expect("serialize second"),
+            serde_json::to_value(&first).expect("serialize first again")
+        );
+    }
+
+    #[test]
+    fn malformed_missing_and_invalid_backup_data_is_rejected_without_mutation() {
+        assert!(serde_json::from_str::<AppBackupFile>("{broken json").is_err());
+        assert!(serde_json::from_str::<AppBackupFile>(
+            r#"{"kind":"focused-moment-backup","formatVersion":3}"#
+        )
+        .is_err());
+
+        let root = isolated_root();
+        seed_persisted_bundle(&root);
+        let store = PersistenceStore::for_test(&root).expect("create isolated store");
+        let state = state_with_store(store, 2, 2_000);
+        let invalid_record = FocusRecord {
+            duration_ms: 0,
+            completed_date: "2026-02-30".to_string(),
+            ..fixture_record(1, None, "非法记录")
+        };
+        let backup = AppBackupFile {
+            kind: APP_BACKUP_KIND.to_string(),
+            format_version: APP_BACKUP_FORMAT_VERSION,
+            schema_version: CURRENT_STORAGE_SCHEMA_VERSION,
+            app_version: APP_VERSION.to_string(),
+            exported_at: "2026-09-19T12:00:00+08:00".to_string(),
+            state: PersistedState {
+                schema_version: CURRENT_STORAGE_SCHEMA_VERSION,
+                focus_records: vec![invalid_record],
+                ..PersistedState::default()
+            },
+            runtime: PersistedRuntimeState {
+                schema_version: CURRENT_STORAGE_SCHEMA_VERSION,
+                mode_key: "stopwatch".to_string(),
+                ..PersistedRuntimeState::default()
+            },
+        };
+
+        assert!(state.apply_backup_file(backup).is_err());
+        assert!(state
+            .snapshot_state()
+            .expect("snapshot remains available")
+            .focus_records
+            .is_empty());
+        cleanup_isolated_root(&root);
+    }
+
+    #[test]
+    fn selective_backup_restore_keeps_selected_domains_consistent() {
+        let root = isolated_root();
+        seed_persisted_bundle(&root);
+        let store = PersistenceStore::for_test(&root).expect("create isolated store");
+        let state = state_with_store(store, 21, 2_000);
+        let current_todo = fixture_todo(2, "当前事项");
+        let current_record = fixture_record(20, Some(2), "当前记录");
+        *state.todo_items.lock().expect("lock current todos") = vec![current_todo];
+        *state.focus_records.lock().expect("lock current records") = vec![current_record];
+        state.persist_all().expect("persist current fixture");
+
+        let imported_preferences = AppPreferences {
+            theme_id: "graphite-console".to_string(),
+            custom_alert_sound_name: "imported.mp3".to_string(),
+            custom_alert_sound_data: Some("data:audio/mpeg;base64,aW1wb3J0ZWQ=".to_string()),
+            ..AppPreferences::default()
+        };
+        let imported_timer_preferences = TimerPreferences {
+            alert_sound_key: AlertSoundKey::Custom,
+            ..TimerPreferences::default()
+        };
+        let imported_todo = fixture_todo(1, "导入事项");
+        let imported_record = fixture_record(10, Some(1), "导入记录");
+        let backup = AppBackupFile {
+            kind: APP_BACKUP_KIND.to_string(),
+            format_version: APP_BACKUP_FORMAT_VERSION,
+            schema_version: CURRENT_STORAGE_SCHEMA_VERSION,
+            app_version: APP_VERSION.to_string(),
+            exported_at: "2026-09-19T12:00:00+08:00".to_string(),
+            state: PersistedState {
+                schema_version: CURRENT_STORAGE_SCHEMA_VERSION,
+                focus_records: vec![imported_record],
+                next_record_id: 11,
+                todo_items: vec![imported_todo],
+                next_todo_id: 2,
+                timer_preferences: imported_timer_preferences,
+                app_preferences: imported_preferences.clone(),
+                ..PersistedState::default()
+            },
+            runtime: PersistedRuntimeState {
+                schema_version: CURRENT_STORAGE_SCHEMA_VERSION,
+                mode_key: "stopwatch".to_string(),
+                ..PersistedRuntimeState::default()
+            },
+        };
+
+        state
+            .apply_backup_file_with_options(
+                backup.clone(),
+                BackupImportOptions {
+                    restore_todos: true,
+                    restore_records: false,
+                    restore_app_preferences: false,
+                },
+            )
+            .expect("restore only todos");
+        let after_todos = state.snapshot_state().expect("snapshot after todo restore");
+        assert_eq!(after_todos.todo_items[0].id, 1);
+        assert_eq!(after_todos.focus_records[0].id, 20);
+        assert_eq!(after_todos.focus_records[0].linked_todo_id, None);
+        assert_eq!(after_todos.app_preferences.custom_alert_sound_name, "");
+        assert_eq!(
+            after_todos.timer_preferences.alert_sound_key,
+            AlertSoundKey::SoftChime
+        );
+
+        state
+            .apply_backup_file_with_options(
+                backup.clone(),
+                BackupImportOptions {
+                    restore_todos: false,
+                    restore_records: true,
+                    restore_app_preferences: false,
+                },
+            )
+            .expect("restore only records");
+        let after_records = state
+            .snapshot_state()
+            .expect("snapshot after record restore");
+        assert_eq!(after_records.todo_items[0].id, 1);
+        assert_eq!(after_records.focus_records[0].id, 10);
+        assert_eq!(after_records.focus_records[0].linked_todo_id, Some(1));
+        assert_eq!(after_records.app_preferences.custom_alert_sound_name, "");
+        assert_eq!(
+            after_records.timer_preferences.alert_sound_key,
+            AlertSoundKey::SoftChime
+        );
+
+        state
+            .apply_backup_file_with_options(
+                backup.clone(),
+                BackupImportOptions {
+                    restore_todos: false,
+                    restore_records: false,
+                    restore_app_preferences: true,
+                },
+            )
+            .expect("restore only settings");
+        let after_settings = state
+            .snapshot_state()
+            .expect("snapshot after settings restore");
+        assert_eq!(after_settings.todo_items[0].id, 1);
+        assert_eq!(after_settings.focus_records[0].id, 10);
+        assert_eq!(
+            after_settings.app_preferences.custom_alert_sound_name,
+            "imported.mp3"
+        );
+        assert_eq!(
+            after_settings.timer_preferences.alert_sound_key,
+            AlertSoundKey::Custom
+        );
+
+        state
+            .apply_backup_file(backup.clone())
+            .expect("first complete restore");
+        state
+            .apply_backup_file(backup)
+            .expect("repeat complete restore");
+        let repeated = state
+            .snapshot_state()
+            .expect("snapshot after repeat restore");
+        assert_eq!(repeated.todo_items.len(), 1);
+        assert_eq!(repeated.focus_records.len(), 1);
+        cleanup_isolated_root(&root);
+    }
+
+    #[test]
+    fn invalid_backup_ids_and_duplicate_ids_are_rejected_without_mutation() {
+        let mut backup = AppBackupFile {
+            kind: APP_BACKUP_KIND.to_string(),
+            format_version: APP_BACKUP_FORMAT_VERSION,
+            schema_version: CURRENT_STORAGE_SCHEMA_VERSION,
+            app_version: APP_VERSION.to_string(),
+            exported_at: "2026-09-19T12:00:00+08:00".to_string(),
+            state: PersistedState {
+                schema_version: CURRENT_STORAGE_SCHEMA_VERSION,
+                todo_items: vec![fixture_todo(1, "合法事项")],
+                focus_records: vec![fixture_record(2, Some(1), "合法记录")],
+                ..PersistedState::default()
+            },
+            runtime: PersistedRuntimeState {
+                schema_version: CURRENT_STORAGE_SCHEMA_VERSION,
+                mode_key: "stopwatch".to_string(),
+                ..PersistedRuntimeState::default()
+            },
+        };
+
+        let mut invalid_todo_id = serde_json::to_value(&backup).expect("serialize backup");
+        invalid_todo_id["state"]["todoItems"][0]["id"] = serde_json::json!(-1);
+        assert!(serde_json::from_value::<AppBackupFile>(invalid_todo_id).is_err());
+
+        let mut invalid_record_id = serde_json::to_value(&backup).expect("serialize backup");
+        invalid_record_id["state"]["focusRecords"][0]["id"] = serde_json::json!(-1);
+        assert!(serde_json::from_value::<AppBackupFile>(invalid_record_id).is_err());
+
+        backup.state.todo_items.push(fixture_todo(1, "重复事项"));
+        let root = isolated_root();
+        seed_persisted_bundle(&root);
+        let store = PersistenceStore::for_test(&root).expect("create isolated store");
+        let state = state_with_store(store, 3, 3_000);
+        assert!(state.apply_backup_file(backup).is_err());
+        let snapshot = state.snapshot_state().expect("snapshot stays readable");
+        assert!(snapshot.todo_items.is_empty());
+        assert!(snapshot.focus_records.is_empty());
+        cleanup_isolated_root(&root);
     }
 
     #[test]

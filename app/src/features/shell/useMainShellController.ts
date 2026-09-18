@@ -342,6 +342,8 @@ export function useMainShellController() {
   const [lastBackupPath, setLastBackupPath] = createSignal("");
   const [portableBackupPath, setPortableBackupPath] = createSignal("");
   const [portableBackupPreview, setPortableBackupPreview] = createSignal<BackupPreview | null>(null);
+  const [restorePortableTodos, setRestorePortableTodos] = createSignal(true);
+  const [restorePortableRecords, setRestorePortableRecords] = createSignal(true);
   const [restorePortableAppPreferences, setRestorePortableAppPreferences] = createSignal(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = createSignal(false);
   const [commandSearch, setCommandSearch] = createSignal("");
@@ -367,6 +369,7 @@ export function useMainShellController() {
   let appPreferenceSaveVersion = 0;
   let appPreferenceSaveTimer: number | undefined;
   let pendingAppPreferenceSnapshot: AppPreferences | null = null;
+  let appPreferenceSaveChain: Promise<void> = Promise.resolve();
   let legacyPreferencesMigrationAttempted = false;
   let commandInput: HTMLInputElement | undefined;
   let commandTrigger: HTMLButtonElement | undefined;
@@ -441,7 +444,9 @@ export function useMainShellController() {
 
   function persistAppPreferences(snapshot: AppPreferences, version: number) {
     setAppPreferenceSaveBusy(true);
-    void updateAppPreferences(snapshot)
+    const queuedSave = appPreferenceSaveChain.then(() => updateAppPreferences(snapshot));
+    appPreferenceSaveChain = queuedSave.then(() => undefined, () => undefined);
+    void queuedSave
       .then((saved) => {
         if (version !== appPreferenceSaveVersion) return;
         applyAppPreferences(saved);
@@ -1449,7 +1454,11 @@ export function useMainShellController() {
       return;
     }
     await run(async () => {
-      const result = await importAppBackupPath(path, { restoreAppPreferences: restorePortableAppPreferences() });
+      const result = await importAppBackupPath(path, {
+        restoreTodos: restorePortableTodos(),
+        restoreRecords: restorePortableRecords(),
+        restoreAppPreferences: restorePortableAppPreferences(),
+      });
       setPortableBackupPreview(null);
       await loadFromStorage();
       await loadBackups();
@@ -1935,6 +1944,10 @@ export function useMainShellController() {
     portableBackupPath,
     setPortableBackupPath,
     portableBackupPreview,
+    restorePortableTodos,
+    setRestorePortableTodos,
+    restorePortableRecords,
+    setRestorePortableRecords,
     restorePortableAppPreferences,
     setRestorePortableAppPreferences,
     commandPaletteOpen,

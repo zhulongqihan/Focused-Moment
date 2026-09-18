@@ -99,6 +99,10 @@ function MainShell() {
     portableBackupPath,
     setPortableBackupPath,
     portableBackupPreview,
+    restorePortableTodos,
+    setRestorePortableTodos,
+    restorePortableRecords,
+    setRestorePortableRecords,
     restorePortableAppPreferences,
     setRestorePortableAppPreferences,
     commandPaletteOpen,
@@ -1022,12 +1026,16 @@ function MainShell() {
             <PortableBackupPanel
               path={portableBackupPath()}
               preview={portableBackupPreview()}
+              restoreTodos={restorePortableTodos()}
+              restoreRecords={restorePortableRecords()}
               restoreAppPreferences={restorePortableAppPreferences()}
               busy={busy()}
               onPathChange={setPortableBackupPath}
               onPreview={previewPortableBackup}
               onExport={exportPortableBackup}
               onImport={importPortableBackup}
+              onRestoreTodosChange={setRestorePortableTodos}
+              onRestoreRecordsChange={setRestorePortableRecords}
               onRestoreAppPreferencesChange={setRestorePortableAppPreferences}
             />
           </Show>

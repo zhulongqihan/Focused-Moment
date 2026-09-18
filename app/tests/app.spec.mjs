@@ -175,8 +175,11 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
     window.__recordUpdateCalls = 0;
     window.__backupPreviewCalls = 0;
     window.__backupImportCalls = 0;
+    window.__lastBackupImportOptions = null;
     window.__appPreferenceUpdateCalls = 0;
     window.__failAppPreferenceSave = false;
+    window.__appPreferenceSavePlan = [];
+    window.__mockAppPreferences = null;
     let initialLoadFailures = initialLoadError ? 1 : 0;
     const eventCallbacks = new Map();
     const eventListeners = new Map();
@@ -381,8 +384,13 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
             return focusPlan;
           case "update_app_preferences":
             window.__appPreferenceUpdateCalls += 1;
-            if (window.__failAppPreferenceSave) throw new Error("模拟外观设置保存失败");
+            {
+              const plan = window.__appPreferenceSavePlan.shift() ?? {};
+              if (plan.delay) await new Promise((resolve) => setTimeout(resolve, plan.delay));
+              if (plan.fail || window.__failAppPreferenceSave) throw new Error("模拟外观设置保存失败");
+            }
             appPreferences = { ...appPreferences, ...args.preferences, schemaVersion: 3 };
+            window.__mockAppPreferences = appPreferences;
             return appPreferences;
           case "update_focus_plan":
             focusPlan = { currentTodoId: args.currentTodoId ?? null, todayPickIds: Array.from(new Set(args.todayPickIds ?? [])).slice(0, 3) };
@@ -407,6 +415,11 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
             return { fileName: args.path.split(/[\\\\/]/).pop() || "focused-moment-backup.json", filePath: args.path, exportedAt: `${today}T12:00:00Z` };
           case "import_app_backup_path":
             window.__backupImportCalls += 1;
+            window.__lastBackupImportOptions = {
+              restoreTodos: Boolean(args.restoreTodos),
+              restoreRecords: Boolean(args.restoreRecords),
+              restoreAppPreferences: Boolean(args.restoreAppPreferences),
+            };
             return { todoCount: todos.length, focusRecordCount: focusRecords.length, restoredAppPreferences: Boolean(args.restoreAppPreferences), migrated: false, rollbackPath: "mock-rollback.json" };
           case "get_todo_items":
             window.__todoItemsCalls += 1;
@@ -1634,6 +1647,30 @@ test("finishing a linked round keeps the todo open and saves a continuation book
   await expect(page.getByText("1 轮", { exact: true })).toBeVisible();
 });
 
+test("the same todo can continue through multiple rounds without auto-completing", async ({ page }) => {
+  await bootWithTauriMock(page);
+
+  const currentCard = page.locator(".continuity-board__card--current");
+  await currentCard.getByRole("button", { name: "开始专注" }).click();
+  await page.getByRole("button", { name: "计时", exact: true }).click();
+  await page.getByRole("button", { name: "完成并记录", exact: true }).click();
+  await page.getByRole("dialog", { name: "保存停笔书签" }).getByRole("button", { name: "暂不记录" }).click();
+
+  await page.getByRole("button", { name: "今日", exact: true }).click();
+  await expect(page.getByText("1 轮", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "继续专注", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => window.__startTimerCalls)).toBe(2);
+
+  await page.getByRole("button", { name: "计时", exact: true }).click();
+  await page.getByRole("button", { name: "完成并记录", exact: true }).click();
+  await page.getByRole("dialog", { name: "保存停笔书签" }).getByRole("button", { name: "暂不记录" }).click();
+
+  await page.getByRole("button", { name: "今日", exact: true }).click();
+  await expect(page.getByText("2 轮", { exact: true })).toBeVisible();
+  await expect(page.locator(".continuity-board__card--current")).toContainText("写完产品复盘");
+  await expect(page.getByText("已完成事项", { exact: true })).toHaveCount(0);
+});
+
 test("records support manual entry and detailed correction", async ({ page }) => {
   await bootWithTauriMock(page, { includeRecords: true });
   await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: "记录", exact: true }).click();
@@ -1666,11 +1703,21 @@ test("portable backup preview and import expose the v3 restore choice", async ({
   await page.getByRole("button", { name: "预览", exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.__backupPreviewCalls)).toBe(1);
   await expect(page.locator(".portable-backup-panel__preview")).toContainText("v3 / v3");
-  await expect(page.getByRole("checkbox", { name: "同时恢复主题、视觉设置和自定义音效" })).not.toBeChecked();
+  await expect(page.getByRole("checkbox", { name: "待办、收件箱和当前事项" })).toBeChecked();
+  await expect(page.getByRole("checkbox", { name: "专注记录和统计" })).toBeChecked();
+  await expect(page.getByRole("checkbox", { name: "主题、视觉设置和自定义音效" })).not.toBeChecked();
+  await page.getByRole("checkbox", { name: "待办、收件箱和当前事项" }).uncheck();
+  await page.getByRole("checkbox", { name: "专注记录和统计" }).uncheck();
+  await page.getByRole("checkbox", { name: "主题、视觉设置和自定义音效" }).check();
 
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "确认导入并生成回滚" }).click();
   await expect.poll(() => page.evaluate(() => window.__backupImportCalls)).toBe(1);
+  await expect.poll(() => page.evaluate(() => window.__lastBackupImportOptions)).toEqual({
+    restoreTodos: false,
+    restoreRecords: false,
+    restoreAppPreferences: true,
+  });
 });
 
 test("failed appearance persistence keeps the live change and offers retry", async ({ page }) => {
@@ -1685,4 +1732,20 @@ test("failed appearance persistence keeps the live change and offers retry", asy
   await error.getByRole("button", { name: "重试保存" }).click();
   await expect(error).toBeHidden({ timeout: 3000 });
   await expect.poll(() => page.evaluate(() => window.__appPreferenceUpdateCalls)).toBeGreaterThan(1);
+});
+
+test("appearance autosave keeps the newest theme after a stale save resolves late", async ({ page }) => {
+  await bootWithTauriMock(page);
+  await page.getByRole("button", { name: "设置", exact: true }).click();
+  await page.evaluate(() => {
+    window.__appPreferenceSavePlan = [{ delay: 450 }, { delay: 0 }];
+  });
+
+  await page.locator(".theme-picker__option").filter({ hasText: "编辑纸页" }).click();
+  await expect.poll(() => page.evaluate(() => window.__appPreferenceUpdateCalls)).toBe(1, { timeout: 3000 });
+  await page.locator(".theme-picker__option").filter({ hasText: "石墨控制台" }).click();
+
+  await expect.poll(() => page.evaluate(() => window.__appPreferenceUpdateCalls)).toBe(2, { timeout: 5000 });
+  await expect.poll(() => page.evaluate(() => window.__mockAppPreferences?.themeId)).toBe("graphite-console", { timeout: 5000 });
+  await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "graphite-console");
 });

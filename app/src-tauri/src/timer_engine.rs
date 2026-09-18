@@ -59,7 +59,7 @@ pub(crate) struct CompletedSession {
     pub(crate) complete_linked_todo_on_finish: bool,
 }
 
-fn normalize_focus_plan(
+pub(crate) fn normalize_focus_plan(
     mut plan: FocusPlanState,
     todo_items: &[TodoItem],
     seed_picks: bool,
@@ -140,14 +140,30 @@ impl TimerEngineState {
 
         let PersistedState {
             schema_version,
-            mut focus_records,
+            focus_records,
             next_record_id,
-            mut todo_items,
+            todo_items,
             next_todo_id,
             timer_preferences,
             app_preferences,
             focus_plan,
         } = persisted;
+
+        let (mut todo_items, mut focus_records) = if startup_error.is_none() {
+            match normalize_persisted_collections(todo_items, focus_records) {
+                Ok(collections) => collections,
+                Err(error) => {
+                    let message = format!(
+                        "本地数据未加载：状态内容无效（{error}）。为避免覆盖有效数据，应用已进入恢复保护状态；请修复数据或备份后重启。"
+                    );
+                    eprintln!("{message}");
+                    startup_error = Some(message);
+                    (Vec::new(), Vec::new())
+                }
+            }
+        } else {
+            (Vec::new(), Vec::new())
+        };
 
         sort_focus_records(&mut focus_records);
         sort_todo_items(&mut todo_items);
@@ -394,13 +410,20 @@ impl TimerEngineState {
         &self,
         backup: AppBackupFile,
     ) -> Result<BackupImportResult, String> {
-        self.apply_backup_file_with_options(backup, true)
+        self.apply_backup_file_with_options(
+            backup,
+            BackupImportOptions {
+                restore_todos: true,
+                restore_records: true,
+                restore_app_preferences: true,
+            },
+        )
     }
 
     pub(crate) fn apply_backup_file_with_options(
         &self,
         backup: AppBackupFile,
-        restore_app_preferences: bool,
+        options: BackupImportOptions,
     ) -> Result<BackupImportResult, String> {
         let seed_legacy_focus_plan = backup.format_version < APP_BACKUP_FORMAT_VERSION
             || backup.schema_version < CURRENT_STORAGE_SCHEMA_VERSION
@@ -418,7 +441,8 @@ impl TimerEngineState {
 
         debug_assert_eq!(kind, APP_BACKUP_KIND);
 
-        let normalized_preferences = state
+        let current = self.snapshot_bundle()?;
+        let imported_preferences = state
             .timer_preferences
             .normalized()
             .map_err(|_| "备份中的计时设置不合法，无法恢复。".to_string())?;
@@ -427,22 +451,56 @@ impl TimerEngineState {
             .clone()
             .normalized()
             .map_err(|_| "备份中的应用设置不合法，无法恢复。".to_string())?;
-        let normalized_app_preferences = if restore_app_preferences {
+        let normalized_app_preferences = if options.restore_app_preferences {
             imported_app_preferences
         } else {
-            self.app_preferences
-                .lock()
-                .map_err(|_| "应用设置状态锁定失败".to_string())?
-                .clone()
+            current.state.app_preferences.clone()
         };
-        let mut focus_records = state.focus_records;
-        let mut todo_items = state.todo_items;
-        sort_focus_records(&mut focus_records);
+        let (mut imported_todo_items, mut imported_focus_records) =
+            normalize_persisted_collections(state.todo_items, state.focus_records)?;
+        sort_todo_items(&mut imported_todo_items);
+        sort_focus_records(&mut imported_focus_records);
+
+        let mut todo_items = if options.restore_todos {
+            imported_todo_items
+        } else {
+            current.state.todo_items.clone()
+        };
+        let mut focus_records = if options.restore_records {
+            imported_focus_records
+        } else {
+            current.state.focus_records.clone()
+        };
         sort_todo_items(&mut todo_items);
-        let normalized_focus_plan =
-            normalize_focus_plan(state.focus_plan, &todo_items, seed_legacy_focus_plan);
-        let mut normalized_runtime =
-            normalize_imported_runtime(runtime, &todo_items, normalized_preferences);
+        focus_records = focus_records
+            .into_iter()
+            .map(|record| normalize_focus_record(record, &todo_items))
+            .collect::<Result<Vec<_>, _>>()?;
+        sort_focus_records(&mut focus_records);
+
+        let normalized_focus_plan = if options.restore_todos {
+            normalize_focus_plan(state.focus_plan, &todo_items, seed_legacy_focus_plan)
+        } else {
+            normalize_focus_plan(current.state.focus_plan.clone(), &todo_items, false)
+        };
+        let mut normalized_preferences = if options.restore_todos
+            || options.restore_records
+            || options.restore_app_preferences
+        {
+            imported_preferences
+        } else {
+            current.state.timer_preferences
+        };
+        if normalized_preferences.alert_sound_key == AlertSoundKey::Custom
+            && normalized_app_preferences.custom_alert_sound_data.is_none()
+        {
+            normalized_preferences.alert_sound_key = AlertSoundKey::SoftChime;
+        }
+        let mut normalized_runtime = if options.restore_todos || options.restore_records {
+            normalize_imported_runtime(runtime, &todo_items, normalized_preferences)
+        } else {
+            normalize_imported_runtime(current.runtime.clone(), &todo_items, normalized_preferences)
+        };
 
         {
             let mut timer = self
@@ -484,9 +542,16 @@ impl TimerEngineState {
                 .next_record_id
                 .lock()
                 .map_err(|_| "记录编号状态锁定失败".to_string())?;
-            *next_record_id = state
-                .next_record_id
-                .max(next_focus_record_id(&focus_records));
+            *next_record_id = if options.restore_records {
+                state
+                    .next_record_id
+                    .max(next_focus_record_id(&focus_records))
+            } else {
+                current
+                    .state
+                    .next_record_id
+                    .max(next_focus_record_id(&focus_records))
+            };
         }
 
         {
@@ -502,7 +567,14 @@ impl TimerEngineState {
                 .next_todo_id
                 .lock()
                 .map_err(|_| "任务编号状态锁定失败".to_string())?;
-            *next_todo_id = state.next_todo_id.max(next_todo_id_value(&todo_items));
+            *next_todo_id = if options.restore_todos {
+                state.next_todo_id.max(next_todo_id_value(&todo_items))
+            } else {
+                current
+                    .state
+                    .next_todo_id
+                    .max(next_todo_id_value(&todo_items))
+            };
         }
         {
             let mut focus_plan = self
@@ -527,7 +599,7 @@ impl TimerEngineState {
                 || !normalized_runtime.current_task_title.trim().is_empty()
                 || normalized_runtime.linked_todo_id.is_some(),
             migrated_from_format_version,
-            restored_app_preferences: restore_app_preferences,
+            restored_app_preferences: options.restore_app_preferences,
         })
     }
 

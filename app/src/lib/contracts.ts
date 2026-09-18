@@ -145,6 +145,8 @@ export interface BackupPreview {
 }
 
 export interface BackupImportOptions {
+  restoreTodos: boolean;
+  restoreRecords: boolean;
   restoreAppPreferences: boolean;
 }
 

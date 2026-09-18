@@ -272,11 +272,32 @@ pub(crate) fn get_focus_plan(
     state: tauri::State<'_, TimerEngineState>,
 ) -> Result<FocusPlanState, String> {
     state.ensure_ready()?;
-    state
-        .focus_plan
+    let items = state
+        .todo_items
         .lock()
-        .map_err(|_| "专注计划状态锁定失败".to_string())
-        .map(|plan| plan.clone())
+        .map_err(|_| "任务列表状态锁定失败".to_string())?
+        .clone();
+    let mut changed = false;
+    let normalized = {
+        let mut plan = state
+            .focus_plan
+            .lock()
+            .map_err(|_| "专注计划状态锁定失败".to_string())?;
+        let normalized = normalize_focus_plan(plan.clone(), &items, false);
+        if *plan != normalized {
+            *plan = normalized.clone();
+            changed = true;
+        }
+        normalized
+    };
+
+    // Day rollover and todo rescheduling can invalidate picks without a
+    // user-facing command. Persist the cleanup once, while keeping reads
+    // side-effect free when the plan is already valid.
+    if changed {
+        state.persist()?;
+    }
+    Ok(normalized)
 }
 
 #[tauri::command]
@@ -494,7 +515,7 @@ pub(crate) fn create_manual_focus_record(
         title: normalized_title,
         duration_ms: duration_minutes.saturating_mul(60_000),
         duration_label: format_duration_ms(duration_minutes.saturating_mul(60_000)),
-        mode_key: "manual".to_string(),
+        mode_key: "stopwatch".to_string(),
         mode_label: "手动补录".to_string(),
         phase_label: "手动补录".to_string(),
         linked_todo_id,
@@ -602,6 +623,12 @@ pub(crate) fn restore_focus_record(
     state: tauri::State<'_, TimerEngineState>,
     record: FocusRecord,
 ) -> Result<Vec<FocusRecord>, String> {
+    let todo_items = state
+        .todo_items
+        .lock()
+        .map_err(|_| "任务列表状态锁定失败".to_string())?
+        .clone();
+    let record = normalize_focus_record(record, &todo_items)?;
     let record_id = record.id;
     let records = with_focus_records(&state, |records| {
         if records.iter().any(|item| item.id == record_id) {
@@ -736,7 +763,14 @@ pub(crate) fn import_app_backup(
         create_backup_file_name("focused-moment-backup-v3-rollback-before-import-");
     store.save_user_backup(&rollback_file_name, &rollback)?;
 
-    let mut result = state.apply_backup_file_with_options(backup, false)?;
+    let mut result = state.apply_backup_file_with_options(
+        backup,
+        BackupImportOptions {
+            restore_todos: true,
+            restore_records: true,
+            restore_app_preferences: false,
+        },
+    )?;
     result.imported_file_name = file_name;
     result.rollback_file_name = rollback_file_name;
     Ok(result)
@@ -790,6 +824,8 @@ pub(crate) fn export_app_backup_to_path(
 pub(crate) fn import_app_backup_path(
     state: tauri::State<'_, TimerEngineState>,
     path: String,
+    restore_todos: bool,
+    restore_records: bool,
     restore_app_preferences: bool,
 ) -> Result<BackupImportResult, String> {
     let path = external_backup_path(&path)?;
@@ -799,7 +835,14 @@ pub(crate) fn import_app_backup_path(
     let rollback_file_name =
         create_backup_file_name("focused-moment-backup-v3-rollback-before-import-");
     store.save_user_backup(&rollback_file_name, &rollback)?;
-    let mut result = state.apply_backup_file_with_options(backup, restore_app_preferences)?;
+    let mut result = state.apply_backup_file_with_options(
+        backup,
+        BackupImportOptions {
+            restore_todos,
+            restore_records,
+            restore_app_preferences,
+        },
+    )?;
     result.imported_file_name = path.display().to_string();
     result.rollback_file_name = rollback_file_name;
     Ok(result)
@@ -921,7 +964,12 @@ pub(crate) fn update_todo_item(
         Ok(items.clone())
     })?;
 
-    state.persist()?;
+    let plan_changed = normalize_focus_plan_references(&state)?;
+    if plan_changed {
+        state.persist_all()?;
+    } else {
+        state.persist()?;
+    }
     Ok(items)
 }
 
@@ -961,6 +1009,40 @@ fn clear_focus_plan_reference(state: &TimerEngineState, id: u64) -> Result<(), S
     }
     plan.today_pick_ids.retain(|candidate| *candidate != id);
     Ok(())
+}
+
+fn normalize_focus_plan_references(state: &TimerEngineState) -> Result<bool, String> {
+    let items = state
+        .todo_items
+        .lock()
+        .map_err(|_| "任务列表状态锁定失败".to_string())?
+        .clone();
+    let mut plan = state
+        .focus_plan
+        .lock()
+        .map_err(|_| "专注计划状态锁定失败".to_string())?;
+    let normalized = normalize_focus_plan(plan.clone(), &items, false);
+    let changed = *plan != normalized;
+    if changed {
+        *plan = normalized;
+    }
+    Ok(changed)
+}
+
+fn clear_todo_record_references(state: &TimerEngineState, id: u64) -> Result<bool, String> {
+    let mut records = state
+        .focus_records
+        .lock()
+        .map_err(|_| "记录列表状态锁定失败".to_string())?;
+    let mut changed = false;
+    for record in records.iter_mut() {
+        if record.linked_todo_id == Some(id) {
+            record.linked_todo_id = None;
+            record.edited_at = Some(current_local_markers().0);
+            changed = true;
+        }
+    }
+    Ok(changed)
 }
 
 #[tauri::command]
@@ -1022,6 +1104,7 @@ pub(crate) fn delete_todo_item(
         Ok(())
     })?;
     clear_focus_plan_reference(&state, id)?;
+    clear_todo_record_references(&state, id)?;
     state.persist_all()?;
     Ok(items)
 }
@@ -1031,16 +1114,7 @@ pub(crate) fn restore_todo_item(
     state: tauri::State<'_, TimerEngineState>,
     item: TodoItem,
 ) -> Result<Vec<TodoItem>, String> {
-    let normalized_item = TodoItem {
-        id: item.id,
-        title: normalize_todo_title(&item.title)?,
-        is_completed: item.is_completed,
-        scheduled_date: normalize_scheduled_date(&item.scheduled_date)?,
-        scheduled_time: normalize_scheduled_time(&item.scheduled_time)?,
-        importance_key: normalize_importance_key(&item.importance_key)?,
-        continuation_note: normalize_continuation_note(&item.continuation_note)?,
-        continuation_updated_at: item.continuation_updated_at.clone(),
-    };
+    let normalized_item = normalize_todo_item(item)?;
     let item_id = normalized_item.id;
 
     let items = with_todo_items(&state, |items| {
