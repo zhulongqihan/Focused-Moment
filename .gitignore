@@ -1,17 +1,24 @@
-node_modules
-dist
-src-tauri/target
-docs/*
-!docs/architecture.md
-!docs/maintenance/
-docs/maintenance/*
-!docs/maintenance/structure-refactor.md
-.vscode/
-.release/
+node_modules/
+dist/
+src-tauri/target/
+app/test-results/
+**/.vscode/
 *.log
-test-results/
-output/
+/artifacts/*
+/archive/*
+/local/*
 /.playwright-cli/
+!artifacts/README.md
+!archive/README.md
+!archive/MIGRATION_MANIFEST.json
+!local/README.md
+# Pre-existing local documentation kept in place; do not upload as part of this migration.
+/docs/design-references/analysis/
+/docs/development-workflow.md
+/docs/frontend-priority-roadmap.md
+/docs/release-checklist.md
+/docs/user-feedback.md
+/docs/version-kickoff-template.md
 /*.exe
 /*.msi
 /Focused Moment Backups/

@@ -15,23 +15,23 @@ Focused Moment 适合不想用复杂项目管理系统、但又想把事情做�
 
 <table>
   <tr>
-    <td width="50%"><img src="./public/theme-previews/01-night-valley.png" alt="夜谷主题：今日驾驶舱" /></td>
-    <td width="50%"><img src="./public/theme-previews/02-editorial-paper.png" alt="编辑纸页主题：今日节奏" /></td>
+    <td width="50%"><img src="./app/public/theme-previews/01-night-valley.png" alt="夜谷主题：今日驾驶舱" /></td>
+    <td width="50%"><img src="./app/public/theme-previews/02-editorial-paper.png" alt="编辑纸页主题：今日节奏" /></td>
   </tr>
   <tr>
     <td align="center">夜谷 · Night Valley</td>
     <td align="center">编辑纸页 · Editorial Paper</td>
   </tr>
   <tr>
-    <td width="50%"><img src="./public/theme-previews/03-graphite-console.png" alt="石墨控制台主题：今日节奏" /></td>
-    <td width="50%"><img src="./public/theme-previews/04-aurora-ocean.png" alt="极光海面主题：今日轨迹" /></td>
+    <td width="50%"><img src="./app/public/theme-previews/03-graphite-console.png" alt="石墨控制台主题：今日节奏" /></td>
+    <td width="50%"><img src="./app/public/theme-previews/04-aurora-ocean.png" alt="极光海面主题：今日轨迹" /></td>
   </tr>
   <tr>
     <td align="center">石墨控制台 · Graphite Console</td>
     <td align="center">极光海面 · Aurora Ocean</td>
   </tr>
   <tr>
-    <td width="50%"><img src="./public/theme-previews/05-botanical-library.png" alt="植物书房主题：今日生长" /></td>
+    <td width="50%"><img src="./app/public/theme-previews/05-botanical-library.png" alt="植物书房主题：今日生长" /></td>
     <td></td>
   </tr>
   <tr>
@@ -115,6 +115,7 @@ Focused Moment 当前没有账号体系和云同步，核心数据只保存在�
 ### 安装与开发
 
 ```bash
+cd app
 pnpm install --frozen-lockfile
 pnpm tauri dev
 ```
@@ -122,12 +123,14 @@ pnpm tauri dev
 如果只需要在浏览器中预览前端界面，可以运行：
 
 ```bash
+cd app
 pnpm dev
 ```
 
 ### 检查与测试
 
 ```bash
+cd app
 pnpm check
 pnpm verify
 pnpm build
@@ -143,26 +146,29 @@ cargo test --locked --manifest-path src-tauri/Cargo.toml
 交付根目录便携入口时使用：
 
 ```bash
+cd app
 pnpm package:local
 ```
 
-该命令只执行真实 `tauri build --no-bundle`，验收精确的 `src-tauri/target/release/focused-moment.exe`，再安全更新根目录 `Focused Moment.exe`，并将输入指纹、源码 HEAD、候选与最终 SHA-256 和恢复信息写入 `.release/local/<build-id>/`。`pnpm package:release`、`pnpm release:github` 和 `pnpm release:ship` 是需要单独授权的发布/安装包流程，本轮不调用。
+该命令只执行真实 `tauri build --no-bundle`，验收精确的 `app/src-tauri/target/release/focused-moment.exe`，再安全更新根目录 `Focused Moment.exe`，并将输入指纹、源码 HEAD、候选与最终 SHA-256 和恢复信息写入 `artifacts/builds/local/<build-id>/`，旧入口恢复副本写入 `archive/executables/local/<build-id>/`。`pnpm package:release`、`pnpm release:github` 和 `pnpm release:ship` 是需要单独授权的发布/安装包流程，本轮不调用。
 
 ### 构建 Windows 安装包
 
 在 Windows 上运行：
 
 ```bash
+cd app
 pnpm package:release
 ```
 
-Tauri 构建结果位于 `src-tauri/target/release/bundle/`，版本化的 portable、Setup 和 MSI 文件会由导出脚本写入项目根目录。
+Tauri 构建结果位于 `app/src-tauri/target/release/bundle/`，版本化的 portable、Setup 和 MSI 文件会由导出脚本写入 `artifacts/builds/exports/release/`，不会散落到工作区根目录。
 
 ### 构建 macOS Universal 包
 
 在 macOS 上运行：
 
 ```bash
+cd app
 pnpm install --frozen-lockfile
 rustup target add aarch64-apple-darwin x86_64-apple-darwin
 pnpm tauri build --target universal-apple-darwin
@@ -173,29 +179,23 @@ macOS 发布工作流目前保持手动冻结，不代表共享源码中的 macO
 ## 项目结构
 
 ```text
-src/                         SolidJS 应用壳层与主题页面
-src/components/              五套主题、计时、待办、记录和设置视图
-src/features/shell/          MainShell 控制器与应用生命周期协调
-src/features/todos/          待办分组、派生计算和跨主题待办列表
-src/features/records/        记录派生计算
-src/features/shared/         跨页面日期和时间派生工具
-src/lib/                     类型契约、待办/计时/窗口调用封装
-src/styles/                  保持原级联顺序的分段 CSS 入口
-public/theme-previews/       五套主题预览图
-src-tauri/src/domain.rs      计时偏好、提醒和中性领域契约
-src-tauri/src/timer_engine.rs Rust 计时核心、运行态和锁定持久化协调
-src-tauri/src/commands.rs    Tauri 数据、备份和计时命令
-src-tauri/src/desktop.rs     托盘、主窗口和悬浮窗口行为
-src-tauri/src/storage.rs     本地状态、运行态和备份文件存储
-src-tauri/src/runtime.rs     Tauri crate path、builder、setup、注册和生命周期
-tests/                       Playwright 前端流程测试
-scripts/                     构建、交付、契约、结构、性能与发布脚本
-docs/architecture.md        长期架构和目录职责
-docs/maintenance/            本轮结构重构的有结束状态记录
-docs/qa/                     忽略的 QA 生成物，不作为正式开发文档
+Focused Moment.exe           根目录唯一固定的直接测试入口
+app/                         完整应用工程、依赖、缓存、测试和工具
+app/src/                     SolidJS 应用壳层与主题页面
+app/src/features/            Shell 控制器、待办/记录/共享派生逻辑
+app/src/lib/                 类型契约、待办/计时/窗口调用封装
+app/src/styles/              保持原级联顺序的分段 CSS 入口
+app/public/theme-previews/   五套主题预览图
+app/src-tauri/src/           Rust 计时、命令、桌面、存储与运行入口
+app/tests/                   Playwright 前端流程测试
+app/scripts/                 构建、交付、契约、结构、性能与发布脚本
+docs/                        正式产品、开发、架构、计划和提示词
+artifacts/                   当前构建、测试证据、日志和 provenance
+archive/                     已核实旧程序、旧报告和恢复副本
+local/                       明确属于本机的私有工作资料
 ```
 
-更完整的职责边界、数据路径和验证分类见 [`docs/architecture.md`](./docs/architecture.md)；本轮迁移、提交、证据和保护结果见 [`docs/maintenance/structure-refactor.md`](./docs/maintenance/structure-refactor.md)。
+更完整的职责边界、数据路径和验证分类见 [`docs/architecture.md`](./docs/architecture.md)；源码重构记录见 [`docs/maintenance/structure-refactor.md`](./docs/maintenance/structure-refactor.md)，本轮外层迁移、提交、证据和保护结果见 [`docs/maintenance/workspace-migration.md`](./docs/maintenance/workspace-migration.md)。
 
 ## 反馈与贡献
 
@@ -210,4 +210,4 @@ docs/qa/                     忽略的 QA 生成物，不作为正式开发文�
 
 ## 许可
 
-本项目使用 [MIT License](./LICENSE)。每日一句语料条目的来源与许可信息见 [`src/data/copy-library.json`](./src/data/copy-library.json) 和 [`docs/content/copy-library-sources.md`](./docs/content/copy-library-sources.md)。
+本项目使用 [MIT License](./LICENSE)。每日一句语料条目的来源与许可信息见 [`app/src/data/copy-library.json`](./app/src/data/copy-library.json) 和 [`docs/content/copy-library-sources.md`](./docs/content/copy-library-sources.md)。

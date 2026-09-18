@@ -13,6 +13,9 @@ jobs:
   verify:
     name: Frontend and Rust checks
     runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: app
 
     steps:
       - name: Checkout
@@ -28,6 +31,7 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
 
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
@@ -66,8 +70,7 @@ jobs:
         with:
           name: playwright-evidence-${{ github.run_id }}
           path: |
-            test-results/
-            output/playwright/
-            output/qa/
+            artifacts/qa/frontend/
+            artifacts/qa/native/
           if-no-files-found: ignore
           retention-days: 14

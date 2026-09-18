@@ -1,0 +1,113 @@
+param(
+  [ValidateSet("debug", "release")]
+  [string]$Profile = "debug"
+)
+
+$ErrorActionPreference = "Stop"
+
+$appRoot = Split-Path -Parent $PSScriptRoot
+$workspaceRoot = Split-Path -Parent $appRoot
+$targetDir = Join-Path $appRoot ("src-tauri\target\{0}" -f $Profile)
+$appExe = Join-Path $targetDir "focused-moment.exe"
+$setupDir = Join-Path $targetDir "bundle\nsis"
+$msiDir = Join-Path $targetDir "bundle\msi"
+$packageJson = Join-Path $appRoot "package.json"
+$releaseDir = Join-Path $workspaceRoot "artifacts\builds\exports\$Profile"
+
+if (-not (Test-Path -LiteralPath $appExe)) {
+  throw "Application exe not found: $appExe. Run the matching Tauri build first."
+}
+
+$package = Get-Content -Raw $packageJson | ConvertFrom-Json
+$version = $package.version
+$tag = "v{0}" -f $version
+$timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+
+$exportRoot = Join-Path $releaseDir "assets"
+$versionedExe = Join-Path $exportRoot ("Focused Moment v{0}.exe" -f $version)
+$timestampedExe = Join-Path $exportRoot ("Focused Moment v{0}-{1}.exe" -f $version, $timestamp)
+$versionedSetup = Join-Path $exportRoot ("Focused Moment Setup v{0}.exe" -f $version)
+$timestampedSetup = Join-Path $exportRoot ("Focused Moment Setup v{0}-{1}.exe" -f $version, $timestamp)
+
+$cleanupPatterns = @(
+  "Focused Moment v*.exe",
+  "Focused Moment Setup v*.exe"
+)
+
+foreach ($pattern in $cleanupPatterns) {
+  Get-ChildItem -LiteralPath $exportRoot -Filter $pattern -File -ErrorAction SilentlyContinue |
+    Where-Object {
+      $_.FullName -ne $versionedExe -and
+      $_.FullName -ne $versionedSetup
+    } |
+    ForEach-Object {
+      $artifact = $_
+      try {
+        Remove-Item -LiteralPath $artifact.FullName -Force
+      } catch {
+        Write-Warning "Unable to remove old artifact $($artifact.FullName). It may be open."
+      }
+    }
+}
+
+New-Item -ItemType Directory -Path $exportRoot -Force | Out-Null
+
+$appAssetPath = $versionedExe
+try {
+  Copy-Item -LiteralPath $appExe -Destination $versionedExe -Force
+} catch {
+  Copy-Item -LiteralPath $appExe -Destination $timestampedExe -Force
+  $appAssetPath = $timestampedExe
+  Write-Warning "Unable to overwrite $versionedExe. It may be open. Exported $timestampedExe instead."
+}
+
+$latestSetup = Get-ChildItem -LiteralPath $setupDir -Filter "*.exe" -File -ErrorAction SilentlyContinue |
+  Sort-Object LastWriteTime -Descending |
+  Select-Object -First 1
+
+$setupAssetPath = $null
+if ($null -ne $latestSetup) {
+  $setupAssetPath = $versionedSetup
+  try {
+    Copy-Item -LiteralPath $latestSetup.FullName -Destination $versionedSetup -Force
+  } catch {
+    Copy-Item -LiteralPath $latestSetup.FullName -Destination $timestampedSetup -Force
+    $setupAssetPath = $timestampedSetup
+    Write-Warning "Unable to overwrite $versionedSetup. It may be open. Exported $timestampedSetup instead."
+  }
+
+}
+
+$latestMsi = Get-ChildItem -LiteralPath $msiDir -Filter "*.msi" -File -ErrorAction SilentlyContinue |
+  Sort-Object LastWriteTime -Descending |
+  Select-Object -First 1
+
+$msiAssetPath = $null
+if ($null -ne $latestMsi) {
+  $msiAssetPath = $latestMsi.FullName
+}
+
+$assetManifest = [ordered]@{
+  version = $version
+  tag = $tag
+  profile = $Profile
+  exportedAt = (Get-Date).ToString("o")
+  appAssetPath = $appAssetPath
+  setupAssetPath = $setupAssetPath
+  msiAssetPath = $msiAssetPath
+  rootAppPath = $null
+  rootSetupPath = $null
+}
+
+$manifestPath = Join-Path $releaseDir ("artifacts.{0}.json" -f $Profile)
+$assetManifest | ConvertTo-Json | Set-Content -LiteralPath $manifestPath -Encoding utf8
+
+Write-Host ("Exported artifacts for profile: {0}" -f $Profile)
+Write-Host " - $appAssetPath"
+if ($null -ne $latestSetup) {
+  Write-Host " - $setupAssetPath"
+}
+if ($null -ne $msiAssetPath) {
+  Write-Host " - $msiAssetPath"
+}
+Write-Host " - $manifestPath"

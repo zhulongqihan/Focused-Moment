@@ -12,6 +12,9 @@ jobs:
     name: Native storage and bundle smoke
     runs-on: macos-latest
     timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: app
 
     steps:
       - name: Checkout
@@ -27,6 +30,7 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
 
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile

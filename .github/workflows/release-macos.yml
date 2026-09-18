@@ -16,6 +16,9 @@ jobs:
   build-macos:
     name: Build universal macOS app
     runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: app
 
     steps:
       - name: Checkout release tag
@@ -33,6 +36,7 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
 
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
