@@ -1,6 +1,6 @@
 # Workspace/app 分离迁移记录
 
-状态：迁移主体完成；提交后执行最终根 EXE 重建和 Windows 原生交付验证。
+状态：完成（结构迁移、提交推送、根 EXE 重建、原生验证和复验均已通过）。
 
 ## 约束
 
@@ -36,10 +36,17 @@
 - 应用路径变化会改变构建输入，因此最终根 EXE 必须由 `app` 的真实 Release 构建重新生成，并以新的 provenance 和 SHA-256 验收；旧根入口由交付脚本写入归档恢复副本。
 - 运行测试只使用 Playwright mock、临时 fixture 和隔离 Windows native 目录，不访问 `%LOCALAPPDATA%\FocusedMoment` 真实数据，也不读取备份内容。
 
-## 验收结论（待最终验证填充）
+## 最终验收结论
 
 - 外层已经完成物理分区：应用工程仅在 `app/`；正式文档在 `docs/`；当前构建/验证证据预留在 `artifacts/`；历史材料在 `archive/`；明确本地资料在 `local/`。
 - `app` 已通过 `pnpm verify`、`pnpm build`、锁文件冻结安装后的依赖解析、以及 35 项 Rust 单元测试；全量 Playwright 为 143/146，3 项仅发生并发导航超时，按原断言单 worker 隔离重跑为 3/3 通过。
-- `pnpm test:local-delivery` 的 7 个本地交付契约用例通过；根目录 EXE 和 Windows 原生冒烟将在提交后的干净应用源码快照上重建并验证。
-- 重建/测试后的外层稳定性仍需最后一次检查，根层不得出现 `package.json`、锁文件、源码、依赖、测试目录或旧安装包；生成物只能进入 `artifacts/`，旧入口只能进入 `archive/`。
-- 保护项：`PROJECT_PLAN.md` 哈希必须仍为 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`；备份、真实数据、未知私人资料保持原位。
+- `pnpm test:local-delivery` 的 7 个本地交付契约用例通过；根目录 EXE 和 Windows 原生冒烟已在提交后的干净应用源码快照上重建并验证。
+- 根目录 EXE 已从提交 `6e930c04eaa4f6a91094889d3f594b66db423e4c` 的 `app/` 工程重建：build ID 为 `local-20260918-103807-46a19d6d2a`，候选文件为 `app/src-tauri/target/release/focused-moment.exe`，根入口为 `Focused Moment.exe`，两者 SHA-256 均为 `CD502B2CEFCCBD9745FCFF59D8F4CF0BF4ABC96A1BF8F661FDA09B2954EDA1F0`。完整 provenance 在 `artifacts/builds/local/local-20260918-103807-46a19d6d2a/manifest.json`。
+- 重建前的根入口已恢复性归档至 `archive/executables/local/local-20260918-103807-46a19d6d2a/Focused Moment.exe`，原 SHA-256 为 `FD757D77D44187C8F47219E25DC8AFEA821940313E19BC19BF95CC0ECFE338D1`；没有覆盖式丢弃旧入口。
+- `pnpm verify` 在重建后再次通过：TypeScript、CSS canonical hash、workspace/docs/artifacts 结构、Playwright 输出护栏、负向结构用例、44 个 Rust command/43 个前端调用/3 个事件契约、7 个本地交付契约、Rust fmt/check 与 35 个 Rust 单元测试均通过。仅保留既有 `runtime.rs` 未使用 import warning。
+- Windows 原生冒烟 `windows-native-20260918-104224-f16eae0af4` 通过，报告位于 `artifacts/qa/native/windows-native-20260918-104224-f16eae0af4/report.md`；源 EXE 与隔离 QA 副本哈希一致，测试使用临时 `LOCALAPPDATA`/WebView2/工作目录。
+- Playwright 全量运行 `workspace-migration-frontend-inv-mu6bx9ta-20340-ea34f6ce-c1e4-4182-b93b-b432f94d732a` 为 143/146；3 项是并发导航/交互超时而非断言失败。原断言在单 worker 运行 `workspace-migration-single-worker-inv-mu6cf55g-34516-810d53ee-fbc7-48db-84a2-beb3440ae7b0` 中 3/3 通过；没有修改断言、增加重试或减少回归覆盖。
+- 重建和测试后再次检查实际文件系统（含 ignored 内容）：根层没有 `package.json`、锁文件、源码、依赖、测试目录、`output/`、`.release/` 或旧安装包；应用生成物在 `app/dist`/`app/src-tauri/target`，证据和 provenance 在 `artifacts/`，旧材料在 `archive/`。
+- 保护项：`PROJECT_PLAN.md` 哈希仍为 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`；备份、真实数据、未知私人资料保持原位。
+
+当前 Git 工作树只保留这一项受保护的既有修改：`PROJECT_PLAN.md`；`HEAD` 与 `origin/main` 均为 `6e930c0`。归档内仍可见迁移前 fixture 自带的 4 个历史 Junction，它们没有被新建、没有被当前工程引用，原始目标事实记录在 `archive/MIGRATION_MANIFEST.json`。
