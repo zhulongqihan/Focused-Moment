@@ -14,7 +14,6 @@ import {
   X,
 } from "lucide-solid";
 import type { AlertSoundKey, AnalyticsSnapshot, FocusRecord, TodoImportance, TodoItem, TimerSnapshot } from "../lib/contracts";
-import { themes } from "../lib/themes";
 import type {
   FocusSurfaceProps,
   RecordsSurfaceProps,
@@ -25,6 +24,7 @@ import type {
 import DailyFocusLine from "./DailyFocusLine";
 import { TodoDateGroupList } from "../features/todos/TodoDateGroupList";
 import { groupTodosByDate } from "../features/todos/todo-groups";
+import ThemePicker from "./ThemePicker";
 import "./GraphiteConsoleViews.css";
 
 function gcDate(value: string) {
@@ -91,19 +91,17 @@ function GcStatusStrip(props: { analytics: () => AnalyticsSnapshot | null; timer
   const timer = () => props.timer();
   return (
     <footer class="gc-status-strip" aria-label="系统状态">
-      <div class="gc-status-strip__label"><span class="gc-led gc-led--lime" /> SYSTEM STATUS <strong>OPERATIONAL</strong></div>
-      <div><span>FOCUS TIME</span><strong>{gcAnalytics(props.analytics(), "todayFocusDurationLabel", "00:00:00")}</strong><i class="gc-meter"><b style={{ width: timer().isRunning ? "78%" : "18%" }} /></i></div>
-      <div><span>SESSIONS</span><strong>{gcAnalytics(props.analytics(), "todaySessionCount", "0")}</strong><i class="gc-meter"><b style={{ width: `${Math.min(100, (props.analytics()?.todaySessionCount ?? 0) * 18)}%` }} /></i></div>
-      <div><span>ENGINE</span><strong>{timer().isRunning ? "RUN" : gcTimerLabel(timer(), timer().elapsedMs > 0)}</strong><i class="gc-meter"><b style={{ width: timer().isRunning ? "78%" : timer().elapsedMs > 0 ? "42%" : "8%" }} /></i></div>
-      <div><span>STORE</span><strong>LOCAL</strong><span class="gc-led gc-led--lime" /></div>
+      <div class="gc-status-strip__label"><span class="gc-led gc-led--lime" /> 本地状态 <strong>已连接</strong></div>
+      <div><span>今日专注</span><strong>{gcAnalytics(props.analytics(), "todayFocusDurationLabel", "00:00:00")}</strong></div>
+      <div><span>今日记录</span><strong>{gcAnalytics(props.analytics(), "todaySessionCount", "0")}</strong></div>
+      <div><span>计时状态</span><strong>{timer().isRunning ? "进行中" : gcTimerLabel(timer(), timer().elapsedMs > 0)}</strong></div>
+      <div><span>存储</span><strong>本地</strong><span class="gc-led gc-led--lime" /></div>
     </footer>
   );
 }
 
 export function GraphiteConsoleToday(props: TodaySurfaceProps) {
-  const streak = createMemo(() => props.analytics()?.currentStreakDays ?? 0);
   const sequence = createMemo(() => [...props.todayCompletedTodos(), ...props.todayTodos()].slice(0, 7));
-  const sequenceSlots = createMemo(() => Array.from({ length: 7 }, (_, index) => sequence()[index] ?? null));
   const activeIndex = createMemo(() => props.todayCompletedTodos().length);
   const nextTodo = createMemo(() => props.nextTodo());
 
@@ -112,7 +110,7 @@ export function GraphiteConsoleToday(props: TodaySurfaceProps) {
       <header class="gc-page-head gc-page-head--split">
         <div class="gc-head-identity"><span class="gc-date-code">DAY ID</span><strong>{props.todayDate}</strong><small>{props.todayLabel.match(/周[一二三四五六日天]/)?.[0] ?? "TODAY"}</small></div>
         <div class="gc-head-title"><span class="gc-date-code">CONTROL SURFACE / DAILY ROUTE</span><h1>TODAY <em>/ 节奏调度</em></h1><p>把注意力排成可执行的序列。</p></div>
-        <div class="gc-head-readout"><span>STREAK</span><strong>{String(streak()).padStart(2, "0")}</strong><small>DAYS <i class="gc-led gc-led--lime" /></small></div>
+        <div class="gc-head-status"><i class="gc-led gc-led--orange" /> QUEUE <strong>{props.todayTodos().length > 0 ? `${props.todayTodos().length} OPEN` : "EMPTY"}</strong></div>
       </header>
 
       <DailyFocusLine date={props.todayDate} theme="graphite-console" />
@@ -121,27 +119,20 @@ export function GraphiteConsoleToday(props: TodaySurfaceProps) {
           <div class="gc-time-ruler"><span>00</span><span>03</span><span>06</span><span>09</span><span>12</span><span>15</span><span>18</span><span>21</span><span>24</span></div>
           <div class="gc-sequence-grid">
             <Show when={props.ready()} fallback={<div class="gc-empty-console">正在同步今日序列…</div>}>
-              <For each={sequenceSlots()}>
-                {(item, index) => {
-                  const completed = item?.isCompleted ?? false;
-                  const active = Boolean(item) && index() === activeIndex();
-                  return (
-                    <Show when={item} fallback={<div class="gc-sequence-row gc-sequence-row--empty" aria-label={`序列槽位 ${index() + 1} 尚未排定`}>
+              <Show when={sequence().length > 0} fallback={<div class="gc-empty-console">今天还没有安排事项。可以先快速记一件事，或从待办加入今日精选。</div>}>
+                <For each={sequence()}>
+                  {(item, index) => {
+                    const completed = item.isCompleted;
+                    const active = index() === activeIndex();
+                    return <button type="button" classList={{ "gc-sequence-row": true, "is-done": completed, "is-active": active }} disabled={props.busy() || completed || props.timerHasProgress()} onClick={() => props.onStartTodo(item)}>
                       <span class="gc-sequence-row__index">{String(index() + 1).padStart(2, "0")}<small>SEQ-{String(index() + 1).padStart(2, "0")}</small></span>
                       <span class="gc-sequence-row__icon"><CircleDot size={18} strokeWidth={1.5} aria-hidden="true" /></span>
-                      <span class="gc-sequence-row__content"><time>--:--</time><strong>OPEN SLOT / 待排定</strong><small>从待办队列分配一项任务</small></span>
-                      <span class="gc-sequence-row__state">空闲<i class="gc-led" /></span>
-                    </div>}>
-                      {(resolvedItem) => <button type="button" classList={{ "gc-sequence-row": true, "is-done": completed, "is-active": active }} disabled={props.busy() || completed || props.timerHasProgress()} onClick={() => props.onUseTodo(resolvedItem())}>
-                        <span class="gc-sequence-row__index">{String(index() + 1).padStart(2, "0")}<small>SEQ-{String(index() + 1).padStart(2, "0")}</small></span>
-                        <span class="gc-sequence-row__icon"><CircleDot size={18} strokeWidth={1.5} aria-hidden="true" /></span>
-                        <span class="gc-sequence-row__content"><time>{resolvedItem().scheduledTime || "--:--"}</time><strong>{resolvedItem().title}</strong><small>{props.formatTodoDue(resolvedItem())}</small></span>
-                        <span class="gc-sequence-row__state">{completed ? "完成" : active ? "进行中" : "等待"}<i class="gc-led" /></span>
-                      </button>}
-                    </Show>
-                  );
-                }}
-              </For>
+                      <span class="gc-sequence-row__content"><time>{item.scheduledTime || "--:--"}</time><strong>{item.title}</strong><small>{props.formatTodoDue(item)}</small></span>
+                      <span class="gc-sequence-row__state">{completed ? "完成" : active ? "进行中" : "等待"}<i class="gc-led" /></span>
+                    </button>;
+                  }}
+                </For>
+              </Show>
             </Show>
           </div>
           <div class="gc-sequence-legend"><span><i class="gc-line gc-line--lime" /> 已完成</span><span><i class="gc-line gc-line--orange" /> 进行中</span><span><i class="gc-line" /> 待执行</span><small>TIME GRID · 24H / 1H STEP</small></div>
@@ -149,7 +140,7 @@ export function GraphiteConsoleToday(props: TodaySurfaceProps) {
 
         <GcPanel title="NEXT OPERATION" code="AUTO / 01" class="gc-operation-panel">
           <Show when={nextTodo()} fallback={<div class="gc-operation-empty"><span>QUEUE EMPTY</span><h2>等待下一件事</h2><p>把一个念头放进待办队列。</p><button type="button" class="gc-lime-button" onClick={props.onOpenTodos}><Plus size={17} aria-hidden="true" /> 添加待办</button></div>}>
-            {(item) => <div class="gc-operation-card"><span class="gc-card-kicker">NEXT FOCUS</span><h2>{item().title}</h2><div class="gc-operation-meta"><span>DURATION</span><strong>{props.defaultFocusMinutes()} <small>MIN</small></strong></div><div class="gc-operation-meta"><span>NOTE</span><p>{props.formatTodoDue(item())}</p></div><div class="gc-operation-status"><span><i class="gc-led gc-led--orange" /> STATUS</span><strong>QUEUED</strong></div><button type="button" class="gc-lime-button" disabled={props.busy() || props.timerHasProgress()} onClick={() => props.onUseTodo(item())}><Play size={17} fill="currentColor" aria-hidden="true" /> START / 开始专注 <ArrowRight size={16} aria-hidden="true" /></button></div>}
+            {(item) => <div class="gc-operation-card"><span class="gc-card-kicker">NEXT FOCUS</span><h2>{item().title}</h2><div class="gc-operation-meta"><span>DURATION</span><strong>{props.defaultFocusMinutes()} <small>MIN</small></strong></div><div class="gc-operation-meta"><span>NOTE</span><p>{props.formatTodoDue(item())}</p></div><div class="gc-operation-status"><span><i class="gc-led gc-led--orange" /> STATUS</span><strong>QUEUED</strong></div><button type="button" class="gc-lime-button" disabled={props.busy() || props.timerHasProgress()} onClick={() => props.onStartTodo(item())}><Play size={17} fill="currentColor" aria-hidden="true" /> START / 开始专注 <ArrowRight size={16} aria-hidden="true" /></button></div>}
           </Show>
           <div class="gc-operation-footer"><span>FOCUS MODULE</span><strong>STANDARD MODE</strong><i class="gc-signal-bars"><b /><b /><b /><b /><b /><b /><b /><b /><b /></i></div>
         </GcPanel>
@@ -170,7 +161,7 @@ export function GraphiteConsoleFocus(props: FocusSurfaceProps) {
   const displayTime = createMemo(() => props.timer().modeKey === "countdown" && props.countdownDraftDirty() ? `${String(Math.floor(props.countdownMinutes() / 60)).padStart(2, "0")}:${String(props.countdownMinutes() % 60).padStart(2, "0")}:00` : props.timer().elapsedLabel);
   const progress = createMemo(() => gcProgress(props.timer(), props.timerHasProgress()));
   const currentTitle = createMemo(() => props.sessionTitle().trim() || props.timer().activeTaskTitle || "未命名专注");
-  const recentRecords = createMemo(() => props.todos().slice(0, 3));
+  const recentRecords = createMemo(() => props.records().slice(0, 3));
   const stateLabel = createMemo(() => gcTimerLabel(props.timer(), props.timerHasProgress()));
 
   function updateLinkedTodo(value: string) {
@@ -187,7 +178,7 @@ export function GraphiteConsoleFocus(props: FocusSurfaceProps) {
       <div class="gc-focus-layout">
         <GcPanel title="RUN LOG" code="RECENT / 03" class="gc-run-log">
           <p>最近的专注记录</p>
-          <For each={recentRecords()}>{(item, index) => <div class="gc-run-item"><span>{String(index() + 1).padStart(2, "0")}</span><div><strong>{item.title}</strong><small>{item.scheduledTime || "--:--"}</small></div><i class="gc-ring-dot" /></div>}</For>
+          <For each={recentRecords()}>{(item, index) => <div class="gc-run-item"><span>{String(index() + 1).padStart(2, "0")}</span><div><strong>{item.title}</strong><small>{item.completedTime || "未填写时间"} · {item.durationLabel}</small></div><i class="gc-ring-dot" /></div>}</For>
           <Show when={recentRecords().length === 0}><div class="gc-empty-console">暂无最近记录</div></Show>
           <button type="button" class="gc-quiet-button" onClick={props.onOpenRecords}>查看更多记录 <ChevronRight size={14} aria-hidden="true" /></button>
         </GcPanel>
@@ -303,20 +294,18 @@ export function GraphiteConsoleRecords(props: RecordsSurfaceProps) {
 
   return (
     <section class="gc-page gc-records-page" aria-label="专注遥测">
-      <header class="gc-page-head gc-page-head--split"><div><span class="gc-date-code">SIGNAL SYS / FOCUS TELEMETRY</span><h1>RECORDS <em>/ 专注遥测</em></h1><p>把注意力的波形留在系统里。</p></div><div class="gc-records-actions"><span class="gc-head-status"><i class="gc-led gc-led--lime" /> DATA LINK OK</span></div></header>
+      <header class="gc-page-head gc-page-head--split"><div><span class="gc-date-code">SIGNAL SYS / FOCUS TELEMETRY</span><h1>RECORDS <em>/ 专注遥测</em></h1><p>把注意力的波形留在系统里。</p></div><div class="gc-records-actions"><span class="gc-head-status"><i class="gc-led gc-led--lime" /> DATA LINK OK</span><button type="button" class="gc-lime-button" disabled={props.busy()} onClick={() => void props.onCreateManualRecord?.()}>补录专注</button></div></header>
       <GcPanel title="FOCUS SIGNAL / 专注信号" code={`${props.formatAnalyticsDate(selectedDate())} · 7D`} class="gc-signal-panel"><div class="gc-signal-chart"><div class="gc-signal-y"><span>100</span><span>75</span><span>50</span><span>25</span><span>0</span></div><div class="gc-signal-days"><For each={props.archiveDays()}>{(day) => <button type="button" classList={{ "gc-signal-day": true, active: day.date === selectedDate() }} onClick={() => props.onSelectDate(day.date)}><span>{props.formatAnalyticsDate(day.date)}</span><strong>{day.totalDurationLabel}</strong><i><b style={{ height: `${Math.max(6, (day.totalDurationMs / maxDuration()) * 100)}%` }} /></i><small>{day.sessionCount} SEG</small></button>}</For></div></div><div class="gc-chart-foot"><span>0</span><strong>累计 {props.formatDurationMs(props.recentWeekDurationMs())}</strong><span>100</span></div></GcPanel>
-      <section class="gc-record-stat-grid"><div><span>累计专注</span><strong>{gcAnalytics(props.analytics(), "totalFocusDurationLabel", "00:00:00")}</strong><small>HH : MM : SS</small></div><div><span>完成段数</span><strong>{gcAnalytics(props.analytics(), "sessionCount", "0")}</strong><small>SEGMENTS</small></div><div><span>平均时长</span><strong>{props.analytics()?.sessionCount ? props.formatDurationMs(props.recentWeekDurationMs() / Math.max(1, props.analytics()?.sessionCount ?? 1)) : "00:00:00"}</strong><small>PER SEGMENT</small></div><div><span>连续天数</span><strong>{gcAnalytics(props.analytics(), "currentStreakDays", "0")}</strong><small>STREAK</small></div></section>
-      <div class="gc-records-grid"><GcPanel title="节奏日志 / EVENT LOG" code={`${selectedRecords().length} EVENTS`} class="gc-event-log"><div class="gc-event-log__heading"><span>时间</span><span>事件</span><span>强度</span><span>状态</span></div><Show when={visibleRecords().length > 0} fallback={<div class="gc-empty-console">当前日期没有专注事件</div>}><For each={visibleRecords().slice(0, 12)}>{(record) => <div class="gc-event-row"><i class="gc-led gc-led--lime" /><time>{gcTime(record)}</time><span>{record.title}</span><b><i /><i /><i /><i /><i /></b><strong>OK</strong></div>}</For><Show when={visibleCount() < selectedRecords().length}><button type="button" class="gc-inline-button" onClick={() => setVisibleCount((count) => Math.min(count + 200, selectedRecords().length))}>加载更多 · {visibleCount()} / {selectedRecords().length}</button></Show></Show></GcPanel><GcPanel title="专注分布 / SIGNAL ANALYZER" code="BAND / ALL" class="gc-analyzer-panel"><div class="gc-radar"><i /><i /><i /><span>FOCUS</span></div><div class="gc-band-list"><For each={bandStats()}>{(band) => <div><span>{band.label} <small>{band.range}</small></span><strong>{band.percent}%</strong></div>}</For></div><p>洞察 / INSIGHT<br /><strong>{props.records().length === 0 ? "完成一次专注后，这里会显示真实的时段分布。" : `${dominantBand().label}时段投入最多，可作为下一次深度工作的参考。`}</strong></p></GcPanel></div>
+      <section class="gc-record-stat-grid"><div><span>累计专注</span><strong>{gcAnalytics(props.analytics(), "totalFocusDurationLabel", "00:00:00")}</strong><small>HH : MM : SS</small></div><div><span>完成段数</span><strong>{gcAnalytics(props.analytics(), "sessionCount", "0")}</strong><small>SEGMENTS</small></div><div><span>平均时长</span><strong>{props.analytics()?.sessionCount ? props.formatDurationMs(props.recentWeekDurationMs() / Math.max(1, props.analytics()?.sessionCount ?? 1)) : "00:00:00"}</strong><small>PER SEGMENT</small></div><div><span>节奏成就</span><strong>{gcAnalytics(props.analytics(), "currentStreakDays", "0")}</strong><small>RETURN WHEN READY</small></div></section>
+      <div class="gc-records-grid"><GcPanel title="节奏日志 / EVENT LOG" code={`${selectedRecords().length} EVENTS`} class="gc-event-log"><div class="gc-event-log__heading"><span>时间</span><span>事件</span><span>强度</span><span>状态</span><span>动作</span></div><Show when={visibleRecords().length > 0} fallback={<div class="gc-empty-console">当前日期没有专注事件</div>}><For each={visibleRecords().slice(0, 12)}>{(record) => <div class="gc-event-row"><i class="gc-led gc-led--lime" /><time>{gcTime(record)}</time><span>{record.title}<small>{record.source === "manual" ? "手动补录" : "计时完成"}{record.editedAt ? " · 已修正" : ""}</small></span><b><i /><i /><i /><i /><i /></b><strong>OK</strong><div class="gc-event-row__actions"><button type="button" class="gc-inline-button" disabled={props.busy()} onClick={() => props.onBeginDetailedEdit ? props.onBeginDetailedEdit(record) : props.onBeginEdit(record)}>编辑</button><button type="button" class="gc-inline-button" disabled={props.busy()} onClick={() => void props.onRemove(record.id)}>删除</button></div></div>}</For><Show when={visibleCount() < selectedRecords().length}><button type="button" class="gc-inline-button" onClick={() => setVisibleCount((count) => Math.min(count + 200, selectedRecords().length))}>加载更多 · {visibleCount()} / {selectedRecords().length}</button></Show></Show></GcPanel><GcPanel title="专注分布 / SIGNAL ANALYZER" code="BAND / ALL" class="gc-analyzer-panel"><div class="gc-radar"><i /><i /><i /><span>FOCUS</span></div><div class="gc-band-list"><For each={bandStats()}>{(band) => <div><span>{band.label} <small>{band.range}</small></span><strong>{band.percent}%</strong></div>}</For></div><p>洞察 / INSIGHT<br /><strong>{props.records().length === 0 ? "完成一次专注后，这里会显示真实的时段分布。" : `${dominantBand().label}时段投入最多，可作为下一次深度工作的参考。`}</strong></p></GcPanel></div>
       <GcPanel title="更长的路" code="30-DAY TREND / ARCHIVE" class="gc-trend-panel"><div class="gc-trend-lines"><For each={props.archiveDays()}>{(day, index) => <button type="button" classList={{ active: day.date === selectedDate() }} style={{ left: `${index() * (100 / Math.max(1, props.archiveDays().length - 1))}%`, bottom: `${Math.max(8, (day.totalDurationMs / maxDuration()) * 80)}%` }} onClick={() => props.onSelectDate(day.date)}><i /><span>{props.formatAnalyticsDate(day.date)}</span></button>}</For></div><div class="gc-trend-footer"><span>最近 7 天</span><strong>{props.recentWeekActiveDays()} 天有投入</strong><button type="button" class="gc-quiet-button" onClick={() => props.onSelectDate(props.archiveDays()[props.archiveDays().length - 1]?.date ?? selectedDate())}>VIEW ALL <ChevronRight size={14} aria-hidden="true" /></button></div></GcPanel>
       <section class="gc-history-index"><header><span>FULL INDEX / ALL RECORDS</span><strong>{props.records().length} ROUNDS</strong></header><Show when={props.ready() && props.records().length > 0} fallback={<div class="gc-empty-console">完成一次计时后，记录会显示在这里。</div>}><For each={props.recordGroups()}>{(group) => <details open={expandedDate() === group.date}><summary onClick={(event) => { event.preventDefault(); setExpandedDate((date) => date === group.date ? null : group.date); }}><span>{props.formatRecordDay(group.date)}</span><strong>{group.records.length} 轮 · {props.formatDurationMs(group.totalDurationMs)}</strong></summary><Show when={expandedDate() === group.date}><div>{group.records.slice(0, 200).map((record) => <span>{record.title} · {record.durationLabel}</span>)}</div></Show></details>}</For></Show></section>
-      <GcStatusStrip analytics={props.analytics} timer={() => ({ ...({} as TimerSnapshot), isRunning: false } as TimerSnapshot)} />
     </section>
   );
 }
 
 export function GraphiteConsoleSettings(props: SettingsSurfaceProps) {
   let customAlertSoundInput: HTMLInputElement | undefined;
-  const activeTheme = createMemo(() => themes.find((theme) => theme.id === props.themeId()) ?? themes[0]);
   const toggle = (checked: boolean, key: "toastReminderEnabled" | "windowAttentionReminderEnabled" | "soundReminderEnabled") => void props.onSaveTimerPreferences({ [key]: checked });
   const saveRhythmMinutes = (key: "pomodoroFocusMinutes" | "pomodoroBreakMinutes" | "stopwatchReminderMinutes", value: string, min: number, max: number) => {
     const minutes = Math.min(max, Math.max(min, Number(value) || min));
@@ -341,14 +330,13 @@ export function GraphiteConsoleSettings(props: SettingsSurfaceProps) {
               <strong>选择一个工作环境</strong>
               <span>主题会立即应用到全部页面。</span>
             </div>
-            <div id="gc-appearance" class="gc-theme-matrix">
-              <For each={themes}>
-                {(theme) => <button type="button" classList={{ "gc-theme-card": true, selected: props.themeId() === theme.id, disabled: !theme.implemented }} disabled={!theme.implemented} aria-pressed={props.themeId() === theme.id} onClick={() => props.onThemeSelect(theme.id)}>
-                  <span class={"gc-theme-card__preview gc-theme-card__preview--" + theme.id}><i /><b /><em /></span>
-                  <strong>{theme.name}</strong>
-                  <small>{theme.implemented ? "可用" : "尚未实现"}</small>
-                </button>}
-              </For>
+            <div id="gc-appearance" class="gc-theme-matrix"><ThemePicker value={props.themeId()} onChange={props.onThemeSelect} className="gc-theme-picker" /></div>
+            <div class="gc-setting-slider-list">
+              <label><span>视觉强度 <b>{props.visualIntensity()}%</b></span><input type="range" min="0" max="100" value={props.visualIntensity()} aria-label="视觉强度" onInput={(event) => props.onVisualIntensityChange(Number(event.currentTarget.value))} /></label>
+              <label><span>动效强度 <b>{props.motionIntensity()}%</b></span><input type="range" min="0" max="100" value={props.motionIntensity()} aria-label="动效强度" onInput={(event) => props.onMotionIntensityChange(Number(event.currentTarget.value))} /></label>
+              <label><span>信息密度</span><span class="gc-density-buttons"><button type="button" classList={{ active: props.density() === "roomy" }} aria-pressed={props.density() === "roomy"} onClick={() => props.onDensityChange("roomy")}>舒展</button><button type="button" classList={{ active: props.density() === "compact" }} aria-pressed={props.density() === "compact"} onClick={() => props.onDensityChange("compact")}>紧凑</button></span></label>
+              <label class="gc-auto-mini-toggle"><span>开始专注时自动打开迷你工作台</span><input type="checkbox" checked={props.autoMiniOnStart()} onChange={(event) => props.onAutoMiniOnStartChange(event.currentTarget.checked)} /></label>
+              <Show when={props.appPreferenceSaveError()}><div class="gc-error" role="alert"><span>{props.appPreferenceSaveError()}</span><button type="button" class="gc-inline-button" disabled={props.appPreferenceSaveBusy()} onClick={props.onRetryAppPreferenceSave}>重试保存</button></div></Show>
             </div>
           </GcPanel>
 
@@ -391,7 +379,6 @@ export function GraphiteConsoleSettings(props: SettingsSurfaceProps) {
                   <option value="wooden_tick">木鱼单击</option>
                   <option value="glass_ping">玻璃回响</option>
                   <option value="morning_chord">晨光和弦</option>
-                  <option value="viral_quote">老牧师原声</option>
                   <option value="custom" disabled={!props.customAlertSoundName()}>自定义音效</option>
                 </select>
               </label>
@@ -421,10 +408,6 @@ export function GraphiteConsoleSettings(props: SettingsSurfaceProps) {
         </div>
       </div>
 
-      <footer class="gc-settings-footer">
-        <div><span>LOCAL SETTINGS / AUTO-SAVED</span><strong>{activeTheme().name}</strong></div>
-        <small>主题、提醒和节奏参数会立即保存。</small>
-      </footer>
     </section>
   );
 }

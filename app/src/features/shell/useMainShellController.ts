@@ -2,11 +2,15 @@ import { createEffect, createMemo, createSignal, onCleanup, onMount } from "soli
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import { emit, listen } from "@tauri-apps/api/event";
 import type {
+  AppPreferences,
+  AppPreferencesView,
   AnalyticsSnapshot,
   AlertSoundKey,
   BackupListItem,
+  BackupPreview,
   FeedbackKind,
   FocusRecord,
+  FocusPlanState,
   TodoDraft,
   TodoImportance,
   TimerSnapshot,
@@ -17,9 +21,12 @@ import {
   acknowledgeTimerAlert,
   clearAppData,
   completeFocusSession,
+  createManualFocusRecord,
   deleteFocusRecord,
   exportAppBackup,
   getAnalyticsSnapshot,
+  getAppPreferences,
+  getFocusPlan,
   getFocusRecords,
   getTimerPreferences,
   getTimerSnapshot,
@@ -27,13 +34,18 @@ import {
   listAppBackups,
   openAppBackupFolder,
   pauseTimer,
+  previewAppBackupPath,
+  exportAppBackupToPath,
+  importAppBackupPath,
   resetTimer,
   restoreFocusRecord,
   setCountdownMinutes as configureCountdownMinutes,
   startTimer,
   switchTimerMode,
   updateTimerPreferences,
-  updateFocusRecordTitle,
+  updateFocusRecord,
+  updateAppPreferences,
+  updateFocusPlan,
   updateTimerContext,
 } from "../../lib/timer";
 import {
@@ -43,6 +55,7 @@ import {
   updateTodoItem,
   restoreTodoItem,
   toggleTodoItem,
+  updateTodoContinuationNote,
 } from "../../lib/tasks";
 import {
   flashMainWindowAttention,
@@ -56,6 +69,7 @@ import {
   isOverdue,
 } from "../shared/date-utils";
 import { createArchivePath, getRecentTrendDays, groupRecordsByDate, mergeArchiveDays, recordDateKey } from "../records/derived";
+import { buildFocusHistoryResults } from "../records/focus-history";
 import { sortTodos } from "../todos/derived";
 import type { PaletteCommand } from "../../components/CommandPalette";
 import { getTheme, implementedThemeId, type ThemeId } from "../../lib/themes";
@@ -70,13 +84,23 @@ type UndoAction =
   | { kind: "record"; item: FocusRecord };
 
 type TodoEditDraft = TodoDraft & { id: number };
-type RecordEditDraft = { id: number; title: string };
+type RecordEditDraft = {
+  id: number;
+  title: string;
+  durationMinutes: number;
+  completedDate: string;
+  completedTime: string;
+  linkedTodoId: number | null;
+};
+type ContinuationPrompt = { todoId: number; title: string };
 type AppStateSyncPayload = {
   timer: TimerSnapshot;
   todos: TodoItem[];
   records: FocusRecord[];
   analytics: AnalyticsSnapshot;
   timerPreferences: TimerPreferences;
+  appPreferencesView: AppPreferencesView;
+  focusPlan: FocusPlanState;
 };
 
 function getWindowLabel() {
@@ -134,7 +158,6 @@ const defaultTimerPreferences: TimerPreferences = {
 
 const customAlertSoundDataKey = "focused-moment.custom-alert-sound.data";
 const customAlertSoundNameKey = "focused-moment.custom-alert-sound.name";
-const viralQuoteAudioUrl = new URL("../../assets/viral-quote-sample.mp3", import.meta.url).href;
 const floatingOpacityKey = "focused-moment.floating-window.opacity";
 export const defaultFloatingOpacity = 100;
 export const minFloatingOpacity = 45;
@@ -234,34 +257,15 @@ function claimAlertSequence(sequence: number) {
   return stored || readLocalStorageValue(key) !== "claimed";
 }
 
-function playAlertSound(soundKey: AlertSoundKey) {
+function playAlertSound(soundKey: AlertSoundKey, customSoundData: string | null = null) {
   if (soundKey === "custom") {
-    const dataUrl = readLocalStorageValue(customAlertSoundDataKey);
+    const dataUrl = customSoundData || readLocalStorageValue(customAlertSoundDataKey);
     if (dataUrl) {
       const audio = new Audio(dataUrl);
       audio.volume = 0.85;
       void audio.play().catch(() => undefined);
       return;
     }
-  }
-
-  if (soundKey === "viral_quote") {
-    const audio = new Audio(viralQuoteAudioUrl);
-    audio.volume = 1;
-    audio.currentTime = 0;
-    void audio.play().catch(() => {
-      if (typeof SpeechSynthesisUtterance === "undefined" || !("speechSynthesis" in window)) {
-        return;
-      }
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance("你的胆子真是肥嘟嘟的");
-      utterance.lang = "zh-CN";
-      utterance.rate = 0.88;
-      utterance.pitch = 1.08;
-      utterance.volume = 1;
-      window.speechSynthesis.speak(utterance);
-    });
-    return;
   }
 
   const AudioContextConstructor = window.AudioContext
@@ -313,17 +317,32 @@ export function useMainShellController() {
   const [countdownDraftDirty, setCountdownDraftDirty] = createSignal(false);
   const [timerPreferences, setTimerPreferences] = createSignal<TimerPreferences>(defaultTimerPreferences);
   const [customAlertSoundName, setCustomAlertSoundName] = createSignal("");
+  const [customAlertSoundData, setCustomAlertSoundData] = createSignal<string | null>(null);
+  const [autoMiniOnStart, setAutoMiniOnStart] = createSignal(false);
+  const [appPreferenceSaveError, setAppPreferenceSaveError] = createSignal("");
+  const [appPreferenceSaveBusy, setAppPreferenceSaveBusy] = createSignal(false);
+  const [failedAppPreferenceSnapshot, setFailedAppPreferenceSnapshot] = createSignal<AppPreferences | null>(null);
+  const [focusPlan, setFocusPlan] = createSignal<FocusPlanState>({ currentTodoId: null, todayPickIds: [] });
+  const [continuationPrompt, setContinuationPrompt] = createSignal<ContinuationPrompt | null>(null);
+  const [continuationSaveError, setContinuationSaveError] = createSignal("");
+  const [quickCaptureOpen, setQuickCaptureOpen] = createSignal(false);
+  const [quickCaptureTitle, setQuickCaptureTitle] = createSignal("");
+  const [manualRecordOpen, setManualRecordOpen] = createSignal(false);
   const [todoTitle, setTodoTitle] = createSignal("");
   const [todoDueDate, setTodoDueDate] = createSignal(getToday());
   const [todoDueTime, setTodoDueTime] = createSignal("");
   const [todoImportance, setTodoImportance] = createSignal<TodoImportance>("medium");
   const [editingTodo, setEditingTodo] = createSignal<TodoEditDraft | null>(null);
   const [editingRecord, setEditingRecord] = createSignal<RecordEditDraft | null>(null);
+  const [recordEditDialogOpen, setRecordEditDialogOpen] = createSignal(false);
   const [backups, setBackups] = createSignal<BackupListItem[]>([]);
   const [backupLoadState, setBackupLoadState] = createSignal<LoadState>("loading");
   const [backupLoadError, setBackupLoadError] = createSignal("");
   const [selectedBackupFile, setSelectedBackupFile] = createSignal("");
   const [lastBackupPath, setLastBackupPath] = createSignal("");
+  const [portableBackupPath, setPortableBackupPath] = createSignal("");
+  const [portableBackupPreview, setPortableBackupPreview] = createSignal<BackupPreview | null>(null);
+  const [restorePortableAppPreferences, setRestorePortableAppPreferences] = createSignal(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = createSignal(false);
   const [commandSearch, setCommandSearch] = createSignal("");
   const [busy, setBusy] = createSignal(false);
@@ -338,12 +357,17 @@ export function useMainShellController() {
   const [floatingOpacity, setFloatingOpacity] = createSignal(readFloatingOpacity());
   const [floatingOpacityPanelOpen, setFloatingOpacityPanelOpen] = createSignal(false);
   const [selectedArchiveDate, setSelectedArchiveDate] = createSignal(getToday());
+  const [recordTaskFilterId, setRecordTaskFilterId] = createSignal<number | null>(null);
   const [themeId, setThemeId] = createSignal<ThemeId>(readThemeId());
   const [visualIntensity, setVisualIntensity] = createSignal(readPercentage(visualIntensityKey, 72));
   const [motionIntensity, setMotionIntensity] = createSignal(readPercentage(motionIntensityKey, 44));
   const [density, setDensity] = createSignal<"roomy" | "compact">(readDensity());
   let undoTimer: number | undefined;
   let messageTimer: number | undefined;
+  let appPreferenceSaveVersion = 0;
+  let appPreferenceSaveTimer: number | undefined;
+  let pendingAppPreferenceSnapshot: AppPreferences | null = null;
+  let legacyPreferencesMigrationAttempted = false;
   let commandInput: HTMLInputElement | undefined;
   let commandTrigger: HTMLButtonElement | undefined;
   let refreshVersion = 0;
@@ -355,6 +379,175 @@ export function useMainShellController() {
 
   const ready = () => loadState() === "ready";
 
+  function currentAppPreferences(): AppPreferences {
+    return {
+      schemaVersion: 3,
+      themeId: themeId(),
+      visualIntensity: visualIntensity(),
+      motionIntensity: motionIntensity(),
+      density: density(),
+      floatingOpacity: floatingOpacity(),
+      autoMiniOnStart: autoMiniOnStart(),
+      customAlertSoundName: customAlertSoundName(),
+      customAlertSoundData: customAlertSoundData(),
+    };
+  }
+
+  function currentAppPreferencesView(): AppPreferencesView {
+    const preferences = currentAppPreferences();
+    return {
+      schemaVersion: preferences.schemaVersion,
+      themeId: preferences.themeId,
+      visualIntensity: preferences.visualIntensity,
+      motionIntensity: preferences.motionIntensity,
+      density: preferences.density,
+      floatingOpacity: preferences.floatingOpacity,
+      autoMiniOnStart: preferences.autoMiniOnStart,
+      customAlertSoundName: preferences.customAlertSoundName,
+      hasCustomAlertSound: Boolean(preferences.customAlertSoundData),
+    };
+  }
+
+  async function emitAppStateSync() {
+    const currentAnalytics = analytics();
+    if (!currentAnalytics) return;
+    try {
+      await emit(appStateSyncEvent, {
+        timer: timer(),
+        todos: todos(),
+        records: records(),
+        analytics: currentAnalytics,
+        timerPreferences: timerPreferences(),
+        appPreferencesView: currentAppPreferencesView(),
+        focusPlan: focusPlan(),
+      } satisfies AppStateSyncPayload);
+    } catch {
+      // State sync is an enhancement for sibling windows. The initiating
+      // window already holds the committed state, so a failed broadcast must
+      // never turn a successful business operation into a false error.
+    }
+  }
+
+  function applyAppPreferences(next: AppPreferences) {
+    setThemeId(next.themeId);
+    setVisualIntensity(next.visualIntensity);
+    setMotionIntensity(next.motionIntensity);
+    setDensity(next.density);
+    setFloatingOpacity(next.floatingOpacity);
+    setAutoMiniOnStart(next.autoMiniOnStart);
+    setCustomAlertSoundName(next.customAlertSoundName);
+    setCustomAlertSoundData(next.customAlertSoundData);
+  }
+
+  function persistAppPreferences(snapshot: AppPreferences, version: number) {
+    setAppPreferenceSaveBusy(true);
+    void updateAppPreferences(snapshot)
+      .then((saved) => {
+        if (version !== appPreferenceSaveVersion) return;
+        applyAppPreferences(saved);
+        setAppPreferenceSaveError("");
+        setFailedAppPreferenceSnapshot(null);
+        void emitAppStateSync();
+      })
+      .catch((error) => {
+        if (version !== appPreferenceSaveVersion) return;
+        setFailedAppPreferenceSnapshot(snapshot);
+        setAppPreferenceSaveError(`外观设置保存失败：${getErrorMessage(error)}`);
+      })
+      .finally(() => {
+        if (version === appPreferenceSaveVersion) {
+          setAppPreferenceSaveBusy(false);
+        }
+      });
+  }
+
+  function scheduleAppPreferencesSave(patch: Partial<AppPreferences>) {
+    const next = { ...currentAppPreferences(), ...patch, schemaVersion: 3 };
+    applyAppPreferences(next);
+    pendingAppPreferenceSnapshot = next;
+    setAppPreferenceSaveError("");
+    setFailedAppPreferenceSnapshot(null);
+    appPreferenceSaveVersion += 1;
+    const version = appPreferenceSaveVersion;
+    if (appPreferenceSaveTimer !== undefined) {
+      window.clearTimeout(appPreferenceSaveTimer);
+    }
+    appPreferenceSaveTimer = window.setTimeout(() => {
+      appPreferenceSaveTimer = undefined;
+      pendingAppPreferenceSnapshot = null;
+      persistAppPreferences(next, version);
+    }, 200);
+  }
+
+  function flushAppPreferencesSave() {
+    if (appPreferenceSaveTimer === undefined || !pendingAppPreferenceSnapshot) {
+      return;
+    }
+    window.clearTimeout(appPreferenceSaveTimer);
+    appPreferenceSaveTimer = undefined;
+    const snapshot = pendingAppPreferenceSnapshot;
+    pendingAppPreferenceSnapshot = null;
+    appPreferenceSaveVersion += 1;
+    persistAppPreferences(snapshot, appPreferenceSaveVersion);
+  }
+
+  function retryAppPreferencesSave() {
+    const snapshot = failedAppPreferenceSnapshot();
+    if (snapshot) {
+      scheduleAppPreferencesSave(snapshot);
+    }
+  }
+
+  async function migrateLegacyAppPreferences(next: AppPreferences) {
+    if (legacyPreferencesMigrationAttempted) {
+      return next;
+    }
+    legacyPreferencesMigrationAttempted = true;
+    const legacyValues = [
+      readStoredLocalStorageValue(themeStorageKey),
+      readStoredLocalStorageValue(visualIntensityKey),
+      readStoredLocalStorageValue(motionIntensityKey),
+      readStoredLocalStorageValue(densityKey),
+      readStoredLocalStorageValue(floatingOpacityKey),
+      readStoredLocalStorageValue(customAlertSoundDataKey),
+      readStoredLocalStorageValue(customAlertSoundNameKey),
+    ];
+    if (!legacyValues.some((value) => value !== null)) {
+      writeLocalStorageValue("focused-moment.preferences-v3-migrated", "1");
+      return next;
+    }
+
+    const legacyTheme = getTheme(readStoredLocalStorageValue(themeStorageKey));
+    const legacyVisual = readPercentage(visualIntensityKey, next.visualIntensity);
+    const legacyMotion = readPercentage(motionIntensityKey, next.motionIntensity);
+    const legacyDensity = readDensity();
+    const legacyOpacity = readFloatingOpacity();
+    const legacySoundData = readStoredLocalStorageValue(customAlertSoundDataKey);
+    const legacySoundName = readLocalStorageValue(customAlertSoundNameKey);
+    const migrated = {
+      ...next,
+      themeId: legacyTheme.implemented ? legacyTheme.id : next.themeId,
+      visualIntensity: legacyVisual,
+      motionIntensity: legacyMotion,
+      density: legacyDensity,
+      floatingOpacity: legacyOpacity,
+      customAlertSoundData: legacySoundData || next.customAlertSoundData,
+      customAlertSoundName: legacySoundData ? legacySoundName : next.customAlertSoundName,
+    };
+    applyAppPreferences(migrated);
+    try {
+      const saved = await updateAppPreferences(migrated);
+      [themeStorageKey, visualIntensityKey, motionIntensityKey, densityKey, floatingOpacityKey, customAlertSoundDataKey, customAlertSoundNameKey]
+        .forEach(removeLocalStorageValue);
+      writeLocalStorageValue("focused-moment.preferences-v3-migrated", "1");
+      return saved;
+    } catch (error) {
+      setFailedAppPreferenceSnapshot(migrated);
+      setAppPreferenceSaveError(`旧版外观设置迁移失败：${getErrorMessage(error)}`);
+      return migrated;
+    }
+  }
+
   const pendingTodos = () => sortTodos(todos()).filter((item) => !item.isCompleted);
   const activeTodos = () => pendingTodos().filter((item) => !isOverdue(item.scheduledDate));
   const overdueTodos = () => pendingTodos().filter((item) => isOverdue(item.scheduledDate));
@@ -362,7 +555,11 @@ export function useMainShellController() {
   const todayTodos = () => pendingTodos().filter((item) => item.scheduledDate === getToday());
   const todayCompletedTodos = () =>
     completedTodos().filter((item) => item.scheduledDate === getToday());
-  const nextTodo = () => pendingTodos()[0] ?? null;
+  const currentTodo = () => pendingTodos().find((item) => item.id === focusPlan().currentTodoId) ?? null;
+  const todayPickTodos = () => focusPlan().todayPickIds
+    .map((id) => pendingTodos().find((item) => item.id === id))
+    .filter((item): item is TodoItem => Boolean(item));
+  const nextTodo = () => currentTodo() ?? pendingTodos()[0] ?? null;
   const selectedBackup = () => backups().find((backup) => backup.fileName === selectedBackupFile()) ?? null;
   const recentBreakdown = createMemo(() => getRecentTrendDays(analytics()?.dailyBreakdown ?? []));
   const recordGroups = createMemo(() => groupRecordsByDate(records()));
@@ -372,8 +569,19 @@ export function useMainShellController() {
     archiveDays().find((day) => day.date === selectedArchiveDate()) ?? archiveDays()[archiveDays().length - 1] ?? null,
   );
   const selectedArchiveRecords = createMemo(() => {
+    const taskFilterId = recordTaskFilterId();
+    if (taskFilterId !== null) {
+      return records().filter((record) => record.linkedTodoId === taskFilterId);
+    }
     const selectedDate = selectedArchiveDay()?.date;
     return selectedDate ? records().filter((record) => recordDateKey(record) === selectedDate) : [];
+  });
+  const recordTaskFilterTitle = createMemo(() => {
+    const taskFilterId = recordTaskFilterId();
+    if (taskFilterId === null) return "";
+    return todos().find((item) => item.id === taskFilterId)?.title
+      ?? records().find((record) => record.linkedTodoId === taskFilterId)?.linkedTodoTitle
+      ?? "关联任务";
   });
   const recentWeekDurationMs = () =>
     archiveDays().reduce((total, day) => total + day.totalDurationMs, 0);
@@ -409,8 +617,14 @@ export function useMainShellController() {
     { id: "start", label: "开始下一件事", detail: "把最早的未完成待办带入专注", shortcut: "Enter" },
     { id: "pause", label: "暂停当前专注", detail: "保留当前进度，稍后继续" },
     { id: "finish", label: "完成并记录当前专注", detail: "保存这一轮并回到可继续的状态" },
-    { id: "floating", label: "打开悬浮工作台", detail: "把待办和当前计时放到桌面上" },
+    { id: "floating", label: "打开迷你工作台", detail: "把待办和当前计时放到桌面上" },
+    { id: "quick-capture", label: "快速收进收件箱", detail: "记下一件事，不填日期也可以" },
     { id: "backup", label: "导出本地备份", detail: "把当前待办、记录和运行态保存下来" },
+    ...buildFocusHistoryResults(todos(), records(), commandSearch()).map((result) => ({
+      id: result.id,
+      label: result.label,
+      detail: result.detail,
+    })),
   ];
 
   createEffect(() => {
@@ -454,70 +668,28 @@ export function useMainShellController() {
     if (!theme.implemented) {
       return;
     }
-    setThemeId(theme.id);
-    if (writeLocalStorageValue(themeStorageKey, theme.id)) {
-      showMessage(`已切换至${theme.name}主题，设置会自动保留。`, "success");
-    } else {
-      showMessage("主题已应用，但本地保存失败；重启后不会保留本次修改，请检查存储权限后重试。", "error");
-    }
+    scheduleAppPreferencesSave({ themeId: theme.id });
   }
 
   function updateVisualIntensity(value: number) {
-    setVisualIntensity(value);
-    if (!writeLocalStorageValue(visualIntensityKey, String(value))) {
-      showMessage("外观已应用，但本地保存失败；重启后不会保留本次修改，请检查存储权限后重试。", "error");
-    }
+    scheduleAppPreferencesSave({ visualIntensity: Math.max(0, Math.min(100, Math.round(value))) });
   }
 
   function updateMotionIntensity(value: number) {
-    setMotionIntensity(value);
-    if (!writeLocalStorageValue(motionIntensityKey, String(value))) {
-      showMessage("外观已应用，但本地保存失败；重启后不会保留本次修改，请检查存储权限后重试。", "error");
-    }
+    scheduleAppPreferencesSave({ motionIntensity: Math.max(0, Math.min(100, Math.round(value))) });
   }
 
   function updateDensity(value: "roomy" | "compact") {
-    setDensity(value);
-    if (!writeLocalStorageValue(densityKey, value)) {
-      showMessage("外观已应用，但本地保存失败；重启后不会保留本次修改，请检查存储权限后重试。", "error");
-    }
-  }
-
-  function saveVisualSettings() {
-    const settings = [
-      [themeStorageKey, themeId()],
-      [visualIntensityKey, String(visualIntensity())],
-      [motionIntensityKey, String(motionIntensity())],
-      [densityKey, density()],
-    ] as const;
-    const previousValues = settings.map(([key]) => [key, readStoredLocalStorageValue(key)] as const);
-    let saved = true;
-
-    for (const [key, value] of settings) {
-      if (!writeLocalStorageValue(key, value)) {
-        saved = false;
-      }
-    }
-
-    if (!saved) {
-      for (const [key, previousValue] of previousValues) {
-        if (previousValue === null) {
-          removeLocalStorageValue(key);
-        } else {
-          writeLocalStorageValue(key, previousValue);
-        }
-      }
-      showMessage("外观预览已应用，但本地保存失败；重启后不会保留本次修改，请检查存储权限后重试。", "error");
-      return;
-    }
-
-    showMessage("外观设置已保存，下次启动会继续使用。", "success");
+    scheduleAppPreferencesSave({ density: value });
   }
 
   function updateFloatingOpacity(value: number) {
     const nextValue = Math.min(defaultFloatingOpacity, Math.max(minFloatingOpacity, Math.round(value)));
-    setFloatingOpacity(nextValue);
-    writeLocalStorageValue(floatingOpacityKey, String(nextValue));
+    scheduleAppPreferencesSave({ floatingOpacity: nextValue });
+  }
+
+  function updateAutoMiniOnStart(value: boolean) {
+    scheduleAppPreferencesSave({ autoMiniOnStart: value });
   }
 
   function scheduleFloatingWorkspaceFit() {
@@ -596,6 +768,18 @@ export function useMainShellController() {
     setRecords(next.records);
     setAnalytics(next.analytics);
     setTimerPreferences(next.timerPreferences);
+    setFocusPlan(next.focusPlan);
+    applyAppPreferences({
+      schemaVersion: next.appPreferencesView.schemaVersion,
+      themeId: next.appPreferencesView.themeId,
+      visualIntensity: next.appPreferencesView.visualIntensity,
+      motionIntensity: next.appPreferencesView.motionIntensity,
+      density: next.appPreferencesView.density,
+      floatingOpacity: next.appPreferencesView.floatingOpacity,
+      autoMiniOnStart: next.appPreferencesView.autoMiniOnStart,
+      customAlertSoundName: next.appPreferencesView.customAlertSoundName,
+      customAlertSoundData: customAlertSoundData(),
+    });
   }
 
   function alertIsVisible() {
@@ -632,12 +816,14 @@ export function useMainShellController() {
   async function refresh(force = false) {
     const requestVersion = ++refreshVersion;
     const timerRequestVersion = ++timerRefreshVersion;
-    const [nextTimer, nextTodos, nextRecords, nextAnalytics, nextPreferences] = await Promise.all([
+    const [nextTimer, nextTodos, nextRecords, nextAnalytics, nextPreferences, nextAppPreferences, nextFocusPlan] = await Promise.all([
       getTimerSnapshot(),
       getTodoItems(),
       getFocusRecords(),
       getAnalyticsSnapshot(),
       getTimerPreferences(),
+      getAppPreferences(),
+      getFocusPlan(),
     ]);
 
     if (
@@ -658,6 +844,9 @@ export function useMainShellController() {
     if (nextPreferences) {
       setTimerPreferences(nextPreferences);
     }
+    const resolvedAppPreferences = await migrateLegacyAppPreferences(nextAppPreferences);
+    applyAppPreferences(resolvedAppPreferences);
+    setFocusPlan(nextFocusPlan);
     if (currentWindowLabel === "main") {
       void emit<AppStateSyncPayload>(appStateSyncEvent, {
         timer: nextTimer,
@@ -665,6 +854,18 @@ export function useMainShellController() {
         records: nextRecords,
         analytics: nextAnalytics,
         timerPreferences: nextPreferences,
+        appPreferencesView: {
+          schemaVersion: resolvedAppPreferences.schemaVersion,
+          themeId: resolvedAppPreferences.themeId,
+          visualIntensity: resolvedAppPreferences.visualIntensity,
+          motionIntensity: resolvedAppPreferences.motionIntensity,
+          density: resolvedAppPreferences.density,
+          floatingOpacity: resolvedAppPreferences.floatingOpacity,
+          autoMiniOnStart: resolvedAppPreferences.autoMiniOnStart,
+          customAlertSoundName: resolvedAppPreferences.customAlertSoundName,
+          hasCustomAlertSound: Boolean(resolvedAppPreferences.customAlertSoundData),
+        },
+        focusPlan: nextFocusPlan,
       }).catch(() => undefined);
     }
     return true;
@@ -715,6 +916,7 @@ export function useMainShellController() {
     clearMessage();
     try {
       await action();
+      await emitAppStateSync();
     } catch (error) {
       showMessage(getErrorMessage(error), "error");
     } finally {
@@ -761,8 +963,8 @@ export function useMainShellController() {
       applyTimerSnapshot(await startTimer());
       setSavedConfirmation(false);
       setSessionTitleDirty(false);
-      if (timer().modeKey === "stopwatch" || timer().modeKey === "countdown") {
-        await showFocusFloating();
+      if (autoMiniOnStart() && (timer().modeKey === "stopwatch" || timer().modeKey === "countdown")) {
+        await showFloatingTodos();
       }
       showMessage("已开始计时。", "success");
     }, "正在开始…");
@@ -791,6 +993,7 @@ export function useMainShellController() {
 
   async function finishFocus() {
     await run(async () => {
+      const linkedTodoBeforeFinish = timer().linkedTodoId ?? linkedTodoId();
       const title = isFloatingWindow || isFocusFloatingWindow
         ? timer().activeTaskTitle
         : activeTitle();
@@ -804,6 +1007,16 @@ export function useMainShellController() {
       setSessionTitleDirty(false);
       setLinkedTodoId(null);
       setCompleteLinkedTodo(false);
+      const linkedTodo = linkedTodoBeforeFinish === null
+        ? null
+        : payload.todoItems.find((item) => item.id === linkedTodoBeforeFinish);
+      if (linkedTodo && !linkedTodo.isCompleted) {
+        setContinuationSaveError("");
+        setContinuationPrompt({ todoId: linkedTodo.id, title: linkedTodo.title });
+      } else {
+        setContinuationSaveError("");
+        setContinuationPrompt(null);
+      }
       if (isFloatingWindow) {
         await restoreMainFromFloatingTodos();
       } else if (isFocusFloatingWindow) {
@@ -819,11 +1032,6 @@ export function useMainShellController() {
       showMessage("请填写待办事项。", "error");
       return;
     }
-    if (!todoDueDate()) {
-      showMessage("请填写截止日期。", "error");
-      return;
-    }
-
     await run(async () => {
       setTodos(
         await createTodoItem({
@@ -899,7 +1107,20 @@ export function useMainShellController() {
   }
 
   function beginEditRecord(record: FocusRecord) {
-    setEditingRecord({ id: record.id, title: record.title });
+    setEditingRecord({
+      id: record.id,
+      title: record.title,
+      durationMinutes: Math.max(1, Math.min(1440, Math.round(record.durationMs / 60_000))),
+      completedDate: record.completedDate,
+      completedTime: record.completedTime,
+      linkedTodoId: record.linkedTodoId,
+    });
+    setRecordEditDialogOpen(false);
+  }
+
+  function beginDetailedRecordEdit(record: FocusRecord) {
+    beginEditRecord(record);
+    setRecordEditDialogOpen(true);
   }
 
   function patchEditingRecordTitle(title: string) {
@@ -909,8 +1130,16 @@ export function useMainShellController() {
     }
   }
 
+  function patchEditingRecord(patch: Partial<RecordEditDraft>) {
+    const current = editingRecord();
+    if (current) {
+      setEditingRecord({ ...current, ...patch });
+    }
+  }
+
   function cancelEditRecord() {
     setEditingRecord(null);
+    setRecordEditDialogOpen(false);
   }
 
   async function saveRecordEdit() {
@@ -926,9 +1155,18 @@ export function useMainShellController() {
     }
 
     await run(async () => {
-      setRecords(await updateFocusRecordTitle(draft.id, title));
+      setRecords(await updateFocusRecord({
+        id: draft.id,
+        title,
+        durationMinutes: draft.durationMinutes,
+        completedDate: draft.completedDate,
+        completedTime: draft.completedTime,
+        linkedTodoId: draft.linkedTodoId,
+      }));
+      setAnalytics(await getAnalyticsSnapshot());
       setEditingRecord(null);
-      showMessage("专注记录名称已更新。", "success");
+      setRecordEditDialogOpen(false);
+      showMessage("专注记录已更新。", "success");
     }, "正在保存…");
   }
 
@@ -1033,7 +1271,7 @@ export function useMainShellController() {
       showMessage("请先打开声音提醒，再试听音效。", "info");
       return;
     }
-    playAlertSound(timerPreferences().alertSoundKey);
+    playAlertSound(timerPreferences().alertSoundKey, customAlertSoundData());
   }
 
   async function chooseCustomAlertSound(event: Event) {
@@ -1061,21 +1299,54 @@ export function useMainShellController() {
       showMessage(getErrorMessage(error), "error");
       return "";
     });
-    if (!dataUrl || !writeLocalStorageValue(customAlertSoundDataKey, dataUrl)) {
+    if (!dataUrl) {
       showMessage("音效保存失败，请换一个文件重试。", "error");
       return;
     }
 
-    writeLocalStorageValue(customAlertSoundNameKey, file.name);
-    setCustomAlertSoundName(file.name);
+    scheduleAppPreferencesSave({ customAlertSoundName: file.name, customAlertSoundData: dataUrl });
     await saveTimerPreferences({ alertSoundKey: "custom" }, "自定义音效已启用。");
   }
 
   async function clearCustomAlertSound() {
-    removeLocalStorageValue(customAlertSoundDataKey);
-    removeLocalStorageValue(customAlertSoundNameKey);
-    setCustomAlertSoundName("");
+    scheduleAppPreferencesSave({ customAlertSoundName: "", customAlertSoundData: null });
     await saveTimerPreferences({ alertSoundKey: "soft_chime" }, "已恢复为柔和铃音。");
+  }
+
+  function openQuickCapture() {
+    setQuickCaptureTitle("");
+    setQuickCaptureOpen(true);
+  }
+
+  function closeQuickCapture() {
+    setQuickCaptureOpen(false);
+    setQuickCaptureTitle("");
+  }
+
+  async function saveQuickCapture() {
+    const title = quickCaptureTitle().trim();
+    if (!title) {
+      showMessage("请先写下一件要记住的事。", "error");
+      return;
+    }
+    await run(async () => {
+      setTodos(await createTodoItem({
+        title,
+        scheduledDate: "",
+        scheduledTime: "",
+        importanceKey: "medium",
+      }));
+      closeQuickCapture();
+      showMessage("已放入收件箱，稍后整理。", "success");
+    }, "正在收进收件箱…");
+  }
+
+  function openManualRecord() {
+    setManualRecordOpen(true);
+  }
+
+  function closeManualRecord() {
+    setManualRecordOpen(false);
   }
 
   async function loadBackups() {
@@ -1097,6 +1368,10 @@ export function useMainShellController() {
   }
 
   function changeView(view: AppView) {
+    flushAppPreferencesSave();
+    if (view !== "records") {
+      setRecordTaskFilterId(null);
+    }
     setActiveView(view);
     // A tab is a new destination. Do not carry a long records/settings
     // document position into the next page and hide its heading.
@@ -1136,6 +1411,50 @@ export function useMainShellController() {
         "success"
       );
     }, "正在恢复…");
+  }
+
+  async function previewPortableBackup() {
+    const path = portableBackupPath().trim();
+    if (!path) {
+      showMessage("请先选择或填写备份文件路径。", "error");
+      return;
+    }
+    await run(async () => {
+      setPortableBackupPreview(await previewAppBackupPath(path));
+    }, "正在预览备份…");
+  }
+
+  async function exportPortableBackup() {
+    const path = portableBackupPath().trim();
+    if (!path) {
+      showMessage("请先填写导出文件路径。", "error");
+      return;
+    }
+    await run(async () => {
+      const result = await exportAppBackupToPath(path);
+      setLastBackupPath(result.filePath);
+      await loadBackups();
+      showMessage(`便携备份已导出：${result.filePath}`, "success");
+    }, "正在导出便携备份…");
+  }
+
+  async function importPortableBackup() {
+    const path = portableBackupPath().trim();
+    const preview = portableBackupPreview();
+    if (!path || !preview) {
+      showMessage("请先预览一份有效备份，再导入。", "error");
+      return;
+    }
+    if (!window.confirm("导入会替换当前待办、记录和计时状态，是否继续？")) {
+      return;
+    }
+    await run(async () => {
+      const result = await importAppBackupPath(path, { restoreAppPreferences: restorePortableAppPreferences() });
+      setPortableBackupPreview(null);
+      await loadFromStorage();
+      await loadBackups();
+      showMessage(`已恢复 ${result.todoCount} 项待办和 ${result.focusRecordCount} 条记录${result.migratedFromFormatVersion ? "，并完成旧版迁移" : ""}。`, "success");
+    }, "正在导入便携备份…");
   }
 
   async function clearAllData() {
@@ -1185,6 +1504,93 @@ export function useMainShellController() {
     await startFocus();
   }
 
+  async function updateFocusPlanState(next: FocusPlanState, successMessage?: string) {
+    await run(async () => {
+      const saved = await updateFocusPlan(next);
+      setFocusPlan(saved);
+      if (successMessage) {
+        showMessage(successMessage, "info");
+      }
+    }, "正在更新焦点计划…");
+  }
+
+  async function setCurrentTodo(id: number | null) {
+    await updateFocusPlanState({ ...focusPlan(), currentTodoId: id }, id === null ? "已取消当前事项。" : "已设为当前事项。 ");
+  }
+
+  async function toggleTodayPick(id: number) {
+    const current = focusPlan().todayPickIds;
+    const nextIds = current.includes(id)
+      ? current.filter((candidate) => candidate !== id)
+      : [...current, id];
+    if (nextIds.length > 3) {
+      showMessage("今日精选最多保留 3 件事，请先移出一项。", "info");
+      return;
+    }
+    await updateFocusPlanState({ ...focusPlan(), todayPickIds: nextIds }, current.includes(id) ? "已移出今日精选。" : "已加入今日精选。");
+  }
+
+  async function startFocusForTodo(item: TodoItem) {
+    if (timerHasProgress()) {
+      setActiveView("focus");
+      showMessage("当前还有一轮专注，请先继续、完成或重置。", "info");
+      return;
+    }
+    setLinkedTodoId(item.id);
+    setSessionTitle(item.title);
+    setSessionTitleDirty(true);
+    await updateFocusPlanState({ ...focusPlan(), currentTodoId: item.id });
+    await startFocus();
+  }
+
+  async function saveContinuationNote(id: number, note: string): Promise<boolean> {
+    const normalized = note.trim();
+    let saved = false;
+    await run(async () => {
+      setTodos(await updateTodoContinuationNote(id, normalized));
+      saved = true;
+      setContinuationSaveError("");
+      showMessage(normalized ? "停笔书签已保存。" : "已清空停笔书签。", "success");
+    }, "正在保存停笔书签…");
+    if (!saved) {
+      setContinuationSaveError("保存失败，请检查本地数据后点击“重试保存”。");
+    }
+    return saved;
+  }
+
+  async function createManualRecord(payload: {
+    title: string;
+    durationMinutes: number;
+    completedDate: string;
+    completedTime: string;
+    linkedTodoId: number | null;
+  }): Promise<boolean> {
+    let saved = false;
+    await run(async () => {
+      setRecords(await createManualFocusRecord(payload));
+      setAnalytics(await getAnalyticsSnapshot());
+      saved = true;
+      showMessage("手动专注记录已补录。", "success");
+    }, "正在补录专注…");
+    return saved;
+  }
+
+  async function updateRecord(payload: {
+    id: number;
+    title: string;
+    durationMinutes: number;
+    completedDate: string;
+    completedTime: string;
+    linkedTodoId: number | null;
+  }) {
+    await run(async () => {
+      setRecords(await updateFocusRecord(payload));
+      setAnalytics(await getAnalyticsSnapshot());
+      setEditingRecord(null);
+      showMessage("专注记录已修正。", "success");
+    }, "正在修正记录…");
+  }
+
   async function changeCompletionPreference(value: boolean) {
     setCompleteLinkedTodo(value);
     if (!isFloatingWindow && !isFocusFloatingWindow) {
@@ -1221,6 +1627,32 @@ export function useMainShellController() {
 
   function executePaletteCommand(commandId: string) {
     closeCommandPalette();
+    const dateMatch = commandId.match(/^history-date-(\d{4}-\d{2}-\d{2})$/);
+    if (dateMatch) {
+      setRecordTaskFilterId(null);
+      setSelectedArchiveDate(dateMatch[1]);
+      changeView("records");
+      showMessage("已定位到日期归档。", "info");
+      return;
+    }
+    const taskMatch = commandId.match(/^history-task-(\d+)$/);
+    if (taskMatch) {
+      setRecordTaskFilterId(Number(taskMatch[1]));
+      changeView("records");
+      showMessage("已定位到任务的全部专注记录。", "info");
+      return;
+    }
+    const recordMatch = commandId.match(/^history-record-(\d+)$/);
+    if (recordMatch) {
+      const record = records().find((item) => item.id === Number(recordMatch[1]));
+      if (record) {
+        setRecordTaskFilterId(record.linkedTodoId);
+        setSelectedArchiveDate(recordDateKey(record));
+        changeView("records");
+        showMessage("已定位到这条专注记录。", "info");
+      }
+      return;
+    }
     switch (commandId) {
       case "today":
         changeView("today");
@@ -1257,6 +1689,9 @@ export function useMainShellController() {
       case "floating":
         void showFloatingTodos();
         break;
+      case "quick-capture":
+        openQuickCapture();
+        break;
       case "backup":
         void createBackup();
         break;
@@ -1278,7 +1713,6 @@ export function useMainShellController() {
   });
 
   onMount(() => {
-    setCustomAlertSoundName(readLocalStorageValue(customAlertSoundNameKey));
     if (isFloatingWindow || isUnlockWindow || isFocusFloatingWindow || isFocusUnlockWindow) {
       document.documentElement.classList.add("floating-window");
     }
@@ -1332,6 +1766,7 @@ export function useMainShellController() {
     if (!isFloatingWindow && !isUnlockWindow && !isFocusFloatingWindow && !isFocusUnlockWindow) {
       window.addEventListener("keydown", onKeyDown);
     }
+    window.addEventListener("beforeunload", flushAppPreferencesSave);
 
     if (isFloatingWindow) {
       void listen(floatingWorkspaceSyncEvent, () => {
@@ -1347,7 +1782,7 @@ export function useMainShellController() {
         .catch(() => undefined);
     }
 
-    if (isFloatingWindow || isFocusFloatingWindow) {
+    if (currentWindowLabel === "main" || isFloatingWindow || isFocusFloatingWindow) {
       void listen<AppStateSyncPayload>(appStateSyncEvent, ({ payload }) => {
         if (busy() || editingTodo() !== null || editingRecord() !== null) {
           return;
@@ -1449,6 +1884,8 @@ export function useMainShellController() {
       if (messageTimer !== undefined) {
         window.clearTimeout(messageTimer);
       }
+      flushAppPreferencesSave();
+      window.removeEventListener("beforeunload", flushAppPreferencesSave);
       window.removeEventListener("keydown", onKeyDown);
       document.documentElement.classList.remove("floating-window");
     });
@@ -1487,12 +1924,19 @@ export function useMainShellController() {
     editingTodo,
     setEditingTodo,
     editingRecord,
+    recordEditDialogOpen,
+    patchEditingRecord,
     backups,
     backupLoadState,
     backupLoadError,
     selectedBackupFile,
     setSelectedBackupFile,
     lastBackupPath,
+    portableBackupPath,
+    setPortableBackupPath,
+    portableBackupPreview,
+    restorePortableAppPreferences,
+    setRestorePortableAppPreferences,
     commandPaletteOpen,
     commandSearch,
     setCommandSearch,
@@ -1511,6 +1955,9 @@ export function useMainShellController() {
     setFloatingOpacityPanelOpen,
     selectedArchiveDate,
     setSelectedArchiveDate,
+    recordTaskFilterId,
+    recordTaskFilterTitle,
+    clearRecordTaskFilter: () => setRecordTaskFilterId(null),
     themeId,
     visualIntensity,
     motionIntensity,
@@ -1557,6 +2004,7 @@ export function useMainShellController() {
     removeTodo,
     removeRecord,
     beginEditRecord,
+    beginDetailedRecordEdit,
     patchEditingRecordTitle,
     saveRecordEdit,
     cancelEditRecord,
@@ -1565,7 +2013,36 @@ export function useMainShellController() {
     updateVisualIntensity,
     updateMotionIntensity,
     updateDensity,
-    saveVisualSettings,
+    autoMiniOnStart,
+    appPreferenceSaveError,
+    appPreferenceSaveBusy,
+    retryAppPreferencesSave,
+    flushAppPreferencesSave,
+    updateAutoMiniOnStart,
+    currentTodo,
+    todayPickTodos,
+    focusPlan,
+    setCurrentTodo,
+    toggleTodayPick,
+    startFocusForTodo,
+    saveContinuationNote,
+    createManualRecord,
+    updateRecord,
+    continuationPrompt,
+    continuationSaveError,
+    dismissContinuationPrompt: () => {
+      setContinuationSaveError("");
+      setContinuationPrompt(null);
+    },
+    quickCaptureOpen,
+    quickCaptureTitle,
+    setQuickCaptureTitle,
+    openQuickCapture,
+    closeQuickCapture,
+    saveQuickCapture,
+    manualRecordOpen,
+    openManualRecord,
+    closeManualRecord,
     saveTimerPreferences,
     previewAlertSound,
     chooseCustomAlertSound,
@@ -1574,6 +2051,9 @@ export function useMainShellController() {
     createBackup,
     openBackupFolder,
     restoreBackup,
+    previewPortableBackup,
+    exportPortableBackup,
+    importPortableBackup,
     clearAllData,
     changeView,
     startNextTodo,

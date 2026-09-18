@@ -6,12 +6,15 @@ mod timer_engine;
 
 pub(crate) use commands::{
     acknowledge_timer_alert, bootstrap_shell, clear_app_data, complete_focus_session,
-    create_todo_item, delete_focus_record, delete_focus_records, delete_todo_item,
-    export_app_backup, get_analytics_snapshot, get_focus_records, get_timer_preferences,
-    get_timer_snapshot, get_todo_items, import_app_backup, list_app_backups,
-    open_app_backup_folder, pause_timer, reset_timer, restore_focus_record, restore_todo_item,
-    set_countdown_minutes, start_timer, switch_timer_mode, toggle_todo_item,
-    update_focus_record_title, update_timer_context, update_timer_preferences, update_todo_item,
+    create_manual_focus_record, create_todo_item, delete_focus_record, delete_focus_records,
+    delete_todo_item, export_app_backup, export_app_backup_to_path, get_analytics_snapshot,
+    get_app_preferences, get_focus_plan, get_focus_records, get_timer_preferences,
+    get_timer_snapshot, get_todo_items, import_app_backup, import_app_backup_path,
+    list_app_backups, open_app_backup_folder, pause_timer, preview_app_backup_path, reset_timer,
+    restore_focus_record, restore_todo_item, set_countdown_minutes, start_timer, switch_timer_mode,
+    toggle_todo_item, update_app_preferences, update_focus_plan, update_focus_record,
+    update_focus_record_title, update_timer_context, update_timer_preferences,
+    update_todo_continuation_note, update_todo_item,
 };
 #[cfg(target_os = "macos")]
 pub(crate) use desktop::trigger_native_smoke_tray_click;
@@ -57,12 +60,132 @@ use storage::{
 };
 use tauri::{Manager, WindowEvent};
 
-const APP_VERSION: &str = "2.11.10";
-const APP_MILESTONE: &str =
-    "v2.11.10 Editorial Paper rail, archive, and workspace settings refinements; Windows-only release";
+const APP_VERSION: &str = "2.12.0";
+const APP_MILESTONE: &str = "v2.12.0 From capture to continuation; Windows-only release";
 const APP_BACKUP_KIND: &str = "focused-moment-backup";
-const APP_BACKUP_FORMAT_VERSION: u64 = 2;
+const APP_BACKUP_FORMAT_VERSION: u64 = 3;
 const FLOATING_WORKSPACE_SYNC_EVENT: &str = "floating-workspace-sync";
+
+const DEFAULT_THEME_ID: &str = "night-valley";
+const DEFAULT_VISUAL_INTENSITY: u8 = 72;
+const DEFAULT_MOTION_INTENSITY: u8 = 44;
+const DEFAULT_FLOATING_OPACITY: u8 = 100;
+const MIN_FLOATING_OPACITY: u8 = 45;
+// A 5 MiB audio file expands to roughly 6.7 MiB when encoded as a data URL.
+// Keep the persisted representation bounded to the equivalent of the UI's
+// 5 MiB file limit while leaving room for the MIME header.
+const MAX_CUSTOM_ALERT_SOUND_DATA_CHARS: usize = 7 * 1024 * 1024;
+
+fn legacy_schema_version() -> u64 {
+    1
+}
+
+fn default_theme_id() -> String {
+    DEFAULT_THEME_ID.to_string()
+}
+
+fn default_visual_intensity() -> u8 {
+    DEFAULT_VISUAL_INTENSITY
+}
+
+fn default_motion_intensity() -> u8 {
+    DEFAULT_MOTION_INTENSITY
+}
+
+fn default_floating_opacity() -> u8 {
+    DEFAULT_FLOATING_OPACITY
+}
+
+fn default_density() -> String {
+    "roomy".to_string()
+}
+
+fn default_record_source() -> String {
+    "timer".to_string()
+}
+
+fn default_record_time_basis() -> String {
+    "completion_day".to_string()
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AppPreferences {
+    #[serde(default = "legacy_schema_version")]
+    schema_version: u64,
+    #[serde(default = "default_theme_id")]
+    theme_id: String,
+    #[serde(default = "default_visual_intensity")]
+    visual_intensity: u8,
+    #[serde(default = "default_motion_intensity")]
+    motion_intensity: u8,
+    #[serde(default = "default_density")]
+    density: String,
+    #[serde(default = "default_floating_opacity")]
+    floating_opacity: u8,
+    #[serde(default)]
+    auto_mini_on_start: bool,
+    #[serde(default)]
+    custom_alert_sound_name: String,
+    #[serde(default)]
+    custom_alert_sound_data: Option<String>,
+}
+
+impl Default for AppPreferences {
+    fn default() -> Self {
+        Self {
+            schema_version: CURRENT_STORAGE_SCHEMA_VERSION,
+            theme_id: default_theme_id(),
+            visual_intensity: DEFAULT_VISUAL_INTENSITY,
+            motion_intensity: DEFAULT_MOTION_INTENSITY,
+            density: default_density(),
+            floating_opacity: DEFAULT_FLOATING_OPACITY,
+            auto_mini_on_start: false,
+            custom_alert_sound_name: String::new(),
+            custom_alert_sound_data: None,
+        }
+    }
+}
+
+impl AppPreferences {
+    fn normalized(mut self) -> Result<Self, String> {
+        self.schema_version = CURRENT_STORAGE_SCHEMA_VERSION;
+        self.visual_intensity = self.visual_intensity.min(100);
+        self.motion_intensity = self.motion_intensity.min(100);
+        self.floating_opacity = self
+            .floating_opacity
+            .clamp(MIN_FLOATING_OPACITY, DEFAULT_FLOATING_OPACITY);
+        if self.theme_id.trim().is_empty() {
+            self.theme_id = default_theme_id();
+        }
+        self.density = if self.density == "compact" {
+            "compact".to_string()
+        } else {
+            default_density()
+        };
+        if self.custom_alert_sound_name.chars().count() > 255 {
+            return Err("自定义音效名称过长，无法保存。".to_string());
+        }
+        if let Some(data) = &self.custom_alert_sound_data {
+            if data.chars().count() > MAX_CUSTOM_ALERT_SOUND_DATA_CHARS {
+                return Err("自定义音效数据超过 5MB，无法保存。".to_string());
+            }
+        }
+        if self.custom_alert_sound_data.is_none() {
+            self.custom_alert_sound_name.clear();
+        }
+        Ok(self)
+    }
+}
+
+#[derive(Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct FocusPlanState {
+    #[serde(default)]
+    current_todo_id: Option<u64>,
+    #[serde(default)]
+    today_pick_ids: Vec<u64>,
+}
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -156,6 +279,12 @@ struct FocusRecord {
     completed_date: String,
     #[serde(default)]
     completed_time: String,
+    #[serde(default = "default_record_source")]
+    source: String,
+    #[serde(default = "default_record_time_basis")]
+    time_basis: String,
+    #[serde(default)]
+    edited_at: Option<String>,
 }
 
 #[derive(Clone, Serialize)]
@@ -197,6 +326,7 @@ struct BackupImportResult {
     todo_count: usize,
     restored_runtime_session: bool,
     migrated_from_format_version: Option<u64>,
+    restored_app_preferences: bool,
 }
 
 #[derive(Clone, Serialize)]
@@ -239,6 +369,10 @@ struct TodoItem {
     scheduled_date: String,
     scheduled_time: String,
     importance_key: String,
+    #[serde(default)]
+    continuation_note: String,
+    #[serde(default)]
+    continuation_updated_at: Option<String>,
 }
 
 #[derive(Clone, Copy, Default, Eq, PartialEq)]
@@ -299,6 +433,9 @@ fn normalize_focus_record_title(title: &str) -> Result<String, String> {
 
 fn normalize_scheduled_date(value: &str) -> Result<String, String> {
     let normalized = value.trim();
+    if normalized.is_empty() {
+        return Ok(String::new());
+    }
     let is_valid = normalized.len() == 10
         && normalized
             .chars()
@@ -313,6 +450,14 @@ fn normalize_scheduled_date(value: &str) -> Result<String, String> {
     } else {
         Err("\u{8bf7}\u{9009}\u{62e9}\u{6709}\u{6548}\u{7684}\u{65e5}\u{671f}".to_string())
     }
+}
+
+fn normalize_continuation_note(value: &str) -> Result<String, String> {
+    let normalized = value.trim();
+    if normalized.chars().count() > 1000 {
+        return Err("停笔书签不能超过 1000 个字。".to_string());
+    }
+    Ok(normalized.to_string())
 }
 
 fn normalize_scheduled_time(value: &str) -> Result<String, String> {
@@ -425,54 +570,7 @@ fn split_record_duration_by_date(record: &FocusRecord) -> Vec<(String, u64)> {
     } else {
         record.completed_date.clone()
     };
-
-    let Some(completed_at) = record_completed_at(record) else {
-        return vec![(fallback_date, record.duration_ms)];
-    };
-
-    let Ok(duration_ms) = i64::try_from(record.duration_ms) else {
-        return vec![(fallback_date, record.duration_ms)];
-    };
-
-    let started_at = completed_at - ChronoDuration::milliseconds(duration_ms);
-    let mut segments = Vec::new();
-    let mut date = started_at.date();
-
-    while date <= completed_at.date() {
-        let day_start = date.and_time(NaiveTime::MIN);
-        let next_day_start = date
-            .succ_opt()
-            .map(|next_date| next_date.and_time(NaiveTime::MIN))
-            .unwrap_or(completed_at);
-        let segment_start = if started_at > day_start {
-            started_at
-        } else {
-            day_start
-        };
-        let segment_end = if completed_at < next_day_start {
-            completed_at
-        } else {
-            next_day_start
-        };
-
-        if segment_end > segment_start {
-            segments.push((
-                date.to_string(),
-                (segment_end - segment_start).num_milliseconds() as u64,
-            ));
-        }
-
-        let Some(next_date) = date.succ_opt() else {
-            break;
-        };
-        date = next_date;
-    }
-
-    if segments.is_empty() {
-        vec![(fallback_date, record.duration_ms)]
-    } else {
-        segments
-    }
+    vec![(fallback_date, record.duration_ms)]
 }
 
 fn analytics_snapshot(records: &[FocusRecord], todo_items: &[TodoItem]) -> AnalyticsSnapshot {
@@ -577,7 +675,9 @@ fn analytics_snapshot(records: &[FocusRecord], todo_items: &[TodoItem]) -> Analy
     }
 }
 
-fn migrate_backup_file(mut backup: AppBackupFile) -> Result<(AppBackupFile, Option<u64>), String> {
+pub(crate) fn migrate_backup_file(
+    mut backup: AppBackupFile,
+) -> Result<(AppBackupFile, Option<u64>), String> {
     if backup.kind != APP_BACKUP_KIND {
         return Err("这不是 Focused Moment 的完整备份文件。".to_string());
     }
@@ -590,13 +690,14 @@ fn migrate_backup_file(mut backup: AppBackupFile) -> Result<(AppBackupFile, Opti
         return Err("这份备份来自更新版本，当前版本无法安全恢复。".to_string());
     }
 
-    match backup.format_version {
-        1 => {
+    let original_format_version = backup.format_version;
+    match original_format_version {
+        1 | 2 => {
             backup.format_version = APP_BACKUP_FORMAT_VERSION;
             backup.schema_version = CURRENT_STORAGE_SCHEMA_VERSION;
             backup.state.schema_version = CURRENT_STORAGE_SCHEMA_VERSION;
             backup.runtime.schema_version = CURRENT_STORAGE_SCHEMA_VERSION;
-            Ok((backup, Some(1)))
+            Ok((backup, Some(original_format_version)))
         }
         APP_BACKUP_FORMAT_VERSION => {
             backup.schema_version = CURRENT_STORAGE_SCHEMA_VERSION;
@@ -695,6 +796,52 @@ mod tests {
                 format!("\"{raw_key}\"")
             );
         }
+
+        let normalized = TimerPreferences {
+            alert_sound_key: AlertSoundKey::ViralQuote,
+            ..TimerPreferences::default()
+        }
+        .normalized()
+        .expect("legacy sound key is accepted");
+        assert!(matches!(
+            normalized.alert_sound_key,
+            AlertSoundKey::SoftChime
+        ));
+    }
+
+    #[test]
+    fn empty_scheduled_date_is_a_valid_inbox_value() {
+        assert_eq!(
+            normalize_scheduled_date("").expect("empty date is inbox"),
+            ""
+        );
+        assert_eq!(
+            normalize_scheduled_date("  ").expect("whitespace date is inbox"),
+            ""
+        );
+        assert!(normalize_scheduled_date("2026-02-30").is_err());
+    }
+
+    #[test]
+    fn legacy_focus_record_defaults_keep_completion_day_attribution() {
+        let legacy = r#"{
+            "id": 7,
+            "title": "旧记录",
+            "durationMs": 60000,
+            "durationLabel": "00:01:00",
+            "modeKey": "stopwatch",
+            "modeLabel": "正向计时",
+            "phaseLabel": "正向计时",
+            "linkedTodoId": null,
+            "linkedTodoTitle": null,
+            "completedAt": "2026-09-05 12:00:00",
+            "completedDate": "2026-09-05",
+            "completedTime": "12:00"
+        }"#;
+        let record: FocusRecord = serde_json::from_str(legacy).expect("legacy record parses");
+        assert_eq!(record.source, "timer");
+        assert_eq!(record.time_basis, "completion_day");
+        assert_eq!(record.edited_at, None);
     }
 
     #[cfg(windows)]
@@ -781,6 +928,8 @@ mod tests {
                 ..TimerEngine::default()
             }),
             timer_preferences: Mutex::new(TimerPreferences::default()),
+            app_preferences: Mutex::new(AppPreferences::default()),
+            focus_plan: Mutex::new(FocusPlanState::default()),
             focus_records: Mutex::new(Vec::new()),
             next_record_id: Mutex::new(next_record_id),
             todo_items: Mutex::new(Vec::new()),
@@ -814,6 +963,8 @@ mod tests {
         let state = TimerEngineState {
             timer: Mutex::new(TimerEngine::default()),
             timer_preferences: Mutex::new(TimerPreferences::default()),
+            app_preferences: Mutex::new(AppPreferences::default()),
+            focus_plan: Mutex::new(FocusPlanState::default()),
             focus_records: Mutex::new(Vec::new()),
             next_record_id: Mutex::new(0),
             todo_items: Mutex::new(Vec::new()),
@@ -1076,6 +1227,8 @@ mod tests {
                 ..TimerEngine::default()
             }),
             timer_preferences: Mutex::new(preferences),
+            app_preferences: Mutex::new(AppPreferences::default()),
+            focus_plan: Mutex::new(FocusPlanState::default()),
             focus_records: Mutex::new(vec![FocusRecord {
                 id: 41,
                 title: "完成迁移验证".to_string(),
@@ -1089,6 +1242,9 @@ mod tests {
                 completed_at: "2026-09-09T16:30:00+08:00".to_string(),
                 completed_date: "2026-09-09".to_string(),
                 completed_time: "16:30".to_string(),
+                source: "timer".to_string(),
+                time_basis: "completion_day".to_string(),
+                edited_at: None,
             }]),
             next_record_id: Mutex::new(42),
             todo_items: Mutex::new(vec![TodoItem {
@@ -1098,6 +1254,8 @@ mod tests {
                 scheduled_date: "2026-09-10".to_string(),
                 scheduled_time: "09:30".to_string(),
                 importance_key: "high".to_string(),
+                continuation_note: String::new(),
+                continuation_updated_at: None,
             }]),
             next_todo_id: Mutex::new(43),
             persistence: Some(source_store.clone()),
@@ -1475,6 +1633,9 @@ mod tests {
             completed_at: format!("{date} 12:00:00"),
             completed_date: date.to_string(),
             completed_time: "12:00".to_string(),
+            source: "timer".to_string(),
+            time_basis: "completion_day".to_string(),
+            edited_at: None,
         };
 
         let snapshot = analytics_snapshot(
@@ -1494,9 +1655,8 @@ mod tests {
     }
 
     #[test]
-    fn analytics_splits_a_session_across_midnight_without_splitting_the_record() {
+    fn record_duration_is_attributed_to_completed_day_without_fabricated_cross_midnight_split() {
         let today = Local::now().date_naive();
-        let yesterday = today - ChronoDuration::days(1);
         let record = FocusRecord {
             id: 1,
             title: "跨午夜专注".to_string(),
@@ -1510,14 +1670,12 @@ mod tests {
             completed_at: format!("{today} 00:10:00"),
             completed_date: today.to_string(),
             completed_time: "00:10".to_string(),
+            source: "timer".to_string(),
+            time_basis: "completion_day".to_string(),
+            edited_at: None,
         };
 
         let snapshot = analytics_snapshot(&[record], &[]);
-        let yesterday_breakdown = snapshot
-            .daily_breakdown
-            .iter()
-            .find(|day| day.date == yesterday.to_string())
-            .expect("yesterday is included");
         let today_breakdown = snapshot
             .daily_breakdown
             .iter()
@@ -1525,9 +1683,7 @@ mod tests {
             .expect("today is included");
 
         assert_eq!(snapshot.total_focus_duration_ms, 20 * 60_000);
-        assert_eq!(yesterday_breakdown.total_duration_ms, 10 * 60_000);
-        assert_eq!(today_breakdown.total_duration_ms, 10 * 60_000);
-        assert_eq!(yesterday_breakdown.session_count, 1);
+        assert_eq!(today_breakdown.total_duration_ms, 20 * 60_000);
         assert_eq!(today_breakdown.session_count, 1);
     }
 
@@ -1557,6 +1713,17 @@ mod tests {
             CURRENT_STORAGE_SCHEMA_VERSION
         );
         assert_eq!(migrated.app_version, "1.10.0");
+
+        let mut v2 = migrated.clone();
+        v2.format_version = 2;
+        v2.schema_version = 2;
+        v2.state.schema_version = 2;
+        v2.runtime.schema_version = 2;
+        let (migrated_v2, source_version_v2) =
+            migrate_backup_file(v2).expect("v2 migration succeeds");
+        assert_eq!(source_version_v2, Some(2));
+        assert_eq!(migrated_v2.format_version, APP_BACKUP_FORMAT_VERSION);
+        assert_eq!(migrated_v2.schema_version, CURRENT_STORAGE_SCHEMA_VERSION);
     }
 
     #[test]
@@ -1583,7 +1750,7 @@ mod tests {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let builder = tauri::Builder::default();
+    let builder = tauri::Builder::default().plugin(tauri_plugin_dialog::init());
 
     #[cfg(target_os = "macos")]
     let builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
@@ -1632,11 +1799,16 @@ pub fn run() {
             acknowledge_timer_alert,
             get_timer_preferences,
             update_timer_preferences,
+            get_app_preferences,
+            update_app_preferences,
+            get_focus_plan,
+            update_focus_plan,
             update_timer_context,
             switch_timer_mode,
             set_countdown_minutes,
             get_focus_records,
             update_focus_record_title,
+            update_focus_record,
             delete_focus_record,
             restore_focus_record,
             delete_focus_records,
@@ -1645,10 +1817,14 @@ pub fn run() {
             list_app_backups,
             export_app_backup,
             import_app_backup,
+            preview_app_backup_path,
+            export_app_backup_to_path,
+            import_app_backup_path,
             open_app_backup_folder,
             get_todo_items,
             create_todo_item,
             update_todo_item,
+            update_todo_continuation_note,
             toggle_todo_item,
             delete_todo_item,
             restore_todo_item,
@@ -1656,6 +1832,7 @@ pub fn run() {
             pause_timer,
             reset_timer,
             complete_focus_session,
+            create_manual_focus_record,
             minimize_main_window,
             toggle_maximize_main_window,
             close_main_window,

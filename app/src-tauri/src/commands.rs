@@ -1,5 +1,108 @@
 use super::*;
+use std::fs;
+use std::path::{Path, PathBuf};
 use std::process::Command;
+
+use serde::Serialize;
+
+const MAX_EXTERNAL_BACKUP_BYTES: u64 = 32 * 1024 * 1024;
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct BackupPreview {
+    source_path: String,
+    app_version: String,
+    format_version: u64,
+    schema_version: u64,
+    exported_at: String,
+    focus_record_count: usize,
+    todo_count: usize,
+    has_runtime_session: bool,
+    has_app_preferences: bool,
+    has_custom_alert_sound: bool,
+    migration_needed: bool,
+    warnings: Vec<String>,
+}
+
+fn external_backup_path(path: &str) -> Result<PathBuf, String> {
+    let path = PathBuf::from(path.trim());
+    if path.as_os_str().is_empty() {
+        return Err("备份路径不能为空。".to_string());
+    }
+    if path.extension().and_then(|value| value.to_str()) != Some("json") {
+        return Err("备份文件必须是 JSON 文件。".to_string());
+    }
+    let metadata = fs::metadata(&path).map_err(|error| format!("无法读取备份文件：{error}"))?;
+    if !metadata.is_file() {
+        return Err("备份路径必须指向一个文件。".to_string());
+    }
+    if metadata.len() > MAX_EXTERNAL_BACKUP_BYTES {
+        return Err("备份文件超过 32MB，已拒绝读取。".to_string());
+    }
+    Ok(path)
+}
+
+fn read_external_backup(path: &Path) -> Result<(AppBackupFile, Option<u64>, u64, u64), String> {
+    let raw = fs::read_to_string(path).map_err(|error| format!("读取备份失败：{error}"))?;
+    let original = serde_json::from_str::<AppBackupFile>(&raw)
+        .map_err(|error| format!("备份文件格式损坏：{error}"))?;
+    let original_format = original.format_version;
+    let original_schema = original.schema_version;
+    let (backup, migrated_from_format_version) = crate::migrate_backup_file(original)?;
+    Ok((
+        backup,
+        migrated_from_format_version,
+        original_format,
+        original_schema,
+    ))
+}
+
+fn backup_has_runtime_session(backup: &AppBackupFile) -> bool {
+    backup.runtime.is_running
+        || backup.runtime.stopwatch_elapsed_ms > 0
+        || backup.runtime.countdown_elapsed_ms > 0
+        || backup.runtime.pomodoro_elapsed_ms > 0
+        || backup.runtime.pending_pomodoro_record_ms.is_some()
+        || !backup.runtime.current_task_title.trim().is_empty()
+        || backup.runtime.linked_todo_id.is_some()
+}
+
+fn backup_preview(
+    path: &Path,
+    backup: &AppBackupFile,
+    migration_needed: bool,
+    original_format: u64,
+    original_schema: u64,
+) -> BackupPreview {
+    let mut warnings = Vec::new();
+    if migration_needed {
+        warnings.push(format!(
+            "这份备份将从格式 v{original_format} 迁移到 v{APP_BACKUP_FORMAT_VERSION}。"
+        ));
+    }
+    if original_schema < CURRENT_STORAGE_SCHEMA_VERSION {
+        warnings.push("备份中的数据 schema 需要升级。".to_string());
+    }
+    BackupPreview {
+        source_path: path.display().to_string(),
+        app_version: backup.app_version.clone(),
+        format_version: original_format,
+        schema_version: original_schema,
+        exported_at: backup.exported_at.clone(),
+        focus_record_count: backup.state.focus_records.len(),
+        todo_count: backup.state.todo_items.len(),
+        has_runtime_session: backup_has_runtime_session(backup),
+        has_app_preferences: original_format >= APP_BACKUP_FORMAT_VERSION
+            && original_schema >= CURRENT_STORAGE_SCHEMA_VERSION,
+        has_custom_alert_sound: backup
+            .state
+            .app_preferences
+            .custom_alert_sound_data
+            .is_some(),
+        migration_needed,
+        warnings,
+    }
+}
 
 #[tauri::command]
 pub(crate) fn bootstrap_shell() -> ShellSnapshot {
@@ -135,6 +238,102 @@ pub(crate) fn update_timer_preferences(
 }
 
 #[tauri::command]
+pub(crate) fn get_app_preferences(
+    state: tauri::State<'_, TimerEngineState>,
+) -> Result<AppPreferences, String> {
+    state.ensure_ready()?;
+    state
+        .app_preferences
+        .lock()
+        .map_err(|_| "应用设置状态锁定失败".to_string())
+        .map(|preferences| preferences.clone())
+}
+
+#[tauri::command]
+pub(crate) fn update_app_preferences(
+    state: tauri::State<'_, TimerEngineState>,
+    preferences: AppPreferences,
+) -> Result<AppPreferences, String> {
+    state.ensure_ready()?;
+    let normalized = preferences.normalized()?;
+    {
+        let mut stored = state
+            .app_preferences
+            .lock()
+            .map_err(|_| "应用设置状态锁定失败".to_string())?;
+        *stored = normalized.clone();
+    }
+    state.persist()?;
+    Ok(normalized)
+}
+
+#[tauri::command]
+pub(crate) fn get_focus_plan(
+    state: tauri::State<'_, TimerEngineState>,
+) -> Result<FocusPlanState, String> {
+    state.ensure_ready()?;
+    state
+        .focus_plan
+        .lock()
+        .map_err(|_| "专注计划状态锁定失败".to_string())
+        .map(|plan| plan.clone())
+}
+
+#[tauri::command]
+pub(crate) fn update_focus_plan(
+    state: tauri::State<'_, TimerEngineState>,
+    current_todo_id: Option<u64>,
+    today_pick_ids: Vec<u64>,
+) -> Result<FocusPlanState, String> {
+    state.ensure_ready()?;
+    let items = state
+        .todo_items
+        .lock()
+        .map_err(|_| "任务列表状态锁定失败".to_string())?;
+    let pending = items
+        .iter()
+        .filter(|item| !item.is_completed)
+        .collect::<Vec<_>>();
+    if let Some(id) = current_todo_id {
+        if !pending.iter().any(|item| item.id == id) {
+            return Err("当前事项不存在或已经完成。".to_string());
+        }
+    }
+    if today_pick_ids.len() > 3 {
+        return Err("今日精选最多保留 3 项。".to_string());
+    }
+    let today = Local::now().format("%Y-%m-%d").to_string();
+    let mut seen = HashSet::new();
+    for id in &today_pick_ids {
+        if !seen.insert(*id) {
+            return Err("今日精选不能重复添加同一项。".to_string());
+        }
+        let item = pending
+            .iter()
+            .find(|item| item.id == *id)
+            .ok_or_else(|| "今日精选只能包含未完成的待办。".to_string())?;
+        if !item.scheduled_date.is_empty() && item.scheduled_date != today {
+            return Err("今日精选只能包含今天或收件箱中的待办。".to_string());
+        }
+    }
+    drop(items);
+
+    let next = FocusPlanState {
+        current_todo_id,
+        today_pick_ids,
+    };
+    {
+        let mut plan = state
+            .focus_plan
+            .lock()
+            .map_err(|_| "专注计划状态锁定失败".to_string())?;
+        *plan = next.clone();
+    }
+    state.persist()?;
+    Ok(next)
+}
+
+#[tauri::command]
 pub(crate) fn update_timer_context(
     state: tauri::State<'_, TimerEngineState>,
     title: String,
@@ -232,9 +431,148 @@ pub(crate) fn update_focus_record_title(
             .ok_or_else(|| "未找到要编辑的专注记录".to_string())?;
 
         record.title = normalized_title;
+        record.edited_at = Some(current_local_markers().0);
         Ok(records.clone())
     })?;
 
+    state.persist()?;
+    Ok(records)
+}
+
+#[tauri::command]
+pub(crate) fn create_manual_focus_record(
+    state: tauri::State<'_, TimerEngineState>,
+    title: String,
+    duration_minutes: u64,
+    completed_date: String,
+    completed_time: String,
+    linked_todo_id: Option<u64>,
+) -> Result<Vec<FocusRecord>, String> {
+    state.ensure_ready()?;
+    let normalized_title = normalize_focus_record_title(&title)?;
+    if !(1..=1440).contains(&duration_minutes) {
+        return Err("手动补录时长需要在 1 到 1440 分钟之间。".to_string());
+    }
+    let normalized_date = normalize_scheduled_date(&completed_date)?;
+    if normalized_date.is_empty() {
+        return Err("手动补录需要填写完成日期。".to_string());
+    }
+    let normalized_time = normalize_scheduled_time(&completed_time)?;
+    let linked_todo_title = linked_todo_id
+        .map(|id| {
+            let items = state
+                .todo_items
+                .lock()
+                .map_err(|_| "任务列表状态锁定失败".to_string())?;
+            items
+                .iter()
+                .find(|item| item.id == id)
+                .map(|item| item.title.clone())
+                .ok_or_else(|| "关联的待办不存在。".to_string())
+        })
+        .transpose()?;
+    let id = {
+        let mut next = state
+            .next_record_id
+            .lock()
+            .map_err(|_| "记录编号状态锁定失败".to_string())?;
+        let id = *next;
+        *next += 1;
+        id
+    };
+    let completed_at = format!(
+        "{} {}:00",
+        normalized_date,
+        if normalized_time.is_empty() {
+            "00:00"
+        } else {
+            normalized_time.as_str()
+        }
+    );
+    let record = FocusRecord {
+        id,
+        title: normalized_title,
+        duration_ms: duration_minutes.saturating_mul(60_000),
+        duration_label: format_duration_ms(duration_minutes.saturating_mul(60_000)),
+        mode_key: "manual".to_string(),
+        mode_label: "手动补录".to_string(),
+        phase_label: "手动补录".to_string(),
+        linked_todo_id,
+        linked_todo_title,
+        completed_at,
+        completed_date: normalized_date,
+        completed_time: normalized_time,
+        source: "manual".to_string(),
+        time_basis: "completion_day".to_string(),
+        edited_at: None,
+    };
+    let records = with_focus_records(&state, |records| {
+        records.insert(0, record);
+        sort_focus_records(records);
+        Ok(records.clone())
+    })?;
+    state.persist()?;
+    Ok(records)
+}
+
+#[tauri::command]
+pub(crate) fn update_focus_record(
+    state: tauri::State<'_, TimerEngineState>,
+    id: u64,
+    title: String,
+    duration_minutes: u64,
+    completed_date: String,
+    completed_time: String,
+    linked_todo_id: Option<u64>,
+) -> Result<Vec<FocusRecord>, String> {
+    let normalized_title = normalize_focus_record_title(&title)?;
+    if !(1..=1440).contains(&duration_minutes) {
+        return Err("记录时长需要在 1 到 1440 分钟之间。".to_string());
+    }
+    let normalized_date = normalize_scheduled_date(&completed_date)?;
+    if normalized_date.is_empty() {
+        return Err("记录需要填写完成日期。".to_string());
+    }
+    let normalized_time = normalize_scheduled_time(&completed_time)?;
+    let linked_todo_title = linked_todo_id
+        .map(|todo_id| {
+            let items = state
+                .todo_items
+                .lock()
+                .map_err(|_| "任务列表状态锁定失败".to_string())?;
+            items
+                .iter()
+                .find(|item| item.id == todo_id)
+                .map(|item| item.title.clone())
+                .ok_or_else(|| "关联的待办不存在。".to_string())
+        })
+        .transpose()?;
+    let completed_at = format!(
+        "{} {}:00",
+        normalized_date,
+        if normalized_time.is_empty() {
+            "00:00"
+        } else {
+            normalized_time.as_str()
+        }
+    );
+    let records = with_focus_records(&state, |records| {
+        let record = records
+            .iter_mut()
+            .find(|record| record.id == id)
+            .ok_or_else(|| "未找到要编辑的专注记录".to_string())?;
+        record.title = normalized_title.clone();
+        record.duration_ms = duration_minutes.saturating_mul(60_000);
+        record.duration_label = format_duration_ms(record.duration_ms);
+        record.completed_at = completed_at.clone();
+        record.completed_date = normalized_date.clone();
+        record.completed_time = normalized_time.clone();
+        record.linked_todo_id = linked_todo_id;
+        record.linked_todo_title = linked_todo_title.clone();
+        record.edited_at = Some(current_local_markers().0);
+        sort_focus_records(records);
+        Ok(records.clone())
+    })?;
     state.persist()?;
     Ok(records)
 }
@@ -345,7 +683,7 @@ pub(crate) fn list_app_backups(
         .into_iter()
         .filter(|(_, backup)| {
             backup.kind == APP_BACKUP_KIND
-                && matches!(backup.format_version, 1 | APP_BACKUP_FORMAT_VERSION)
+                && matches!(backup.format_version, 1 | 2 | APP_BACKUP_FORMAT_VERSION)
         })
         .map(|(file_name, backup)| BackupListItem {
             file_name,
@@ -374,7 +712,7 @@ pub(crate) fn export_app_backup(
     let store = state.persistence_store()?;
 
     let backup = state.export_backup_file()?;
-    let file_name = create_backup_file_name("focused-moment-backup-v2-");
+    let file_name = create_backup_file_name("focused-moment-backup-v3-");
     let exported_at = backup.exported_at.clone();
     let backup_path = store.save_user_backup(&file_name, &backup)?;
 
@@ -395,11 +733,74 @@ pub(crate) fn import_app_backup(
     let backup = store.load_user_backup(&file_name)?;
     let rollback = state.export_backup_file()?;
     let rollback_file_name =
-        create_backup_file_name("focused-moment-backup-v2-rollback-before-import-");
+        create_backup_file_name("focused-moment-backup-v3-rollback-before-import-");
     store.save_user_backup(&rollback_file_name, &rollback)?;
 
-    let mut result = state.apply_backup_file(backup)?;
+    let mut result = state.apply_backup_file_with_options(backup, false)?;
     result.imported_file_name = file_name;
+    result.rollback_file_name = rollback_file_name;
+    Ok(result)
+}
+
+#[tauri::command]
+pub(crate) fn preview_app_backup_path(path: String) -> Result<BackupPreview, String> {
+    let path = external_backup_path(&path)?;
+    let (backup, migrated, original_format, original_schema) = read_external_backup(&path)?;
+    Ok(backup_preview(
+        &path,
+        &backup,
+        migrated.is_some() || original_format != APP_BACKUP_FORMAT_VERSION,
+        original_format,
+        original_schema,
+    ))
+}
+
+#[tauri::command]
+pub(crate) fn export_app_backup_to_path(
+    state: tauri::State<'_, TimerEngineState>,
+    path: String,
+) -> Result<BackupExportResult, String> {
+    state.ensure_ready()?;
+    let path = PathBuf::from(path.trim());
+    if path.as_os_str().is_empty() {
+        return Err("备份路径不能为空。".to_string());
+    }
+    if path.extension().and_then(|value| value.to_str()) != Some("json") {
+        return Err("备份文件必须是 JSON 文件。".to_string());
+    }
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|error| format!("无法创建备份目录：{error}"))?;
+    }
+    let backup = state.export_backup_file()?;
+    let exported_at = backup.exported_at.clone();
+    let serialized = serde_json::to_string_pretty(&backup).map_err(|error| error.to_string())?;
+    fs::write(&path, serialized).map_err(|error| format!("写入备份失败：{error}"))?;
+    Ok(BackupExportResult {
+        file_name: path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("focused-moment-backup.json")
+            .to_string(),
+        file_path: path.display().to_string(),
+        exported_at,
+    })
+}
+
+#[tauri::command]
+pub(crate) fn import_app_backup_path(
+    state: tauri::State<'_, TimerEngineState>,
+    path: String,
+    restore_app_preferences: bool,
+) -> Result<BackupImportResult, String> {
+    let path = external_backup_path(&path)?;
+    let (backup, _migrated, _original_format, _original_schema) = read_external_backup(&path)?;
+    let store = state.persistence_store()?;
+    let rollback = state.export_backup_file()?;
+    let rollback_file_name =
+        create_backup_file_name("focused-moment-backup-v3-rollback-before-import-");
+    store.save_user_backup(&rollback_file_name, &rollback)?;
+    let mut result = state.apply_backup_file_with_options(backup, restore_app_preferences)?;
+    result.imported_file_name = path.display().to_string();
     result.rollback_file_name = rollback_file_name;
     Ok(result)
 }
@@ -481,6 +882,8 @@ pub(crate) fn create_todo_item(
                 scheduled_date: normalized_date,
                 scheduled_time: normalized_time,
                 importance_key: normalized_importance,
+                continuation_note: String::new(),
+                continuation_updated_at: None,
             },
         );
         sort_todo_items(items);
@@ -523,6 +926,44 @@ pub(crate) fn update_todo_item(
 }
 
 #[tauri::command]
+pub(crate) fn update_todo_continuation_note(
+    state: tauri::State<'_, TimerEngineState>,
+    id: u64,
+    note: String,
+) -> Result<Vec<TodoItem>, String> {
+    let normalized_note = normalize_continuation_note(&note)?;
+    let updated_at = if normalized_note.is_empty() {
+        None
+    } else {
+        Some(current_local_markers().0)
+    };
+    let items = with_todo_items(&state, |items| {
+        let item = items
+            .iter_mut()
+            .find(|item| item.id == id)
+            .ok_or_else(|| "未找到要保存停笔书签的待办。".to_string())?;
+        item.continuation_note = normalized_note.clone();
+        item.continuation_updated_at = updated_at.clone();
+        sort_todo_items(items);
+        Ok(items.clone())
+    })?;
+    state.persist()?;
+    Ok(items)
+}
+
+fn clear_focus_plan_reference(state: &TimerEngineState, id: u64) -> Result<(), String> {
+    let mut plan = state
+        .focus_plan
+        .lock()
+        .map_err(|_| "专注计划状态锁定失败".to_string())?;
+    if plan.current_todo_id == Some(id) {
+        plan.current_todo_id = None;
+    }
+    plan.today_pick_ids.retain(|candidate| *candidate != id);
+    Ok(())
+}
+
+#[tauri::command]
 pub(crate) fn toggle_todo_item(
     state: tauri::State<'_, TimerEngineState>,
     id: u64,
@@ -540,6 +981,7 @@ pub(crate) fn toggle_todo_item(
     })?;
 
     if should_clear_timer_link {
+        clear_focus_plan_reference(&state, id)?;
         with_timer_engine(&state, |engine| {
             if engine.linked_todo_id == Some(id) {
                 engine.linked_todo_id = None;
@@ -579,6 +1021,7 @@ pub(crate) fn delete_todo_item(
         }
         Ok(())
     })?;
+    clear_focus_plan_reference(&state, id)?;
     state.persist_all()?;
     Ok(items)
 }
@@ -595,6 +1038,8 @@ pub(crate) fn restore_todo_item(
         scheduled_date: normalize_scheduled_date(&item.scheduled_date)?,
         scheduled_time: normalize_scheduled_time(&item.scheduled_time)?,
         importance_key: normalize_importance_key(&item.importance_key)?,
+        continuation_note: normalize_continuation_note(&item.continuation_note)?,
+        continuation_updated_at: item.continuation_updated_at.clone(),
     };
     let item_id = normalized_item.id;
 
@@ -720,6 +1165,9 @@ pub(crate) fn complete_focus_session(
         completed_at,
         completed_date,
         completed_time,
+        source: "timer".to_string(),
+        time_basis: "completion_day".to_string(),
+        edited_at: None,
     };
 
     let records = {
@@ -746,6 +1194,12 @@ pub(crate) fn complete_focus_session(
         sort_todo_items(&mut cloned_items);
         Ok(cloned_items)
     })?;
+
+    if completed_session.complete_linked_todo_on_finish {
+        if let Some(linked_todo_id) = record_linked_todo_id {
+            clear_focus_plan_reference(&state, linked_todo_id)?;
+        }
+    }
 
     state.persist_all()?;
 

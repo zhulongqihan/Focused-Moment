@@ -1,31 +1,28 @@
 import { Match, Show, Switch, createMemo } from "solid-js";
-import TodayDashboard from "./TodayDashboard";
+import UnifiedTodaySurface from "./UnifiedTodaySurface";
+import FocusPlanControls from "./FocusPlanControls";
 import {
   EditorialPaperFocus,
   EditorialPaperRecords,
   EditorialPaperSettings,
-  EditorialPaperToday,
   EditorialPaperTodos,
 } from "./EditorialPaperViews";
 import {
   GraphiteConsoleFocus,
   GraphiteConsoleRecords,
   GraphiteConsoleSettings,
-  GraphiteConsoleToday,
   GraphiteConsoleTodos,
 } from "./GraphiteConsoleViews";
 import {
   AuroraOceanFocus,
   AuroraOceanRecords,
   AuroraOceanSettings,
-  AuroraOceanToday,
   AuroraOceanTodos,
 } from "./AuroraOceanViews";
 import {
   BotanicalLibraryFocus,
   BotanicalLibraryRecords,
   BotanicalLibrarySettings,
-  BotanicalLibraryToday,
   BotanicalLibraryTodos,
 } from "./BotanicalLibraryViews";
 import {
@@ -86,37 +83,37 @@ export default function ThemeSurface(props: ThemeSurfaceProps) {
   return (
     <Switch fallback={<section class="theme-surface-unavailable" role="status">当前主题暂不可用，已回退到可用主题。</section>}>
       <Match when={themeImplementation() === "night-valley"}>
-        <Show when={props.activeView() === "today"}><TodayDashboard {...props.today} /></Show>
+        <Show when={props.activeView() === "today"}><UnifiedTodaySurface {...props.today} theme="night-valley" /></Show>
         <Show when={props.activeView() === "focus"}><NightValleyFocus {...props.focus} /></Show>
-        <Show when={props.activeView() === "todos"}><NightValleyTodo {...props.todos} /></Show>
+        <Show when={props.activeView() === "todos"}><FocusPlanControls {...props.today} /><NightValleyTodo {...props.todos} /></Show>
         <Show when={props.activeView() === "records"}><NightValleyRecords {...props.records} /></Show>
         <Show when={props.activeView() === "settings"}><NightValleySettings {...props.settings} /></Show>
       </Match>
       <Match when={themeImplementation() === "editorial-paper"}>
-        <Show when={props.activeView() === "today"}><EditorialPaperToday {...props.today} /></Show>
+        <Show when={props.activeView() === "today"}><UnifiedTodaySurface {...props.today} theme="editorial-paper" /></Show>
         <Show when={props.activeView() === "focus"}><EditorialPaperFocus {...props.focus} /></Show>
-        <Show when={props.activeView() === "todos"}><EditorialPaperTodos {...props.todos} /></Show>
+        <Show when={props.activeView() === "todos"}><FocusPlanControls {...props.today} /><EditorialPaperTodos {...props.todos} /></Show>
         <Show when={props.activeView() === "records"}><EditorialPaperRecords {...props.records} /></Show>
         <Show when={props.activeView() === "settings"}><EditorialPaperSettings {...props.settings} /></Show>
       </Match>
       <Match when={themeImplementation() === "graphite-console"}>
-        <Show when={props.activeView() === "today"}><GraphiteConsoleToday {...props.today} /></Show>
+        <Show when={props.activeView() === "today"}><UnifiedTodaySurface {...props.today} theme="graphite-console" /></Show>
         <Show when={props.activeView() === "focus"}><GraphiteConsoleFocus {...props.focus} /></Show>
-        <Show when={props.activeView() === "todos"}><GraphiteConsoleTodos {...props.todos} /></Show>
+        <Show when={props.activeView() === "todos"}><FocusPlanControls {...props.today} /><GraphiteConsoleTodos {...props.todos} /></Show>
         <Show when={props.activeView() === "records"}><GraphiteConsoleRecords {...props.records} /></Show>
         <Show when={props.activeView() === "settings"}><GraphiteConsoleSettings {...props.settings} /></Show>
       </Match>
       <Match when={themeImplementation() === "aurora-ocean"}>
-        <Show when={props.activeView() === "today"}><AuroraOceanToday {...props.today} /></Show>
+        <Show when={props.activeView() === "today"}><UnifiedTodaySurface {...props.today} theme="aurora-ocean" /></Show>
         <Show when={props.activeView() === "focus"}><AuroraOceanFocus {...props.focus} /></Show>
-        <Show when={props.activeView() === "todos"}><AuroraOceanTodos {...props.todos} /></Show>
+        <Show when={props.activeView() === "todos"}><FocusPlanControls {...props.today} /><AuroraOceanTodos {...props.todos} /></Show>
         <Show when={props.activeView() === "records"}><AuroraOceanRecords {...props.records} /></Show>
         <Show when={props.activeView() === "settings"}><AuroraOceanSettings {...props.settings} /></Show>
       </Match>
       <Match when={themeImplementation() === "botanical-library"}>
-        <Show when={props.activeView() === "today"}><BotanicalLibraryToday {...props.today} /></Show>
+        <Show when={props.activeView() === "today"}><UnifiedTodaySurface {...props.today} theme="botanical-library" /></Show>
         <Show when={props.activeView() === "focus"}><BotanicalLibraryFocus {...props.focus} /></Show>
-        <Show when={props.activeView() === "todos"}><BotanicalLibraryTodos {...props.todos} /></Show>
+        <Show when={props.activeView() === "todos"}><FocusPlanControls {...props.today} /><BotanicalLibraryTodos {...props.todos} /></Show>
         <Show when={props.activeView() === "records"}><BotanicalLibraryRecords {...props.records} /></Show>
         <Show when={props.activeView() === "settings"}><BotanicalLibrarySettings {...props.settings} /></Show>
       </Match>

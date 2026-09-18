@@ -1,11 +1,15 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
   AnalyticsSnapshot,
+  AppPreferences,
+  BackupImportOptions,
+  BackupPreview,
   BackupExportResult,
   BackupImportResult,
   BackupListItem,
   CompletionPayload,
   FocusRecord,
+  FocusPlanState,
   TimerPreferences,
   TimerSnapshot,
 } from "./contracts";
@@ -20,6 +24,25 @@ export async function acknowledgeTimerAlert() {
 
 export async function getTimerPreferences() {
   return invoke<TimerPreferences>("get_timer_preferences");
+}
+
+export async function getAppPreferences() {
+  return invoke<AppPreferences>("get_app_preferences");
+}
+
+export async function updateAppPreferences(preferences: AppPreferences) {
+  return invoke<AppPreferences>("update_app_preferences", { preferences });
+}
+
+export async function getFocusPlan() {
+  return invoke<FocusPlanState>("get_focus_plan");
+}
+
+export async function updateFocusPlan(plan: FocusPlanState) {
+  return invoke<FocusPlanState>("update_focus_plan", {
+    currentTodoId: plan.currentTodoId,
+    todayPickIds: plan.todayPickIds,
+  });
 }
 
 export async function updateTimerPreferences(preferences: TimerPreferences) {
@@ -68,6 +91,40 @@ export async function updateFocusRecordTitle(id: number, title: string) {
   return invoke<FocusRecord[]>("update_focus_record_title", { id, title });
 }
 
+export async function createManualFocusRecord(payload: {
+  title: string;
+  durationMinutes: number;
+  completedDate: string;
+  completedTime: string;
+  linkedTodoId: number | null;
+}) {
+  return invoke<FocusRecord[]>("create_manual_focus_record", {
+    title: payload.title,
+    durationMinutes: payload.durationMinutes,
+    completedDate: payload.completedDate,
+    completedTime: payload.completedTime,
+    linkedTodoId: payload.linkedTodoId,
+  });
+}
+
+export async function updateFocusRecord(payload: {
+  id: number;
+  title: string;
+  durationMinutes: number;
+  completedDate: string;
+  completedTime: string;
+  linkedTodoId: number | null;
+}) {
+  return invoke<FocusRecord[]>("update_focus_record", {
+    id: payload.id,
+    title: payload.title,
+    durationMinutes: payload.durationMinutes,
+    completedDate: payload.completedDate,
+    completedTime: payload.completedTime,
+    linkedTodoId: payload.linkedTodoId,
+  });
+}
+
 export async function getAnalyticsSnapshot() {
   return invoke<AnalyticsSnapshot>("get_analytics_snapshot");
 }
@@ -94,6 +151,21 @@ export async function exportAppBackup() {
 
 export async function importAppBackup(fileName: string) {
   return invoke<BackupImportResult>("import_app_backup", { fileName });
+}
+
+export async function previewAppBackupPath(path: string) {
+  return invoke<BackupPreview>("preview_app_backup_path", { path });
+}
+
+export async function exportAppBackupToPath(path: string) {
+  return invoke<BackupExportResult>("export_app_backup_to_path", { path });
+}
+
+export async function importAppBackupPath(path: string, options: BackupImportOptions) {
+  return invoke<BackupImportResult>("import_app_backup_path", {
+    path,
+    restoreAppPreferences: options.restoreAppPreferences,
+  });
 }
 
 export async function clearAppData() {

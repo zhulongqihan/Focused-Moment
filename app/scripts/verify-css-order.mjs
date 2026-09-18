@@ -3,8 +3,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
-const sourceCssSha256 = "106295093E3CD47F7FBFE6EFAA8855273A51C5E2A86F04F166C170058CD058B7";
-const sourceCssLength = 426055;
+const sourceCssSha256 = "948706D48171384A74E02026942CC55DEE4C174926DB1BFBF2B8654B401B089C";
+const sourceCssLength = 444986;
 const modules = [
   ["00-foundation.css", 1, 900],
   ["10-trail-reference.css", 901, 3175],
@@ -14,6 +14,7 @@ const modules = [
   ["50-trail-polish.css", 6069, 7260],
   ["60-focus-todos-records.css", 7261, 10000],
   ["70-settings-feedback.css", 10001, 11166],
+  ["80-continuity-workflow.css", 11167, 13000],
 ];
 
 function normalize(value) {

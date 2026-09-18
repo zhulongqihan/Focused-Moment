@@ -25,6 +25,10 @@ export interface TodaySurfaceProps {
   timerHasProgress: Accessor<boolean>;
   timerCanContinue: Accessor<boolean>;
   nextTodo: Accessor<TodoItem | null>;
+  currentTodo: Accessor<TodoItem | null>;
+  todayPickTodos: Accessor<TodoItem[]>;
+  todayPickIds: Accessor<number[]>;
+  planTodos: Accessor<TodoItem[]>;
   todayTodos: Accessor<TodoItem[]>;
   todayCompletedTodos: Accessor<TodoItem[]>;
   records: Accessor<FocusRecord[]>;
@@ -36,6 +40,10 @@ export interface TodaySurfaceProps {
   onContinue: () => void;
   onFinish: () => void | Promise<void>;
   onStartNext: () => void;
+  onSetCurrentTodo: (id: number | null) => void | Promise<void>;
+  onToggleTodayPick: (id: number) => void | Promise<void>;
+  onStartTodo: (item: TodoItem) => void | Promise<void>;
+  onQuickCapture: () => void;
   onOpenFocus: () => void;
   onOpenRecords: () => void;
   onUseTodo: (item: TodoItem) => void;
@@ -47,6 +55,7 @@ export interface FocusSurfaceProps {
   todaySessionCount: Accessor<number>;
   timerPreferences: Accessor<TimerPreferences>;
   todos: Accessor<TodoItem[]>;
+  records: Accessor<FocusRecord[]>;
   pendingTodos: Accessor<TodoItem[]>;
   ready: Accessor<boolean>;
   busy: Accessor<boolean>;
@@ -146,10 +155,12 @@ export interface RecordsSurfaceProps {
   formatDurationMs: (value: number) => string;
   onSelectDate: (value: string) => void;
   onBeginEdit: (record: FocusRecord) => void;
+  onBeginDetailedEdit?: (record: FocusRecord) => void;
   onPatchEdit: (value: string) => void;
   onSaveEdit: () => void | Promise<void>;
   onCancelEdit: () => void;
   onRemove: (id: number) => void | Promise<void>;
+  onCreateManualRecord?: () => void | Promise<void>;
 }
 
 export interface SettingsSurfaceProps {
@@ -167,11 +178,15 @@ export interface SettingsSurfaceProps {
   visualIntensity: Accessor<number>;
   motionIntensity: Accessor<number>;
   density: Accessor<"roomy" | "compact">;
+  autoMiniOnStart: Accessor<boolean>;
+  appPreferenceSaveError: Accessor<string>;
+  appPreferenceSaveBusy: Accessor<boolean>;
   onThemeSelect: (value: ThemeId) => void;
   onVisualIntensityChange: (value: number) => void;
   onMotionIntensityChange: (value: number) => void;
   onDensityChange: (value: "roomy" | "compact") => void;
-  onSaveVisualSettings: () => void;
+  onAutoMiniOnStartChange: (value: boolean) => void;
+  onRetryAppPreferenceSave: () => void;
   onSaveTimerPreferences: (patch: Partial<TimerPreferences>) => void | Promise<void>;
   onPreviewAlertSound: () => void;
   onChooseCustomAlertSound: (event: Event) => void | Promise<void>;

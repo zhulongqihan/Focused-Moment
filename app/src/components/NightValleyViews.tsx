@@ -20,10 +20,10 @@ import type {
   SettingsSurfaceProps,
   TodoSurfaceProps,
 } from "../lib/theme-contracts";
-import { themes } from "../lib/themes";
 import { TodoDateGroupList } from "../features/todos/TodoDateGroupList";
 import { groupTodosByDate } from "../features/todos/todo-groups";
 import { NightValleyDateStamp } from "./NightValleyDateStamp";
+import ThemePicker from "./ThemePicker";
 
 function currentDateLabel() {
   return new Date()
@@ -31,7 +31,7 @@ function currentDateLabel() {
     .replace(/\//g, "-");
 }
 
-type BuiltInAlertSoundKey = Exclude<AlertSoundKey, "custom">;
+type BuiltInAlertSoundKey = Exclude<AlertSoundKey, "custom" | "viral_quote">;
 
 const alertSoundOptions: Array<{ key: BuiltInAlertSoundKey; label: string; note: string }> = [
   { key: "soft_chime", label: "柔和铃音", note: "轻 · 双音" },
@@ -40,7 +40,6 @@ const alertSoundOptions: Array<{ key: BuiltInAlertSoundKey; label: string; note:
   { key: "wooden_tick", label: "木鱼单击", note: "静 · 一声" },
   { key: "glass_ping", label: "玻璃回响", note: "亮 · 余韵" },
   { key: "morning_chord", label: "晨光和弦", note: "暖 · 上行" },
-  { key: "viral_quote", label: "老牧师原声", note: "经典 · 口播" },
 ];
 
 function formatPreviewMinutes(value: number) {
@@ -213,10 +212,10 @@ export function NightValleyFocus(props: FocusSurfaceProps) {
                   type="button"
                   class="secondary-button nv-focus-floating-link nv-focus-floating-link--header"
                   disabled={props.busy()}
-                  title="隐藏主窗口，回到悬浮计时"
+                  title="打开迷你工作台"
                   onClick={() => void props.onShowFocusFloating()}
                 >
-                  进入悬浮窗 <ArrowUpRight size={15} strokeWidth={1.8} aria-hidden="true" />
+                  打开迷你工作台 <ArrowUpRight size={15} strokeWidth={1.8} aria-hidden="true" />
                 </button>
               </Show>
             </div>
@@ -616,6 +615,7 @@ export function NightValleyRecords(props: RecordsSurfaceProps) {
         <NightValleyDateStamp date={currentDateLabel()} />
         <h1>专注记录</h1>
         <p>看见投入留下的轨迹。</p>
+        <button type="button" class="primary-button" disabled={props.busy()} onClick={() => void props.onCreateManualRecord?.()}>补录专注</button>
       </header>
 
       <section class="records-archive nv-records-archive" aria-label="个人专注档案">
@@ -680,7 +680,7 @@ export function NightValleyRecords(props: RecordsSurfaceProps) {
 
         <section class="records-stats records-archive__stats" aria-label="专注概览">
           <div><span>活跃日</span><strong>{props.analytics()?.activeDays ?? 0}</strong><small>活跃日平均 {props.analytics()?.averageDailyDurationLabel ?? "00:00:00"}</small></div>
-          <div><span>连续回来</span><strong>{props.analytics()?.currentStreakDays ?? 0} 天</strong><small>保持你的节奏</small></div>
+          <div><span>节奏成就</span><strong>{props.analytics()?.currentStreakDays ?? 0} 天</strong><small>下一次回来从今天算起</small></div>
           <div><span>独立专注</span><strong>{props.analytics()?.independentSessionCount ?? 0}</strong><small>没有关联待办</small></div>
           <div class="records-stats__progress"><div class="records-stats__progress-heading"><span>待办完成轨迹</span><strong>{props.todoCompletionPercent()}%</strong></div><div class="records-progress" aria-hidden="true"><span style={{ width: `${props.todoCompletionPercent()}%` }} /></div><small>完成的事项会回到今日路径。</small></div>
         </section>
@@ -738,7 +738,7 @@ export function NightValleyRecords(props: RecordsSurfaceProps) {
                         <article class="record-row">
                           <Show
                             when={props.editingRecord()?.id === record.id}
-                            fallback={<><div class="record-row__details"><div class="record-row__title-line"><strong title={record.title}>{record.title}</strong><span class="record-row__mode">{record.modeLabel}</span></div><small>{props.formatRecordDate(record)}</small></div><b>{record.durationLabel}</b><div class="record-row__actions"><button type="button" class="row-action" aria-label={`编辑记录“${record.title}”`} disabled={props.busy()} onClick={() => props.onBeginEdit(record)}>编辑</button><button type="button" class="row-action row-action--danger" aria-label={`删除记录“${record.title}”`} disabled={props.busy()} onClick={() => void props.onRemove(record.id)}>删除</button></div></>}
+                            fallback={<><div class="record-row__details"><div class="record-row__title-line"><strong title={record.title}>{record.title}</strong><span class="record-row__mode">{record.modeLabel}</span></div><small>{props.formatRecordDate(record)} · {record.source === "manual" ? "手动补录" : "计时完成"}{record.editedAt ? " · 已修正" : ""}</small></div><b>{record.durationLabel}</b><div class="record-row__actions"><button type="button" class="row-action" aria-label={`编辑记录“${record.title}”`} disabled={props.busy()} onClick={() => props.onBeginEdit(record)}>改名</button><Show when={props.onBeginDetailedEdit}><button type="button" class="row-action" disabled={props.busy()} onClick={() => props.onBeginDetailedEdit?.(record)}>详细编辑</button></Show><button type="button" class="row-action row-action--danger" aria-label={`删除记录“${record.title}”`} disabled={props.busy()} onClick={() => void props.onRemove(record.id)}>删除</button></div></>}
                           >
                             <div class="record-row__details record-row__details--editing"><label class="sr-only" for={`editRecordTitle-${record.id}`}>记录名称</label><input id={`editRecordTitle-${record.id}`} type="text" name={`editRecordTitle-${record.id}`} autocomplete="off" maxlength="200" autofocus aria-label="记录名称" value={props.editingRecord()?.title ?? ""} onInput={(event) => props.onPatchEdit(event.currentTarget.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void props.onSaveEdit(); } else if (event.key === "Escape") { event.preventDefault(); props.onCancelEdit(); } }} /><small>{props.formatRecordDate(record)}</small></div><b>{record.durationLabel}</b><div class="record-row__actions"><button type="button" class="primary-button" disabled={props.busy()} onClick={() => void props.onSaveEdit()}>保存</button><button type="button" class="text-button" disabled={props.busy()} onClick={props.onCancelEdit}>取消</button></div>
                           </Show>
@@ -758,7 +758,6 @@ export function NightValleyRecords(props: RecordsSurfaceProps) {
 }
 
 export function NightValleySettings(props: SettingsSurfaceProps) {
-  const activeTheme = createMemo(() => themes.find((theme) => theme.id === props.themeId()) ?? themes[0]);
   let customAlertSoundInput: HTMLInputElement | undefined;
   return (
     <section class="nv-page nv-settings-page settings-page" aria-label="设置">
@@ -769,7 +768,14 @@ export function NightValleySettings(props: SettingsSurfaceProps) {
           <section id="nv-appearance" class="settings-section nv-settings-panel nv-settings-panel--appearance">
             <div class="settings-section__heading"><span class="nv-section-kicker">APPEARANCE / 01</span><h2>外观</h2><p>选择一个工作氛围，切换会立即生效并自动保存。</p></div>
             <div class="nv-theme-grid" aria-label="主题选择">
-              <For each={themes}>{(theme) => <button type="button" classList={{ "nv-theme-card": true, "is-selected": props.themeId() === theme.id, "is-disabled": !theme.implemented }} disabled={!theme.implemented} aria-pressed={props.themeId() === theme.id} title={theme.implemented ? `使用${theme.name}主题` : `${theme.name}主题尚未实现`} onClick={() => props.onThemeSelect(theme.id)}><img src={theme.preview} alt={`${theme.englishName} 概念预览`} /><span class="nv-theme-card__shade" /><strong>{theme.name}</strong><small>{theme.implemented ? "已实现" : "尚未实现"}</small></button>}</For>
+              <ThemePicker value={props.themeId()} onChange={props.onThemeSelect} className="nv-theme-picker" />
+            </div>
+            <div class="nv-appearance-controls">
+              <label><span>视觉强度 <b>{props.visualIntensity()}%</b></span><input type="range" min="0" max="100" value={props.visualIntensity()} aria-label="视觉强度" onInput={(event) => props.onVisualIntensityChange(Number(event.currentTarget.value))} /></label>
+              <label><span>动效强度 <b>{props.motionIntensity()}%</b></span><input type="range" min="0" max="100" value={props.motionIntensity()} aria-label="动效强度" onInput={(event) => props.onMotionIntensityChange(Number(event.currentTarget.value))} /></label>
+              <label><span>信息密度</span><span class="nv-density-buttons"><button type="button" classList={{ active: props.density() === "roomy" }} aria-pressed={props.density() === "roomy"} onClick={() => props.onDensityChange("roomy")}>舒展</button><button type="button" classList={{ active: props.density() === "compact" }} aria-pressed={props.density() === "compact"} onClick={() => props.onDensityChange("compact")}>紧凑</button></span></label>
+              <label class="nv-auto-mini-toggle"><input type="checkbox" checked={props.autoMiniOnStart()} onChange={(event) => props.onAutoMiniOnStartChange(event.currentTarget.checked)} /><span>开始专注时自动打开迷你工作台</span></label>
+              <Show when={props.appPreferenceSaveError()}><div class="nv-settings-error" role="alert"><span>{props.appPreferenceSaveError()}</span><button type="button" disabled={props.appPreferenceSaveBusy()} onClick={props.onRetryAppPreferenceSave}>重试保存</button></div></Show>
             </div>
           </section>
 
@@ -783,7 +789,6 @@ export function NightValleySettings(props: SettingsSurfaceProps) {
 
           <section class="settings-section settings-section--danger nv-settings-panel nv-settings-panel--danger"><div class="settings-section__heading"><h2>清空当前数据</h2><p>不会删除已经导出的备份。</p></div><button type="button" class="secondary-button" disabled={props.busy()} onClick={() => void props.onClearAllData()}>清空当前数据</button></section>
         </div>
-        <aside class="nv-settings-preview nv-settings-theme-lab" aria-label="主题观测站"><div class="nv-theme-lab__header"><span>THEME OBSERVATORY / 主题观测站</span><strong>LIVE</strong></div><div class="nv-theme-lab__core"><div class="nv-theme-lab__orbit" aria-hidden="true"><i /><i /><i /><b /></div><div class="nv-theme-lab__copy"><small>当前工作氛围</small><strong>{activeTheme().name}</strong><span>{activeTheme().englishName}</span><p>{activeTheme().description}</p></div></div><div class="nv-theme-lab__signals"><div><span>状态</span><b>实时应用</b></div><div><span>保存</span><b>自动保留</b></div><div><span>建议</span><b>选一件事开始</b></div></div><div class="nv-theme-lab__footer"><span />切换主题后立即生效，无需再点保存</div></aside>
       </div>
     </section>
   );

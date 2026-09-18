@@ -7,16 +7,17 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
-use crate::{FocusRecord, TimerPreferences, TodoItem};
+use crate::{AppPreferences, FocusPlanState, FocusRecord, TimerPreferences, TodoItem};
 
 const STORAGE_DIR_NAME: &str = "FocusedMoment";
 const STORAGE_FILE_NAME: &str = "focused-moment-state.json";
 const RUNTIME_FILE_NAME: &str = "focused-moment-runtime.json";
 const STATE_BACKUP_FILE_NAME: &str = "focused-moment-state.backup.json";
 const RUNTIME_BACKUP_FILE_NAME: &str = "focused-moment-runtime.backup.json";
-pub const CURRENT_STORAGE_SCHEMA_VERSION: u64 = 2;
+pub const CURRENT_STORAGE_SCHEMA_VERSION: u64 = 3;
 const USER_BACKUP_DIR_NAME: &str = "Focused Moment Backups";
-const USER_BACKUP_PREFIX: &str = "focused-moment-backup-v2-";
+const USER_BACKUP_PREFIX: &str = "focused-moment-backup-v3-";
+const COMPAT_USER_BACKUP_PREFIX: &str = "focused-moment-backup-v2-";
 const LEGACY_USER_BACKUP_PREFIX: &str = "focused-moment-backup-v1-";
 const USER_BACKUP_SUFFIX: &str = ".json";
 
@@ -144,6 +145,10 @@ pub struct PersistedState {
     pub next_todo_id: u64,
     #[serde(default)]
     pub timer_preferences: TimerPreferences,
+    #[serde(default)]
+    pub app_preferences: AppPreferences,
+    #[serde(default)]
+    pub focus_plan: FocusPlanState,
 }
 
 #[derive(Clone, Default, Serialize, Deserialize)]
@@ -366,6 +371,7 @@ impl PersistenceStore {
 
     pub fn is_supported_backup_file_name(file_name: &str) -> bool {
         (file_name.starts_with(USER_BACKUP_PREFIX)
+            || file_name.starts_with(COMPAT_USER_BACKUP_PREFIX)
             || file_name.starts_with(LEGACY_USER_BACKUP_PREFIX))
             && file_name.ends_with(USER_BACKUP_SUFFIX)
             && !file_name.contains(['\\', '/', ':'])
