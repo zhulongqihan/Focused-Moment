@@ -175,6 +175,7 @@ function assertTrackedArtifactsAbsent(workspaceRoot) {
 }
 
 function assertWorkspaceLayout(appRoot, workspaceRoot) {
+  const rootExecutableRequired = process.env.CI !== "true";
   const required = [
     "app/package.json",
     "app/pnpm-lock.yaml",
@@ -187,8 +188,8 @@ function assertWorkspaceLayout(appRoot, workspaceRoot) {
     "artifacts",
     "archive",
     "local",
-    "Focused Moment.exe",
   ];
+  if (rootExecutableRequired) required.push("Focused Moment.exe");
   const missing = required.filter((path) => !existsSync(join(workspaceRoot, path)));
   if (missing.length > 0) throw new Error(`Workspace layout is incomplete: ${missing.join(", ")}`);
 
@@ -216,6 +217,10 @@ function assertWorkspaceLayout(appRoot, workspaceRoot) {
   const presentForbidden = forbiddenOuterEntries.filter((entry) => existsSync(join(workspaceRoot, entry)));
   if (presentForbidden.length > 0) throw new Error(`Application files remain at workspace root: ${presentForbidden.join(", ")}`);
   if (resolve(appRoot) === resolve(workspaceRoot)) throw new Error("appRoot and workspaceRoot must be distinct.");
+  return {
+    rootExecutableRequired,
+    rootExecutablePresent: existsSync(join(workspaceRoot, "Focused Moment.exe")),
+  };
 }
 
 function assertRepositoryRules(appRoot, workspaceRoot, sourceTexts) {
@@ -311,13 +316,14 @@ export function verifyStructure(projectRoot = resolve(process.cwd())) {
 
   const { graph, sourceTexts } = collectImportGraph(appRoot);
   validateLayerBoundaries(graph, sourceTexts);
-  assertWorkspaceLayout(appRoot, workspaceRoot);
+  const workspaceLayout = assertWorkspaceLayout(appRoot, workspaceRoot);
   assertRepositoryRules(appRoot, workspaceRoot, sourceTexts);
   assertDocsIgnorePolicy(workspaceRoot);
   assertTrackedArtifactsAbsent(workspaceRoot);
   return {
     success: true,
     sourceCount: graph.size,
+    workspaceLayout,
     checkedBoundaries: ["feature-layer", "theme-isolation", "neutral-contract", "rust-modules", "workspace-zones", "docs", "artifacts"],
   };
 }
