@@ -70,6 +70,7 @@ export interface AppPreferences {
 
 export interface AppPreferencesView extends Omit<AppPreferences, "customAlertSoundData"> {
   hasCustomAlertSound: boolean;
+  customAlertSoundFingerprint?: string | null;
 }
 
 export interface FocusPlanState {

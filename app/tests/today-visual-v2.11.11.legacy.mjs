@@ -9,7 +9,7 @@ const referenceDate = "2026-09-05";
 const baselineSha = process.env.NV04_BASELINE_SHA ?? execFileSync("git", ["rev-parse", "--short", "HEAD"], { encoding: "utf8" }).trim();
 
 const nightValleyPages = [
-  ["今日", ".trail-map", ".trail-page"],
+  ["今日", ".continuity-board", ".unified-today-page"],
   ["计时", ".nv-focus-panel", ".nv-page"],
   ["待办", ".nv-todo-board", ".nv-page"],
   ["记录", ".nv-records-archive", ".nv-page"],
@@ -18,6 +18,21 @@ const nightValleyPages = [
 
 function pageButton(page, label) {
   return page.locator(".minimal-nav > button").filter({ hasText: label });
+}
+
+async function startCurrentAndStayToday(page, title = "明日规划") {
+  const before = await page.evaluate(() => window.__rcStartTimerCalls.length);
+  await page.locator(".continuity-board__primary").click();
+  await expect.poll(() => page.evaluate(() => window.__rcStartTimerCalls.length)).toBe(before + 1);
+  // Snapshot the context at the actual IPC start, not just a later rendered label.
+  expect(await page.evaluate(() => window.__rcStartTimerCalls.at(-1))).toEqual({ title, linkedTodoId: 101 });
+  await expect.poll(() => page.evaluate(async () => {
+    const timer = await window.__TAURI_INTERNALS__.invoke("get_timer_snapshot");
+    return { running: timer.isRunning, title: timer.activeTaskTitle, linkedTodoId: timer.linkedTodoId };
+  })).toEqual({ running: true, title, linkedTodoId: 101 });
+  await expect(page.locator(".unified-today-page")).toBeVisible();
+  await expect(pageButton(page, "今日")).toHaveClass(/active/);
+  await expect(page.locator(".nv-focus-page, .ep-focus-page, .gc-focus-page, .ao-focus-page, .bl-focus-page")).toHaveCount(0);
 }
 
 async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一件事开始", recordCount = 7, includeTodo = true, todoTitles = ["明日规划"], todoDates = [], completedTodoTitles = [], completedTodoDates = [], dailyBreakdown = [], recordDates = [], recordTitlePrefix = "", analyticsPatch = {}, freezeClock = true, freshRecordSnapshots = false } = {}) {
@@ -65,6 +80,7 @@ async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一
       completedAt: `${completedDate}T${completedTime}:00`,
       completedDate,
       completedTime,
+      source: "timer", timeBasis: "completion_day", editedAt: null,
       };
     });
 
@@ -76,6 +92,7 @@ async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一
         scheduledDate: todoDates[index] ?? today,
         scheduledTime: "21:00",
         importanceKey: "medium",
+        continuationNote: "", continuationUpdatedAt: null,
       })),
       ...completedTodoTitles.map((title, index) => ({
         id: 201 + index,
@@ -84,6 +101,7 @@ async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一
         scheduledDate: completedTodoDates[index] ?? today,
         scheduledTime: "18:00",
         importanceKey: "low",
+        continuationNote: "", continuationUpdatedAt: null,
       })),
     ];
 
@@ -145,8 +163,17 @@ async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一
       ...analyticsPatch,
     };
 
+    let appPreferences = {
+      schemaVersion: 3, themeId: localStorage.getItem("focused-moment.theme") || "night-valley",
+      visualIntensity: 55, motionIntensity: 45, density: "roomy", floatingOpacity: 92,
+      autoMiniOnStart: false, customAlertSoundName: "", customAlertSoundData: null,
+      ...JSON.parse(sessionStorage.getItem("rc-visual-preferences") || "{}"),
+    };
+    let focusPlan = { currentTodoId: todos.find((todo) => !todo.isCompleted)?.id ?? null,
+      todayPickIds: todos.filter((todo) => !todo.isCompleted).slice(0, 3).map((todo) => todo.id) };
     window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
     window.__focusRecordCalls = 0;
+    window.__rcStartTimerCalls = [];
     window.__TAURI_INTERNALS__ = {
       metadata: {
         currentWindow: { label: "main" },
@@ -162,6 +189,17 @@ async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一
             return 1;
           case "plugin:event|unlisten":
             return null;
+          case "get_app_preferences":
+            return { ...appPreferences };
+          case "update_app_preferences":
+            appPreferences = { ...appPreferences, ...args.preferences };
+            sessionStorage.setItem("rc-visual-preferences", JSON.stringify(appPreferences));
+            return { ...appPreferences };
+          case "get_focus_plan":
+            return { ...focusPlan };
+          case "update_focus_plan":
+            focusPlan = { currentTodoId: args.currentTodoId ?? null, todayPickIds: [...new Set(args.todayPickIds ?? [])].slice(0, 3) };
+            return { ...focusPlan };
           case "get_timer_snapshot":
             return timer;
           case "get_timer_preferences":
@@ -183,10 +221,11 @@ async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一
               ...timer,
               targetDurationMs: Number(args.minutes) * 60 * 1000,
               remainingMs: Number(args.minutes) * 60 * 1000,
-              elapsedLabel: `00:${String(Number(args.minutes)).padStart(2, "0")}:00`,
+              elapsedLabel: `${String(Math.floor(Number(args.minutes) / 60)).padStart(2, "0")}:${String(Number(args.minutes) % 60).padStart(2, "0")}:00`,
             };
             return timer;
           case "start_timer":
+            window.__rcStartTimerCalls.push({ title: timer.activeTaskTitle, linkedTodoId: timer.linkedTodoId });
             timer = { ...timer, isRunning: true, hasUnsubmittedProgress: true, status: "倒计时中", canCompleteSession: true };
             return timer;
           case "pause_timer":
@@ -217,40 +256,38 @@ async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一
   await expect(page.getByRole("heading", { name: expectedHeading })).toBeVisible();
 }
 
-test("Today reference composition stays aligned at the concept viewport", async ({ page }) => {
+test("[RC-L001] Today reference composition shows three real continuity layers", async ({ page }) => {
   await page.setViewportSize({ width: 1487, height: 1058 });
   await bootTodayReferenceMock(page);
-
-  await expect(page.locator(".trail-node")).toHaveCount(8);
-  await expect(page.getByText(/今天已完成 7 段专注/)).toBeVisible();
-  await expect(page.getByText("连续 9 天", { exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "今日概览", exact: true })).toBeVisible();
-  await expect(page.locator(".trail-page__clock")).toHaveText(/^\d{2}:\d{2}:\d{2}$/);
-  await expect(page.getByText("05:15:00", { exact: true })).toBeVisible();
-  await expect(page.getByText("0 / 1", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "查看计时", exact: true })).toHaveCount(0);
-  await expect(page.locator(".trail-timer")).toHaveCount(0);
-  await expect(page.locator(".minimal-app--trail .command-trigger")).toBeHidden();
+  await expect(page.locator(".continuity-board__card")).toHaveCount(3);
+  await expect(page.locator(".continuity-board__card--current")).toContainText("明日规划");
+  await expect(page.locator(".continuity-board__card--investment")).toContainText("7 段完成");
+  await expect(page.locator(".continuity-board__value")).toHaveText("5 小时 15 分钟");
+  await expect(page.locator(".continuity-board__picks > div")).toHaveCount(1);
+  await expect(page.getByText("连续 9 天", { exact: true })).toHaveCount(0);
+  await expect(page.locator(".trail-node, .trail-timer")).toHaveCount(0);
+  await expect(page.locator(".command-trigger")).toBeHidden();
   await page.screenshot({ path: testOutputPath("screenshots", "today-after.png"), animations: "disabled" });
 });
 
-test("Every theme carries one stable daily focus line on Today", async ({ page }) => {
+test("[RC-L002] Every theme carries one stable daily focus line on Today", async ({ page }) => {
   test.setTimeout(90_000);
   await page.setViewportSize({ width: 1487, height: 1058 });
   await bootTodayReferenceMock(page);
 
   const themeHeadings = [
     ["night-valley", "今天，从一件事开始"],
-    ["editorial-paper", "今日节奏"],
-    ["graphite-console", "TODAY / 节奏调度"],
-    ["aurora-ocean", "TIDE / 潮汐轨迹"],
-    ["botanical-library", "GROWTH / 今日生长"],
+    ["editorial-paper", "今天，从一件事开始"],
+    ["graphite-console", "今天，从一件事开始"],
+    ["aurora-ocean", "今天，从一件事开始"],
+    ["botanical-library", "今天，从一件事开始"],
   ];
   const copyIds = [];
   const brandGeometries = [];
 
   for (const [theme, heading] of themeHeadings) {
     await page.evaluate((selectedTheme) => {
+      sessionStorage.removeItem("rc-visual-preferences");
       localStorage.setItem("focused-moment.theme", selectedTheme);
     }, theme);
     await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
@@ -283,73 +320,48 @@ test("Every theme carries one stable daily focus line on Today", async ({ page }
   expect(new Set(brandGeometries.map((geometry) => JSON.stringify(geometry))).size).toBe(1);
 });
 
-test("Today fullscreen keeps the summary visible and uses a smooth winding route", async ({ page }) => {
+test("[RC-L003] Today fullscreen keeps real investment visible without a decorative route", async ({ page }) => {
   await page.setViewportSize({ width: 2560, height: 1368 });
   await bootTodayReferenceMock(page, { recordCount: 1, includeTodo: false });
-
-  await expect(page.locator(".trail-node")).toHaveCount(1);
-  await expect(page.getByText(/今天已完成 1 段专注/)).toBeVisible();
-
-  const footerBounds = await page.locator(".trail-map__footer").evaluate((element) => {
-    const rect = element.getBoundingClientRect();
-    return { top: rect.top, bottom: rect.bottom };
-  });
-  expect(footerBounds.top).toBeGreaterThanOrEqual(0);
-  expect(footerBounds.bottom).toBeLessThanOrEqual(1368);
-
-  const routePath = await page.locator(".trail-map__route-line").getAttribute("d");
-  expect(routePath).toBeTruthy();
-  expect(routePath).toMatch(/^M\s/);
-  expect(routePath).not.toMatch(/\bL\b/);
-  expect((routePath?.match(/\bC\b/g) ?? []).length).toBeGreaterThanOrEqual(12);
-  await expect(page.getByRole("heading", { name: "今日概览", exact: true })).toBeVisible();
-  await expect(page.locator(".trail-page__clock")).toHaveText(/^\d{2}:\d{2}:\d{2}$/);
-  await page.screenshot({ path: testOutputPath("screenshots", "today-fullscreen-refined.png"), animations: "disabled" });
+  const summary = page.locator(".continuity-board__card--investment");
+  await expect(summary).toContainText("1 段完成");
+  await expect(summary).toContainText("45 分钟");
+  const bounds = await summary.boundingBox();
+  expect(bounds.y).toBeGreaterThanOrEqual(0);
+  expect(bounds.y + bounds.height).toBeLessThanOrEqual(1368);
+  await expect(page.locator(".trail-map__route-line, .trail-node")).toHaveCount(0);
+  await expect(page.getByText("选择一件事开始", { exact: true })).toBeVisible();
 });
 
-test("Today keeps node information visible and keeps timing in the focus tab", async ({ page }) => {
+test("[RC-L004] Today keeps current task information visible and timing reachable", async ({ page }) => {
   await page.setViewportSize({ width: 1487, height: 1058 });
   await bootTodayReferenceMock(page);
-
-  await expect(page.locator(".trail-node__meta").first()).toContainText("晨间计划");
-  await expect(page.locator(".trail-node__meta").first()).toHaveCSS("visibility", "visible");
-  await expect(page.getByRole("heading", { name: "今日概览", exact: true })).toBeVisible();
+  await expect(page.locator(".continuity-board__card--current h2")).toHaveText("明日规划");
+  await expect(page.locator(".continuity-board__card--current h2")).toHaveCSS("visibility", "visible");
+  await expect(page.locator(".continuity-board__card--investment")).toContainText("7 段完成");
   await expect(page.getByRole("button", { name: "查看计时", exact: true })).toHaveCount(0);
-  await page.getByRole("button", { name: "计时", exact: true }).click();
+  await pageButton(page, "计时").click();
   await expect(page.locator(".nv-focus-page")).toBeVisible();
 });
 
-test("Today route keeps the panel and path usable as the window narrows", async ({ page }) => {
-  test.setTimeout(60_000);
-  for (const [width, height, screenshotPath] of [
-    [1280, 900, "today-1280.png"],
-    [1024, 900, "today-1024.png"],
-  ]) {
-    await page.setViewportSize({ width, height });
+test("[RC-L005] Today continuity cards stay usable as the window narrows", async ({ page }) => {
+  for (const width of [1280, 1024]) {
+    await page.setViewportSize({ width, height: 900 });
     await bootTodayReferenceMock(page);
-
-    const layout = await page.locator(".trail-map, .trail-focus-panel").evaluateAll((elements) =>
-      elements.map((element) => {
-        const rect = element.getBoundingClientRect();
-        return { className: element.className, x: rect.x, y: rect.y, right: rect.right, bottom: rect.bottom };
-      }),
-    );
-    const map = layout.find((item) => item.className === "trail-map");
-    const panel = layout.find((item) => item.className.includes("trail-focus-panel"));
-    expect(panel.right).toBeLessThanOrEqual(width);
-    expect(panel.x).toBeGreaterThanOrEqual(0);
-    if (width <= 1160) {
-      expect(panel.y).toBeLessThan(map.bottom);
-      expect(panel.bottom).toBeLessThanOrEqual(height);
-      await expect(page.locator(".trail-nav__brand")).toBeVisible();
-      await expect(page.locator(".trail-nav__icon").first()).toBeVisible();
-      await expect(page.getByRole("heading", { name: "今日概览", exact: true })).toBeVisible();
+    await expect(page.locator(".continuity-board__card")).toHaveCount(3);
+    for (const card of await page.locator(".continuity-board__card").all()) {
+      const box = await card.boundingBox();
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(width);
     }
-    await page.screenshot({ path: testOutputPath("screenshots", screenshotPath), animations: "disabled" });
+    await expect(page.locator(".trail-nav__brand")).toBeVisible();
+    await expect(page.locator(".trail-nav__icon").first()).toBeVisible();
+    await expect(page.locator(".continuity-board__card--investment")).toBeInViewport();
+    await page.screenshot({ path: testOutputPath("screenshots", `today-${width}.png`), animations: "disabled" });
   }
 });
 
-test("Night Valley pages expose the measured reference surfaces", async ({ page }) => {
+test("[RC-L006] Night Valley pages expose the measured reference surfaces", async ({ page }) => {
   await page.setViewportSize({ width: 1487, height: 1058 });
   await bootTodayReferenceMock(page);
 
@@ -367,7 +379,7 @@ test("Night Valley pages expose the measured reference surfaces", async ({ page 
   }
 });
 
-test("Every theme keeps record day expansion stable during snapshot refresh", async ({ page }) => {
+test("[RC-L007] Every theme keeps record day expansion stable during snapshot refresh", async ({ page }) => {
   test.setTimeout(90_000);
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "night-valley");
@@ -414,7 +426,7 @@ test("Every theme keeps record day expansion stable during snapshot refresh", as
   }
 });
 
-test("Every theme uses the enclosed brand mark with its point in the orbit gap", async ({ page }) => {
+test("[RC-L008] Every theme uses the enclosed brand mark with its point in the orbit gap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "night-valley");
   });
@@ -459,12 +471,12 @@ test("Every theme uses the enclosed brand mark with its point in the orbit gap",
   }
 });
 
-test("REFINE-19 Editorial Paper keeps the sidebar mark and labels aligned across all five pages", async ({ page }) => {
+test("[RC-L009] REFINE-19 Editorial Paper keeps the sidebar mark and labels aligned across all five pages", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
   await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始" });
 
   const states = [];
   for (const label of ["今日", "计时", "待办", "记录", "设置"]) {
@@ -508,7 +520,7 @@ test("REFINE-19 Editorial Paper keeps the sidebar mark and labels aligned across
   expect(states.every((state) => state.brandJustifyItems === "center" && state.outerBorder === "rgb(45, 77, 57)" && state.ringBackground.includes("conic-gradient") && state.dotBackground === "rgb(170, 76, 45)")).toBe(true);
 });
 
-test("Night Valley tabs share the live clock and hide the command trigger", async ({ page }) => {
+test("[RC-L010] Night Valley tabs share the live clock and hide the command trigger", async ({ page }) => {
   await page.setViewportSize({ width: 1487, height: 1058 });
   await bootTodayReferenceMock(page);
 
@@ -520,7 +532,7 @@ test("Night Valley tabs share the live clock and hide the command trigger", asyn
   }
 });
 
-test("Night Valley baseline records five-page geometry and environment metadata", async ({ page }) => {
+test("[RC-L011] Night Valley baseline records five-page geometry and environment metadata", async ({ page }) => {
   const viewport = { width: 1487, height: 1058 };
   const capturedAt = new Date().toISOString();
   await page.setViewportSize(viewport);
@@ -591,7 +603,7 @@ test("Night Valley baseline records five-page geometry and environment metadata"
   expect(Object.values(pages).every((snapshot) => snapshot.scrollWidth <= viewport.width)).toBe(true);
 });
 
-test("Night Valley baseline checks native-size and desktop-scale proxies", async ({ browser }) => {
+test("[RC-L012] Night Valley baseline checks native-size and desktop-scale proxies", async ({ browser }) => {
   test.setTimeout(120_000);
   const cases = [
     { id: "default-window", width: 1440, height: 1024, deviceScaleFactor: 1, source: "Tauri default window" },
@@ -649,7 +661,7 @@ test("Night Valley baseline checks native-size and desktop-scale proxies", async
   expect(results).toHaveLength(cases.length);
 });
 
-test("Night Valley records explain the natural seven-day range and averages", async ({ page }) => {
+test("[RC-L013] Night Valley records explain the natural seven-day range and averages", async ({ page }) => {
   await bootTodayReferenceMock(page);
   await page.getByRole("button", { name: "记录", exact: true }).click();
 
@@ -673,7 +685,7 @@ test("Night Valley records explain the natural seven-day range and averages", as
   expect(archiveLayout.every((section) => section.width > 0 && section.height > 0 && section.opacity !== "0" && section.visibility !== "hidden")).toBe(true);
 });
 
-test("Night Valley keeps one shared circular brand mark across every page", async ({ page }) => {
+test("[RC-L014] Night Valley keeps one shared circular brand mark across every page", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await bootTodayReferenceMock(page);
 
@@ -726,7 +738,7 @@ test("Night Valley keeps one shared circular brand mark across every page", asyn
   expect(brandStates.every((state) => state.outerRadius === "50%" && state.innerRadius === "50%" && state.dotDisplay === "block")).toBe(true);
 });
 
-test("Night Valley uses one shared sidebar tab module across every page", async ({ page }) => {
+test("[RC-L015] Night Valley uses one shared sidebar tab module across every page", async ({ page }) => {
   await page.setViewportSize({ width: 1082, height: 720 });
   await bootTodayReferenceMock(page);
 
@@ -772,7 +784,7 @@ test("Night Valley uses one shared sidebar tab module across every page", async 
   expect(tabStates.every((state) => state.buttons[state.activeIndex].backgroundImage.includes("linear-gradient"))).toBe(true);
 });
 
-test("Timer workspace keeps orientation useful and removes decorative state chrome", async ({ page }) => {
+test("[RC-L016] Timer workspace keeps orientation useful and removes decorative state chrome", async ({ page }) => {
   await page.setViewportSize({ width: 1487, height: 1058 });
   await bootTodayReferenceMock(page);
   await page.getByRole("button", { name: "计时", exact: true }).click();
@@ -788,13 +800,13 @@ test("Timer workspace keeps orientation useful and removes decorative state chro
   await expect(page.locator(".nv-focus-panel__status")).toContainText("未开始");
 });
 
-test("Theme registry exposes five implemented surfaces and no disabled preview", async ({ page }) => {
+test("[RC-L017] Theme registry exposes five implemented surfaces and no disabled preview", async ({ page }) => {
   await page.setViewportSize({ width: 1487, height: 1058 });
   await bootTodayReferenceMock(page);
 
   await page.getByRole("button", { name: "设置", exact: true }).click();
 
-  const themeCards = page.locator(".nv-theme-card");
+  const themeCards = page.locator(".theme-picker__option");
   await expect(themeCards).toHaveCount(5);
   await expect(themeCards.filter({ hasText: "夜谷" })).toBeEnabled();
   await expect(themeCards.filter({ hasText: "夜谷" })).toHaveAttribute("aria-pressed", "true");
@@ -807,37 +819,39 @@ test("Theme registry exposes five implemented surfaces and no disabled preview",
 
   await themeCards.filter({ hasText: "编辑纸页" }).click({ force: true });
   await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "editorial-paper");
-  await expect(page.locator(".ep-theme-swatch").filter({ hasText: "编辑纸页" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".theme-picker__option").filter({ hasText: "编辑纸页" })).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator(".ep-settings-page")).toBeVisible();
-  await expect.poll(() => page.evaluate(() => localStorage.getItem("focused-moment.theme"))).toBe("editorial-paper");
+  await expect.poll(() => page.evaluate(() => JSON.parse(sessionStorage.getItem("rc-visual-preferences") || "{}").themeId)).toBe("editorial-paper");
   await page.reload();
   await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "editorial-paper");
-  await expect(page.getByRole("heading", { name: "今日节奏" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "今天，从一件事开始" })).toBeVisible();
 });
 
-test("Graphite Console can be selected from settings and persists after reload", async ({ page }) => {
+test("[RC-L018] Graphite Console can be selected from settings and persists after reload", async ({ page }) => {
   await page.setViewportSize({ width: 1487, height: 1058 });
   await bootTodayReferenceMock(page);
 
   await page.getByRole("button", { name: "设置", exact: true }).click();
-  await page.locator(".nv-theme-card").filter({ hasText: "石墨控制台" }).click({ force: true });
+  await page.locator(".theme-picker__option").filter({ hasText: "石墨控制台" }).click({ force: true });
   await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "graphite-console");
   await expect(page.locator(".gc-settings-page")).toBeVisible();
   await expect(page.locator(".gc-settings-nav")).toHaveCount(0);
-  await expect(page.locator(".gc-setting-slider-list")).toHaveCount(0);
-  await expect(page.locator(".gc-settings-footer")).toContainText("AUTO-SAVED");
+  await expect(page.locator(".gc-setting-slider-list")).toHaveCount(1);
+  await expect(page.locator('.gc-setting-slider-list input[type="range"]')).toHaveCount(2);
+  await expect(page.locator(".gc-density-buttons button")).toHaveCount(2);
+  await expect.poll(() => page.evaluate(() => JSON.parse(sessionStorage.getItem("rc-visual-preferences") || "{}").themeId)).toBe("graphite-console");
 
   await page.reload();
   await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "graphite-console");
-  await expect(page.getByRole("heading", { name: "TODAY / 节奏调度" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "今天，从一件事开始" })).toBeVisible();
 });
 
-test("Graphite Console restores native window controls and a drag surface", async ({ page }) => {
+test("[RC-L019] Graphite Console restores native window controls and a drag surface", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "graphite-console");
   });
   await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "TODAY / 节奏调度" });
+  await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始" });
   await page.evaluate(() => {
     const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
     window.__gcWindowCommands = [];
@@ -869,59 +883,44 @@ test("Graphite Console restores native window controls and a drag surface", asyn
   ]);
 });
 
-test("feedback toasts keep their position and dismissal behavior across themes", async ({ page }) => {
+test("[RC-L020] feedback toasts keep their position and dismissal behavior across themes", async ({ page }) => {
   await page.setViewportSize({ width: 1487, height: 1058 });
   await bootTodayReferenceMock(page);
-
-  const themes = [
-    ["night-valley", "夜谷", ".nv-theme-card"],
-    ["editorial-paper", "编辑纸页", ".ep-theme-swatch"],
-    ["graphite-console", "石墨控制台", ".gc-theme-card"],
-    ["aurora-ocean", "极光海面", ".ao-theme-bubble"],
-    ["botanical-library", "植物书房", ".bl-theme-book"],
-  ];
-
-  await pageButton(page, "设置").click();
-  for (const [index, [theme, label, selector]] of themes.entries()) {
+  for (const [theme, label] of [
+    ["night-valley", "夜谷"], ["editorial-paper", "编辑纸页"], ["graphite-console", "石墨控制台"],
+    ["aurora-ocean", "极光海面"], ["botanical-library", "植物书房"],
+  ]) {
+    await pageButton(page, "设置").click();
+    await page.locator(".theme-picker__option").filter({ hasText: label }).click();
     await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", theme);
-    await page.locator(selector).filter({ hasText: label }).click({ force: true });
+    // Theme autosave is intentionally silent in v3. Use the real no-progress feedback action.
+    await page.keyboard.press("Control+Shift+E");
     const toast = page.locator(".app-message");
+    await expect(toast).toContainText("当前还没有可以保存的专注进度");
     await expect(toast).toBeVisible();
     await expect(toast).toHaveCSS("position", "fixed");
     const bounds = await toast.boundingBox();
-    expect(bounds?.x ?? 0).toBeGreaterThan(700);
-    expect(bounds?.y ?? 999).toBeLessThan(140);
+    expect(bounds.x).toBeGreaterThan(700);
+    expect(bounds.y).toBeLessThan(140);
     await toast.click();
     await expect(toast).toBeHidden();
-    const nextTheme = themes[index + 1];
-    if (nextTheme) {
-      await page.locator(selector).filter({ hasText: nextTheme[1] }).click({ force: true });
-      await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", nextTheme[0]);
-      await expect(page.locator(".app-message")).toBeVisible();
-      await page.locator(".app-message").click();
-    }
   }
 });
 
-test("Aurora Ocean keeps full labels and removes the stray archive ellipse", async ({ page }) => {
+test("[RC-L021] Aurora Ocean keeps full labels and removes the stray archive ellipse", async ({ page }) => {
   const longTodoTitle = "北京市定向选调和优培计划｜仙林校区就业中心303现场核对与材料整理";
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "aurora-ocean");
   });
   await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "TIDE / 潮汐轨迹", todoTitles: [longTodoTitle] });
+  await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始", todoTitles: [longTodoTitle] });
 
-  const orbitNode = page.locator(".ao-orbit-node").first();
-  await expect(orbitNode).toHaveAttribute("title", longTodoTitle);
-  await expect(orbitNode).toHaveAttribute("aria-label", new RegExp(longTodoTitle));
-  const todayLayout = await page.locator(".ao-today-page").evaluate((element) => ({
-    overflow: getComputedStyle(element).overflow,
-    nodeWhiteSpace: getComputedStyle(element.querySelector(".ao-orbit-node strong")).whiteSpace,
-    documentScrollWidth: document.documentElement.scrollWidth,
-  }));
-  expect(todayLayout.overflow).toBe("visible");
-  expect(todayLayout.nodeWhiteSpace).toBe("normal");
-  expect(todayLayout.documentScrollWidth).toBeLessThanOrEqual(1487);
+  const title = page.locator(".continuity-board__card--current h2");
+  await expect(title).toHaveText(longTodoTitle);
+  await expect(title).toHaveCSS("white-space", "normal");
+  const titleBounds = await title.evaluate((element) => ({ client: element.clientWidth, scroll: element.scrollWidth }));
+  expect(titleBounds.scroll).toBeLessThanOrEqual(titleBounds.client);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(1487);
 
   await pageButton(page, "记录").click();
   const recordsLayout = await page.locator(".ao-records-page").evaluate((element) => ({
@@ -936,7 +935,7 @@ test("Aurora Ocean keeps full labels and removes the stray archive ellipse", asy
   expect(recordsLayout.titleOverflowWrap).toBe("anywhere");
 });
 
-test("an invalid persisted theme keeps the Night Valley surface available", async ({ page }) => {
+test("[RC-L022] an invalid persisted theme keeps the Night Valley surface available", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "not-a-real-theme");
   });
@@ -946,30 +945,30 @@ test("an invalid persisted theme keeps the Night Valley surface available", asyn
   await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "night-valley");
   await expect(page.locator(".theme-surface-unavailable")).toHaveCount(0);
   await page.getByRole("button", { name: "设置", exact: true }).click();
-  await expect(page.locator(".nv-theme-card").filter({ hasText: "夜谷" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".theme-picker__option").filter({ hasText: "夜谷" })).toHaveAttribute("aria-pressed", "true");
 });
 
-test("Botanical Library persists as an implemented theme before rendering a page", async ({ page }) => {
+test("[RC-L023] Botanical Library persists as an implemented theme before rendering a page", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "botanical-library");
   });
   await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "GROWTH / 今日生长" });
+  await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始" });
 
-  await expect(page.getByRole("heading", { name: "GROWTH / 今日生长" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "今天，从一件事开始" })).toBeVisible();
   await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "botanical-library");
-  await expect(page.locator(".bl-today-page")).toBeVisible();
+  await expect(page.locator(".unified-today-page--botanical-library")).toBeVisible();
   await expect(page.locator(".theme-surface-unavailable")).toHaveCount(0);
 });
 
-test("Graphite Console renders all five pages inside the control surface", async ({ page }) => {
+test("[RC-L024] Graphite Console renders all five pages inside the control surface", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "graphite-console");
   });
   await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "TODAY / 节奏调度" });
+  await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始" });
   const pages = [
-    ["今日", ".gc-today-page", "today.png"],
+    ["今日", ".unified-today-page--graphite-console", "today.png"],
     ["计时", ".gc-focus-page", "focus.png"],
     ["待办", ".gc-todos-page", "todos.png"],
     ["记录", ".gc-records-page", "records.png"],
@@ -999,11 +998,14 @@ test("Graphite Console renders all five pages inside the control surface", async
   await expect(page.locator(".gc-trend-panel .gc-panel__heading > small")).toContainText("30-DAY TREND");
   await pageButton(page, "设置").click();
   await expect(page.locator(".gc-settings-nav")).toHaveCount(0);
-  await expect(page.locator(".gc-setting-slider-list")).toHaveCount(0);
+  await expect(page.locator(".gc-setting-slider-list")).toHaveCount(1);
+  await expect(page.locator('.gc-setting-slider-list input[type="range"]')).toHaveCount(2);
+  await expect(page.locator(".gc-density-buttons button")).toHaveCount(2);
   await pageButton(page, "今日").click();
-  await expect(page.locator(".gc-sequence-row")).toHaveCount(7);
-  await expect(page.locator(".gc-sequence-row--empty")).toHaveCount(6);
-  await expect(page.locator(".gc-status-strip")).toContainText("STORE");
+  await expect(page.locator(".continuity-board__picks > div")).toHaveCount(1);
+  await expect(page.locator(".continuity-board__card--investment")).toContainText("7 段完成");
+  await expect(page.locator(".gc-sequence-row--empty")).toHaveCount(0);
+  await expect(page.locator(".gc-status-strip")).toHaveCount(0);
   await expect(page.locator(".minimal-nav > button.active")).toHaveCSS("border-radius", "0px");
 
   await pageButton(page, "待办").click();
@@ -1013,14 +1015,14 @@ test("Graphite Console renders all five pages inside the control surface", async
   writeFileSync(testOutputPath("qa", "TH-03", "geometry.json"), JSON.stringify({ viewport: { width: 1487, height: 1058 }, pages: geometry }, null, 2));
 });
 
-test("Every theme keeps pending todos in date groups with only a done column", async ({ page }) => {
+test("[RC-L025] Every theme keeps pending todos in date groups with only a done column", async ({ page }) => {
   test.setTimeout(90_000);
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
   await page.setViewportSize({ width: 1487, height: 1058 });
   await bootTodayReferenceMock(page, {
-    expectedHeading: "今日节奏",
+    expectedHeading: "今天，从一件事开始",
     todoTitles: ["今天的第一件事", "明天的第二件事", "已过期的第三件事"],
     todoDates: [referenceDate, "2026-09-06", "2026-09-04"],
     completedTodoTitles: ["已经完成的事项"],
@@ -1050,7 +1052,7 @@ test("Every theme keeps pending todos in date groups with only a done column", a
   }
 });
 
-test("Graphite Console keeps shared actions and page bounds usable at pressure widths", async ({ page }) => {
+test("[RC-L026] Graphite Console keeps shared actions and page bounds usable at pressure widths", async ({ page }) => {
   test.setTimeout(90_000);
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "graphite-console");
@@ -1058,9 +1060,9 @@ test("Graphite Console keeps shared actions and page bounds usable at pressure w
 
   for (const [width, height] of [[1120, 760], [820, 720], [560, 720], [420, 720]]) {
     await page.setViewportSize({ width, height });
-    await bootTodayReferenceMock(page, { expectedHeading: "TODAY / 节奏调度" });
+    await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始" });
     const pages = [
-      ["今日", ".gc-today-page"],
+      ["今日", ".unified-today-page--graphite-console"],
       ["计时", ".gc-focus-page"],
       ["待办", ".gc-todos-page"],
       ["记录", ".gc-records-page"],
@@ -1082,21 +1084,22 @@ test("Graphite Console keeps shared actions and page bounds usable at pressure w
     }
 
     await pageButton(page, "今日").click();
-    await page.getByRole("button", { name: /START \/ 开始专注/ }).click();
+    await startCurrentAndStayToday(page);
+    await pageButton(page, "计时").click();
     await expect(page.locator(".gc-focus-page")).toBeVisible();
-    await page.locator(".gc-focus-page").getByRole("button", { name: /开始专注/ }).click();
+    await expect(page.locator(".gc-focus-page").getByRole("button", { name: "暂停本段", exact: true })).toBeVisible();
     await expect(page.locator(".gc-focus-page")).toContainText("运行中");
   }
 });
 
-test("Aurora Ocean renders all five pages inside the light field", async ({ page }) => {
+test("[RC-L027] Aurora Ocean renders all five pages inside the light field", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "aurora-ocean");
   });
   await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "TIDE / 潮汐轨迹" });
+  await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始" });
   const pages = [
-    ["今日", ".ao-today-page", "today.png"],
+    ["今日", ".unified-today-page--aurora-ocean", "today.png"],
     ["计时", ".ao-focus-page", "focus.png"],
     ["待办", ".ao-todos-page", "todos.png"],
     ["记录", ".ao-records-page", "records.png"],
@@ -1109,11 +1112,11 @@ test("Aurora Ocean renders all five pages inside the light field", async ({ page
     }
     const surface = page.locator(selector);
     await expect(surface).toBeVisible();
-    if (label === "今日") await expect(page.locator(".ao-orbit-stage")).toBeVisible();
+    if (label === "今日") await expect(page.locator(".continuity-board")).toBeVisible();
     if (label === "计时") await expect(page.locator(".ao-fluid-timer")).toBeVisible();
     if (label === "待办") await expect(page.locator(".ao-reef-board")).toBeVisible();
     if (label === "记录") await expect(page.locator(".ao-archive-chart")).toBeVisible();
-    if (label === "设置") await expect(page.locator(".ao-settings-preview")).toBeVisible();
+    if (label === "设置") await expect(page.locator(".theme-picker")).toBeVisible();
     geometry[label] = await surface.evaluate((element) => {
       const rect = element.getBoundingClientRect();
       return { x: Number(rect.x.toFixed(2)), y: Number(rect.y.toFixed(2)), width: Number(rect.width.toFixed(2)), height: Number(rect.height.toFixed(2)), right: Number(rect.right.toFixed(2)) };
@@ -1125,7 +1128,7 @@ test("Aurora Ocean renders all five pages inside the light field", async ({ page
   writeFileSync(testOutputPath("qa", "TH-04", "geometry.json"), JSON.stringify({ viewport: { width: 1487, height: 1058 }, pages: geometry }, null, 2));
 });
 
-test("Aurora Ocean keeps shared actions and page bounds usable at pressure widths", async ({ page }) => {
+test("[RC-L028] Aurora Ocean keeps shared actions and page bounds usable at pressure widths", async ({ page }) => {
   test.setTimeout(90_000);
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "aurora-ocean");
@@ -1133,9 +1136,9 @@ test("Aurora Ocean keeps shared actions and page bounds usable at pressure width
 
   for (const [width, height] of [[1120, 760], [820, 720], [560, 720], [420, 720]]) {
     await page.setViewportSize({ width, height });
-    await bootTodayReferenceMock(page, { expectedHeading: "TIDE / 潮汐轨迹" });
+    await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始" });
     const pages = [
-      ["今日", ".ao-today-page"],
+      ["今日", ".unified-today-page--aurora-ocean"],
       ["计时", ".ao-focus-page"],
       ["待办", ".ao-todos-page"],
       ["记录", ".ao-records-page"],
@@ -1157,21 +1160,22 @@ test("Aurora Ocean keeps shared actions and page bounds usable at pressure width
     }
 
     await pageButton(page, "今日").click();
-    await page.getByRole("button", { name: /START \/ 开始专注/ }).click();
+    await startCurrentAndStayToday(page);
+    await pageButton(page, "计时").click();
     await expect(page.locator(".ao-focus-page")).toBeVisible();
-    await page.locator(".ao-focus-page").getByRole("button", { name: /开始专注/ }).click();
+    await expect(page.locator(".ao-focus-page").getByRole("button", { name: "暂停此潮", exact: true })).toBeVisible();
     await expect(page.locator(".ao-focus-page")).toContainText("运行中");
   }
 });
 
-test("Botanical Library renders all five pages inside the reading room", async ({ page }) => {
+test("[RC-L029] Botanical Library renders all five pages inside the reading room", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "botanical-library");
   });
   await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "GROWTH / 今日生长" });
+  await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始" });
   const pages = [
-    ["今日", ".bl-today-page", "today.png"],
+    ["今日", ".unified-today-page--botanical-library", "today.png"],
     ["计时", ".bl-focus-page", "focus.png"],
     ["待办", ".bl-todos-page", "todos.png"],
     ["记录", ".bl-records-page", "records.png"],
@@ -1184,11 +1188,11 @@ test("Botanical Library renders all five pages inside the reading room", async (
     }
     const surface = page.locator(selector);
     await expect(surface).toBeVisible();
-    if (label === "今日") await expect(page.locator(".bl-library-stilllife")).toBeVisible();
+    if (label === "今日") await expect(page.locator(".continuity-board")).toBeVisible();
     if (label === "计时") await expect(page.locator(".bl-tree-dial")).toBeVisible();
     if (label === "待办") await expect(page.locator(".bl-desk-board")).toBeVisible();
     if (label === "记录") await expect(page.locator(".bl-growth-chart")).toBeVisible();
-    if (label === "设置") await expect(page.locator(".bl-preview-room")).toBeVisible();
+    if (label === "设置") await expect(page.locator(".theme-picker")).toBeVisible();
     geometry[label] = await surface.evaluate((element) => {
       const rect = element.getBoundingClientRect();
       return { x: Number(rect.x.toFixed(2)), y: Number(rect.y.toFixed(2)), width: Number(rect.width.toFixed(2)), height: Number(rect.height.toFixed(2)), right: Number(rect.right.toFixed(2)) };
@@ -1200,7 +1204,7 @@ test("Botanical Library renders all five pages inside the reading room", async (
   writeFileSync(testOutputPath("qa", "TH-05", "geometry.json"), JSON.stringify({ viewport: { width: 1487, height: 1058 }, pages: geometry }, null, 2));
 });
 
-test("Botanical Library keeps shared actions and page bounds usable at pressure widths", async ({ page }) => {
+test("[RC-L030] Botanical Library keeps shared actions and page bounds usable at pressure widths", async ({ page }) => {
   test.setTimeout(90_000);
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "botanical-library");
@@ -1208,9 +1212,9 @@ test("Botanical Library keeps shared actions and page bounds usable at pressure 
 
   for (const [width, height] of [[1120, 760], [820, 720], [560, 720], [420, 720]]) {
     await page.setViewportSize({ width, height });
-    await bootTodayReferenceMock(page, { expectedHeading: "GROWTH / 今日生长" });
+    await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始" });
     const pages = [
-      ["今日", ".bl-today-page"],
+      ["今日", ".unified-today-page--botanical-library"],
       ["计时", ".bl-focus-page"],
       ["待办", ".bl-todos-page"],
       ["记录", ".bl-records-page"],
@@ -1232,21 +1236,22 @@ test("Botanical Library keeps shared actions and page bounds usable at pressure 
     }
 
     await pageButton(page, "今日").click();
-    await page.getByRole("button", { name: /START \/ 开始专注/ }).click();
+    await startCurrentAndStayToday(page);
+    await pageButton(page, "计时").click();
     await expect(page.locator(".bl-focus-page")).toBeVisible();
-    await page.locator(".bl-focus-page").getByRole("button", { name: /开始专注/ }).click();
+    await expect(page.locator(".bl-focus-page").getByRole("button", { name: "暂停这一页", exact: true })).toBeVisible();
     await expect(page.locator(".bl-focus-page")).toContainText("运行中");
   }
 });
 
-test("Editorial Paper renders all five pages inside the desktop surface", async ({ page }) => {
+test("[RC-L031] Editorial Paper renders all five pages inside the desktop surface", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
   await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始" });
   const pages = [
-    ["今日", ".ep-today-page", "today.png"],
+    ["今日", ".unified-today-page--editorial-paper", "today.png"],
     ["计时", ".ep-focus-page", "focus.png"],
     ["待办", ".ep-todos-page", "todos.png"],
     ["记录", ".ep-records-page", "records.png"],
@@ -1273,16 +1278,16 @@ test("Editorial Paper renders all five pages inside the desktop surface", async 
     expect(geometry[label].right).toBeLessThanOrEqual(1487);
     await page.screenshot({ path: testOutputPath("qa", "REFINE-19", screenshot), animations: "disabled", fullPage: true });
   }
-  expect(new Set(Object.values(geometry).map((item) => item.headingFontSize)).size).toBe(1);
+  expect(new Set(Object.entries(geometry).filter(([label]) => label !== "今日").map(([, item]) => item.headingFontSize)).size).toBe(1);
   writeFileSync(testOutputPath("qa", "REFINE-19", "geometry.json"), JSON.stringify({ viewport: { width: 1487, height: 1058 }, pages: geometry }, null, 2));
 });
 
-test("Editorial Paper keeps the focus tab shell at the same desktop width", async ({ page }) => {
+test("[RC-L032] Editorial Paper keeps the focus tab shell at the same desktop width", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
   await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始" });
 
   const readShell = () => page.locator(".minimal-workspace").evaluate((element) => {
     const rect = element.getBoundingClientRect();
@@ -1306,12 +1311,12 @@ test("Editorial Paper keeps the focus tab shell at the same desktop width", asyn
   }
 });
 
-test("Editorial Paper keeps Today navigation colors, logo geometry, and plan date meaningful", async ({ page }) => {
+test("[RC-L033] Editorial Paper keeps Today navigation colors, logo geometry, and plan date meaningful", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
   await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始" });
 
   const navEvidence = await page.locator(".minimal-nav").evaluate((nav) => {
     const buttons = Array.from(nav.querySelectorAll(":scope > button"));
@@ -1370,17 +1375,17 @@ test("Editorial Paper keeps Today navigation colors, logo geometry, and plan dat
   expect(logoEvidence.dot.right).toBeGreaterThan(logoEvidence.inner.left);
   expect(logoEvidence.dot.top).toBeLessThan(logoEvidence.inner.bottom);
   expect(logoEvidence.dot.bottom).toBeGreaterThan(logoEvidence.inner.top);
-  await expect(page.locator(".ep-kicker").first()).toHaveText("DAILY PLAN · 2026.09.05");
-  await expect(page.locator(".ep-kicker").first()).not.toContainText("0905");
+  await expect(page.locator(".unified-today-page__date strong")).toHaveText("2026-09-05");
+  await expect(page.locator(".unified-today-page__date strong")).not.toContainText("0905");
 });
 
-test("REFINE-19 TODAY-01 keeps Editorial Paper long node text readable", async ({ page }) => {
+test("[RC-L034] REFINE-19 TODAY-01 keeps long selected-task titles fully readable", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
   await page.setViewportSize({ width: 1487, height: 1058 });
   await bootTodayReferenceMock(page, {
-    expectedHeading: "今日节奏",
+    expectedHeading: "今天，从一件事开始",
     todoTitles: [
       "这是一个用于复现今日节点信息被截断的超长任务名称需要完整显示给用户阅读并且不能因为单行省略而丢失后半段语义",
       "第二条同样很长的任务标题用来确认多条节点在纸页中仍然保留完整语义信息即使窗口变窄也应该可以继续阅读",
@@ -1389,8 +1394,8 @@ test("REFINE-19 TODAY-01 keeps Editorial Paper long node text readable", async (
     completedTodoTitles: ["已经完成但仍应保留在今日页中的长任务记录不能只显示一小段"],
   });
 
-  const readEvidence = () => page.locator(".ep-field-row").evaluateAll((rows) => rows.map((row) => {
-    const title = row.querySelector(".ep-field-row__copy strong");
+  const readEvidence = () => page.locator(".continuity-board__picks > div").evaluateAll((rows) => rows.map((row) => {
+    const title = row.querySelector("button:first-child");
     if (!title) return null;
     const style = getComputedStyle(title);
     return {
@@ -1408,18 +1413,20 @@ test("REFINE-19 TODAY-01 keeps Editorial Paper long node text readable", async (
   await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-01-after-9ecaf59-420.png"), animations: "disabled", fullPage: true });
   console.log(`TODAY-01 desktop evidence: ${JSON.stringify(desktopEvidence)}`);
   console.log(`TODAY-01 narrow evidence: ${JSON.stringify(narrowEvidence)}`);
+  expect(desktopEvidence).toHaveLength(3);
+  expect(narrowEvidence).toHaveLength(3);
   for (const item of [...desktopEvidence, ...narrowEvidence]) {
     expect(item.scrollWidth).toBeLessThanOrEqual(item.clientWidth);
     expect(item.whiteSpace).toBe("normal");
   }
 });
 
-test("REFINE-19 TODAY-02 hides the visual command trigger but keeps Ctrl+K", async ({ page }) => {
+test("[RC-L035] REFINE-19 TODAY-02 hides the visual command trigger but keeps Ctrl+K", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
   await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始" });
   const commandTrigger = page.locator(".command-trigger");
   await expect(commandTrigger).toBeHidden();
   await page.keyboard.press("Control+K");
@@ -1428,12 +1435,12 @@ test("REFINE-19 TODAY-02 hides the visual command trigger but keeps Ctrl+K", asy
   await page.keyboard.press("Escape");
 });
 
-test("REFINE-19 TODAY-03 keeps Editorial Paper Today whitespace bounded", async ({ page }) => {
+test("[RC-L036] REFINE-19 TODAY-03 keeps unified Today whitespace bounded", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
   await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始" });
 
   const viewports = [[1487, 1058], [1120, 760], [820, 720], [560, 720], [420, 720]];
   const measurements = [];
@@ -1441,12 +1448,12 @@ test("REFINE-19 TODAY-03 keeps Editorial Paper Today whitespace bounded", async 
     await page.setViewportSize({ width, height });
     if (index > 0) {
       await page.reload();
-      await expect(page.getByRole("heading", { name: "今日节奏" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "今天，从一件事开始" })).toBeVisible();
     }
-    measurements.push(await page.locator(".ep-today-page").evaluate(() => {
-      const header = document.querySelector(".ep-today-header")?.getBoundingClientRect();
-      const grid = document.querySelector(".ep-today-grid")?.getBoundingClientRect();
-      const firstRow = document.querySelector(".ep-field-row")?.getBoundingClientRect();
+    measurements.push(await page.locator(".unified-today-page--editorial-paper").evaluate(() => {
+      const header = document.querySelector(".unified-today-page__header")?.getBoundingClientRect();
+      const grid = document.querySelector(".continuity-board")?.getBoundingClientRect();
+      const firstRow = document.querySelector(".continuity-board__card")?.getBoundingClientRect();
       return {
         gap: Number((grid.top - header.bottom).toFixed(2)),
         gridTop: Number(grid.top.toFixed(2)),
@@ -1467,119 +1474,72 @@ test("REFINE-19 TODAY-03 keeps Editorial Paper Today whitespace bounded", async 
   }
 });
 
-test("REFINE-19 TODAY-04 keeps timer work in the Editorial Paper focus page", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-  const timerStrip = page.locator(".ep-today-timer-strip");
-  await expect(timerStrip).toHaveCount(0);
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-04-after-9ecaf59.png"), animations: "disabled", fullPage: true });
-  await page.locator(".ep-next-card").getByRole("button", { name: /开始专注/ }).click();
+test("[RC-L037] REFINE-19 TODAY-04 starts the current task and exposes the Focus workspace", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("focused-moment.theme", "editorial-paper"));
+  await bootTodayReferenceMock(page);
+  await expect(page.locator(".ep-today-timer-strip")).toHaveCount(0);
+  await startCurrentAndStayToday(page);
+  await pageButton(page, "计时").click();
   await expect(page.locator(".ep-focus-page")).toBeVisible();
-  await expect(page.locator(".ep-focus-page").getByRole("button", { name: "开始专注", exact: true })).toBeVisible();
-  await page.locator(".ep-focus-page").getByRole("button", { name: "开始专注", exact: true }).click();
   await expect(page.locator(".ep-clock-card")).toContainText("倒计时中");
+  await expect(page.locator(".ep-clock-card").getByRole("button", { name: "暂停", exact: true })).toBeVisible();
+  await expect(page.locator('input[name="editorialLinkedTodo"]')).toHaveCount(0);
+  await expect(page.locator('select[name="editorialLinkedTodo"]')).toHaveValue("101");
 });
 
-test("REFINE-19 TODAY-05 keeps Editorial Paper Today summary within the viewport", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  await page.setViewportSize({ width: 2560, height: 1368 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-
-  const viewports = [[2560, 1368], [1707, 912], [1487, 1058]];
-  const measurements = [];
-  for (const [width, height] of viewports) {
+test("[RC-L038] REFINE-19 TODAY-05 keeps all continuity summaries in the desktop viewport", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("focused-moment.theme", "editorial-paper"));
+  await bootTodayReferenceMock(page);
+  for (const [width, height] of [[2560, 1368], [1707, 912], [1487, 1058]]) {
     await page.setViewportSize({ width, height });
-    await expect.poll(() => page.evaluate(() => `${window.innerWidth}x${window.innerHeight}`)).toBe(`${width}x${height}`);
-    const expectedGap = width >= 821 && height <= 1100 ? "14px" : "22px";
-    await expect.poll(() => page.locator(".ep-today-page").evaluate((element) => getComputedStyle(element).gap)).toBe(expectedGap);
-    measurements.push(await page.locator(".ep-today-page").evaluate(() => {
-      const read = (selector) => {
-        const element = document.querySelector(selector);
-        if (!element) return null;
-        const rect = element.getBoundingClientRect();
-        return { top: Number(rect.top.toFixed(2)), bottom: Number(rect.bottom.toFixed(2)), height: Number(rect.height.toFixed(2)) };
-      };
-      return {
-        viewport: { width: window.innerWidth, height: window.innerHeight },
-        documentScrollWidth: document.documentElement.scrollWidth,
-        sheetFooter: read(".ep-sheet-footer"),
-        header: read(".ep-today-header"),
-        grid: read(".ep-today-grid"),
-        fieldSheet: read(".ep-field-sheet"),
-        nextCard: read(".ep-next-card"),
-        facts: read(".ep-facts-row"),
-        factsActions: read(".ep-facts-row__actions"),
-      };
-    }));
-  }
-  await page.setViewportSize({ width: 1707, height: 912 });
-  await expect.poll(() => page.locator(".ep-today-page").evaluate((element) => getComputedStyle(element).gap)).toBe("14px");
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-05-after-9ecaf59-1707x912.png"), animations: "disabled" });
-  console.log(`TODAY-05 measurements: ${JSON.stringify(measurements)}`);
-  for (const item of measurements) {
-    expect(item.documentScrollWidth).toBeLessThanOrEqual(item.viewport.width);
-    for (const selector of ["sheetFooter", "facts", "factsActions", "nextCard"]) {
-      expect(item[selector].bottom).toBeLessThanOrEqual(item.viewport.height);
+    await expect(page.locator(".continuity-board__card")).toHaveCount(3);
+    for (const card of await page.locator(".continuity-board__card").all()) {
+      const box = await card.boundingBox();
+      expect(box.y).toBeGreaterThanOrEqual(0);
+      expect(box.y + box.height).toBeLessThanOrEqual(height);
     }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
   }
 });
 
-test("REFINE-19 TODAY-05 keeps the summary in document flow with long todo data", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  const longTodoTitles = Array.from({ length: 21 }, (_, index) => `活动${String(index + 1).padStart(2, "0")}｜10月${(index % 9) + 1}日 10:00-12:00｜仙林校区会议与材料准备`);
-  const completedTodoTitles = Array.from({ length: 5 }, (_, index) => `已完成事项${index + 1}｜跨页面长标题压力数据｜归档复盘`);
-  for (const [width, height] of [[1487, 1058], [420, 720]]) {
-    await page.setViewportSize({ width, height });
-    await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", todoTitles: longTodoTitles, completedTodoTitles });
-    const evidence = await page.locator(".ep-today-page").evaluate(() => {
-      const facts = document.querySelector(".ep-facts-row")?.getBoundingClientRect();
-      return {
-        viewport: { width: innerWidth, height: innerHeight },
-        documentScrollWidth: document.documentElement.scrollWidth,
-        documentScrollHeight: document.documentElement.scrollHeight,
-        facts: facts ? { top: facts.top, bottom: facts.bottom, height: facts.height } : null,
-        rows: document.querySelectorAll(".ep-field-row").length,
-      };
-    });
-    expect(evidence.rows).toBe(21);
-    expect(evidence.facts).not.toBeNull();
-    expect(evidence.documentScrollWidth).toBeLessThanOrEqual(width + 1);
-    expect(evidence.documentScrollHeight).toBeGreaterThan(height);
-    expect(evidence.facts.bottom).toBeLessThanOrEqual(evidence.documentScrollHeight);
-    if (width === 1487) {
-      await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-05-reaudit-data-1487.png"), animations: "disabled", fullPage: true });
-    } else {
-      await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-05-reaudit-data-420.png"), animations: "disabled", fullPage: true });
-    }
+test("[RC-L039] REFINE-19 TODAY-05 keeps bounded picks and all long-list data reachable", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("focused-moment.theme", "editorial-paper"));
+  const todoTitles = Array.from({ length: 21 }, (_, index) => `活动${index + 1}｜仙林校区会议与材料准备`);
+  const completedTodoTitles = Array.from({ length: 5 }, (_, index) => `已完成事项${index + 1}`);
+  for (const width of [1487, 420]) {
+    await page.setViewportSize({ width, height: 720 });
+    await bootTodayReferenceMock(page, { todoTitles, completedTodoTitles });
+    await expect(page.locator(".continuity-board__picks > div")).toHaveCount(3);
+    await expect(page.locator(".continuity-board__card--investment")).toContainText("5 项待办完成");
+    const summary = page.locator(".continuity-board__card--investment");
+    await summary.scrollIntoViewIfNeeded();
+    await expect(summary).toBeInViewport();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width + 1);
+    await page.getByRole("button", { name: "管理精选", exact: true }).click();
+    await expect(page.locator(".ep-todo-column--pending .ep-todo-row")).toHaveCount(21);
+    await expect(page.locator(".ep-todo-column--done .ep-todo-row")).toHaveCount(5);
   }
 });
 
-test("REFINE-19 TODAY-06 marks the Editorial Paper winding route as not applicable", async ({ page }) => {
+test("[RC-L040] REFINE-19 TODAY-06 exposes selected tasks without a winding route", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
   await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-  await expect(page.locator(".ep-today-page")).toBeVisible();
+  await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始" });
+  await expect(page.locator(".unified-today-page--editorial-paper")).toBeVisible();
   await expect(page.locator(".trail-map__route-line")).toHaveCount(0);
-  await expect(page.locator(".ep-field-list")).toBeVisible();
+  await expect(page.locator(".continuity-board__picks")).toBeVisible();
   await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-06-not-applicable-9ecaf59.png"), animations: "disabled", fullPage: true });
 });
 
-test("REFINE-19 TODAY-07 keeps the Editorial Paper bottom summary visible", async ({ page }) => {
+test("[RC-L041] REFINE-19 TODAY-07 keeps the investment summary visible", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
   await page.setViewportSize({ width: 1707, height: 912 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-  const summary = page.locator(".ep-facts-row");
+  await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始" });
+  const summary = page.locator(".continuity-board__card--investment");
   await expect(summary).toBeVisible();
   const bounds = await summary.evaluate((element) => {
     const rect = element.getBoundingClientRect();
@@ -1590,72 +1550,72 @@ test("REFINE-19 TODAY-07 keeps the Editorial Paper bottom summary visible", asyn
   await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-07-pass-9ecaf59-1707x912.png"), animations: "disabled" });
 });
 
-test("REFINE-19 TODAY-08 marks the Editorial Paper hard route geometry as not applicable", async ({ page }) => {
+test("[RC-L042] REFINE-19 TODAY-08 exposes real selected-task rows without route geometry", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
   await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-  await expect(page.locator(".ep-today-page")).toBeVisible();
+  await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始" });
+  await expect(page.locator(".unified-today-page--editorial-paper")).toBeVisible();
   await expect(page.locator(".trail-map__route-line")).toHaveCount(0);
-  await expect(page.locator(".ep-field-row").first()).toBeVisible();
+  await expect(page.locator(".continuity-board__picks > div").first()).toBeVisible();
   await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-08-not-applicable-9ecaf59.png"), animations: "disabled", fullPage: true });
 });
 
-test("REFINE-19 TODAY-09 Editorial Paper Today exposes a live clock after the date", async ({ page }) => {
+test("[RC-L043] REFINE-19 TODAY-09 Editorial Paper Today exposes a live clock after the date", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
   await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-  const date = page.locator(".ep-date-time__date");
+  await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始" });
+  const date = page.locator(".ep-date-time__date, .unified-today-page__date strong");
   const clock = page.locator('time[aria-label^="当前时间"]');
   await expect(date).toHaveCount(1);
   await expect(clock).toHaveCount(1);
   await expect(clock).toHaveText(/^\d{2}:\d{2}:\d{2}$/);
-  const fonts = await page.locator(".ep-date-time").evaluate((element) => ({
-    date: getComputedStyle(element.querySelector(".ep-date-time__date")).fontFamily,
-    clock: getComputedStyle(element.querySelector(".ep-date-time__clock")).fontFamily,
+  const fonts = await page.locator(".ep-date-time, .unified-today-page__date").evaluate((element) => ({
+    date: getComputedStyle(element.querySelector(".ep-date-time__date, strong")).fontFamily,
+    clock: getComputedStyle(element.querySelector('time[aria-label^="当前时间"]')).fontFamily,
   }));
   expect(fonts.date).not.toBe(fonts.clock);
   await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-09-after-9ecaf59.png"), animations: "disabled", fullPage: true });
 });
 
-test("REFINE-19 TODAY-10 keeps real next-step value in the Editorial Paper side card", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-  const nextCard = page.locator(".ep-next-card");
-  await expect(nextCard).toContainText("明日规划");
-  await expect(nextCard.locator(".ep-next-card__duration strong")).toHaveText("45");
-  await expect(nextCard).toContainText("今天截止");
-  await expect(nextCard.getByRole("button", { name: /开始专注/ })).toHaveCount(1);
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-10-pass-9ecaf59.png"), animations: "disabled", fullPage: true });
+test("[RC-L044] REFINE-19 TODAY-10 starts the actual current task with its linked ID", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("focused-moment.theme", "editorial-paper"));
+  await bootTodayReferenceMock(page);
+  const card = page.locator(".continuity-board__card--current");
+  await expect(card.locator("h2")).toHaveText("明日规划");
+  await expect(card.locator(".continuity-board__meta")).toHaveText("0 轮0 分钟 累计");
+  await expect(card.getByRole("button", { name: "开始专注", exact: true })).toHaveCount(1);
+  await card.getByRole("button", { name: "开始专注", exact: true }).click();
+  await expect.poll(() => page.evaluate(async () => {
+    const timer = await window.__TAURI_INTERNALS__.invoke("get_timer_snapshot");
+    return { running: timer.isRunning, title: timer.activeTaskTitle, linked: timer.linkedTodoId };
+  })).toEqual({ running: true, title: "明日规划", linked: 101 });
 });
 
-test("REFINE-19 TODAY-11 records the undefined audit-plan item without inventing a UI issue", async ({ page }) => {
+test("[RC-L045] REFINE-19 TODAY-11 checks the documented unified heading without inventing an issue", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
   await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-  await expect(page.locator(".ep-today-page")).toBeVisible();
-  await expect(page.locator(".ep-page-header h1")).toHaveText("今日节奏");
+  await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始" });
+  await expect(page.locator(".unified-today-page--editorial-paper")).toBeVisible();
+  await expect(page.locator(".unified-today-page__header h1")).toHaveText("今天，从一件事开始");
   await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-11-not-applicable-9ecaf59.png"), animations: "disabled", fullPage: true });
 });
 
-test("Editorial Paper keeps shared actions and page bounds usable at pressure widths", async ({ page }) => {
+test("[RC-L046] Editorial Paper keeps shared actions and page bounds usable at pressure widths", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
 
   for (const [width, height] of [[1120, 760], [820, 720], [560, 720], [420, 720]]) {
     await page.setViewportSize({ width, height });
-    await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+    await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始" });
     const pages = [
-      ["今日", ".ep-today-page"],
+      ["今日", ".unified-today-page--editorial-paper"],
       ["计时", ".ep-focus-page"],
       ["待办", ".ep-todos-page"],
       ["记录", ".ep-records-page"],
@@ -1678,20 +1638,21 @@ test("Editorial Paper keeps shared actions and page bounds usable at pressure wi
 
     await pageButton(page, "今日").click();
     await expect(page.locator(".ep-today-timer-strip")).toHaveCount(0);
-    await page.locator(".ep-next-card").getByRole("button", { name: /开始专注/ }).click();
+    await startCurrentAndStayToday(page);
+    await pageButton(page, "计时").click();
     await expect(page.locator(".ep-focus-page")).toBeVisible();
   }
 });
 
-test("REFINE-19 TIMER-01 gives every Editorial Paper tab the same live date and clock", async ({ page }) => {
+test("[RC-L047] REFINE-19 TIMER-01 gives every Editorial Paper tab the same live date and clock", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
   for (const [width, height] of [[1487, 1058], [420, 720]]) {
     await page.setViewportSize({ width, height });
-    await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+    await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始" });
     for (const [label, selector] of [
-      ["今日", ".ep-today-page"],
+      ["今日", ".unified-today-page--editorial-paper"],
       ["计时", ".ep-focus-page"],
       ["待办", ".ep-todos-page"],
       ["记录", ".ep-records-page"],
@@ -1702,15 +1663,15 @@ test("REFINE-19 TIMER-01 gives every Editorial Paper tab the same live date and 
       }
       await expect(page.locator(selector)).toBeVisible();
       const slug = label === "今日" ? "today" : label === "计时" ? "focus" : label === "待办" ? "todos" : label === "记录" ? "records" : "settings";
-      const date = page.locator(".ep-date-time__date");
+      const date = page.locator(".ep-date-time__date, .unified-today-page__date strong");
       const clock = page.locator('time[aria-label^="当前时间"]');
       await expect(date).toHaveCount(1);
       await expect(clock).toHaveCount(1);
       await expect(clock).toHaveText(/^\d{2}:\d{2}:\d{2}$/);
-      await expect(page.locator(".ep-date-time")).toBeVisible();
-      const layout = await page.locator(".ep-date-time").evaluate((element) => {
-        const dateRect = element.querySelector(".ep-date-time__date").getBoundingClientRect();
-        const clockRect = element.querySelector(".ep-date-time__clock").getBoundingClientRect();
+      await expect(page.locator(".ep-date-time, .unified-today-page__date")).toBeVisible();
+      const layout = await page.locator(".ep-date-time, .unified-today-page__date").evaluate((element) => {
+        const dateRect = element.querySelector(".ep-date-time__date, strong").getBoundingClientRect();
+        const clockRect = element.querySelector('time[aria-label^="当前时间"]').getBoundingClientRect();
         const navRect = document.querySelector(".minimal-nav").getBoundingClientRect();
         return { dateRight: dateRect.right, clockLeft: clockRect.left, clockTop: clockRect.top, clockBottom: clockRect.bottom, navBottom: navRect.bottom, viewportWidth: innerWidth };
       });
@@ -1719,9 +1680,9 @@ test("REFINE-19 TIMER-01 gives every Editorial Paper tab the same live date and 
       if (width <= 820) {
         expect(layout.clockTop).toBeGreaterThanOrEqual(layout.navBottom);
       }
-      const fonts = await page.locator(".ep-date-time").evaluate((element) => ({
-        date: getComputedStyle(element.querySelector(".ep-date-time__date")).fontFamily,
-        clock: getComputedStyle(element.querySelector(".ep-date-time__clock")).fontFamily,
+      const fonts = await page.locator(".ep-date-time, .unified-today-page__date").evaluate((element) => ({
+        date: getComputedStyle(element.querySelector(".ep-date-time__date, strong")).fontFamily,
+        clock: getComputedStyle(element.querySelector('time[aria-label^="当前时间"]')).fontFamily,
       }));
       expect(fonts.date).not.toBe(fonts.clock);
       await page.screenshot({ path: testOutputPath("qa", "REFINE-19", `TIMER-01-after-9ecaf59-${slug}-${width}.png`), animations: "disabled", fullPage: true });
@@ -1729,7 +1690,7 @@ test("REFINE-19 TIMER-01 gives every Editorial Paper tab the same live date and 
   }
 });
 
-test("REFINE-19 TIMER-02 keeps Editorial Paper timer hierarchy readable", async ({ page }) => {
+test("[RC-L048] REFINE-19 TIMER-02 keeps Editorial Paper timer hierarchy readable", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
@@ -1738,7 +1699,7 @@ test("REFINE-19 TIMER-02 keeps Editorial Paper timer hierarchy readable", async 
     { width: 420, height: 720 },
   ]) {
     await page.setViewportSize(viewport);
-    await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+    await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始" });
     await pageButton(page, "计时").click();
     await expect(page.locator(".ep-focus-page")).toBeVisible();
     const metrics = await page.locator(".ep-focus-page").evaluate(() => {
@@ -1773,12 +1734,12 @@ test("REFINE-19 TIMER-02 keeps Editorial Paper timer hierarchy readable", async 
   }
 });
 
-test("REFINE-19 TIMER-03 keeps Editorial Paper lines semantic", async ({ page }) => {
+test("[RC-L049] REFINE-19 TIMER-03 keeps Editorial Paper lines semantic", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
   await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始" });
   await pageButton(page, "计时").click();
   await expect(page.locator(".ep-focus-page")).toBeVisible();
   await expect(page.locator(".ep-clock-card__ring")).toBeVisible();
@@ -1790,12 +1751,12 @@ test("REFINE-19 TIMER-03 keeps Editorial Paper lines semantic", async ({ page })
   await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TIMER-03-not-applicable-9ecaf59.png"), animations: "disabled", fullPage: true });
 });
 
-test("REFINE-19 TIMER-04 keeps Editorial Paper focus content in the full-screen safe area", async ({ page }) => {
+test("[RC-L050] REFINE-19 TIMER-04 keeps Editorial Paper focus content in the full-screen safe area", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
   await page.setViewportSize({ width: 2560, height: 1368 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始" });
   await pageButton(page, "计时").click();
   await expect(page.locator(".ep-focus-page")).toBeVisible();
   const measurements = [];
@@ -1847,12 +1808,12 @@ test("REFINE-19 TIMER-04 keeps Editorial Paper focus content in the full-screen 
   }
 });
 
-test("REFINE-19 TIMER-05 keeps Editorial Paper timer fields explicit", async ({ page }) => {
+test("[RC-L051] REFINE-19 TIMER-05 keeps Editorial Paper timer fields explicit", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
   await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始" });
   await pageButton(page, "计时").click();
   const focusPage = page.locator(".ep-focus-page");
   await expect(focusPage).toBeVisible();
@@ -1875,14 +1836,14 @@ test("REFINE-19 TIMER-05 keeps Editorial Paper timer fields explicit", async ({ 
   await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TIMER-05-pass-9ecaf59.png"), animations: "disabled", fullPage: true });
 });
 
-test("REFINE-19 TIMER-06 hides the command trigger on every Editorial Paper tab", async ({ page }) => {
+test("[RC-L052] REFINE-19 TIMER-06 hides the command trigger on every Editorial Paper tab", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
   await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始" });
   for (const [label, selector, slug] of [
-    ["今日", ".ep-today-page", "today"],
+    ["今日", ".unified-today-page--editorial-paper", "today"],
     ["计时", ".ep-focus-page", "focus"],
     ["待办", ".ep-todos-page", "todos"],
     ["记录", ".ep-records-page", "records"],
@@ -1898,12 +1859,12 @@ test("REFINE-19 TIMER-06 hides the command trigger on every Editorial Paper tab"
   await page.keyboard.press("Escape");
 });
 
-test("REFINE-19 TIMER-07 makes Editorial Paper focus fields drive the real timer flow", async ({ page }) => {
+test("[RC-L053] REFINE-19 TIMER-07 makes Editorial Paper focus fields drive the real timer flow", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
   await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始" });
   await page.evaluate(() => {
     const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
     window.__epTimerInvoke = [];
@@ -1960,14 +1921,14 @@ test("REFINE-19 TIMER-07 makes Editorial Paper focus fields drive the real timer
   expect(commands).toEqual(expect.arrayContaining(["set_countdown_minutes", "update_timer_context", "start_timer", "pause_timer", "complete_focus_session"]));
 });
 
-test("REFINE-19 TIMER-08 keeps long Editorial Paper focus-note text readable", async ({ page }) => {
+test("[RC-L054] REFINE-19 TIMER-08 keeps long Editorial Paper focus-note text readable", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
   const longTodoTitle = "整理一份很长的研究审计证据清单并确认每个字段都能被完整回看";
   for (const [width, height] of [[1487, 1058], [420, 720]]) {
     await page.setViewportSize({ width, height });
-    await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", todoTitles: [longTodoTitle] });
+    await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始", todoTitles: [longTodoTitle] });
     await pageButton(page, "计时").click();
     const focusPage = page.locator(".ep-focus-page");
     const notePaper = focusPage.locator(".ep-note-paper");
@@ -1993,12 +1954,12 @@ test("REFINE-19 TIMER-08 keeps long Editorial Paper focus-note text readable", a
   }
 });
 
-test("REFINE-19 TIMER-09 makes Editorial Paper reset explicit and usable", async ({ page }) => {
+test("[RC-L055] REFINE-19 TIMER-09 makes Editorial Paper reset explicit and usable", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
   await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始" });
   await page.evaluate(() => {
     const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
     window.__TAURI_INTERNALS__.invoke = async (command, args = {}) => {
@@ -2036,12 +1997,12 @@ test("REFINE-19 TIMER-09 makes Editorial Paper reset explicit and usable", async
   await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TIMER-09-after-clear-9ecaf59.png"), animations: "disabled", fullPage: true });
 });
 
-test("REFINE-19 TIMER-10 keeps keyboard actions global without a shortcut panel", async ({ page }) => {
+test("[RC-L056] REFINE-19 TIMER-10 keeps keyboard actions global without a shortcut panel", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
   await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", includeTodo: false });
+  await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始", includeTodo: false });
   await pageButton(page, "计时").click();
   await expect(page.locator(".ep-focus-footer")).not.toContainText("Ctrl");
   await expect(page.locator(".ep-focus-page kbd")).toHaveCount(0);
@@ -2064,7 +2025,7 @@ test("REFINE-19 TIMER-10 keeps keyboard actions global without a shortcut panel"
   await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TIMER-10-pass-9ecaf59.png"), animations: "disabled", fullPage: true });
 });
 
-test("REFINE-19 TIMER-11 keeps the Editorial Paper right note readable fullscreen", async ({ page }) => {
+test("[RC-L057] REFINE-19 TIMER-11 keeps the Editorial Paper right note readable fullscreen", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
@@ -2072,7 +2033,7 @@ test("REFINE-19 TIMER-11 keeps the Editorial Paper right note readable fullscree
   const measurements = [];
   for (const [width, height] of [[2560, 1368], [1707, 912], [1487, 1058]]) {
     await page.setViewportSize({ width, height });
-    await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+    await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始" });
     await pageButton(page, "计时").click();
     const result = await page.locator(".ep-focus-notes").evaluate((notes) => {
       const read = (selector) => [...notes.querySelectorAll(selector)].map((element) => {
@@ -2112,7 +2073,7 @@ test("REFINE-19 TIMER-11 keeps the Editorial Paper right note readable fullscree
   }
 });
 
-test("REFINE-19 TIMER-12 keeps a 01:00:00 Editorial Paper readout away from stats", async ({ page }) => {
+test("[RC-L058] REFINE-19 TIMER-12 keeps a 01:00:00 Editorial Paper readout away from stats", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
@@ -2120,7 +2081,7 @@ test("REFINE-19 TIMER-12 keeps a 01:00:00 Editorial Paper readout away from stat
   const measurements = [];
   for (const [width, height] of [[2560, 1368], [1707, 912], [420, 720]]) {
     await page.setViewportSize({ width, height });
-    await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+    await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始" });
     await pageButton(page, "计时").click();
     const focusPage = page.locator(".ep-focus-page");
     await focusPage.locator('input[name="editorialCountdownMinutes"]').fill("60");
@@ -2164,7 +2125,7 @@ test("REFINE-19 TIMER-12 keeps a 01:00:00 Editorial Paper readout away from stat
   }
 });
 
-test("REFINE-19 TIMER-13 keeps Editorial Paper status and mode copy separated", async ({ page }) => {
+test("[RC-L059] REFINE-19 TIMER-13 keeps Editorial Paper status and mode copy separated", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
@@ -2172,7 +2133,7 @@ test("REFINE-19 TIMER-13 keeps Editorial Paper status and mode copy separated", 
   const measurements = [];
   for (const [width, height] of [[2560, 1368], [1707, 912], [420, 720]]) {
     await page.setViewportSize({ width, height });
-    await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+    await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始" });
     await pageButton(page, "计时").click();
     const focusPage = page.locator(".ep-focus-page");
     const minutesInput = focusPage.locator('input[name="editorialCountdownMinutes"]');
@@ -2217,7 +2178,7 @@ test("REFINE-19 TIMER-13 keeps Editorial Paper status and mode copy separated", 
   }
 });
 
-test("REFINE-19 TIMER-14 keeps Editorial Paper focus safe at Windows high DPI", async ({ browser }) => {
+test("[RC-L060] REFINE-19 TIMER-14 keeps Editorial Paper focus safe at Windows high DPI", async ({ browser }) => {
   const contexts = [
     { width: 2560, height: 1368, requestedDpr: 1, slug: "physical-2560x1368-dpr1" },
     { width: 1707, height: 912, requestedDpr: 1.5, slug: "css-1707x912-dpr1.5" },
@@ -2231,7 +2192,7 @@ test("REFINE-19 TIMER-14 keeps Editorial Paper focus safe at Windows high DPI", 
       await page.addInitScript(() => {
         localStorage.setItem("focused-moment.theme", "editorial-paper");
       });
-      await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+      await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始" });
       await pageButton(page, "计时").click();
       const measurement = await page.locator(".ep-focus-page").evaluate(() => {
         const read = (selector) => {
@@ -2272,14 +2233,14 @@ test("REFINE-19 TIMER-14 keeps Editorial Paper focus safe at Windows high DPI", 
   }
 });
 
-test("REFINE-19 TIMER-15 uses the same daily session count on Today and Focus", async ({ page }) => {
+test("[RC-L061] REFINE-19 TIMER-15 uses the same daily session count on Today and Focus", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
   await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", recordCount: 1, completedTodoTitles: [] });
-  const today = page.locator(".ep-today-page");
-  await expect(today.locator(".ep-facts-row > div:nth-child(2) strong")).toHaveText("1");
+  await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始", recordCount: 1, completedTodoTitles: [] });
+  const today = page.locator(".unified-today-page--editorial-paper");
+  await expect(today.locator(".continuity-board__card--investment")).toContainText("1 段完成");
   await pageButton(page, "计时").click();
   const focus = page.locator(".ep-focus-page");
   await expect(focus.locator(".ep-taped-note--sage strong")).toHaveText("1 段完成");
@@ -2287,17 +2248,17 @@ test("REFINE-19 TIMER-15 uses the same daily session count on Today and Focus", 
   await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TIMER-15-after-9ecaf59.png"), animations: "disabled", fullPage: true });
 });
 
-test("REFINE-19 TIMER-16 restores the Editorial Paper floating entry after returning", async ({ page }) => {
+test("[RC-L062] REFINE-19 TIMER-16 restores the Editorial Paper floating entry after returning", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
   await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始" });
   await page.evaluate(() => {
     const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
     window.__epFloatingCalls = 0;
     window.__TAURI_INTERNALS__.invoke = async (command, args = {}) => {
-      if (command === "show_focus_floating") window.__epFloatingCalls += 1;
+      if (command === "show_floating_todos") window.__epFloatingCalls += 1;
       return nativeInvoke(command, args);
     };
   });
@@ -2307,26 +2268,26 @@ test("REFINE-19 TIMER-16 restores the Editorial Paper floating entry after retur
   await focusPage.getByRole("button", { name: "开始专注", exact: true }).click();
   await expect(focusPage).toContainText("倒计时中");
 
-  const floatingEntry = focusPage.getByRole("button", { name: "进入悬浮窗", exact: true });
+  const floatingEntry = focusPage.getByRole("button", { name: "打开迷你工作台", exact: true });
   await expect(floatingEntry).toBeVisible();
-  await expect(floatingEntry).toHaveAttribute("title", "隐藏主窗口，回到悬浮计时");
+  await expect(floatingEntry).toHaveAttribute("title", "打开迷你工作台");
   const callsBeforeReturn = await page.evaluate(() => window.__epFloatingCalls);
   await floatingEntry.click();
   await expect.poll(() => page.evaluate(() => window.__epFloatingCalls)).toBe(callsBeforeReturn + 1);
   await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TIMER-16-after-9ecaf59.png"), animations: "disabled", fullPage: true });
 });
 
-test("REFINE-19 TIMER-17 still opens the floating timer after Editorial Paper starts", async ({ page }) => {
+test("[RC-L063] REFINE-19 TIMER-17 keeps default manual mini and persisted automatic opt-in", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
   await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始" });
   await page.evaluate(() => {
     const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
     window.__epFloatingCalls = 0;
     window.__TAURI_INTERNALS__.invoke = async (command, args = {}) => {
-      if (command === "show_focus_floating") window.__epFloatingCalls += 1;
+      if (command === "show_floating_todos") window.__epFloatingCalls += 1;
       return nativeInvoke(command, args);
     };
   });
@@ -2335,16 +2296,39 @@ test("REFINE-19 TIMER-17 still opens the floating timer after Editorial Paper st
   await focusPage.locator('input[name="editorialSessionTitle"]').fill("核对开始后的悬浮计时状态");
   await focusPage.getByRole("button", { name: "开始专注", exact: true }).click();
   await expect(focusPage).toContainText("倒计时中");
+  expect(await page.evaluate(() => window.__epFloatingCalls)).toBe(0);
+  await focusPage.getByRole("button", { name: "打开迷你工作台", exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.__epFloatingCalls)).toBe(1);
   await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TIMER-17-pass-9ecaf59.png"), animations: "disabled", fullPage: true });
+  // Preserve the legacy automatic-open purpose under the new explicit opt-in.
+  await pageButton(page, "设置").click();
+  await page.getByRole("checkbox", { name: "开始专注时自动打开迷你工作台", exact: true }).check();
+  await expect.poll(() => page.evaluate(async () => (await window.__TAURI_INTERNALS__.invoke("get_app_preferences")).autoMiniOnStart)).toBe(true);
+  await page.reload();
+  await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "editorial-paper");
+  await page.evaluate(() => {
+    const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
+    window.__epAutomaticMiniCalls = 0;
+    window.__TAURI_INTERNALS__.invoke = async (command, args = {}) => {
+      if (command === "show_floating_todos") window.__epAutomaticMiniCalls += 1;
+      return nativeInvoke(command, args);
+    };
+  });
+  await pageButton(page, "设置").click();
+  await expect(page.getByRole("checkbox", { name: "开始专注时自动打开迷你工作台", exact: true })).toBeChecked();
+  await pageButton(page, "计时").click();
+  await focusPage.locator('input[name="editorialSessionTitle"]').fill("验证主动开启后的自动迷你工作台");
+  await focusPage.getByRole("button", { name: "开始专注", exact: true }).click();
+  await expect(focusPage).toContainText("倒计时中");
+  await expect.poll(() => page.evaluate(() => window.__epAutomaticMiniCalls)).toBe(1);
 });
 
-test("REFINE-19 TIMER-18 delegates main-window hiding to the focus floating command", async ({ page }) => {
+test("[RC-L064] REFINE-19 TIMER-18 delegates explicit mini opening without directly hiding main", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
   await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始" });
   await page.evaluate(() => {
     const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
     window.__epWindowCommands = [];
@@ -2358,24 +2342,26 @@ test("REFINE-19 TIMER-18 delegates main-window hiding to the focus floating comm
   await focusPage.locator('input[name="editorialSessionTitle"]').fill("核对主窗口自动隐藏调用链");
   await focusPage.getByRole("button", { name: "开始专注", exact: true }).click();
   await expect(focusPage).toContainText("倒计时中");
-  await expect.poll(() => page.evaluate(() => window.__epWindowCommands.includes("show_focus_floating"))).toBe(true);
+  expect(await page.evaluate(() => window.__epWindowCommands.includes("show_floating_todos"))).toBe(false);
+  await focusPage.getByRole("button", { name: "打开迷你工作台", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => window.__epWindowCommands.includes("show_floating_todos"))).toBe(true);
   const commands = await page.evaluate(() => window.__epWindowCommands);
-  expect(commands.filter((command) => command === "show_focus_floating")).toHaveLength(1);
+  expect(commands.filter((command) => command === "show_floating_todos")).toHaveLength(1);
   expect(commands).not.toContain("hide_main_window");
   await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TIMER-18-pass-9ecaf59.png"), animations: "disabled", fullPage: true });
 });
 
-test("REFINE-19 TIMER-19 keeps the floating entry visible and clickable in Editorial Paper focus states", async ({ page }) => {
+test("[RC-L065] REFINE-19 TIMER-19 keeps the floating entry visible and clickable in Editorial Paper focus states", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
   await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始" });
   await page.evaluate(() => {
     const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
     window.__epFloatingCalls = 0;
     window.__TAURI_INTERNALS__.invoke = async (command, args = {}) => {
-      if (command === "show_focus_floating") window.__epFloatingCalls += 1;
+      if (command === "show_floating_todos") window.__epFloatingCalls += 1;
       return nativeInvoke(command, args);
     };
   });
@@ -2385,7 +2371,7 @@ test("REFINE-19 TIMER-19 keeps the floating entry visible and clickable in Edito
   await focusPage.locator('input[name="editorialSessionTitle"]').fill("核对悬浮窗入口首屏可达性");
   await focusPage.getByRole("button", { name: "开始专注", exact: true }).click();
   await expect(focusPage).toContainText("倒计时中");
-  const floatingEntry = focusPage.getByRole("button", { name: "进入悬浮窗", exact: true });
+  const floatingEntry = focusPage.getByRole("button", { name: "打开迷你工作台", exact: true });
   await expect(floatingEntry).toBeVisible();
   const firstScreenBounds = await floatingEntry.evaluate((element) => {
     const rect = element.getBoundingClientRect();
@@ -2405,12 +2391,12 @@ test("REFINE-19 TIMER-19 keeps the floating entry visible and clickable in Edito
   await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TIMER-19-pass-9ecaf59.png"), animations: "disabled", fullPage: true });
 });
 
-test("REFINE-19 TIMER-20 keeps Editorial Paper timer and interface state synchronized", async ({ page }) => {
+test("[RC-L066] REFINE-19 TIMER-20 keeps Editorial Paper timer and interface state synchronized", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
   await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始" });
   await page.evaluate(() => {
     const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
     let timerOverride = null;
@@ -2459,7 +2445,7 @@ test("REFINE-19 TIMER-20 keeps Editorial Paper timer and interface state synchro
   await expect(clockCard.getByRole("button", { name: "暂停", exact: true })).toBeVisible();
 
   await pageButton(page, "今日").click();
-  await expect(page.locator(".ep-today-page")).toBeVisible();
+  await expect(page.locator(".unified-today-page--editorial-paper")).toBeVisible();
   await pageButton(page, "计时").click();
   await expect(focusPage).toContainText("倒计时中");
   await expect(titleInput).toBeDisabled();
@@ -2485,31 +2471,31 @@ test("REFINE-19 TIMER-20 keeps Editorial Paper timer and interface state synchro
   const commands = await page.evaluate(() => window.__epTimerInvoke);
   expect(commands).toEqual(expect.arrayContaining(["start_timer", "pause_timer", "complete_focus_session", "reset_timer"]));
   await page.reload();
-  await expect(page.getByRole("heading", { name: "今日节奏" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "今天，从一件事开始" })).toBeVisible();
   await pageButton(page, "计时").click();
   await expect(page.locator(".ep-clock-card")).toContainText("待开始");
   await expect(page.locator('input[name="editorialSessionTitle"]')).toHaveValue("");
   await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TIMER-20-pass-9ecaf59.png"), animations: "disabled", fullPage: true });
 });
 
-test("REFINE-19 TIMER-21 records when the Editorial Paper focus page has no matching records button", async ({ page }) => {
+test("[RC-L067] REFINE-19 TIMER-21 records when the Editorial Paper focus page has no matching records button", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
   await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始" });
   await pageButton(page, "计时").click();
   const focusPage = page.locator(".ep-focus-page");
   await expect(focusPage).toBeVisible();
   await expect(focusPage.getByRole("button", { name: "查看专注记录", exact: true })).toHaveCount(0);
   await expect(focusPage).not.toContainText("查看专注记录");
   await pageButton(page, "今日").click();
-  await expect(page.getByRole("button", { name: "回看记录", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "查看记录", exact: true })).toBeVisible();
   await pageButton(page, "计时").click();
   await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TIMER-21-not-applicable-9ecaf59.png"), animations: "disabled", fullPage: true });
 });
 
-test("REFINE-19 TODO-01 checks Editorial Paper todo columns for overlap, bounded whitespace, and clear states", async ({ page }) => {
+test("[RC-L068] REFINE-19 TODO-01 checks Editorial Paper todo columns for overlap, bounded whitespace, and clear states", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
@@ -2524,7 +2510,7 @@ test("REFINE-19 TODO-01 checks Editorial Paper todo columns for overlap, bounded
   ];
   for (const [width, height] of [[1487, 1058], [1120, 760], [820, 720]]) {
     await page.setViewportSize({ width, height });
-    await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", todoTitles: longTitles, completedTodoTitles: completedTitles });
+    await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始", todoTitles: longTitles, completedTodoTitles: completedTitles });
     await pageButton(page, "待办").click();
     const todoPage = page.locator(".ep-todos-page");
     await expect(todoPage).toBeVisible();
@@ -2568,7 +2554,7 @@ test("REFINE-19 TODO-01 checks Editorial Paper todo columns for overlap, bounded
   await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODO-01-after-9ecaf59.png"), animations: "disabled", fullPage: true });
 });
 
-test("REFINE-19 TODO-02 keeps a long completed todo list visible and actionable", async ({ page }) => {
+test("[RC-L069] REFINE-19 TODO-02 keeps a long completed todo list visible and actionable", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
@@ -2576,7 +2562,7 @@ test("REFINE-19 TODO-02 keeps a long completed todo list visible and actionable"
   const restoredTitle = completedTitles[0];
   const editedTitle = "已编辑的长完成事项：把恢复、编辑和删除动作留在同一张纸上";
   await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", todoTitles: ["待恢复的事项", "保留的待开始事项"], completedTodoTitles: completedTitles });
+  await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始", todoTitles: ["待恢复的事项", "保留的待开始事项"], completedTodoTitles: completedTitles });
   await page.evaluate(() => {
     const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
     let todoOverride = null;
@@ -2671,12 +2657,12 @@ test("REFINE-19 TODO-02 keeps a long completed todo list visible and actionable"
   expect(commands).toEqual(expect.arrayContaining(["update_todo_item", "toggle_todo_item", "delete_todo_item"]));
 });
 
-test("REFINE-19 TODO-03 keeps all three Editorial Paper window controls available", async ({ page }) => {
+test("[RC-L070] REFINE-19 TODO-03 keeps all three Editorial Paper window controls available", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
   await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始" });
   await page.evaluate(() => {
     const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
     window.__epWindowCommands = [];
@@ -2730,7 +2716,7 @@ test("REFINE-19 TODO-03 keeps all three Editorial Paper window controls availabl
   await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODO-03-pass-420-9ecaf59.png"), animations: "disabled", fullPage: true });
 });
 
-test("REFINE-19 RECORDS-01 checks the Editorial Paper records first screen", async ({ page }) => {
+test("[RC-L071] REFINE-19 RECORDS-01 checks the Editorial Paper records first screen", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
@@ -2752,7 +2738,7 @@ test("REFINE-19 RECORDS-01 checks the Editorial Paper records first screen", asy
   }));
   for (const [width, height] of [[1487, 1058], [1120, 760]]) {
     await page.setViewportSize({ width, height });
-    await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", recordCount: 3, dailyBreakdown });
+    await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始", recordCount: 3, dailyBreakdown });
     await pageButton(page, "记录").click();
     const recordsPage = page.locator(".ep-records-page");
     await expect(recordsPage).toBeVisible();
@@ -2798,7 +2784,7 @@ test("REFINE-19 RECORDS-01 checks the Editorial Paper records first screen", asy
   }
 });
 
-test("REFINE-19 RECORDS-02 keeps the Editorial Paper records hierarchy inside its theme boundary", async ({ page }) => {
+test("[RC-L072] REFINE-19 RECORDS-02 keeps the Editorial Paper records hierarchy inside its theme boundary", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
@@ -2813,7 +2799,7 @@ test("REFINE-19 RECORDS-02 keeps the Editorial Paper records hierarchy inside it
   ].map(([date, minutes, totalDurationLabel]) => ({ date, totalDurationMs: minutes * 60 * 1000, totalDurationLabel, sessionCount: 1, linkedSessionCount: 0, independentSessionCount: 1 }));
   for (const [width, height] of [[1487, 1058], [420, 720]]) {
     await page.setViewportSize({ width, height });
-    await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", recordCount: 3, dailyBreakdown });
+    await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始", recordCount: 3, dailyBreakdown });
     await pageButton(page, "记录").click();
     const recordsPage = page.locator(".ep-records-page");
     await expect(recordsPage).toBeVisible();
@@ -2845,7 +2831,7 @@ test("REFINE-19 RECORDS-02 keeps the Editorial Paper records hierarchy inside it
   }
 });
 
-test("REFINE-19 RECORDS-03 keeps 28-day Editorial Paper history navigable", async ({ page }) => {
+test("[RC-L073] REFINE-19 RECORDS-03 keeps 28-day Editorial Paper history navigable", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
@@ -2864,7 +2850,7 @@ test("REFINE-19 RECORDS-03 keeps 28-day Editorial Paper history navigable", asyn
   const editedTitle = "已编辑的历史专注记录：保持长文本在纸页内可回看";
   await page.setViewportSize({ width: 1487, height: 1058 });
   await bootTodayReferenceMock(page, {
-    expectedHeading: "今日节奏",
+    expectedHeading: "今天，从一件事开始",
     recordCount: recordDates.length,
     recordDates,
     recordTitlePrefix: longTitlePrefix,
@@ -2911,7 +2897,7 @@ test("REFINE-19 RECORDS-03 keeps 28-day Editorial Paper history navigable", asyn
     return { text: element.textContent ?? "", clientWidth: element.clientWidth, scrollWidth: element.scrollWidth, overflow: style.overflow, textOverflow: style.textOverflow, whiteSpace: style.whiteSpace };
   }));
   expect(desktopTitleEvidence.every((item) => item.scrollWidth <= item.clientWidth && item.whiteSpace === "normal" && item.overflow !== "hidden" && item.textOverflow === "clip")).toBe(true);
-  await selectedEntries.first().getByRole("button", { name: "编辑", exact: true }).click();
+  await selectedEntries.first().getByRole("button", { name: "改名", exact: true }).click();
   await selectedEntries.first().locator('input[aria-label="记录名称"]').fill(editedTitle);
   await selectedEntries.first().getByRole("button", { name: "保存", exact: true }).click();
   await expect(selectedEntries.first().locator("strong")).toHaveAttribute("title", editedTitle);
@@ -2947,7 +2933,7 @@ test("REFINE-19 RECORDS-03 keeps 28-day Editorial Paper history navigable", asyn
   expect(commands).toEqual(expect.arrayContaining(["update_focus_record_title", "delete_focus_record"]));
 });
 
-test("REFINE-19 RECORDS-04 verifies Editorial Paper uses aligned natural-day bars", async ({ page }) => {
+test("[RC-L074] REFINE-19 RECORDS-04 verifies Editorial Paper uses aligned natural-day bars", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
@@ -2962,7 +2948,7 @@ test("REFINE-19 RECORDS-04 verifies Editorial Paper uses aligned natural-day bar
   ].map(([date, minutes, totalDurationLabel]) => ({ date, totalDurationMs: minutes * 60 * 1000, totalDurationLabel, sessionCount: 1, linkedSessionCount: 0, independentSessionCount: 1 }));
   for (const [width, height] of [[1487, 1058], [420, 720]]) {
     await page.setViewportSize({ width, height });
-    await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", recordCount: 7, dailyBreakdown });
+    await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始", recordCount: 7, dailyBreakdown });
     await pageButton(page, "记录").click();
     const recordsPage = page.locator(".ep-records-page");
     const chart = recordsPage.locator(".ep-archive-chart");
@@ -3005,7 +2991,7 @@ test("REFINE-19 RECORDS-04 verifies Editorial Paper uses aligned natural-day bar
   }
 });
 
-test("REFINE-19 RECORDS-05 keeps Editorial Paper history statistics non-duplicative", async ({ page }) => {
+test("[RC-L075] REFINE-19 RECORDS-05 keeps Editorial Paper history statistics non-duplicative", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
@@ -3020,7 +3006,7 @@ test("REFINE-19 RECORDS-05 keeps Editorial Paper history statistics non-duplicat
   ].map(([date, minutes, totalDurationLabel]) => ({ date, totalDurationMs: minutes * 60 * 1000, totalDurationLabel, sessionCount: 1, linkedSessionCount: 0, independentSessionCount: 1 }));
   for (const [width, height] of [[1487, 1058], [420, 720]]) {
     await page.setViewportSize({ width, height });
-    await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", recordCount: 7, dailyBreakdown });
+    await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始", recordCount: 7, dailyBreakdown });
     await pageButton(page, "记录").click();
     const recordsPage = page.locator(".ep-records-page");
     const metrics = await recordsPage.evaluate(() => ({
@@ -3048,7 +3034,7 @@ test("REFINE-19 RECORDS-05 keeps Editorial Paper history statistics non-duplicat
   }
 });
 
-test("REFINE-19 RECORDS-06 keeps all Editorial Paper records usable at scale", async ({ page }) => {
+test("[RC-L076] REFINE-19 RECORDS-06 keeps all Editorial Paper records usable at scale", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
@@ -3067,7 +3053,7 @@ test("REFINE-19 RECORDS-06 keeps all Editorial Paper records usable at scale", a
   ].map(([date, minutes, totalDurationLabel]) => ({ date, totalDurationMs: minutes * 60 * 1000, totalDurationLabel, sessionCount: date === referenceDate ? recordCount : 0, linkedSessionCount: 0, independentSessionCount: date === referenceDate ? recordCount : 0 }));
   await page.setViewportSize({ width: 1487, height: 1058 });
   await bootTodayReferenceMock(page, {
-    expectedHeading: "今日节奏",
+    expectedHeading: "今天，从一件事开始",
     recordCount,
     recordDates,
     recordTitlePrefix: longTitlePrefix,
@@ -3109,7 +3095,7 @@ test("REFINE-19 RECORDS-06 keeps all Editorial Paper records usable at scale", a
   await expect(selectedEntries).toHaveCount(205);
   await expect(selectedEntries.last().locator("strong")).toHaveAttribute("title", `${longTitlePrefix} 205`);
 
-  await selectedEntries.first().getByRole("button", { name: "编辑", exact: true }).click();
+  await selectedEntries.first().getByRole("button", { name: "改名", exact: true }).click();
   await selectedEntries.first().locator('input[aria-label="记录名称"]').fill(editedTitle);
   await selectedEntries.first().getByRole("button", { name: "保存", exact: true }).click();
   await expect(selectedEntries.first().locator("strong")).toHaveAttribute("title", editedTitle);
@@ -3161,12 +3147,12 @@ test("REFINE-19 RECORDS-06 keeps all Editorial Paper records usable at scale", a
   expect(commands).toEqual(expect.arrayContaining(["update_focus_record_title", "delete_focus_record"]));
 });
 
-test("REFINE-19 RECORDS-07 keeps all Editorial Paper window controls usable", async ({ page }) => {
+test("[RC-L077] REFINE-19 RECORDS-07 keeps all Editorial Paper window controls usable", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
   await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", recordCount: 3 });
+  await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始", recordCount: 3 });
   await page.evaluate(() => {
     const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
     window.__epRecordsWindowCommands = [];
@@ -3221,11 +3207,11 @@ test("REFINE-19 RECORDS-07 keeps all Editorial Paper window controls usable", as
   await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "RECORDS-07-pass-420-9ecaf59.png"), animations: "disabled", fullPage: true });
 });
 
-test("REFINE-19 SETTINGS-01 keeps Editorial Paper settings copy and controls separated", async ({ page }) => {
+test("[RC-L078] REFINE-19 SETTINGS-01 keeps Editorial Paper settings copy and controls separated", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始" });
   for (const [width, height] of [[1487, 1058], [420, 720]]) {
     await page.setViewportSize({ width, height });
     await pageButton(page, "设置").click();
@@ -3238,7 +3224,7 @@ test("REFINE-19 SETTINGS-01 keeps Editorial Paper settings copy and controls sep
       };
       const overlaps = (first, second) => first.left < second.right - 1 && first.right > second.left + 1 && first.top < second.bottom - 1 && first.bottom > second.top + 1;
       const blockSelectors = [
-        ".ep-section-heading", ".ep-theme-swatches", ".ep-slider-row", ".ep-density-row", ".ep-live-preview",
+        ".ep-section-heading", ".theme-picker", ".ep-slider-row", ".ep-density-row", ".ep-live-preview",
         ".ep-setting-list", ".ep-hand-note", ".ep-select-row", ".ep-sound-actions", ".ep-rhythm-grid",
         ".ep-settings-paper--backup > p", ".ep-settings-actions", ".ep-error", ".ep-settings-footer",
       ];
@@ -3254,13 +3240,15 @@ test("REFINE-19 SETTINGS-01 keeps Editorial Paper settings copy and controls sep
           if (first.paperIndex === second.paperIndex && overlaps(first, second)) overlapPairs.push([first.selector, second.selector, first.paperIndex]);
         }
       }
-      const swatches = [...document.querySelectorAll(".ep-theme-swatch")].map((element) => ({ ...rect(element), label: element.textContent?.trim() ?? "" }));
-      const footerChildren = [...document.querySelectorAll(".ep-settings-footer > *")].map((element) => ({ ...rect(element), tag: element.tagName, text: element.textContent?.trim() ?? "" }));
+      const swatches = [...document.querySelectorAll(".theme-picker__option")].map((element) => ({ ...rect(element), label: element.textContent?.trim() ?? "" }));
+      const footerChildren = [...document.querySelectorAll(".ep-workspace-controls > *")].map((element) => ({ ...rect(element), tag: element.tagName, text: element.textContent?.trim() ?? "" }));
       return { documentScrollWidth: document.documentElement.scrollWidth, viewportWidth: innerWidth, blockMetrics, overlapPairs, swatches, footerChildren };
     });
     console.log(`SETTINGS-01 ${width}x${height}: ${JSON.stringify(metrics)}`);
     expect(metrics.documentScrollWidth).toBeLessThanOrEqual(width + 1);
     expect(metrics.overlapPairs).toEqual([]);
+    expect(metrics.swatches).toHaveLength(5);
+    expect(metrics.footerChildren.length).toBeGreaterThan(0);
     expect(metrics.swatches.every((swatch) => swatch.left >= 0 && swatch.right <= width + 1 && swatch.height > 0)).toBe(true);
     expect(metrics.footerChildren.every((child) => child.left >= 0 && child.right <= width + 1 && child.height > 0)).toBe(true);
     if (width === 1487) {
@@ -3273,11 +3261,11 @@ test("REFINE-19 SETTINGS-01 keeps Editorial Paper settings copy and controls sep
   }
 });
 
-test("REFINE-19 SETTINGS-02 exposes Editorial Paper appearance controls with visible effect", async ({ page }) => {
+test("[RC-L079] REFINE-19 SETTINGS-02 exposes Editorial Paper appearance controls with visible effect", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始" });
   for (const [width, height] of [[1487, 1058], [420, 720]]) {
     await page.setViewportSize({ width, height });
     await pageButton(page, "设置").click();
@@ -3285,8 +3273,8 @@ test("REFINE-19 SETTINGS-02 exposes Editorial Paper appearance controls with vis
     await expect(settingsPage).toBeVisible();
     await expect(settingsPage.locator(".ep-slider-row")).toHaveCount(2);
     await expect(settingsPage.locator(".ep-density-row")).toHaveCount(1);
-    await expect(settingsPage.locator(".ep-theme-swatch")).toHaveCount(5);
-    await expect(settingsPage.locator(".ep-live-preview")).toBeVisible();
+    await expect(settingsPage.locator(".theme-picker__option")).toHaveCount(5);
+    await expect(settingsPage.locator(".theme-picker")).toBeVisible();
     const metrics = await settingsPage.evaluate(() => ({
       rootDensity: document.querySelector(".minimal-app")?.getAttribute("data-density") ?? "",
       rootMotion: document.querySelector(".minimal-app")?.getAttribute("data-motion") ?? "",
@@ -3310,11 +3298,11 @@ test("REFINE-19 SETTINGS-02 exposes Editorial Paper appearance controls with vis
   }
 });
 
-test("REFINE-19 SETTINGS-03 keeps Editorial Paper sound choices and custom sound flow usable", async ({ page }) => {
+test("[RC-L080] REFINE-19 SETTINGS-03 keeps Editorial Paper sound choices and custom sound flow usable", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始" });
   await page.evaluate(() => {
     const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
     window.__epSoundCommands = [];
@@ -3347,9 +3335,9 @@ test("REFINE-19 SETTINGS-03 keeps Editorial Paper sound choices and custom sound
   const settingsPage = page.locator(".ep-settings-page");
   const soundSelect = settingsPage.locator('select[name="editorialAlertSound"]');
   const soundOptions = soundSelect.locator("option");
-  await expect(soundOptions).toHaveCount(8);
-  await expect(soundOptions).toHaveText(["柔和铃音", "明亮三连", "沉稳脉冲", "木鱼单击", "玻璃回响", "晨光和弦", "老牧师原声", "自定义音效"]);
-  await expect(soundOptions.nth(7)).toHaveJSProperty("disabled", true);
+  await expect(soundOptions).toHaveCount(7);
+  await expect(soundOptions).toHaveText(["柔和铃音", "明亮三连", "沉稳脉冲", "木鱼单击", "玻璃回响", "晨光和弦", "自定义音效"]);
+  await expect(soundOptions.nth(6)).toHaveJSProperty("disabled", true);
   await soundSelect.selectOption("bright_bell");
   await expect(soundSelect).toHaveValue("bright_bell");
   await expect.poll(() => page.evaluate(() => window.__epSoundCommands.filter((item) => item === "update_timer_preferences").length)).toBe(1);
@@ -3358,7 +3346,7 @@ test("REFINE-19 SETTINGS-03 keeps Editorial Paper sound choices and custom sound
 
   await settingsPage.locator('input[type="file"][aria-label="导入自定义音效"]').setInputFiles({ name: "paper-chime.wav", mimeType: "audio/wav", buffer: Buffer.from("RIFF0000WAVEfmt ") });
   await expect(page.locator(".app-message")).toContainText("自定义音效已启用");
-  await expect(soundOptions.nth(7)).toHaveJSProperty("disabled", false);
+  await expect(soundOptions.nth(6)).toHaveJSProperty("disabled", false);
   await expect(soundSelect).toHaveValue("custom");
   await expect(settingsPage.getByRole("button", { name: "移除自定义", exact: true })).toBeVisible();
   await settingsPage.getByRole("button", { name: "移除自定义", exact: true }).click();
@@ -3383,11 +3371,11 @@ test("REFINE-19 SETTINGS-03 keeps Editorial Paper sound choices and custom sound
   expect(commands.filter((command) => command === "update_timer_preferences").length).toBe(3);
 });
 
-test("REFINE-19 SETTINGS-04 replaces rhythm settings with useful workspace controls", async ({ page }) => {
+test("[RC-L081] REFINE-19 SETTINGS-04 replaces rhythm settings with useful workspace controls", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始" });
   await pageButton(page, "设置").click();
   const settingsPage = page.locator(".ep-settings-page");
   const workspace = settingsPage.locator(".ep-settings-paper--workspace");
@@ -3424,52 +3412,36 @@ test("REFINE-19 SETTINGS-04 replaces rhythm settings with useful workspace contr
   await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "SETTINGS-04-pass-420-9ecaf59.png"), animations: "disabled", fullPage: true });
 });
 
-test("REFINE-19 SETTINGS-05 keeps Editorial Paper theme preview purposeful", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-  for (const [width, height] of [[1487, 1058], [420, 720]]) {
-    await page.setViewportSize({ width, height });
+test("[RC-L082] REFINE-19 SETTINGS-05 exposes five real loaded theme previews", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("focused-moment.theme", "editorial-paper"));
+  await bootTodayReferenceMock(page);
+  for (const width of [1487, 420]) {
+    await page.setViewportSize({ width, height: 1058 });
     await pageButton(page, "设置").click();
-    const settingsPage = page.locator(".ep-settings-page");
-    await expect(settingsPage).toBeVisible();
-    await expect(settingsPage.locator(".ep-theme-swatches")).toHaveCount(1);
-    await expect(settingsPage.locator(".ep-theme-swatch")).toHaveCount(5);
-    const preview = settingsPage.locator(".ep-live-preview");
-    await expect(preview).toBeVisible();
-    await expect(preview).toContainText("当前样式预览");
-    await expect(preview.locator(".ep-live-preview__paper")).toContainText("编辑纸页");
-    await expect(preview.locator(".ep-live-preview__paper")).toContainText("纸张、铅字与可读性的工作界面。");
-    const metrics = await settingsPage.evaluate(() => {
-      const previewPaper = document.querySelector(".ep-live-preview__paper");
-      const style = previewPaper ? getComputedStyle(previewPaper) : null;
-      return {
-        nightValleyNodes: document.querySelectorAll('[class^="nv-"], [class*=" nv-"]').length,
-        previewImages: document.querySelectorAll(".ep-live-preview img").length,
-        previewUrlBackgrounds: style?.backgroundImage.includes("url(") ?? false,
-        previewRole: document.querySelector(".ep-live-preview__paper")?.className ?? "",
-        documentScrollWidth: document.documentElement.scrollWidth,
-      };
-    });
-    expect(metrics.nightValleyNodes).toBe(0);
-    expect(metrics.previewImages).toBe(0);
-    expect(metrics.previewUrlBackgrounds).toBe(false);
-    expect(metrics.previewRole).toContain("ep-live-preview__paper--editorial-paper");
-    expect(metrics.documentScrollWidth).toBeLessThanOrEqual(width + 1);
-    await page.evaluate(() => window.scrollTo(0, 0));
-    await page.screenshot({ path: testOutputPath("qa", "REFINE-19", `SETTINGS-05-pass-${width}-9ecaf59.png`), animations: "disabled", fullPage: true });
+    const picker = page.locator(".ep-settings-page .theme-picker");
+    await expect(picker).toHaveCount(1);
+    await expect(picker.locator(".theme-picker__option")).toHaveCount(5);
+    await expect(picker.locator("img")).toHaveCount(5);
+    for (const img of await picker.locator("img").all()) {
+      await expect(img).toBeVisible();
+      await expect(img).toHaveAttribute("alt", /主题预览/);
+      await expect.poll(() => img.evaluate((el) => el.complete && el.naturalWidth > 0)).toBe(true);
+    }
+    await expect(picker.locator('[aria-pressed="true"]')).toContainText("编辑纸页");
+    await expect(page.locator(".ep-live-preview, .nv-settings-theme-lab")).toHaveCount(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width + 1);
+    await page.screenshot({ path: testOutputPath("screenshots", `settings-preview-${width}.png`), fullPage: true });
   }
 });
 
-test("REFINE-19 SETTINGS-06 makes Editorial Paper settings immediate and persistent", async ({ page }) => {
+test("[RC-L083] REFINE-19 SETTINGS-06 makes Editorial Paper settings immediate and persistent", async ({ page }) => {
   await page.addInitScript(() => {
     if (sessionStorage.getItem("refine19-settings06-seeded") !== "1") {
       localStorage.setItem("focused-moment.theme", "editorial-paper");
       sessionStorage.setItem("refine19-settings06-seeded", "1");
     }
   });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始" });
   await page.evaluate(() => {
     const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
     window.__epSettings06Commands = [];
@@ -3499,11 +3471,11 @@ test("REFINE-19 SETTINGS-06 makes Editorial Paper settings immediate and persist
   let settingsPage = page.locator(".ep-settings-page");
   await expect(settingsPage).toBeVisible();
   await expect(settingsPage.getByRole("button", { name: "保存外观设置", exact: true })).toHaveCount(0);
-  await expect(settingsPage).toContainText("主题与提醒设置会立即保存。");
+  await expect(settingsPage).toContainText("亮度、动效和信息密度会立即应用，并保存在本机。");
   await expect(settingsPage).not.toContainText("更改将在下次打开应用时生效。");
-  await settingsPage.locator(".ep-theme-swatch").filter({ hasText: "编辑纸页" }).click();
-  await expect(page.locator(".app-message")).toContainText("设置会自动保留");
-  await expect.poll(() => page.evaluate(() => localStorage.getItem("focused-moment.theme"))).toBe("editorial-paper");
+  await settingsPage.locator(".theme-picker__option").filter({ hasText: "编辑纸页" }).click();
+  await expect(settingsPage.locator('.theme-picker__option[aria-pressed="true"]')).toContainText("编辑纸页");
+  await expect.poll(() => page.evaluate(() => JSON.parse(sessionStorage.getItem("rc-visual-preferences") || "{}").themeId)).toBe("editorial-paper");
 
   const behaviorToggle = settingsPage.locator('.ep-setting-list input[type="checkbox"]').first();
   await behaviorToggle.uncheck();
@@ -3532,20 +3504,20 @@ test("REFINE-19 SETTINGS-06 makes Editorial Paper settings immediate and persist
     };
   });
   await page.reload();
-  await expect(page.getByRole("heading", { name: "今日节奏" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "今天，从一件事开始" })).toBeVisible();
   await pageButton(page, "设置").click();
   settingsPage = page.locator(".ep-settings-page");
   await expect(settingsPage.locator('select[name="editorialAlertSound"]')).toHaveValue("bright_bell");
   await expect(settingsPage.locator('.ep-setting-list input[type="checkbox"]').first()).not.toBeChecked();
   await expect(settingsPage.getByRole("button", { name: "保存外观设置", exact: true })).toHaveCount(0);
-  await expect(settingsPage).toContainText("主题与提醒设置会立即保存。");
+  await expect(settingsPage).toContainText("亮度、动效和信息密度会立即应用，并保存在本机。");
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "SETTINGS-06-pass-1487-9ecaf59.png"), animations: "disabled", fullPage: true });
 
   await page.setViewportSize({ width: 420, height: 720 });
   const mobileMetrics = await settingsPage.evaluate(() => ({
     documentScrollWidth: document.documentElement.scrollWidth,
-    footerRight: document.querySelector(".ep-settings-footer")?.getBoundingClientRect().right ?? -1,
+    footerRight: document.querySelector(".ep-settings-paper--workspace").getBoundingClientRect().right,
   }));
   expect(mobileMetrics.documentScrollWidth).toBeLessThanOrEqual(421);
   expect(mobileMetrics.footerRight).toBeLessThanOrEqual(421);
@@ -3553,7 +3525,7 @@ test("REFINE-19 SETTINGS-06 makes Editorial Paper settings immediate and persist
   await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "SETTINGS-06-pass-420-9ecaf59.png"), animations: "disabled", fullPage: true });
 });
 
-test("PERF-01 measures synthetic Editorial Paper history rendering", async ({ page }) => {
+test("[RC-L084] PERF-01 measures synthetic Editorial Paper history rendering", async ({ page }) => {
   test.setTimeout(180_000);
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
@@ -3562,7 +3534,7 @@ test("PERF-01 measures synthetic Editorial Paper history rendering", async ({ pa
 
   const results = [];
   for (const recordCount of [1000, 10000]) {
-    await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", recordCount });
+    await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始", recordCount });
     const switchStartedAt = await page.evaluate(() => performance.now());
     await pageButton(page, "记录").click();
     await expect(page.locator(".ep-records-page")).toBeVisible();
@@ -3609,7 +3581,7 @@ test("PERF-01 measures synthetic Editorial Paper history rendering", async ({ pa
   }
 });
 
-test("Night Valley settings use a clear layout and auto-save useful choices", async ({ page }) => {
+test("[RC-L085] Night Valley settings use a clear layout and auto-save useful choices", async ({ page }) => {
   await page.setViewportSize({ width: 1487, height: 1058 });
   await bootTodayReferenceMock(page);
   await page.getByRole("button", { name: "设置", exact: true }).click();
@@ -3619,8 +3591,9 @@ test("Night Valley settings use a clear layout and auto-save useful choices", as
   await expect(page.locator(".nv-density-choice")).toHaveCount(0);
   await expect(page.locator("#nv-shortcuts")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "快捷键" })).toHaveCount(0);
-  await expect(page.locator(".nv-settings-theme-lab")).toContainText("主题观测站");
-  await expect(page.locator(".nv-sound-option")).toHaveCount(7);
+  await expect(page.getByText("主题观测站", { exact: true })).toHaveCount(0);
+  await expect(page.locator(".theme-picker__option img")).toHaveCount(5);
+  await expect(page.locator(".nv-sound-option")).toHaveCount(6);
   const toggleMetrics = await page.locator(".nv-toggle-row label").evaluateAll((labels) => labels.map((label) => {
     const input = label.querySelector("input");
     const copy = label.querySelector("span");
@@ -3634,37 +3607,39 @@ test("Night Valley settings use a clear layout and auto-save useful choices", as
   expect(toggleMetrics.every((metric) => metric.noteDisplay === "block" && (metric.note?.height ?? 0) > 0)).toBe(true);
   expect(toggleMetrics.every((metric) => (metric.input?.right ?? 0) <= (metric.label?.right ?? 0) && (metric.copy?.right ?? 0) <= (metric.label?.right ?? 0))).toBe(true);
 
-  await page.locator(".nv-theme-card").filter({ hasText: "编辑纸页" }).click({ force: true });
+  await page.locator(".theme-picker__option").filter({ hasText: "编辑纸页" }).click({ force: true });
   await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "editorial-paper");
-  await expect(page.locator(".app-message--success")).toContainText("自动保留");
-  await expect.poll(() => page.evaluate(() => window.localStorage.getItem("focused-moment.theme"))).toBe("editorial-paper");
+  await expect(page.locator('.theme-picker__option[aria-pressed="true"]')).toContainText("编辑纸页");
+  await expect.poll(() => page.evaluate(() => JSON.parse(sessionStorage.getItem("rc-visual-preferences") || "{}").themeId)).toBe("editorial-paper");
 
   await page.reload();
-  await expect(page.getByRole("heading", { name: "今日节奏" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "今天，从一件事开始" })).toBeVisible();
   await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "editorial-paper");
 });
 
-test("Night Valley appearance settings explain when local saving fails", async ({ page }) => {
-  await page.addInitScript(() => {
-    Storage.prototype.setItem = () => {
-      throw new Error("quota exceeded");
-    };
-  });
+test("[RC-L086] Night Valley appearance settings explain native preference save failures", async ({ page }) => {
   await page.setViewportSize({ width: 1487, height: 1058 });
   await bootTodayReferenceMock(page);
+  await page.evaluate(() => {
+    const invoke = window.__TAURI_INTERNALS__.invoke;
+    window.__TAURI_INTERNALS__.invoke = (command, args) => {
+      if (command === "update_app_preferences") throw new Error("模拟本地保存失败");
+      return invoke(command, args);
+    };
+  });
   await page.getByRole("button", { name: "设置", exact: true }).click();
-  await page.locator(".nv-theme-card").filter({ hasText: "夜谷" }).click({ force: true });
+  await page.locator(".theme-picker__option").filter({ hasText: "编辑纸页" }).click({ force: true });
 
-  await expect(page.locator(".app-message--error")).toContainText("本地保存失败");
-  await expect(page.locator(".app-message--error")).toContainText("重启后不会保留");
+  await expect(page.getByRole("alert")).toContainText("本地保存失败");
+  await expect(page.getByRole("button", { name: "重试保存", exact: true })).toBeVisible();
 });
 
-test("Night Valley secondary widths keep each page inside the viewport", async ({ page }) => {
+test("[RC-L087] Night Valley secondary widths keep each page inside the viewport", async ({ page }) => {
   const pages = [
     ["计时", ".nv-focus-panel"],
     ["待办", ".nv-todo-focus-panel"],
     ["记录", ".nv-records-archive"],
-    ["设置", ".nv-settings-preview"],
+    ["设置", ".theme-picker"],
   ];
 
   for (const [width, height] of [[1280, 900], [1024, 900]]) {
@@ -3687,13 +3662,13 @@ test("Night Valley secondary widths keep each page inside the viewport", async (
   }
 });
 
-test("Night Valley pressure widths preserve the first trail label and settings safety reachability", async ({ page }) => {
+test("[RC-L088] Night Valley pressure widths preserve current task and settings safety reachability", async ({ page }) => {
   const pages = [
-    ["今日", ".trail-map"],
+    ["今日", ".continuity-board"],
     ["计时", ".nv-focus-panel"],
     ["待办", ".nv-todo-focus-panel"],
     ["记录", ".nv-records-archive"],
-    ["设置", ".nv-settings-preview"],
+    ["设置", ".theme-picker"],
   ];
   const viewports = [
     { width: 1120, height: 760 },
@@ -3711,9 +3686,9 @@ test("Night Valley pressure widths preserve the first trail label and settings s
       await expect(page.getByRole("heading", { name: "今天，从一件事开始" })).toBeVisible();
     }
 
-    const trailViewport = page.locator(".trail-map:visible .trail-map__viewport");
+    const trailViewport = page.locator(".continuity-board__card--current");
     const trailLabel = await trailViewport.evaluate((viewportElement) => {
-      const meta = viewportElement.querySelector(".trail-node .trail-node__meta");
+      const meta = viewportElement.querySelector("h2");
       if (!meta) return null;
       const metaRect = meta.getBoundingClientRect();
       const viewportRect = viewportElement.getBoundingClientRect();
@@ -3757,7 +3732,7 @@ test("Night Valley pressure widths preserve the first trail label and settings s
   await expect(clearData).toBeFocused();
 });
 
-test("Night Valley remains operable on a high-DPI desktop context", async ({ browser }) => {
+test("[RC-L089] Night Valley remains operable on a high-DPI desktop context", async ({ browser }) => {
   const context = await browser.newContext({
     viewport: { width: 1487, height: 1058 },
     deviceScaleFactor: 2,
@@ -3780,7 +3755,7 @@ test("Night Valley remains operable on a high-DPI desktop context", async ({ bro
   }
 });
 
-test("Night Valley timer fullscreen keeps the working workspace readable", async ({ page }) => {
+test("[RC-L090] Night Valley timer fullscreen keeps the working workspace readable", async ({ page }) => {
   const viewport = { width: 2560, height: 1368 };
   await page.setViewportSize(viewport);
   await bootTodayReferenceMock(page, { recordCount: 7 });
@@ -3807,7 +3782,7 @@ test("Night Valley timer fullscreen keeps the working workspace readable", async
   await page.screenshot({ path: testOutputPath("screenshots", "night-valley-timer-fullscreen.png"), animations: "disabled" });
 });
 
-test("Night Valley timer centers the records link label across viewport sizes", async ({ page }) => {
+test("[RC-L091] Night Valley timer centers the records link label across viewport sizes", async ({ page }) => {
   await bootTodayReferenceMock(page, { recordCount: 7 });
   await page.getByRole("button", { name: "计时", exact: true }).click();
 
@@ -3846,7 +3821,7 @@ test("Night Valley timer centers the records link label across viewport sizes", 
   }
 });
 
-test("Night Valley timer keeps a one-hour readout separate from session facts", async ({ page }) => {
+test("[RC-L092] Night Valley timer keeps a one-hour readout separate from session facts", async ({ page }) => {
   const viewport = { width: 2560, height: 1368 };
   await page.setViewportSize(viewport);
   await bootTodayReferenceMock(page, { recordCount: 7 });
@@ -3878,7 +3853,7 @@ test("Night Valley timer keeps a one-hour readout separate from session facts", 
   await page.screenshot({ path: testOutputPath("screenshots", "night-valley-timer-one-hour.png"), animations: "disabled" });
 });
 
-test("Night Valley timer survives a scaled fullscreen CSS viewport", async ({ page }) => {
+test("[RC-L093] Night Valley timer survives a scaled fullscreen CSS viewport", async ({ page }) => {
   // A 2560px physical fullscreen at 150% Windows scaling is about 1707 CSS px.
   const viewport = { width: 1707, height: 912 };
   await page.setViewportSize(viewport);
@@ -3919,12 +3894,12 @@ test("Night Valley timer survives a scaled fullscreen CSS viewport", async ({ pa
   await page.screenshot({ path: testOutputPath("screenshots", "night-valley-timer-scaled-fullscreen.png"), animations: "disabled" });
 });
 
-test("REFINE-19 SHELL-01 keeps shared window controls usable on every Editorial Paper tab", async ({ page }) => {
+test("[RC-L094] REFINE-19 SHELL-01 keeps shared window controls usable on every Editorial Paper tab", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
   await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始" });
   await page.evaluate(() => {
     const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
     window.__epShellCommands = [];
@@ -3935,7 +3910,7 @@ test("REFINE-19 SHELL-01 keeps shared window controls usable on every Editorial 
   });
 
   const pages = [
-    ["今日", ".ep-today-page"],
+    ["今日", ".unified-today-page--editorial-paper"],
     ["计时", ".ep-focus-page"],
     ["待办", ".ep-todos-page"],
     ["记录", ".ep-records-page"],
@@ -3969,7 +3944,7 @@ test("REFINE-19 SHELL-01 keeps shared window controls usable on every Editorial 
   await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "SHELL-01-pass-1487.png"), animations: "disabled", fullPage: true });
 });
 
-test("REFINE-19 SHELL-02 keeps a live date and clock synchronized across Editorial Paper tabs", async ({ page }) => {
+test("[RC-L095] REFINE-19 SHELL-02 keeps a live date and clock synchronized across Editorial Paper tabs", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
@@ -3990,9 +3965,9 @@ test("REFINE-19 SHELL-02 keeps a live date and clock synchronized across Editori
 
     window.Date = LiveReferenceDate;
   });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", freezeClock: false });
+  await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始", freezeClock: false });
   const pages = [
-    ["今日", ".ep-today-page"],
+    ["今日", ".unified-today-page--editorial-paper"],
     ["计时", ".ep-focus-page"],
     ["待办", ".ep-todos-page"],
     ["记录", ".ep-records-page"],
@@ -4003,15 +3978,15 @@ test("REFINE-19 SHELL-02 keeps a live date and clock synchronized across Editori
     if (index > 0) await pageButton(page, label).click();
     await expect(page.locator(selector)).toBeVisible();
     const clock = page.locator('time[aria-label^="当前时间"]');
-    const date = page.locator(".ep-date-time__date");
+    const date = page.locator(".ep-date-time__date, .unified-today-page__date strong");
     await expect(clock).toHaveText(/^\d{2}:\d{2}:\d{2}$/);
     const initialClock = await clock.textContent();
     await expect.poll(() => clock.textContent(), { timeout: 3500 }).not.toBe(initialClock);
-    readings.push(await page.locator(".ep-date-time").evaluate((element) => ({
-      date: element.querySelector(".ep-date-time__date")?.textContent ?? "",
-      clock: element.querySelector(".ep-date-time__clock")?.textContent ?? "",
-      dateFont: getComputedStyle(element.querySelector(".ep-date-time__date")).fontFamily,
-      clockFont: getComputedStyle(element.querySelector(".ep-date-time__clock")).fontFamily,
+    readings.push(await page.locator(".ep-date-time, .unified-today-page__date").evaluate((element) => ({
+      date: element.querySelector(".ep-date-time__date, strong")?.textContent ?? "",
+      clock: element.querySelector('time[aria-label^="当前时间"]')?.textContent ?? "",
+      dateFont: getComputedStyle(element.querySelector(".ep-date-time__date, strong")).fontFamily,
+      clockFont: getComputedStyle(element.querySelector('time[aria-label^="当前时间"]')).fontFamily,
     })));
   }
   expect(new Set(readings.map((item) => item.date)).size).toBe(1);
@@ -4022,14 +3997,14 @@ test("REFINE-19 SHELL-02 keeps a live date and clock synchronized across Editori
   await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "SHELL-02-pass-settings.png"), animations: "disabled", fullPage: true });
 });
 
-test("REFINE-19 SHELL-03 hides the visual command entry without removing Ctrl+K", async ({ page }) => {
+test("[RC-L096] REFINE-19 SHELL-03 hides the visual command entry without removing Ctrl+K", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
   await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始" });
   for (const [index, [label, selector]] of [
-    ["今日", ".ep-today-page"],
+    ["今日", ".unified-today-page--editorial-paper"],
     ["计时", ".ep-focus-page"],
     ["待办", ".ep-todos-page"],
     ["记录", ".ep-records-page"],
@@ -4045,12 +4020,12 @@ test("REFINE-19 SHELL-03 hides the visual command entry without removing Ctrl+K"
   await page.keyboard.press("Escape");
 });
 
-test("REFINE-19 SHELL-04 keeps the Editorial Paper daily focus line visible and wrap-safe", async ({ page }) => {
+test("[RC-L097] REFINE-19 SHELL-04 keeps the Editorial Paper daily focus line visible and wrap-safe", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
   await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
+  await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始" });
   const line = page.getByRole("complementary", { name: "今日一句 · 页边手记" });
   const quote = line.locator(".daily-focus-line__quote");
   await expect(line).toBeVisible();
@@ -4085,7 +4060,7 @@ test("REFINE-19 SHELL-04 keeps the Editorial Paper daily focus line visible and 
   }
 });
 
-test("REFINE-19 adversarial current-data matrix keeps completed nodes, boundary widths, and history copy visible", async ({ page }) => {
+test("[RC-L098] REFINE-19 adversarial current-data matrix keeps completed tasks and history readable", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
@@ -4096,23 +4071,17 @@ test("REFINE-19 adversarial current-data matrix keeps completed nodes, boundary 
   for (const [width, height] of [[1487, 1058], [821, 720], [420, 720]]) {
     await page.setViewportSize({ width, height });
     await bootTodayReferenceMock(page, {
-      expectedHeading: "今日节奏",
+      expectedHeading: "今天，从一件事开始",
       todoTitles: currentLikeTodoTitles,
       completedTodoTitles: completedTitles,
     });
 
-    const today = page.locator(".ep-today-page");
-    const completedNodes = today.locator(".ep-completed-notes > span:not(.ep-section-label)");
-    if (width === 1487) {
-      await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-01-adversarial-completed-before.png"), animations: "disabled", fullPage: true });
-    }
-    await expect(completedNodes).toHaveCount(completedTitles.length);
-    expect(new Set(await completedNodes.allTextContents())).toEqual(new Set(completedTitles));
-    if (width === 1487) {
-      await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-01-adversarial-completed-after.png"), animations: "disabled", fullPage: true });
-    }
-
+    const today = page.locator(".unified-today-page--editorial-paper");
+    await expect(today.locator(".continuity-board__card--investment")).toContainText("5 项待办完成");
+    await expect(today.locator(".continuity-board__picks > div")).toHaveCount(3);
     await pageButton(page, "待办").click();
+    await expect(page.locator(".ep-todo-column--done .ep-todo-row")).toHaveCount(completedTitles.length);
+    for (const title of completedTitles) await expect(page.locator(".ep-todo-column--done")).toContainText(title);
     const todos = page.locator(".ep-todos-page");
     await expect(todos.locator(".ep-todo-row")).toHaveCount(currentLikeTodoTitles.length + completedTitles.length);
     const todoEvidence = await todos.evaluate(() => {
@@ -4135,7 +4104,7 @@ test("REFINE-19 adversarial current-data matrix keeps completed nodes, boundary 
   const unbrokenTitle = `RECORD-${"ABCDEFGHIJKLMNOPQRSTUVWXYZ".repeat(12)}`;
   await page.setViewportSize({ width: 420, height: 720 });
   await bootTodayReferenceMock(page, {
-    expectedHeading: "今日节奏",
+    expectedHeading: "今天，从一件事开始",
     recordCount: 3,
     recordDates: [referenceDate, referenceDate, referenceDate],
     recordTitlePrefix: unbrokenTitle,
@@ -4160,7 +4129,7 @@ test("REFINE-19 adversarial current-data matrix keeps completed nodes, boundary 
   await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "adversarial-unbroken-history-420.png"), animations: "disabled", fullPage: true });
 });
 
-test("REFINE-19 adversarial boundary matrix keeps every Editorial Paper surface inside the viewport", async ({ page }) => {
+test("[RC-L099] REFINE-19 adversarial boundary matrix keeps every Editorial Paper surface inside the viewport", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
@@ -4168,9 +4137,9 @@ test("REFINE-19 adversarial boundary matrix keeps every Editorial Paper surface 
   const longTodoTitle = "南京大学就业场次｜2026-09-15 09:00｜紫金校区招聘场地与入口说明和现场核对";
   for (const [width, height] of [[821, 720], [420, 720]]) {
     await page.setViewportSize({ width, height });
-    await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", todoTitles: [longTodoTitle] });
+    await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始", todoTitles: [longTodoTitle] });
     for (const [index, [label, selector]] of [
-      ["今日", ".ep-today-page"],
+      ["今日", ".unified-today-page--editorial-paper"],
       ["计时", ".ep-focus-page"],
       ["待办", ".ep-todos-page"],
       ["记录", ".ep-records-page"],
@@ -4195,11 +4164,12 @@ test("REFINE-19 adversarial boundary matrix keeps every Editorial Paper surface 
     }
 
     await pageButton(page, "今日").click();
-    await page.locator(".ep-field-row").first().click();
+    await startCurrentAndStayToday(page, longTodoTitle);
+    await pageButton(page, "计时").click();
     const focus = page.locator(".ep-focus-page");
     await expect(focus).toBeVisible();
     await expect(focus.locator(".ep-note-paper__linked")).toContainText(longTodoTitle);
-    await focus.getByRole("button", { name: "开始专注", exact: true }).click();
+    await expect(focus.getByRole("button", { name: "暂停", exact: true })).toBeVisible();
     await expect(focus).toContainText("倒计时中");
     const focusEvidence = await focus.evaluate(() => {
       const read = (selector) => [...document.querySelectorAll(selector)].map((element) => {
@@ -4220,14 +4190,14 @@ test("REFINE-19 adversarial boundary matrix keeps every Editorial Paper surface 
   }
 });
 
-test("REFINE-19 adversarial next-page card keeps an unbroken user title visible", async ({ page }) => {
+test("[RC-L100] REFINE-19 adversarial current card keeps an unbroken user title readable", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
   const unbrokenTitle = `TODO-${"ABCDEFGHIJKLMNOPQRSTUVWXYZ".repeat(12)}`;
   await page.setViewportSize({ width: 420, height: 720 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", todoTitles: [unbrokenTitle] });
-  const card = page.locator(".ep-next-card");
+  await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始", todoTitles: [unbrokenTitle] });
+  const card = page.locator(".continuity-board__card--current");
   const title = card.locator("h2");
   const evidence = await title.evaluate((element) => {
     const rect = element.getBoundingClientRect();
@@ -4253,14 +4223,15 @@ test("REFINE-19 adversarial next-page card keeps an unbroken user title visible"
   await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "adversarial-next-card-unbroken-420.png"), animations: "disabled", fullPage: true });
 });
 
-test("REFINE-19 TODAY-01 adversarial narrow view keeps todo importance visible", async ({ page }) => {
+test("[RC-L101] REFINE-19 TODAY-01 keeps task importance reachable in narrow Todos", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("focused-moment.theme", "editorial-paper");
   });
   await page.setViewportSize({ width: 420, height: 720 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", todoTitles: ["检查窄屏节点的优先级信息"] });
-  const row = page.locator(".ep-field-row").first();
-  const importance = row.locator(".ep-field-row__importance-mobile");
+  await bootTodayReferenceMock(page, { expectedHeading: "今天，从一件事开始", todoTitles: ["检查窄屏节点的优先级信息"] });
+  await page.getByRole("button", { name: "管理精选", exact: true }).click();
+  const row = page.locator(".ep-todo-column--pending .ep-todo-row").first();
+  const importance = row.locator(".ep-todo-row__copy small");
   const evidence = await importance.evaluate((element) => ({
     text: element.textContent ?? "",
     display: getComputedStyle(element).display,
@@ -4270,7 +4241,8 @@ test("REFINE-19 TODAY-01 adversarial narrow view keeps todo importance visible",
     })(),
   }));
   await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-01-adversarial-importance-before-420.png"), animations: "disabled", fullPage: true });
-  expect(evidence.text).toBe(" · 中");
+  expect(evidence.text).toContain(" · 中");
+  await expect(row.locator(".ep-todo-row__copy strong")).toHaveText("检查窄屏节点的优先级信息");
   expect(evidence.display).not.toBe("none");
   expect(evidence.rect.width).toBeGreaterThan(0);
   expect(evidence.rect.height).toBeGreaterThan(0);

@@ -1,5 +1,7 @@
 # Focused Moment 2.12.0 Release Candidate 验收记录
 
+> 2026-09-19 再审阅说明：下文为上一轮历史报告，不能继续作为“完整 RC 通过”的结论。旧101项视觉测试当时未进入默认执行，2.11.11未提交历史的完整保留也缺少原始patch证明。本轮已恢复旧测试并修复数据恢复等问题，当前证据以 `rc-storage-audit.md`、`rc-visual-coverage.md`、`rc-native-audit.md` 及最终复验报告为准；未完成原生人工项不标 PASS。
+
 本记录只覆盖 `codex/focused-moment-continuity` 的 RC 收口，不扩展重复任务、休息流或 OS 全局快捷键，不执行 merge、tag、GitHub Release 或资产上传。
 
 ## 1. Git 基线与 2.11.11 差异

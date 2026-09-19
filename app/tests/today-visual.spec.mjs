@@ -1,4 +1,6 @@
 import { expect, test } from "@playwright/test";
+// Keep the pre-2.12 regression contracts in default discovery.
+import "./today-visual-v2.11.11.legacy.mjs";
 
 import { testOutputPath } from "./helpers/test-output.mjs";
 
@@ -334,3 +336,65 @@ test("Every theme keeps Focus reachable after Today consolidation", async ({ pag
     await expect(page.locator(`.unified-today-page--${themeId}`)).toBeVisible();
   }
 });
+
+// Each cell is independently collected: a failure must not hide later themes/pages.
+const rcPages = [
+  ["今日", "today"], ["计时", "focus"], ["待办", "todos"], ["记录", "records"], ["设置", "settings"],
+];
+const themePrefixes = { "night-valley": "nv", "editorial-paper": "ep", "graphite-console": "gc", "aurora-ocean": "ao", "botanical-library": "bl" };
+
+for (const [themeId, themeName] of themes) {
+  for (const width of [1487, 1024, 560]) {
+    for (const [label, slug] of rcPages) {
+      test(`RC matrix ${themeId} ${slug} ${width}`, async ({ page }) => {
+        const errors = [];
+        page.on("pageerror", (error) => errors.push(error.message));
+        await page.setViewportSize({ width, height: width === 1487 ? 1058 : 900 });
+        await bootReferenceMock(page);
+        await navButton(page, "设置").click();
+        await page.locator(".theme-picker__option").filter({ hasText: themeName }).click();
+        await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", themeId);
+        await navButton(page, label).click();
+        const prefix = themePrefixes[themeId];
+        const selector = slug === "today" ? `.unified-today-page--${themeId}`
+          : themeId === "night-valley" && slug === "todos" ? ".nv-todo-page"
+          : `.${prefix}-${slug}-page`;
+        const surface = page.locator(selector);
+        await expect(surface).toBeVisible();
+        await expect(navButton(page, label)).toHaveClass(/active/);
+        await expect(page.locator(".minimal-nav > button")).toHaveCount(5);
+        await expect(page.locator(".window-control")).toHaveCount(3);
+        for (const button of await page.locator(".window-control").all()) {
+          await expect(button).toBeVisible();
+          await expect(button).toBeEnabled();
+        }
+        const box = await surface.boundingBox();
+        expect(box.x).toBeGreaterThanOrEqual(0);
+        expect(box.width).toBeGreaterThan(0);
+        expect(box.x + box.width).toBeLessThanOrEqual(width + 1);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width + 1);
+        if (slug === "today") {
+          await expect(surface.locator(".continuity-board__card")).toHaveCount(3);
+          await expect(surface.locator(".continuity-board__value")).toHaveText("2 小时 15 分钟");
+          await expect(surface.locator(".daily-focus-line")).toHaveCount(1);
+        } else if (slug === "focus") {
+          await expect(surface.getByRole("button", { name: themeId === "night-valley" ? "开始" : "开始专注", exact: true })).toBeVisible();
+        } else if (slug === "todos") {
+          await expect(page.locator(".focus-plan-controls")).toContainText("回看上次停笔位置");
+        } else if (slug === "records") {
+          await expect(surface.getByText(/计时完成/).first()).toBeVisible();
+        } else {
+          const previews = surface.locator(".theme-picker__option img");
+          await expect(previews).toHaveCount(5);
+          for (const preview of await previews.all()) {
+            await expect(preview).toBeVisible();
+            await expect.poll(() => preview.evaluate((img) => img.complete && img.naturalWidth > 0)).toBe(true);
+          }
+        }
+        await test.info().attach("geometry", { body: JSON.stringify({ themeId, slug, width, box, errors }), contentType: "application/json" });
+        await page.screenshot({ path: testOutputPath("screenshots", `${themeId}-${slug}-${width}.png`), fullPage: true, animations: "disabled" });
+        expect(errors).toEqual([]);
+      });
+    }
+  }
+}

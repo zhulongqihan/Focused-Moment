@@ -38,6 +38,7 @@ function blDate(value: string) {
 }
 
 function blTime(record: FocusRecord) {
+  if (record.completedDate && !record.completedTime) return "未填写时间";
   return record.completedTime || record.completedAt.match(/T(\d{2}:\d{2})/)?.[1] || "--:--";
 }
 
@@ -74,6 +75,7 @@ function blGrowthBars(records: FocusRecord[]) {
   ];
   records.forEach((record) => {
     const match = blTime(record).match(/^(\d{2})/);
+    if (!match) return;
     const rawHour = match ? Number(match[1]) : 0;
     const hour = rawHour < 5 ? rawHour + 24 : rawHour;
     const window = windows.find((item) => hour >= item.from && hour < item.to) ?? windows[0];

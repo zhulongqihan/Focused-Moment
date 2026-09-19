@@ -62,6 +62,12 @@ export function isOverdue(value: string) {
 }
 
 export function formatRecordDate(record: FocusRecord) {
+  if (record.completedDate && !record.completedTime) {
+    return `${formatAnalyticsDate(record.completedDate)} · 未填写时间`;
+  }
+  if (record.completedDate && record.completedTime) {
+    return `${formatAnalyticsDate(record.completedDate)} ${record.completedTime}`;
+  }
   const date = new Date(record.completedAt);
   if (!Number.isNaN(date.getTime())) {
     return recordDateFormatter.format(date);

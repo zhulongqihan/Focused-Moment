@@ -13,7 +13,6 @@ import {
   X,
 } from "lucide-solid";
 import {
-  closeMainWindow,
   lockFocusFloating,
   lockFloatingTodos,
   minimizeMainWindow,
@@ -37,7 +36,6 @@ import {
   formatDurationMs,
   formatRecordDate,
   formatRecordDay,
-  getToday,
 } from "./features/shared/date-utils";
 import { formatTodoDue, importanceLabel } from "./features/todos/derived";
 import {
@@ -123,9 +121,14 @@ function MainShell() {
     setFloatingOpacityPanelOpen,
     selectedArchiveDate,
     setSelectedArchiveDate,
+    todayDate,
+    selectedSearchRecordId,
+    selectedSearchRecordTitle,
+    visibleRecords,
     recordTaskFilterId,
     recordTaskFilterTitle,
     clearRecordTaskFilter,
+    closeMainWindowAfterSave,
     themeId,
     visualIntensity,
     motionIntensity,
@@ -710,7 +713,7 @@ function MainShell() {
               class="window-control window-control--close"
               aria-label="关闭窗口"
               title="关闭窗口（隐藏到托盘）"
-              onClick={() => void closeMainWindow()}
+              onClick={() => void closeMainWindowAfterSave()}
             >
               <X size={15} strokeWidth={1.8} aria-hidden="true" />
             </button>
@@ -847,11 +850,13 @@ function MainShell() {
               </button>
             </div>
           </Show>
-          <Show when={activeView() === "records" && recordTaskFilterId() !== null}>
+          <Show when={activeView() === "records" && (recordTaskFilterId() !== null || selectedSearchRecordId() !== null)}>
             <div class="records-task-filter" role="status">
-              <span>正在回顾任务：<strong>{recordTaskFilterTitle()}</strong></span>
+              <span>{selectedSearchRecordId() !== null ? "正在回顾记录：" : "正在回顾任务："}<strong>{selectedSearchRecordId() !== null ? selectedSearchRecordTitle() : recordTaskFilterTitle()}</strong> · {visibleRecords().length} 条匹配记录</span>
+              <span>列表和时段分布按筛选展示；累计统计与七日趋势仍包含全部记录。</span>
+              <Show when={visibleRecords().length === 0}><span>没有匹配的专注记录。</span></Show>
               <button type="button" class="text-button" onClick={clearRecordTaskFilter}>
-                清除任务筛选
+                {selectedSearchRecordId() !== null ? "清除记录筛选" : "清除任务筛选"}
               </button>
             </div>
           </Show>
@@ -859,8 +864,8 @@ function MainShell() {
             activeView={() => activeView()}
             themeId={() => themeId()}
             today={{
-              todayDate: getToday(),
-              todayLabel: formatAnalyticsDate(getToday()),
+              todayDate: todayDate(),
+              todayLabel: formatAnalyticsDate(todayDate()),
               timer: () => timer(),
               ready,
               busy,
@@ -870,7 +875,7 @@ function MainShell() {
               currentTodo,
               todayPickTodos,
               todayPickIds: () => focusPlan().todayPickIds,
-              planTodos: () => pendingTodos().filter((item) => item.scheduledDate === getToday() || item.scheduledDate === ""),
+              planTodos: () => pendingTodos().filter((item) => item.scheduledDate === todayDate() || item.scheduledDate === ""),
               todayTodos,
               todayCompletedTodos,
               records: () => records(),
@@ -958,7 +963,7 @@ function MainShell() {
             }}
             records={{
               analytics: () => analytics(),
-              records: () => records(),
+              records: () => visibleRecords(),
               archiveDays: () => archiveDays(),
               archivePath: () => archivePath(),
               selectedArchiveDate: () => selectedArchiveDate(),
@@ -976,7 +981,10 @@ function MainShell() {
               formatRecordDate,
               formatRecordDay,
               formatDurationMs,
-              onSelectDate: setSelectedArchiveDate,
+              onSelectDate: (date) => {
+                clearRecordTaskFilter();
+                setSelectedArchiveDate(date);
+              },
               onBeginEdit: beginEditRecord,
               onBeginDetailedEdit: beginDetailedRecordEdit,
               onPatchEdit: patchEditingRecordTitle,
@@ -1051,7 +1059,7 @@ function MainShell() {
           <ManualFocusRecordDialog
             open={manualRecordOpen}
             busy={busy}
-            todayDate={getToday()}
+            todayDate={todayDate()}
             todos={() => todos()}
             onSubmit={async (payload) => {
               if (await createManualRecord(payload)) closeManualRecord();
