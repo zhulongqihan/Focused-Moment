@@ -44,13 +44,19 @@ fn external_backup_path(path: &str) -> Result<PathBuf, String> {
 
 fn read_external_backup(path: &Path) -> Result<(AppBackupFile, Option<u64>, u64, u64), String> {
     let raw = fs::read_to_string(path).map_err(|error| format!("读取备份失败：{error}"))?;
-    let original = serde_json::from_str::<AppBackupFile>(&raw)
+    let original = crate::storage::parse_backup_file(&raw)
         .map_err(|error| format!("备份文件格式损坏：{error}"))?;
     let original_format = original.format_version;
     let original_schema = original.schema_version;
-    let (backup, migrated_from_format_version) = crate::migrate_backup_file(original)?;
+    let (backup, migrated_from_format_version) = crate::migrate_backup_file(original.clone())?;
+    normalize_persisted_collections(
+        backup.state.todo_items.clone(),
+        backup.state.focus_records.clone(),
+    )?;
+    backup.state.app_preferences.clone().normalized()?;
+    backup.state.timer_preferences.normalized()?;
     Ok((
-        backup,
+        original,
         migrated_from_format_version,
         original_format,
         original_schema,
@@ -83,6 +89,13 @@ fn backup_preview(
     if original_schema < CURRENT_STORAGE_SCHEMA_VERSION {
         warnings.push("备份中的数据 schema 需要升级。".to_string());
     }
+    if backup.state.focus_records.iter().any(|record| {
+        record
+            .linked_todo_id
+            .is_some_and(|id| !backup.state.todo_items.iter().any(|item| item.id == id))
+    }) {
+        warnings.push("部分记录的关联待办不在备份中。恢复时按保留的待办校验关联，无法匹配时保留历史标题和时长，解除无效关联。".to_string());
+    }
     BackupPreview {
         source_path: path.display().to_string(),
         app_version: backup.app_version.clone(),
@@ -101,6 +114,70 @@ fn backup_preview(
             .is_some(),
         migration_needed,
         warnings,
+    }
+}
+
+#[cfg(test)]
+mod rc_backup_preview_tests {
+    use super::*;
+
+    #[test]
+    fn external_preview_is_read_only_validates_contents_and_preserves_migration_origin() {
+        let root = std::env::temp_dir().join(format!(
+            "focused-moment-preview-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&root).unwrap();
+        let path = root.join("synthetic.json");
+        for version in [1, 2, 3] {
+            let backup = AppBackupFile {
+                kind: APP_BACKUP_KIND.into(),
+                format_version: version,
+                schema_version: version,
+                app_version: "2.11.11".into(),
+                exported_at: "2026-09-19T12:00:00+08:00".into(),
+                state: PersistedState {
+                    schema_version: version,
+                    ..PersistedState::default()
+                },
+                runtime: PersistedRuntimeState {
+                    schema_version: version,
+                    ..PersistedRuntimeState::default()
+                },
+            };
+            let raw = serde_json::to_vec(&backup).unwrap();
+            fs::write(&path, &raw).unwrap();
+            let (read, migration, format, schema) =
+                read_external_backup(&external_backup_path(path.to_str().unwrap()).unwrap())
+                    .unwrap();
+            let preview = backup_preview(&path, &read, migration.is_some(), format, schema);
+            assert_eq!(preview.format_version, version);
+            assert_eq!(preview.migration_needed, version < 3);
+            assert_eq!(
+                read.format_version, version,
+                "import must still know migration origin"
+            );
+            assert_eq!(
+                fs::read(&path).unwrap(),
+                raw,
+                "preview must not rewrite input"
+            );
+        }
+        for raw in ["{", "{}", "null"] {
+            fs::write(&path, raw).unwrap();
+            assert!(read_external_backup(&path).is_err());
+            assert_eq!(fs::read_to_string(&path).unwrap(), raw);
+        }
+        let file = fs::File::create(&path).unwrap();
+        file.set_len(MAX_EXTERNAL_BACKUP_BYTES + 1).unwrap();
+        drop(file);
+        assert!(external_backup_path(path.to_str().unwrap()).is_err());
+        // Only the exact unique synthetic directory created above is removed.
+        fs::remove_dir_all(root).unwrap();
     }
 }
 
@@ -807,8 +884,8 @@ pub(crate) fn export_app_backup_to_path(
     }
     let backup = state.export_backup_file()?;
     let exported_at = backup.exported_at.clone();
-    let serialized = serde_json::to_string_pretty(&backup).map_err(|error| error.to_string())?;
-    fs::write(&path, serialized).map_err(|error| format!("写入备份失败：{error}"))?;
+    crate::storage::write_backup_atomic(&path, &backup, true)
+        .map_err(|error| format!("写入备份失败：{error}"))?;
     Ok(BackupExportResult {
         file_name: path
             .file_name()
@@ -828,6 +905,9 @@ pub(crate) fn import_app_backup_path(
     restore_records: bool,
     restore_app_preferences: bool,
 ) -> Result<BackupImportResult, String> {
+    if !restore_todos && !restore_records && !restore_app_preferences {
+        return Err("请至少选择一项要恢复的内容。".to_string());
+    }
     let path = external_backup_path(&path)?;
     let (backup, _migrated, _original_format, _original_schema) = read_external_backup(&path)?;
     let store = state.persistence_store()?;

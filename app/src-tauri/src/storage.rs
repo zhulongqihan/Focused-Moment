@@ -14,6 +14,31 @@ const STORAGE_FILE_NAME: &str = "focused-moment-state.json";
 const RUNTIME_FILE_NAME: &str = "focused-moment-runtime.json";
 const STATE_BACKUP_FILE_NAME: &str = "focused-moment-state.backup.json";
 const RUNTIME_BACKUP_FILE_NAME: &str = "focused-moment-runtime.backup.json";
+const TRANSACTION_FILE_NAME: &str = "focused-moment-transaction.json";
+// Serialize journal replay and ordinary writes, including cloned store handles.
+// The application enforces one process; this is not an inter-process lock.
+static STORAGE_ACCESS: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+fn storage_access() -> Result<std::sync::MutexGuard<'static, ()>, String> {
+    STORAGE_ACCESS
+        .lock()
+        .map_err(|_| "存储锁不可用，已停止存储访问。".to_string())
+}
+
+// Fixed positions, never paths supplied by a journal. Preserve missing files and
+// exact bytes (including an invalid primary with a valid fallback).
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct StorageTransaction {
+    version: u32,
+    before: [BeforeFile; 4],
+}
+
+#[derive(Serialize, Deserialize)]
+enum BeforeFile {
+    Missing,
+    Bytes(Vec<u8>),
+}
 pub const CURRENT_STORAGE_SCHEMA_VERSION: u64 = 3;
 const USER_BACKUP_DIR_NAME: &str = "Focused Moment Backups";
 const USER_BACKUP_PREFIX: &str = "focused-moment-backup-v3-";
@@ -130,6 +155,64 @@ pub struct AppBackupFile {
     pub runtime: PersistedRuntimeState,
 }
 
+pub(crate) fn parse_backup_file(raw: &str) -> Result<AppBackupFile, String> {
+    let value: serde_json::Value = serde_json::from_str(raw).map_err(|error| error.to_string())?;
+    let state = value
+        .get("state")
+        .and_then(serde_json::Value::as_object)
+        .ok_or("备份缺少业务数据，无法安全恢复。")?;
+    // Defaults are for migrating optional fields, never for interpreting a
+    // truncated backup as an intentional request to erase entire collections.
+    for key in ["todoItems", "focusRecords"] {
+        if !state.get(key).is_some_and(serde_json::Value::is_array) {
+            return Err(format!("备份缺少 {key} 数组，无法安全恢复。"));
+        }
+    }
+    if value
+        .get("formatVersion")
+        .and_then(serde_json::Value::as_u64)
+        == Some(3)
+    {
+        for key in ["timerPreferences", "appPreferences", "focusPlan"] {
+            if !state.get(key).is_some_and(serde_json::Value::is_object) {
+                return Err(format!("v3 备份缺少 {key}，无法安全恢复。"));
+            }
+        }
+    }
+    serde_json::from_value(value).map_err(|error| error.to_string())
+}
+
+/// Publish a synced backup from a unique sibling file. The caller must obtain
+/// overwrite confirmation before passing `true`. A failed write/publication
+/// leaves an existing destination intact; it is never truncated or removed.
+pub(crate) fn write_backup_atomic(
+    path: &Path,
+    backup: &AppBackupFile,
+    overwrite: bool,
+) -> Result<(), String> {
+    let serialized = serde_json::to_vec_pretty(backup).map_err(|error| error.to_string())?;
+    let temp_path = unique_migration_sibling(path, "writing")?;
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&temp_path)
+        .map_err(|error| error.to_string())?;
+    let written = file.write_all(&serialized).and_then(|_| file.sync_all());
+    drop(file);
+    let result = written.and_then(|_| {
+        if overwrite {
+            // Same-filesystem rename replaces the directory entry, including on
+            // Windows. Never use remove(destination) followed by rename here.
+            fs::rename(&temp_path, path)
+        } else {
+            // Atomic no-clobber publication. Unsupported filesystems fail safely.
+            fs::hard_link(&temp_path, path)
+        }
+    });
+    let _ = remove_if_exists(&temp_path);
+    result.map_err(|error| format!("原子写入备份失败：{error}"))
+}
+
 #[derive(Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PersistedState {
@@ -216,7 +299,7 @@ impl PersistenceStore {
         fs::create_dir_all(&storage_dir).map_err(|error| error.to_string())?;
         let legacy_backup_dir = resolve_app_directory()?.join(USER_BACKUP_DIR_NAME);
 
-        Ok(Self {
+        let store = Self {
             state_path: storage_dir.join(STORAGE_FILE_NAME),
             runtime_path: storage_dir.join(RUNTIME_FILE_NAME),
             state_backup_path: storage_dir.join(STATE_BACKUP_FILE_NAME),
@@ -225,7 +308,10 @@ impl PersistenceStore {
             legacy_backup_dir,
             #[cfg(test)]
             failure: std::sync::Arc::new(std::sync::Mutex::new(None)),
-        })
+        };
+        let _access = storage_access()?;
+        store.recover_transaction()?;
+        Ok(store)
     }
 
     fn storage_dir(&self) -> &Path {
@@ -250,10 +336,14 @@ impl PersistenceStore {
     }
 
     pub fn load(&self) -> Result<PersistedState, String> {
+        let _access = storage_access()?;
+        self.recover_transaction()?;
         read_json_with_backup(&self.state_path, &self.state_backup_path, "状态")
     }
 
     pub fn save(&self, state: &PersistedState) -> Result<(), String> {
+        let _access = storage_access()?;
+        self.recover_transaction()?;
         save_json_with_backup(
             self,
             &self.state_path,
@@ -264,10 +354,14 @@ impl PersistenceStore {
     }
 
     pub fn load_runtime(&self) -> Result<PersistedRuntimeState, String> {
+        let _access = storage_access()?;
+        self.recover_transaction()?;
         read_json_with_backup(&self.runtime_path, &self.runtime_backup_path, "运行态")
     }
 
     pub fn save_runtime(&self, state: &PersistedRuntimeState) -> Result<(), String> {
+        let _access = storage_access()?;
+        self.recover_transaction()?;
         save_json_with_backup(
             self,
             &self.runtime_path,
@@ -279,6 +373,8 @@ impl PersistenceStore {
 
     #[allow(dead_code)]
     pub fn clear_runtime(&self) -> Result<(), String> {
+        let _access = storage_access()?;
+        self.recover_transaction()?;
         remove_if_exists(&self.runtime_path)?;
         remove_if_exists(&self.runtime_backup_path)?;
         remove_if_exists(&sibling_path(&self.runtime_path, "tmp"))?;
@@ -297,11 +393,124 @@ impl PersistenceStore {
         file_name: &str,
         backup: &AppBackupFile,
     ) -> Result<PathBuf, String> {
+        if !Self::is_supported_backup_file_name(file_name) {
+            return Err("备份文件名不合法。".to_string());
+        }
         let backup_dir = self.user_backup_dir()?;
         let backup_path = backup_dir.join(file_name);
-        let serialized = serde_json::to_string_pretty(backup).map_err(|error| error.to_string())?;
-        fs::write(&backup_path, serialized).map_err(|error| error.to_string())?;
+        write_backup_atomic(&backup_path, backup, false)?;
         Ok(backup_path)
+    }
+
+    fn transaction_paths(&self) -> [&Path; 4] {
+        [
+            &self.state_path,
+            &self.runtime_path,
+            &self.state_backup_path,
+            &self.runtime_backup_path,
+        ]
+    }
+
+    fn prepare_transaction(&self) -> Result<(), String> {
+        self.recover_transaction()?;
+        // Refuse to transact over unreadable data, instead of treating it as empty.
+        read_json_with_backup::<PersistedState>(&self.state_path, &self.state_backup_path, "状态")?;
+        read_json_with_backup::<PersistedRuntimeState>(
+            &self.runtime_path,
+            &self.runtime_backup_path,
+            "运行态",
+        )?;
+        let mut before = Vec::new();
+        for path in self.transaction_paths() {
+            before.push(match fs::read(path) {
+                Ok(bytes) => BeforeFile::Bytes(bytes),
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => BeforeFile::Missing,
+                Err(error) => return Err(error.to_string()),
+            });
+        }
+        let journal = StorageTransaction {
+            version: 1,
+            before: before.try_into().map_err(|_| "事务文件数量错误")?,
+        };
+        let path = self.storage_dir().join(TRANSACTION_FILE_NAME);
+        let temp = sibling_path(&path, "tmp");
+        write_durable(
+            &temp,
+            &serde_json::to_vec(&journal).map_err(|e| e.to_string())?,
+        )?;
+        fs::rename(&temp, &path).map_err(|e| e.to_string())
+    }
+
+    fn recover_transaction(&self) -> Result<(), String> {
+        let path = self.storage_dir().join(TRANSACTION_FILE_NAME);
+        let bytes = match fs::read(&path) {
+            Ok(bytes) => bytes,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+            Err(error) => return Err(format!("无法读取事务日志，已停止存储访问：{error}")),
+        };
+        let journal: StorageTransaction = serde_json::from_slice(&bytes)
+            .map_err(|error| format!("事务日志损坏，保留原数据：{error}"))?;
+        if journal.version != 1 {
+            return Err("不支持的事务日志版本，保留原数据。".to_string());
+        }
+        // Validate every target and stage every before image before replacing any
+        // file. The immutable journal survives failed/repeated recovery attempts.
+        for target in self.transaction_paths() {
+            match fs::symlink_metadata(target) {
+                Ok(metadata) if !metadata.file_type().is_file() => {
+                    return Err("事务恢复目标不是普通文件，保留原数据。".to_string())
+                }
+                Ok(_) => (),
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => (),
+                Err(e) => return Err(e.to_string()),
+            }
+        }
+        for (target, before) in self.transaction_paths().into_iter().zip(&journal.before) {
+            if let BeforeFile::Bytes(bytes) = before {
+                write_durable(&sibling_path(target, "recover"), bytes)?;
+            }
+        }
+        for (target, before) in self.transaction_paths().into_iter().zip(&journal.before) {
+            remove_if_exists(target)?;
+            if let BeforeFile::Bytes(_) = before {
+                fs::rename(sibling_path(target, "recover"), target).map_err(|e| e.to_string())?;
+            }
+        }
+        // A crash anywhere above is safe: next startup replays the same before.
+        remove_if_exists(&path)
+    }
+
+    pub fn save_bundle(
+        &self,
+        state: &PersistedState,
+        runtime: &PersistedRuntimeState,
+    ) -> Result<(), String> {
+        let _access = storage_access()?;
+        self.prepare_transaction()?;
+        let result = save_json_with_backup(
+            self,
+            &self.state_path,
+            &self.state_backup_path,
+            state,
+            "状态",
+        )
+        .and_then(|_| {
+            save_json_with_backup(
+                self,
+                &self.runtime_path,
+                &self.runtime_backup_path,
+                runtime,
+                "运行态",
+            )
+        })
+        .and_then(|_| remove_if_exists(&self.storage_dir().join(TRANSACTION_FILE_NAME)));
+        if let Err(error) = result {
+            return match self.recover_transaction() {
+                Ok(()) => Err(error),
+                Err(rollback) => Err(format!("{error}；事务回退失败（日志已保留）：{rollback}")),
+            };
+        }
+        Ok(())
     }
 
     pub fn load_user_backup(&self, file_name: &str) -> Result<AppBackupFile, String> {
@@ -319,7 +528,7 @@ impl PersistenceStore {
             return Err("找不到这份本地备份。".to_string());
         };
         let raw = fs::read_to_string(&path).map_err(|error| error.to_string())?;
-        serde_json::from_str(&raw).map_err(|error| error.to_string())
+        parse_backup_file(&raw)
     }
 
     pub fn list_user_backups(&self) -> Result<Vec<(String, AppBackupFile)>, String> {
@@ -923,6 +1132,254 @@ mod tests {
             stopwatch_elapsed_ms: elapsed_ms,
             ..PersistedRuntimeState::default()
         }
+    }
+
+    fn disk_bundle(store: &PersistenceStore) -> Vec<Option<Vec<u8>>> {
+        store
+            .transaction_paths()
+            .into_iter()
+            .map(|p| fs::read(p).ok())
+            .collect()
+    }
+
+    #[test]
+    fn interrupted_bundle_replays_exact_before_images_at_each_commit_boundary() {
+        // Construct on-disk crash states directly. No error handler/rollback runs.
+        for boundary in 0..=4 {
+            for initially_empty in [false, true] {
+                let root = temp_root();
+                let store = PersistenceStore::for_test(&root).unwrap();
+                if !initially_empty {
+                    store.save_bundle(&state(1), &runtime(10)).unwrap();
+                    store.save_bundle(&state(2), &runtime(20)).unwrap();
+                }
+                let before = disk_bundle(&store);
+                store.prepare_transaction().unwrap();
+                if boundary >= 1 {
+                    // Crash after displacing the first primary, before promotion.
+                    if store.state_path.exists() {
+                        fs::rename(
+                            &store.state_path,
+                            sibling_path(&store.state_path, "swap-old"),
+                        )
+                        .unwrap();
+                    }
+                }
+                if boundary >= 2 {
+                    save_json_with_backup(
+                        &store,
+                        &store.state_path,
+                        &store.state_backup_path,
+                        &state(9),
+                        "状态",
+                    )
+                    .unwrap();
+                }
+                if boundary >= 3 && store.runtime_path.exists() {
+                    fs::rename(
+                        &store.runtime_path,
+                        sibling_path(&store.runtime_path, "swap-old"),
+                    )
+                    .unwrap();
+                }
+                if boundary >= 4 {
+                    save_json_with_backup(
+                        &store,
+                        &store.runtime_path,
+                        &store.runtime_backup_path,
+                        &runtime(90),
+                        "运行态",
+                    )
+                    .unwrap();
+                }
+                drop(store);
+                let reopened = PersistenceStore::for_test(&root).unwrap();
+                assert_eq!(
+                    disk_bundle(&reopened),
+                    before,
+                    "boundary {boundary}, empty {initially_empty}"
+                );
+                assert!(!reopened.storage_dir().join(TRANSACTION_FILE_NAME).exists());
+                assert_eq!(
+                    disk_bundle(&PersistenceStore::for_test(&root).unwrap()),
+                    before
+                );
+                cleanup(&root);
+            }
+        }
+    }
+
+    #[test]
+    fn interrupted_recovery_is_repeatable_and_bad_journal_blocks_writes() {
+        let root = temp_root();
+        let store = PersistenceStore::for_test(&root).unwrap();
+        store.save_bundle(&state(1), &runtime(10)).unwrap();
+        let before = disk_bundle(&store);
+        store.prepare_transaction().unwrap();
+        fs::write(&store.state_path, serde_json::to_vec(&state(9)).unwrap()).unwrap();
+        fs::remove_file(&store.runtime_path).unwrap(); // interrupted recovery after remove
+        let reopened = PersistenceStore::for_test(&root).unwrap();
+        assert_eq!(disk_bundle(&reopened), before);
+
+        let journal = store.storage_dir().join(TRANSACTION_FILE_NAME);
+        for bad in [
+            b"{truncated".as_slice(),
+            br#"{"version":1,"before":[]}"#,
+            br#"{"version":2,"before":["Missing","Missing","Missing","Missing"]}"#,
+        ] {
+            fs::write(&journal, bad).unwrap();
+            assert!(PersistenceStore::for_test(&root).is_err());
+            assert!(store.save_bundle(&state(99), &runtime(99)).is_err());
+            assert!(store.save(&state(99)).is_err());
+            assert!(store.save_runtime(&runtime(99)).is_err());
+            assert!(store.clear_runtime().is_err());
+            assert_eq!(disk_bundle(&store), before);
+            assert_eq!(fs::read(&journal).unwrap(), bad);
+        }
+        cleanup(&root);
+    }
+
+    #[test]
+    fn recovery_failure_preserves_journal_and_can_be_retried() {
+        let root = temp_root();
+        let store = PersistenceStore::for_test(&root).unwrap();
+        store.save_bundle(&state(1), &runtime(10)).unwrap();
+        let before = disk_bundle(&store);
+        store.prepare_transaction().unwrap();
+        fs::write(&store.state_path, b"interrupted state").unwrap();
+        // A blocked staging path must be detected before any primary is replaced.
+        let blocked = sibling_path(&store.runtime_path, "recover");
+        fs::create_dir(&blocked).unwrap();
+        let interrupted = disk_bundle(&store);
+        assert!(PersistenceStore::for_test(&root).is_err());
+        assert_eq!(disk_bundle(&store), interrupted);
+        assert!(store.storage_dir().join(TRANSACTION_FILE_NAME).exists());
+        fs::remove_dir(&blocked).unwrap();
+        let reopened = PersistenceStore::for_test(&root).unwrap();
+        assert_eq!(disk_bundle(&reopened), before);
+        cleanup(&root);
+    }
+
+    #[test]
+    fn bundle_failures_restore_backups_as_well_as_primaries() {
+        for stage in [
+            SaveStage::WriteTemp,
+            SaveStage::Backup,
+            SaveStage::MoveCurrent,
+            SaveStage::PromoteNew,
+            SaveStage::RuntimeWriteTemp,
+            SaveStage::RuntimeBackup,
+            SaveStage::RuntimeMoveCurrent,
+            SaveStage::RuntimePromoteNew,
+        ] {
+            let root = temp_root();
+            let store = PersistenceStore::for_test(&root).unwrap();
+            store.save_bundle(&state(1), &runtime(10)).unwrap();
+            store.save_bundle(&state(2), &runtime(20)).unwrap();
+            let before = disk_bundle(&store);
+            let faulty = PersistenceStore::for_test_with_failure(&root, stage).unwrap();
+            assert!(faulty.save_bundle(&state(9), &runtime(90)).is_err());
+            assert_eq!(
+                disk_bundle(&PersistenceStore::for_test(&root).unwrap()),
+                before,
+                "{stage:?}"
+            );
+            cleanup(&root);
+        }
+    }
+
+    #[test]
+    fn committed_bundle_survives_restart_and_unpublished_journal_is_ignored() {
+        let root = temp_root();
+        let store = PersistenceStore::for_test(&root).unwrap();
+        store.save_bundle(&state(1), &runtime(10)).unwrap();
+        store.save_bundle(&state(2), &runtime(20)).unwrap();
+        let committed = disk_bundle(&store);
+        // Crash while preparing the journal: primaries cannot yet have changed.
+        fs::write(
+            sibling_path(&store.storage_dir().join(TRANSACTION_FILE_NAME), "tmp"),
+            b"partial",
+        )
+        .unwrap();
+        let reopened = PersistenceStore::for_test(&root).unwrap();
+        assert_eq!(disk_bundle(&reopened), committed);
+        assert_eq!(reopened.load().unwrap().next_record_id, 2);
+        assert_eq!(reopened.load_runtime().unwrap().stopwatch_elapsed_ms, 20);
+        reopened.save_bundle(&state(3), &runtime(30)).unwrap();
+        cleanup(&root);
+    }
+
+    #[test]
+    fn legacy_migration_recovers_interrupted_bundle_in_isolated_staging() {
+        let root = temp_root();
+        let legacy = PersistenceStore::for_test(&root.join("legacy")).unwrap();
+        legacy.save_bundle(&state(1), &runtime(10)).unwrap();
+        let before = disk_bundle(&legacy);
+        legacy.prepare_transaction().unwrap();
+        fs::write(&legacy.state_path, serde_json::to_vec(&state(9)).unwrap()).unwrap();
+        let interrupted_source = disk_bundle(&legacy);
+        let destination = root.join("canonical").join(STORAGE_DIR_NAME);
+        assert!(migrate_legacy_storage(legacy.storage_dir(), &destination).unwrap());
+        let migrated = PersistenceStore::from_storage_dir(destination).unwrap();
+        assert_eq!(disk_bundle(&migrated), before);
+        assert_eq!(disk_bundle(&legacy), interrupted_source);
+        assert!(legacy.storage_dir().join(TRANSACTION_FILE_NAME).exists());
+        cleanup(&root);
+    }
+
+    #[test]
+    fn user_backup_publication_is_durable_and_never_clobbers() {
+        let root = temp_root();
+        let store = PersistenceStore::for_test(&root).unwrap();
+        let mut backup = AppBackupFile {
+            kind: "focused-moment-backup".into(),
+            format_version: 3,
+            schema_version: CURRENT_STORAGE_SCHEMA_VERSION,
+            app_version: "test".into(),
+            exported_at: "test".into(),
+            state: state(1),
+            runtime: runtime(10),
+        };
+        let name = "focused-moment-backup-v3-test.json";
+        let path = store.save_user_backup(name, &backup).unwrap();
+        let before = fs::read(&path).unwrap();
+        backup.state = state(2);
+        assert!(store.save_user_backup(name, &backup).is_err());
+        assert_eq!(fs::read(path).unwrap(), before);
+        assert!(store.save_user_backup("../escaped.json", &backup).is_err());
+        assert_eq!(
+            fs::read_dir(store.user_backup_dir().unwrap())
+                .unwrap()
+                .count(),
+            1
+        );
+        let path = store.user_backup_dir().unwrap().join(name);
+        write_backup_atomic(&path, &backup, true).unwrap();
+        assert_eq!(
+            store.load_user_backup(name).unwrap().state.next_record_id,
+            2
+        );
+        // Publishing to a directory must fail without touching its contents.
+        let directory = root.join("blocked.json");
+        fs::create_dir(&directory).unwrap();
+        fs::write(directory.join("original"), b"preserve").unwrap();
+        assert!(write_backup_atomic(&directory, &backup, true).is_err());
+        assert_eq!(fs::read(directory.join("original")).unwrap(), b"preserve");
+        #[cfg(windows)]
+        {
+            use std::os::windows::fs::OpenOptionsExt;
+            let before = fs::read(&path).unwrap();
+            let locked = OpenOptions::new()
+                .read(true)
+                .share_mode(0)
+                .open(&path)
+                .unwrap();
+            backup.state = state(3);
+            assert!(write_backup_atomic(&path, &backup, true).is_err());
+            drop(locked);
+            assert_eq!(fs::read(&path).unwrap(), before);
+        }
+        cleanup(&root);
     }
 
     #[test]
