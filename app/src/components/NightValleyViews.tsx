@@ -523,7 +523,6 @@ const focusTimeBandSeeds: Array<Pick<FocusTimeBand, "key" | "label" | "rangeLabe
 ];
 
 function recordCompletedHour(record: FocusRecord) {
-  if (record.completedDate && !record.completedTime.trim()) return null;
   const timeMatch = record.completedTime.trim().match(/^(\d{1,2})(?::\d{2})?/);
   if (timeMatch) {
     const hour = Number(timeMatch[1]);

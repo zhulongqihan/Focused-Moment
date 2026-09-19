@@ -260,7 +260,9 @@ pub(crate) fn refresh_system_tray_menu(snapshot: &TimerSnapshot) {
     let _ = menu_state
         .timer_action_item
         .set_enabled(timer_action_enabled);
-    let _ = menu_state.focus_floating_item.set_enabled(true);
+    let _ = menu_state
+        .focus_floating_item
+        .set_enabled(tray_has_progress(snapshot));
 }
 
 #[cfg(not(windows))]
@@ -297,6 +299,7 @@ pub(crate) fn build_windows_tray_menu(app: &AppHandle) -> Result<Menu<Wry>, Stri
         .build(app)
         .map_err(|error| error.to_string())?;
     let focus_floating_item = MenuItemBuilder::with_id(TRAY_FOCUS_FLOATING_ID, "打开迷你工作台")
+        .enabled(tray_has_progress(&snapshot))
         .build(app)
         .map_err(|error| error.to_string())?;
     let open_focus_item = MenuItemBuilder::with_id(TRAY_OPEN_FOCUS_ID, "打开计时页")
@@ -429,7 +432,7 @@ pub(crate) fn build_system_tray(app: &AppHandle) -> Result<(), String> {
             TRAY_FOCUS_FLOATING_ID => {
                 let app_handle = app.clone();
                 tauri::async_runtime::spawn(async move {
-                    match show_floating_todos(app_handle).await {
+                    match show_focus_floating(app_handle).await {
                         Ok(()) => eprintln!("FOCUSED_MOMENT_TRAY_FOCUS_FLOATING=ok"),
                         Err(error) => {
                             eprintln!("FOCUSED_MOMENT_TRAY_FOCUS_FLOATING=error:{error}")
@@ -462,13 +465,10 @@ pub(crate) fn build_system_tray(app: &AppHandle) -> Result<(), String> {
                 }
             }
             TRAY_QUIT_ID => {
-                // The main webview owns debounced appearance edits. Let it flush
-                // and acknowledge via quit_application before terminating Rust.
-                // Never exit silently when the request cannot be delivered.
-                if let Err(error) = app.emit_to("main", "app-exit-request", ()) {
-                    eprintln!("退出前保存请求失败：{error}");
-                    let _ = show_main_window(app);
+                if let Some(state) = app.try_state::<AppLifecycleState>() {
+                    state.mark_quitting();
                 }
+                app.exit(0);
             }
             _ => {}
         })
@@ -682,8 +682,23 @@ pub(crate) fn unlock_floating_todos(app: tauri::AppHandle) -> Result<(), String>
 
 #[tauri::command]
 pub(crate) async fn show_focus_floating(app: tauri::AppHandle) -> Result<(), String> {
-    // One-version IPC compatibility alias; never create another focus-float.
-    show_floating_todos(app).await
+    let main_window = app
+        .get_webview_window("main")
+        .ok_or_else(|| "找不到主窗口".to_string())?;
+
+    close_utility_window(&app, "todo-float")?;
+    close_utility_window(&app, "todo-unlock")?;
+    close_utility_window(&app, "focus-unlock")?;
+    let focus_window = ensure_focus_floating_window(&app)?;
+
+    focus_window
+        .set_ignore_cursor_events(false)
+        .map_err(|error| error.to_string())?;
+    focus_window.show().map_err(|error| error.to_string())?;
+    focus_window
+        .set_focus()
+        .map_err(|error| error.to_string())?;
+    main_window.hide().map_err(|error| error.to_string())
 }
 
 #[tauri::command]

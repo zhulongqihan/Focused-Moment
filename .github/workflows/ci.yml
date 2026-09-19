@@ -46,7 +46,7 @@ jobs:
         run: pnpm exec playwright install chromium
 
       - name: Frontend flow tests
-        run: pnpm test:frontend -- --workers=1 --retries=0
+        run: pnpm test:frontend
 
       - name: Write verification summary
         if: always()

@@ -48,7 +48,6 @@ function aoDate(value: string) {
 }
 
 function aoTime(record: FocusRecord) {
-  if (record.completedDate && !record.completedTime) return "未填写时间";
   return record.completedTime || record.completedAt.match(/T(\d{2}:\d{2})/)?.[1] || "--:--";
 }
 
@@ -85,7 +84,6 @@ function aoBandStats(records: FocusRecord[]) {
   ];
   records.forEach((record) => {
     const match = aoTime(record).match(/^(\d{2})/);
-    if (!match) return;
     const hour = match ? Number(match[1]) : 0;
     const band = bands.find((item) => hour >= item.from && hour < item.to) ?? bands[0];
     band.minutes += Math.max(0, record.durationMs) / 60000;

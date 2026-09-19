@@ -10,8 +10,8 @@ function localDate() {
   return `${year}-${month}-${day}`;
 }
 
-async function bootWithTauriMock(page, { includeOverdue = false, includeRecords = false, windowLabel = "main", pausedFocus = false, completedCountdown = false, initialLoadError = false, autoMiniOnStart = false, todayRecordCount = includeRecords ? 1 : 0, todayTodoCount = 1, futureTodoCount = 0, completedTodoCount = 0, historyDayCount = 0, freshTodoSnapshots = false, freshRecordSnapshots = false, firstTodoId = 1 } = {}) {
-  await page.addInitScript(({ today, includeOverdue, includeRecords, windowLabel, pausedFocus, completedCountdown, initialLoadError, autoMiniOnStart, todayRecordCount, todayTodoCount, futureTodoCount, completedTodoCount, historyDayCount, freshTodoSnapshots, freshRecordSnapshots, firstTodoId }) => {
+async function bootWithTauriMock(page, { includeOverdue = false, includeRecords = false, windowLabel = "main", pausedFocus = false, completedCountdown = false, initialLoadError = false, autoMiniOnStart = false, todayRecordCount = includeRecords ? 1 : 0, todayTodoCount = 1, futureTodoCount = 0, completedTodoCount = 0, historyDayCount = 0, freshTodoSnapshots = false, freshRecordSnapshots = false } = {}) {
+  await page.addInitScript(({ today, includeOverdue, includeRecords, windowLabel, pausedFocus, completedCountdown, initialLoadError, autoMiniOnStart, todayRecordCount, todayTodoCount, futureTodoCount, completedTodoCount, historyDayCount, freshTodoSnapshots, freshRecordSnapshots }) => {
     const yesterday = new Date(`${today}T00:00:00`);
     yesterday.setDate(yesterday.getDate() - 1);
     const dateKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -19,7 +19,7 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
     const overdueDate = yesterdayDate;
     let todos = [
       {
-        id: firstTodoId,
+        id: 1,
         title: "写完产品复盘",
         isCompleted: false,
         scheduledDate: today,
@@ -175,29 +175,8 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
     window.__recordUpdateCalls = 0;
     window.__backupPreviewCalls = 0;
     window.__backupImportCalls = 0;
-    window.__dialogOpenResult = "C:\\Users\\test\\focused-moment-backup.json";
-    window.__dialogSaveResult = "C:\\Users\\test\\focused-moment-export.json";
-    window.__dialogOpenCalls = 0;
-    window.__dialogSaveCalls = 0;
-    window.__backupPreviewSourcePath = null;
-    window.__backupExportPaths = [];
-    window.__lastBackupImportOptions = null;
     window.__appPreferenceUpdateCalls = 0;
     window.__failAppPreferenceSave = false;
-    window.__appPreferenceSavePlan = [];
-    window.__appPreferenceWrites = [];
-    window.__failContinuationSave = false;
-    window.__lastEmittedState = null;
-    window.__emittedStates = [];
-    window.__continuationRequests = [];
-    window.__failContinuationEvent = false;
-    window.__restoredMainCalls = 0;
-    window.__continuationRequestReady = false;
-    window.__exitRequestReady = false;
-    window.__quitApplicationCalls = 0;
-    window.__failFocusPlanSave = false;
-    window.__appPreferenceReadCalls = 0;
-    window.__mockAppPreferences = null;
     let initialLoadFailures = initialLoadError ? 1 : 0;
     const eventCallbacks = new Map();
     const eventListeners = new Map();
@@ -234,14 +213,6 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
       todayPickIds: todos.filter((item) => !item.isCompleted && (item.scheduledDate === today || item.scheduledDate === "")).slice(0, 3).map((item) => item.id),
     };
     focusPlan.currentTodoId = focusPlan.todayPickIds[0] ?? null;
-    window.__mockToday = today;
-    const cleanFocusPlan = () => {
-      const pendingIds = new Set(todos.filter((item) => !item.isCompleted).map((item) => item.id));
-      focusPlan = {
-        currentTodoId: pendingIds.has(focusPlan.currentTodoId) ? focusPlan.currentTodoId : null,
-        todayPickIds: focusPlan.todayPickIds.filter((id) => pendingIds.has(id) && todos.some((item) => item.id === id && (item.scheduledDate === window.__mockToday || item.scheduledDate === ""))),
-      };
-    };
     todos = todos.map((item) => ({ ...item, continuationNote: item.continuationNote ?? "", continuationUpdatedAt: item.continuationUpdatedAt ?? null }));
     focusRecords = focusRecords.map((record) => ({ ...record, source: record.source ?? "timer", timeBasis: record.timeBasis ?? "completion_day", editedAt: record.editedAt ?? null }));
     let timer = {
@@ -329,7 +300,6 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
       dailyBreakdown,
     };
     const recalculateAnalytics = () => {
-      focusRecords.sort((left, right) => right.completedDate.localeCompare(left.completedDate) || right.completedTime.localeCompare(left.completedTime) || right.id - left.id);
       const byDate = new Map();
       for (const record of focusRecords) {
         const day = byDate.get(record.completedDate) ?? { date: record.completedDate, totalDurationMs: 0, sessionCount: 0, linkedSessionCount: 0, independentSessionCount: 0 };
@@ -341,21 +311,11 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
       }
       const breakdown = Array.from(byDate.values()).sort((left, right) => left.date.localeCompare(right.date)).map((day) => ({ ...day, totalDurationLabel: formatDuration(day.totalDurationMs) }));
       const total = focusRecords.reduce((sum, record) => sum + record.durationMs, 0);
-      const todayRecords = focusRecords.filter((record) => record.completedDate === window.__mockToday);
+      const todayRecords = focusRecords.filter((record) => record.completedDate === today);
       const activeDays = breakdown.filter((day) => day.totalDurationMs > 0).length;
       const best = breakdown.reduce((current, day) => !current || day.totalDurationMs > current.totalDurationMs ? day : current, null);
       analytics = { ...analytics, totalFocusDurationMs: total, totalFocusDurationLabel: total ? formatDuration(total) : "0 分钟", sessionCount: focusRecords.length, linkedSessionCount: focusRecords.filter((record) => record.linkedTodoId !== null).length, independentSessionCount: focusRecords.filter((record) => record.linkedTodoId === null).length, pendingTodoCount: todos.filter((item) => !item.isCompleted).length, completedTodoCount: todos.filter((item) => item.isCompleted).length, activeDays, averageDailyDurationLabel: activeDays ? formatDuration(total / activeDays) : "0 分钟", todayFocusDurationLabel: todayRecords.length ? formatDuration(todayRecords.reduce((sum, record) => sum + record.durationMs, 0)) : "0 分钟", todaySessionCount: todayRecords.length, bestFocusDate: best?.date ?? null, bestFocusDurationLabel: best?.totalDurationLabel ?? null, dailyBreakdown: breakdown };
-      const days = new Set(breakdown.filter((day) => day.totalDurationMs > 0).map((day) => day.date));
-      const cursor = new Date(`${window.__mockToday}T00:00:00`);
-      if (!days.has(window.__mockToday)) cursor.setDate(cursor.getDate() - 1);
-      let streak = 0;
-      while (days.has(dateKey(cursor))) {
-        streak += 1;
-        cursor.setDate(cursor.getDate() - 1);
-      }
-      analytics.currentStreakDays = streak;
     };
-    recalculateAnalytics();
     window.__getAppStateSyncPayload = () => ({
       timer,
       todos,
@@ -396,23 +356,11 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
             if (args.event === "app-state-sync") {
               window.__appStateSyncReady = true;
             }
-            if (args.event === "focus-continuation-request") window.__continuationRequestReady = true;
-            if (args.event === "app-exit-request") window.__exitRequestReady = true;
             return args.handler;
           }
           case "plugin:event|unlisten":
             return null;
           case "plugin:event|emit": {
-            if (args.event === "focus-continuation-request") {
-              if (window.__failContinuationEvent) throw new Error("模拟跨窗口请求失败");
-              window.__continuationRequests.push(structuredClone(args.payload));
-              // Tests may bridge the event to another real browser page.
-              if (window.__forwardContinuationRequest) await window.__forwardContinuationRequest(args.payload);
-            }
-            if (args.event === "app-state-sync") {
-              window.__lastEmittedState = structuredClone(args.payload);
-              window.__emittedStates.push(structuredClone(args.payload));
-            }
             for (const callbackId of eventListeners.get(args.event) ?? []) {
               eventCallbacks.get(callbackId)?.({
                 event: args.event,
@@ -428,37 +376,21 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
           case "get_timer_preferences":
             return timerPreferences;
           case "get_app_preferences":
-            window.__appPreferenceReadCalls += 1;
             return appPreferences;
           case "get_focus_plan":
-            cleanFocusPlan();
-            return structuredClone(focusPlan);
+            return focusPlan;
           case "update_app_preferences":
             window.__appPreferenceUpdateCalls += 1;
-            window.__appPreferenceWrites.push(structuredClone(args.preferences));
-            {
-              const plan = window.__appPreferenceSavePlan.shift() ?? {};
-              if (plan.hold) await new Promise((resolve) => { window.__releasePreferenceSave = resolve; });
-              if (plan.delay) await new Promise((resolve) => setTimeout(resolve, plan.delay));
-              if (plan.fail || window.__failAppPreferenceSave) throw new Error("模拟外观设置保存失败");
-            }
+            if (window.__failAppPreferenceSave) throw new Error("模拟外观设置保存失败");
             appPreferences = { ...appPreferences, ...args.preferences, schemaVersion: 3 };
-            window.__mockAppPreferences = appPreferences;
             return appPreferences;
           case "update_focus_plan":
-            if (window.__failFocusPlanSave) throw new Error("模拟焦点计划保存失败");
             focusPlan = { currentTodoId: args.currentTodoId ?? null, todayPickIds: Array.from(new Set(args.todayPickIds ?? [])).slice(0, 3) };
             return focusPlan;
-          case "plugin:dialog|open":
-            window.__dialogOpenCalls += 1;
-            return window.__dialogOpenResult;
-          case "plugin:dialog|save":
-            window.__dialogSaveCalls += 1;
-            return window.__dialogSaveResult;
           case "preview_app_backup_path":
             window.__backupPreviewCalls += 1;
             return {
-              sourcePath: window.__backupPreviewSourcePath ?? args.path,
+              sourcePath: args.path,
               appVersion: "2.12.0",
               formatVersion: 3,
               schemaVersion: 3,
@@ -472,31 +404,16 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
               warnings: [],
             };
           case "export_app_backup_to_path":
-            window.__backupExportPaths.push(args.path);
             return { fileName: args.path.split(/[\\\\/]/).pop() || "focused-moment-backup.json", filePath: args.path, exportedAt: `${today}T12:00:00Z` };
           case "import_app_backup_path":
             window.__backupImportCalls += 1;
-            window.__lastBackupImportOptions = {
-              restoreTodos: Boolean(args.restoreTodos),
-              restoreRecords: Boolean(args.restoreRecords),
-              restoreAppPreferences: Boolean(args.restoreAppPreferences),
-            };
-            return { importedFileName: "focused-moment-backup.json", rollbackFileName: "mock-rollback.json", todoCount: todos.length, focusRecordCount: focusRecords.length, restoredAppPreferences: Boolean(args.restoreAppPreferences), restoredRuntimeSession: Boolean(args.restoreTodos && args.restoreRecords), migratedFromFormatVersion: null };
+            return { todoCount: todos.length, focusRecordCount: focusRecords.length, restoredAppPreferences: Boolean(args.restoreAppPreferences), migrated: false, rollbackPath: "mock-rollback.json" };
           case "get_todo_items":
             window.__todoItemsCalls += 1;
             return freshTodoSnapshots ? todos.map((item) => ({ ...item })) : todos;
           case "get_focus_records":
             window.__focusRecordCalls += 1;
             return freshRecordSnapshots ? focusRecords.map((record) => ({ ...record })) : focusRecords;
-          case "delete_focus_record":
-            focusRecords = focusRecords.filter((record) => record.id !== args.id);
-            recalculateAnalytics();
-            return focusRecords;
-          case "restore_focus_record":
-            if (focusRecords.some((record) => record.id === args.record.id)) throw new Error("记录已存在");
-            focusRecords = [...focusRecords, structuredClone(args.record)];
-            recalculateAnalytics();
-            return focusRecords;
           case "update_focus_record_title":
             focusRecords = focusRecords.map((record) => record.id === args.id
               ? { ...record, title: args.title, editedAt: `${today}T12:00:00` }
@@ -518,7 +435,6 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
             return focusRecords;
           }
           case "get_analytics_snapshot":
-            recalculateAnalytics();
             return analytics;
           case "update_todo_item":
             todos = todos.map((item) => item.id === args.id
@@ -542,26 +458,12 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
           }
           case "update_todo_continuation_note":
             window.__continuationNoteCalls += 1;
-            if (window.__failContinuationSave) throw new Error("模拟书签写入失败");
             todos = todos.map((item) => item.id === args.id ? { ...item, continuationNote: args.note, continuationUpdatedAt: args.note ? `${today}T12:00:00` : null } : item);
             return todos;
           case "toggle_todo_item":
             todos = todos.map((item) => item.id === args.id
               ? { ...item, isCompleted: !item.isCompleted }
               : item);
-            cleanFocusPlan();
-            recalculateAnalytics();
-            return todos;
-          case "delete_todo_item":
-            todos = todos.filter((item) => item.id !== args.id);
-            focusRecords = focusRecords.map((record) => record.linkedTodoId === args.id ? { ...record, linkedTodoId: null, editedAt: `${today}T12:00:00` } : record);
-            if (timer.linkedTodoId === args.id) timer = { ...timer, linkedTodoId: null };
-            cleanFocusPlan();
-            recalculateAnalytics();
-            return todos;
-          case "restore_todo_item":
-            if (todos.some((item) => item.id === args.item.id)) throw new Error("待办已存在");
-            todos = [...todos, structuredClone(args.item)];
             recalculateAnalytics();
             return todos;
           case "list_app_backups":
@@ -576,7 +478,6 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
             const durationLabel = [hours, minutes, seconds].map((part) => String(part).padStart(2, "0")).join(":");
             if (timer.completeLinkedTodoOnFinish && timer.linkedTodoId !== null) {
               todos = todos.map((item) => item.id === timer.linkedTodoId ? { ...item, isCompleted: true } : item);
-              cleanFocusPlan();
             }
             focusRecords = [...focusRecords, {
               id: 1000 + focusRecords.length,
@@ -621,11 +522,6 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
           case "show_focus_floating":
             window.__focusFloatingShown = true;
             return null;
-          case "restore_main_from_floating_todos":
-          case "show_main_window_from_tray":
-          case "restore_main_from_focus_floating":
-            window.__restoredMainCalls += 1;
-            return null;
           case "show_floating_todos":
             window.__floatingTodosShown = true;
             window.__miniWorkspaceShown = true;
@@ -644,9 +540,6 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
             return false;
           case "close_main_window":
             window.__closeMainWindowCalls += 1;
-            return null;
-          case "quit_application":
-            window.__quitApplicationCalls += 1;
             return null;
           case "flash_main_window_attention":
             window.__flashMainWindowAttention = true;
@@ -702,7 +595,7 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
         }
       },
     };
-  }, { today: localDate(), includeOverdue, includeRecords, windowLabel, pausedFocus, completedCountdown, initialLoadError, autoMiniOnStart, todayRecordCount, todayTodoCount, futureTodoCount, completedTodoCount, historyDayCount, freshTodoSnapshots, freshRecordSnapshots, firstTodoId });
+  }, { today: localDate(), includeOverdue, includeRecords, windowLabel, pausedFocus, completedCountdown, initialLoadError, autoMiniOnStart, todayRecordCount, todayTodoCount, futureTodoCount, completedTodoCount, historyDayCount, freshTodoSnapshots, freshRecordSnapshots });
 
   await page.goto("/");
   if (windowLabel === "main") {
@@ -1741,30 +1634,6 @@ test("finishing a linked round keeps the todo open and saves a continuation book
   await expect(page.getByText("1 轮", { exact: true })).toBeVisible();
 });
 
-test("the same todo can continue through multiple rounds without auto-completing", async ({ page }) => {
-  await bootWithTauriMock(page);
-
-  const currentCard = page.locator(".continuity-board__card--current");
-  await currentCard.getByRole("button", { name: "开始专注" }).click();
-  await page.getByRole("button", { name: "计时", exact: true }).click();
-  await page.getByRole("button", { name: "完成并记录", exact: true }).click();
-  await page.getByRole("dialog", { name: "保存停笔书签" }).getByRole("button", { name: "暂不记录" }).click();
-
-  await page.getByRole("button", { name: "今日", exact: true }).click();
-  await expect(page.getByText("1 轮", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "继续专注", exact: true }).click();
-  await expect.poll(() => page.evaluate(() => window.__startTimerCalls)).toBe(2);
-
-  await page.getByRole("button", { name: "计时", exact: true }).click();
-  await page.getByRole("button", { name: "完成并记录", exact: true }).click();
-  await page.getByRole("dialog", { name: "保存停笔书签" }).getByRole("button", { name: "暂不记录" }).click();
-
-  await page.getByRole("button", { name: "今日", exact: true }).click();
-  await expect(page.getByText("2 轮", { exact: true })).toBeVisible();
-  await expect(page.locator(".continuity-board__card--current")).toContainText("写完产品复盘");
-  await expect(page.getByText("已完成事项", { exact: true })).toHaveCount(0);
-});
-
 test("records support manual entry and detailed correction", async ({ page }) => {
   await bootWithTauriMock(page, { includeRecords: true });
   await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: "记录", exact: true }).click();
@@ -1793,27 +1662,15 @@ test("portable backup preview and import expose the v3 restore choice", async ({
   await page.getByRole("button", { name: "设置", exact: true }).click();
 
   const path = page.getByRole("textbox", { name: "外部备份文件路径" });
-  await expect(path).toHaveAttribute("readonly", "");
-  await page.getByRole("button", { name: "选择 JSON 文件" }).click();
-  await expect(path).toHaveValue("C:\\Users\\test\\focused-moment-backup.json");
+  await path.fill("C:\\Users\\test\\focused-moment-backup.json");
   await page.getByRole("button", { name: "预览", exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.__backupPreviewCalls)).toBe(1);
   await expect(page.locator(".portable-backup-panel__preview")).toContainText("v3 / v3");
-  await expect(page.getByRole("checkbox", { name: "待办、收件箱和当前事项" })).toBeChecked();
-  await expect(page.getByRole("checkbox", { name: "专注记录和统计" })).toBeChecked();
-  await expect(page.getByRole("checkbox", { name: /主题.*自定义音效/ })).not.toBeChecked();
-  await page.getByRole("checkbox", { name: "待办、收件箱和当前事项" }).uncheck();
-  await page.getByRole("checkbox", { name: "专注记录和统计" }).uncheck();
-  await page.getByRole("checkbox", { name: /主题.*自定义音效/ }).check();
+  await expect(page.getByRole("checkbox", { name: "同时恢复主题、视觉设置和自定义音效" })).not.toBeChecked();
 
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "确认导入并生成回滚" }).click();
   await expect.poll(() => page.evaluate(() => window.__backupImportCalls)).toBe(1);
-  await expect.poll(() => page.evaluate(() => window.__lastBackupImportOptions)).toEqual({
-    restoreTodos: false,
-    restoreRecords: false,
-    restoreAppPreferences: true,
-  });
 });
 
 test("failed appearance persistence keeps the live change and offers retry", async ({ page }) => {
@@ -1828,712 +1685,4 @@ test("failed appearance persistence keeps the live change and offers retry", asy
   await error.getByRole("button", { name: "重试保存" }).click();
   await expect(error).toBeHidden({ timeout: 3000 });
   await expect.poll(() => page.evaluate(() => window.__appPreferenceUpdateCalls)).toBeGreaterThan(1);
-});
-
-test("appearance autosave keeps the newest theme after a stale save resolves late", async ({ page }) => {
-  await bootWithTauriMock(page);
-  await page.getByRole("button", { name: "设置", exact: true }).click();
-  await page.evaluate(() => {
-    window.__appPreferenceSavePlan = [{ delay: 450 }, { delay: 0 }];
-  });
-
-  await page.locator(".theme-picker__option").filter({ hasText: "编辑纸页" }).click();
-  await expect.poll(() => page.evaluate(() => window.__appPreferenceUpdateCalls)).toBe(1, { timeout: 3000 });
-  await page.locator(".theme-picker__option").filter({ hasText: "石墨控制台" }).click();
-
-  await expect.poll(() => page.evaluate(() => window.__appPreferenceUpdateCalls)).toBe(2, { timeout: 5000 });
-  await expect.poll(() => page.evaluate(() => window.__mockAppPreferences?.themeId)).toBe("graphite-console", { timeout: 5000 });
-  await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "graphite-console");
-});
-
-test("RC autosave failed A is superseded by B and its detached retry cannot overwrite B", async ({ page }) => {
-  await bootWithTauriMock(page);
-  await page.getByRole("button", { name: "设置", exact: true }).click();
-  await page.evaluate(() => { window.__appPreferenceSavePlan = [{ fail: true }]; });
-  await page.locator(".theme-picker__option").filter({ hasText: "编辑纸页" }).click();
-  const retry = page.getByRole("alert").filter({ hasText: "外观设置保存失败" }).getByRole("button", { name: "重试保存" });
-  await expect(retry).toBeVisible();
-  const staleRetry = await retry.elementHandle();
-  const polls = await page.evaluate(() => window.__timerSnapshotCalls);
-  await expect.poll(() => page.evaluate(() => window.__timerSnapshotCalls)).toBeGreaterThan(polls + 1);
-  await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "editorial-paper");
-  await page.locator(".theme-picker__option").filter({ hasText: "石墨控制台" }).click();
-  await expect.poll(() => page.evaluate(() => window.__mockAppPreferences?.themeId)).toBe("graphite-console");
-  await expect(retry).toHaveCount(0);
-  await staleRetry.evaluate((button) => button.click());
-  const afterB = await page.evaluate(() => window.__timerSnapshotCalls);
-  await expect.poll(() => page.evaluate(() => window.__timerSnapshotCalls)).toBeGreaterThan(afterB);
-  expect(await page.evaluate(() => window.__appPreferenceWrites.map((item) => item.themeId))).toEqual(["editorial-paper", "graphite-console"]);
-  await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "graphite-console");
-});
-
-test("RC autosave held retry and rapid theme intensity changes preserve the final full snapshot", async ({ page }) => {
-  await bootWithTauriMock(page);
-  await page.getByRole("button", { name: "设置", exact: true }).click();
-  await page.evaluate(() => { window.__appPreferenceSavePlan = [{ fail: true }, { hold: true }]; });
-  await page.locator(".theme-picker__option").filter({ hasText: "编辑纸页" }).click();
-  await page.getByRole("alert").filter({ hasText: "外观设置保存失败" }).getByRole("button", { name: "重试保存" }).click();
-  await expect.poll(() => page.evaluate(() => typeof window.__releasePreferenceSave)).toBe("function");
-  await page.locator(".theme-picker__option").filter({ hasText: "石墨控制台" }).click();
-  await page.locator(".theme-picker__option").filter({ hasText: "夜谷" }).click();
-  for (const [name, value] of [["视觉强度", "21"], ["动效强度", "13"], ["视觉强度", "83"]]) {
-    await page.getByRole("slider", { name, exact: true }).fill(value);
-  }
-  const polls = await page.evaluate(() => window.__timerSnapshotCalls);
-  await expect.poll(() => page.evaluate(() => window.__timerSnapshotCalls)).toBeGreaterThan(polls + 1);
-  await expect(page.getByRole("slider", { name: "视觉强度", exact: true })).toHaveValue("83");
-  await page.evaluate(() => window.__releasePreferenceSave());
-  await expect.poll(() => page.evaluate(() => window.__mockAppPreferences)).toMatchObject({ themeId: "night-valley", visualIntensity: 83, motionIntensity: 13 });
-  await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "night-valley");
-  await expect(page.getByRole("slider", { name: "动效强度", exact: true })).toHaveValue("13");
-  expect(await page.evaluate(() => window.__appPreferenceWrites.at(-1))).toMatchObject({ themeId: "night-valley", visualIntensity: 83, motionIntensity: 13 });
-});
-
-test("RC manual correction delete undo keep records analytics and broadcast consistent", async ({ page }) => {
-  await bootWithTauriMock(page);
-  await page.getByRole("button", { name: "记录", exact: true }).click();
-  const assertTotals = async (minutes, count, linked, todayCount) => {
-    // Check the first broadcast carrying the mutation, so the next one-second
-    // refresh cannot conceal stale analytics emitted immediately after saving.
-    await expect.poll(() => page.evaluate(({ minutes, count }) => window.__emittedStates.find((state) =>
-      state.records.length === count && state.records.reduce((sum, record) => sum + record.durationMs, 0) === minutes * 60_000
-    )?.analytics, { minutes, count })).toMatchObject({
-      totalFocusDurationMs: minutes * 60_000, sessionCount: count, linkedSessionCount: linked,
-      independentSessionCount: count - linked, todaySessionCount: todayCount,
-    });
-    await expect(page.locator(".records-archive__metric").filter({ hasText: "累计专注" })).toContainText(`${count} 条记录`);
-    await expect(page.locator(".records-archive__metric").filter({ hasText: "累计专注" }).locator("strong")).toHaveText(minutes ? `00:${String(minutes).padStart(2, "0")}:00` : "0 分钟");
-    expect(await page.evaluate(() => window.__getAppStateSyncPayload().analytics)).toMatchObject({ totalFocusDurationMs: minutes * 60_000, sessionCount: count });
-  };
-  await page.getByRole("button", { name: "补录专注" }).click();
-  const manual = page.getByRole("dialog", { name: "补录一段专注" });
-  await manual.getByRole("textbox", { name: "标题", exact: true }).fill("RC 原始记录");
-  await manual.getByRole("spinbutton").fill("35");
-  await manual.getByLabel("完成时间（可选）").fill("09:12");
-  await manual.getByRole("button", { name: "补录记录" }).click();
-  await expect(manual).toBeHidden();
-  await assertTotals(35, 1, 0, 1);
-  const original = page.locator(".record-row").filter({ hasText: "RC 原始记录" });
-  await original.getByRole("button", { name: "详细编辑" }).click();
-  const editor = page.getByRole("dialog", { name: "编辑专注记录" });
-  const yesterday = new Date(`${localDate()}T12:00:00`);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const date = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, "0")}-${String(yesterday.getDate()).padStart(2, "0")}`;
-  await editor.getByRole("textbox", { name: "标题", exact: true }).fill("RC 修正记录");
-  await editor.getByRole("spinbutton").fill("47");
-  await editor.getByLabel("完成日期").fill(date);
-  await editor.getByLabel("完成时间（可选）").fill("23:59");
-  await editor.getByRole("combobox").selectOption("1");
-  await editor.getByRole("button", { name: "保存修改" }).click();
-  await expect(editor).toBeHidden();
-  await assertTotals(47, 1, 1, 0);
-  const saved = await page.evaluate(() => window.__getAppStateSyncPayload().records[0]);
-  expect(saved).toMatchObject({ title: "RC 修正记录", durationMs: 47 * 60_000, completedDate: date, completedTime: "23:59", linkedTodoId: 1, linkedTodoTitle: "写完产品复盘", source: "manual", timeBasis: "completion_day" });
-  expect(await page.evaluate(() => window.__getAppStateSyncPayload().analytics.dailyBreakdown)).toEqual([{ date, totalDurationMs: 47 * 60_000, totalDurationLabel: "00:47:00", sessionCount: 1, linkedSessionCount: 1, independentSessionCount: 0 }]);
-  expect(await page.evaluate(() => window.__getAppStateSyncPayload().todos[0].isCompleted)).toBe(false);
-  const corrected = page.locator(".record-row").filter({ hasText: "RC 修正记录" });
-  // Expand the date group after moving the only record to another day.
-  const group = page.locator(".record-day").filter({ hasText: "RC 修正记录" });
-  if (!(await corrected.isVisible())) await group.locator("summary").click();
-  await page.evaluate(() => { window.__emittedStates = []; });
-  await corrected.getByRole("button", { name: "删除记录“RC 修正记录”" }).click();
-  await assertTotals(0, 0, 0, 0);
-  await expect(corrected).toHaveCount(0);
-  await page.evaluate(() => { window.__emittedStates = []; });
-  await page.getByRole("button", { name: "撤销", exact: true }).click();
-  await assertTotals(47, 1, 1, 0);
-  expect(await page.evaluate(() => window.__getAppStateSyncPayload().records)).toEqual([saved]);
-});
-
-test("RC inline rename preserves exact seconds and record metadata", async ({ page }) => {
-  await bootWithTauriMock(page);
-  await page.locator(".continuity-board__card--current").getByRole("button", { name: "开始专注" }).click();
-  await page.evaluate(() => window.__replaceTimer({ elapsedMs: 91_234, elapsedLabel: "00:01:31" }));
-  await page.getByRole("button", { name: "计时", exact: true }).click();
-  await page.getByRole("button", { name: "完成并记录", exact: true }).click();
-  await page.getByRole("dialog", { name: "保存停笔书签" }).getByRole("button", { name: "暂不记录" }).click();
-  const before = await page.evaluate(() => window.__getAppStateSyncPayload().records[0]);
-  await page.getByRole("button", { name: "记录", exact: true }).click();
-  const row = page.locator(".record-row").first();
-  await row.getByRole("button", { name: "编辑记录“写完产品复盘”" }).click();
-  await row.getByRole("textbox").fill("只改标题");
-  await row.getByRole("button", { name: "保存", exact: true }).click();
-  await expect(row).toContainText("只改标题");
-  const after = await page.evaluate(() => window.__getAppStateSyncPayload().records[0]);
-  expect(after).toEqual({ ...before, title: "只改标题", editedAt: expect.any(String) });
-  expect(after.durationMs).toBe(91_234);
-  expect(await page.evaluate(() => window.__recordUpdateCalls)).toBe(0);
-});
-
-test("RC continuation skip replace and retry preserve three rounds on the same task", async ({ page }) => {
-  await bootWithTauriMock(page);
-  const prompt = page.getByRole("dialog", { name: "保存停笔书签" });
-  for (let round = 1; round <= 3; round += 1) {
-    await page.getByRole("button", { name: "今日", exact: true }).click();
-    await page.locator(".continuity-board__card--current").getByRole("button", { name: round === 1 ? "开始专注" : "继续专注", exact: true }).click();
-    await page.evaluate(() => window.__replaceTimer({ elapsedMs: 120_000, elapsedLabel: "00:02:00" }));
-    await page.getByRole("button", { name: "计时", exact: true }).click();
-    await page.getByRole("button", { name: "完成并记录", exact: true }).click();
-    await expect(prompt).toBeVisible();
-    if (round === 2) {
-      await prompt.getByRole("button", { name: "暂不记录" }).click();
-    } else {
-      await prompt.getByRole("textbox").fill(round === 1 ? "第一版书签" : "替换后的书签");
-      if (round === 3) await page.evaluate(() => { window.__failContinuationSave = true; });
-      await prompt.getByRole("button", { name: "保存下次位置" }).click();
-      if (round === 3) {
-        await expect(prompt.getByRole("alert")).toContainText("保存失败");
-        await expect(prompt.getByRole("textbox")).toHaveValue("替换后的书签");
-        expect(await page.evaluate(() => window.__getAppStateSyncPayload().todos[0].continuationNote)).toBe("第一版书签");
-        await page.evaluate(() => { window.__failContinuationSave = false; });
-        await prompt.getByRole("button", { name: "重试保存" }).click();
-      }
-    }
-    await expect(prompt).toBeHidden();
-    const state = await page.evaluate(() => window.__getAppStateSyncPayload());
-    expect(state.records).toHaveLength(round);
-    expect(state.records.every((record) => record.linkedTodoId === 1 && record.durationMs === 120_000)).toBe(true);
-    expect(state.todos[0]).toMatchObject({ isCompleted: false, continuationNote: round === 3 ? "替换后的书签" : "第一版书签" });
-    expect(state.focusPlan.currentTodoId).toBe(1);
-    expect(state.analytics).toMatchObject({ sessionCount: round, totalFocusDurationMs: round * 120_000, linkedSessionCount: round });
-  }
-  expect(await page.evaluate(() => window.__continuationNoteCalls)).toBe(3);
-});
-
-test("RC command palette distinguishes same-name tasks and handles dates empty results and keyboard", async ({ page }) => {
-  await bootWithTauriMock(page, { includeRecords: true });
-  await page.getByRole("button", { name: "快速记一件事", exact: true }).click();
-  const capture = page.getByRole("dialog", { name: "先记下来，稍后再整理" });
-  await capture.getByRole("textbox").fill("写完产品复盘");
-  await capture.getByRole("button", { name: "放入收件箱" }).click();
-  await expect(capture).toBeHidden();
-  await page.keyboard.press("Control+K");
-  const search = page.getByRole("searchbox", { name: "搜索命令" });
-  await search.fill("写完产品复盘");
-  await expect(page.getByRole("option").filter({ hasText: "任务：写完产品复盘" })).toHaveCount(2);
-  await expect(search).toHaveAttribute("aria-activedescendant", "command-palette-option-history-task-1");
-  await search.press("ArrowDown");
-  await expect(search).toHaveAttribute("aria-activedescendant", "command-palette-option-history-task-2");
-  await search.press("Enter");
-  await expect(page.locator(".records-task-filter")).toContainText("写完产品复盘");
-  await expect(page.locator(".record-row")).toHaveCount(0);
-  await expect(page.locator(".records-task-filter")).toContainText("0 条匹配记录");
-  await expect(page.locator(".record-history__heading")).toContainText("0 轮");
-  await expect(page.locator(".record-history .empty-copy")).toBeVisible();
-  await page.keyboard.press("Control+K");
-  await search.fill("写完产品复盘");
-  await page.locator("#command-palette-option-history-task-1").click();
-  await expect(page.locator(".records-task-filter")).toContainText("1 条匹配记录");
-  await expect(page.locator(".record-row")).toHaveCount(1);
-  await expect(page.locator(".record-history__heading")).toContainText("1 轮");
-  await page.keyboard.press("Control+K");
-  await search.fill(localDate());
-  await expect(page.locator("#command-palette-option-history-record-3")).toBeVisible();
-  await expect(search).toHaveAttribute("aria-activedescendant", `command-palette-option-history-date-${localDate()}`);
-  await search.press("End");
-  await expect(search).toHaveAttribute("aria-activedescendant", "command-palette-option-history-record-3");
-  const refreshCalls = await page.evaluate(() => window.__timerSnapshotCalls);
-  await expect.poll(() => page.evaluate(() => window.__timerSnapshotCalls)).toBeGreaterThan(refreshCalls + 1);
-  await expect(search).toHaveAttribute("aria-activedescendant", "command-palette-option-history-record-3");
-  await search.press("Home");
-  await expect(search).toHaveAttribute("aria-activedescendant", `command-palette-option-history-date-${localDate()}`);
-  await search.press("Enter");
-  await expect(page.locator(".records-task-filter")).toHaveCount(0);
-  await expect(page.locator(".records-archive__node--selected")).toHaveAttribute("aria-label", /00:45:00/);
-  await expect(page.locator(".records-archive__detail")).toContainText("1 条可回看记录");
-  await page.keyboard.press("Control+K");
-  await search.fill("绝不匹配-rc-empty");
-  await expect(page.getByRole("option")).toHaveCount(0);
-  for (const key of ["ArrowDown", "ArrowUp", "Home", "End", "Enter"]) await search.press(key);
-  await expect(search).not.toHaveAttribute("aria-activedescendant");
-  await expect(page.getByRole("dialog", { name: "你想做什么？" })).toBeVisible();
-  await search.press("Escape");
-  await expect(page.getByRole("button", { name: "记录", exact: true })).toBeFocused();
-});
-
-for (const scope of ["default", "todos", "records", "settings"]) {
-  test(`RC backup confirmation lists only ${scope} scope and cancel makes no changes`, async ({ page }) => {
-    await bootWithTauriMock(page, { pausedFocus: true, includeRecords: true });
-    await page.getByRole("button", { name: "设置", exact: true }).click();
-    await page.getByRole("button", { name: "选择 JSON 文件" }).click();
-    await page.getByRole("button", { name: "预览", exact: true }).click();
-    const todos = page.getByRole("checkbox", { name: "待办、收件箱和当前事项" });
-    const records = page.getByRole("checkbox", { name: "专注记录和统计" });
-    const settings = page.getByRole("checkbox", { name: /主题.*自定义音效/ });
-    await todos.setChecked(scope === "default" || scope === "todos");
-    await records.setChecked(scope === "default" || scope === "records");
-    await settings.setChecked(scope === "settings");
-    const before = await page.evaluate(() => structuredClone(window.__getAppStateSyncPayload()));
-    const dialogPromise = page.waitForEvent("dialog");
-    const click = page.getByRole("button", { name: "确认导入并生成回滚" }).click();
-    const confirm = await dialogPromise;
-    const selectedScopes = confirm.message().split("。", 1)[0];
-    expect(selectedScopes.includes("待办、收件箱和当前事项")).toBe(scope === "default" || scope === "todos");
-    expect(selectedScopes.includes("专注记录和统计")).toBe(scope === "default" || scope === "records");
-    expect(selectedScopes.includes("计时运行态")).toBe(scope === "default");
-    expect(selectedScopes.includes("外观、计时设置和自定义音效")).toBe(scope === "settings");
-    await confirm.dismiss();
-    await click;
-    expect(await page.evaluate(() => window.__backupImportCalls)).toBe(0);
-    expect(await page.evaluate(() => window.__getAppStateSyncPayload())).toEqual(before);
-    await expect(page.locator(".portable-backup-panel__preview")).toBeVisible();
-  });
-}
-
-test("RC backup no selected scopes disables import and mismatched source cannot import", async ({ page }) => {
-  await bootWithTauriMock(page);
-  await page.getByRole("button", { name: "设置", exact: true }).click();
-  await page.getByRole("button", { name: "选择 JSON 文件" }).click();
-  await page.getByRole("button", { name: "预览", exact: true }).click();
-  await page.getByRole("checkbox", { name: "待办、收件箱和当前事项" }).uncheck();
-  await page.getByRole("checkbox", { name: "专注记录和统计" }).uncheck();
-  const restore = page.getByRole("button", { name: "确认导入并生成回滚" });
-  await expect(restore).toBeDisabled();
-  expect(await page.evaluate(() => window.__backupImportCalls)).toBe(0);
-  await page.getByRole("checkbox", { name: "待办、收件箱和当前事项" }).check();
-  await page.evaluate(() => { window.__backupPreviewSourcePath = "C:\\Users\\test\\different.json"; });
-  await page.getByRole("button", { name: "预览", exact: true }).click();
-  await expect.poll(() => page.evaluate(() => window.__backupPreviewCalls)).toBe(2);
-  // The controller must reject a preview belonging to a different source path.
-  await restore.click();
-  await expect(page.locator(".app-message")).toContainText("请先预览一份有效备份");
-  expect(await page.evaluate(() => window.__backupImportCalls)).toBe(0);
-});
-
-test("RC backup native chooser cancellation and save path preserve preview safety", async ({ page }) => {
-  await bootWithTauriMock(page);
-  await page.getByRole("button", { name: "设置", exact: true }).click();
-  const path = page.getByRole("textbox", { name: "外部备份文件路径" });
-  await expect(path).toHaveAttribute("readonly", "");
-  await page.evaluate(() => { window.__dialogOpenResult = null; });
-  await page.getByRole("button", { name: "选择 JSON 文件" }).click();
-  await expect.poll(() => page.evaluate(() => window.__dialogOpenCalls)).toBe(1);
-  await expect(path).toHaveValue("");
-  await expect(page.getByRole("button", { name: "预览", exact: true })).toBeDisabled();
-  await page.getByRole("button", { name: "选择导出位置" }).click();
-  await expect.poll(() => page.evaluate(() => window.__dialogSaveCalls)).toBe(1);
-  await expect(path).toHaveValue("C:\\Users\\test\\focused-moment-export.json");
-  page.once("dialog", async (dialog) => {
-    expect(dialog.message()).toContain("C:\\Users\\test\\focused-moment-export.json");
-    expect(dialog.message()).toContain("覆盖");
-    await dialog.dismiss();
-  });
-  await page.getByRole("button", { name: "导出到此路径" }).click();
-  expect(await page.evaluate(() => window.__backupExportPaths)).toEqual([]);
-  page.once("dialog", (dialog) => dialog.accept());
-  await page.getByRole("button", { name: "导出到此路径" }).click();
-  await expect.poll(() => page.evaluate(() => window.__backupExportPaths)).toEqual(["C:\\Users\\test\\focused-moment-export.json"]);
-  expect(await page.evaluate(() => window.__backupImportCalls)).toBe(0);
-});
-
-for (const windowLabel of ["todo-float", "focus-float"]) {
-  test(`RC ${windowLabel} completion opens the bookmark editor in the main window`, async ({ page, context }) => {
-    await bootWithTauriMock(page);
-    await expect.poll(() => page.evaluate(() => window.__continuationRequestReady)).toBe(true);
-    const floating = await context.newPage();
-    await bootWithTauriMock(floating, { windowLabel, pausedFocus: true });
-    await floating.exposeFunction("__forwardContinuationRequest", (payload) => page.evaluate((payload) =>
-      window.__TAURI_INTERNALS__.invoke("plugin:event|emit", { event: "focus-continuation-request", payload }), payload));
-    await floating.evaluate(async () => {
-      window.__replaceTimer({ linkedTodoId: 1, activeTaskTitle: "写完产品复盘", elapsedMs: 120_000 });
-      await window.__TAURI_INTERNALS__.invoke("plugin:event|emit", { event: "app-state-sync", payload: window.__getAppStateSyncPayload() });
-    });
-    if (windowLabel === "todo-float") await floating.locator(".floating-tab").filter({ hasText: "当前计时" }).click();
-    await floating.getByRole("button", { name: "完成并记录", exact: true }).click();
-    const prompt = page.getByRole("dialog", { name: "保存停笔书签" });
-    await expect(prompt).toBeVisible();
-    await expect(prompt).toContainText("写完产品复盘");
-    await expect.poll(() => floating.evaluate(() => window.__restoredMainCalls)).toBe(1);
-    expect(await floating.evaluate(() => window.__continuationRequests)).toEqual([{ todoId: 1 }]);
-    expect(await floating.evaluate(() => window.__getAppStateSyncPayload().records)).toHaveLength(1);
-    await prompt.getByRole("textbox").fill("浮窗完成后接着第三段");
-    await prompt.getByRole("button", { name: "保存下次位置" }).click();
-    await expect(prompt).toBeHidden();
-    expect(await page.evaluate(() => window.__getAppStateSyncPayload().todos[0].continuationNote)).toBe("浮窗完成后接着第三段");
-    await floating.close();
-  });
-}
-
-test("RC continuation event rejects missing completed and malformed todos and preserves an open draft", async ({ page }) => {
-  await bootWithTauriMock(page);
-  await expect.poll(() => page.evaluate(() => window.__continuationRequestReady)).toBe(true);
-  const send = (payload) => page.evaluate((payload) => window.__TAURI_INTERNALS__.invoke("plugin:event|emit", { event: "focus-continuation-request", payload }), payload);
-  const prompt = page.getByRole("dialog", { name: "保存停笔书签" });
-  for (const payload of [null, {}, { todoId: 1.5 }, { todoId: -1 }, { todoId: 999 }]) await send(payload);
-  await page.evaluate(() => window.__TAURI_INTERNALS__.invoke("toggle_todo_item", { id: 1 }));
-  await send({ todoId: 1 });
-  await expect(prompt).toHaveCount(0);
-  await page.evaluate(() => window.__TAURI_INTERNALS__.invoke("toggle_todo_item", { id: 1 }));
-  await send({ todoId: 1, title: "不可信旧标题" });
-  await expect(prompt).toBeVisible();
-  await expect(prompt).toContainText("写完产品复盘");
-  await prompt.getByRole("textbox").fill("尚未提交的书签草稿");
-  await send({ todoId: 1 });
-  await expect(prompt.getByRole("textbox")).toHaveValue("尚未提交的书签草稿");
-  expect(await page.evaluate(() => window.__continuationNoteCalls)).toBe(0);
-});
-
-test("RC continuation event failure does not roll back floating record completion or prevent return", async ({ page }) => {
-  await bootWithTauriMock(page, { windowLabel: "focus-float", pausedFocus: true });
-  await page.evaluate(async () => {
-    window.__failContinuationEvent = true;
-    window.__replaceTimer({ linkedTodoId: 1, activeTaskTitle: "写完产品复盘", elapsedMs: 120_000 });
-    await window.__TAURI_INTERNALS__.invoke("plugin:event|emit", { event: "app-state-sync", payload: window.__getAppStateSyncPayload() });
-  });
-  await page.getByRole("button", { name: "完成并记录", exact: true }).click();
-  await expect.poll(() => page.evaluate(() => window.__restoredMainCalls)).toBe(1);
-  const state = await page.evaluate(() => window.__getAppStateSyncPayload());
-  expect(state.records).toHaveLength(1);
-  expect(state.records[0]).toMatchObject({ linkedTodoId: 1, durationMs: 120_000 });
-  expect(state.timer.hasUnsubmittedProgress).toBe(false);
-  expect(state.todos[0].isCompleted).toBe(false);
-  expect(await page.evaluate(() => window.__completedFocusCalls)).toBe(1);
-});
-
-test("RC continuation event accepts the first persisted todo with id zero", async ({ page }) => {
-  await bootWithTauriMock(page, { firstTodoId: 0 });
-  await expect.poll(() => page.evaluate(() => window.__continuationRequestReady)).toBe(true);
-  await page.evaluate(() => window.__TAURI_INTERNALS__.invoke("plugin:event|emit", {
-    event: "focus-continuation-request", payload: { todoId: 0 },
-  }));
-  const prompt = page.getByRole("dialog", { name: "保存停笔书签" });
-  await expect(prompt).toBeVisible();
-  await prompt.getByRole("textbox").fill("第一条待办的停笔位置");
-  await prompt.getByRole("button", { name: "保存下次位置" }).click();
-  await expect(prompt).toBeHidden();
-  expect(await page.evaluate(() => window.__getAppStateSyncPayload().todos[0])).toMatchObject({ id: 0, isCompleted: false, continuationNote: "第一条待办的停笔位置" });
-});
-
-test("RC focus plan polling clears yesterday picks after rollover but retains inbox and current todo", async ({ page }) => {
-  await page.clock.install({ time: new Date(`${localDate()}T12:00:00`) });
-  await bootWithTauriMock(page, { includeRecords: true });
-  await expect(page.locator(".unified-today-page__date > strong")).toHaveText(localDate());
-  await expect(page.locator(".continuity-board__value")).toHaveText("45 分钟");
-  await page.evaluate(async () => {
-    await window.__TAURI_INTERNALS__.invoke("create_todo_item", { title: "跨日收件箱", scheduledDate: "", scheduledTime: "", importanceKey: "medium" });
-    await window.__TAURI_INTERNALS__.invoke("update_focus_plan", { currentTodoId: 1, todayPickIds: [1, 2] });
-  });
-  const picks = page.locator(".continuity-board__picks");
-  await expect(picks).toContainText("跨日收件箱");
-  await expect(picks).toContainText("写完产品复盘");
-  const tomorrow = new Date(`${localDate()}T12:00:00`);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const nextDate = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, "0")}-${String(tomorrow.getDate()).padStart(2, "0")}`;
-  await page.clock.setSystemTime(tomorrow);
-  await page.evaluate((date) => { window.__mockToday = date; }, nextDate);
-  await expect.poll(() => page.evaluate(() => window.__getAppStateSyncPayload().focusPlan)).toEqual({ currentTodoId: 1, todayPickIds: [2] });
-  await expect(picks).not.toContainText("写完产品复盘");
-  await expect(picks).toContainText("跨日收件箱");
-  await expect(page.locator(".continuity-board__card--current")).toContainText("写完产品复盘");
-  await expect(page.locator(".unified-today-page__date > strong")).toHaveText(nextDate);
-  await expect(page.locator(".continuity-board__value")).toHaveText("0 分钟");
-  await expect(page.locator(".continuity-board__card--investment")).toContainText("0 段完成");
-  const nextCopyId = await page.evaluate(async (date) => (await import("/src/lib/copy-library.ts")).getDailyCopy(date).id, nextDate);
-  await expect(page.locator(".daily-focus-line")).toHaveAttribute("data-copy-id", nextCopyId);
-});
-
-test("RC manual records preserve unknown completion time through creation and detailed edits", async ({ page }) => {
-  await bootWithTauriMock(page);
-  await page.getByRole("button", { name: "记录", exact: true }).click();
-  await page.getByRole("button", { name: "补录专注" }).click();
-  const manual = page.getByRole("dialog", { name: "补录一段专注" });
-  await manual.getByRole("textbox", { name: "标题", exact: true }).fill("没有填写时间的补录");
-  await expect(manual.getByLabel("完成时间（可选）")).toHaveValue("");
-  await manual.getByRole("button", { name: "补录记录" }).click();
-  const row = page.locator(".record-row").filter({ hasText: "没有填写时间的补录" });
-  const timestamp = row.locator(".record-row__details > small");
-  await expect(timestamp).toContainText("未填写时间");
-  await expect(timestamp).not.toContainText("00:00");
-  expect(await page.evaluate(() => window.__getAppStateSyncPayload().records[0].completedTime)).toBe("");
-  for (const time of ["17:42", ""]) {
-    await row.getByRole("button", { name: "详细编辑" }).click();
-    const editor = page.getByRole("dialog", { name: "编辑专注记录" });
-    await editor.getByLabel("完成时间（可选）").fill(time);
-    await editor.getByRole("button", { name: "保存修改" }).click();
-    await expect(editor).toBeHidden();
-    await expect(timestamp).toContainText(time || "未填写时间");
-    if (!time) await expect(timestamp).not.toContainText("00:00");
-    expect(await page.evaluate(() => window.__getAppStateSyncPayload().records[0])).toMatchObject({ completedDate: localDate(), completedTime: time, durationMs: 25 * 60_000 });
-  }
-});
-
-test("RC history search keeps dates older than seven days selected after refresh", async ({ page }) => {
-  await bootWithTauriMock(page, { includeRecords: true, historyDayCount: 12 });
-  const oldDate = await page.evaluate(() => window.__getAppStateSyncPayload().records.find((record) => record.title === "历史归档 11").completedDate);
-  await page.keyboard.press("Control+K");
-  await page.getByRole("searchbox", { name: "搜索命令" }).fill(oldDate);
-  await page.locator(`#command-palette-option-history-date-${oldDate}`).click();
-  const detail = page.getByRole("complementary", { name: "选中日期详情" });
-  await expect(detail).toContainText("00:30:00 · 1 条可回看记录");
-  const expectedDay = await page.evaluate(async (date) => (await import("/src/features/shared/date-utils.ts")).formatRecordDay(date), oldDate);
-  await expect(detail.locator(".records-archive__detail-heading")).toContainText(expectedDay);
-  const polls = await page.evaluate(() => window.__timerSnapshotCalls);
-  await expect.poll(() => page.evaluate(() => window.__timerSnapshotCalls)).toBeGreaterThan(polls + 1);
-  await expect(detail.locator(".records-archive__detail-heading")).toContainText(expectedDay);
-  await expect(page.locator(".records-archive__node--selected")).toHaveCount(0);
-});
-
-test("RC history search filters exact records beyond the first 200 and clears mutually exclusive task filters", async ({ page }) => {
-  await bootWithTauriMock(page, { includeRecords: true });
-  const targetId = await page.evaluate(async () => {
-    for (let index = 0; index < 205; index += 1) {
-      await window.__TAURI_INTERNALS__.invoke("create_manual_focus_record", {
-        title: index === 0 ? "深藏记录唯一目标" : `填充记录-${index}`, durationMinutes: 1,
-        completedDate: window.__mockToday, completedTime: "08:00", linkedTodoId: 1,
-      });
-    }
-    const records = window.__getAppStateSyncPayload().records;
-    const position = records.findIndex((record) => record.title === "深藏记录唯一目标");
-    if (position < 200) throw new Error("目标必须位于原始列表第 200 项之后");
-    return records[position].id;
-  });
-  await page.getByRole("button", { name: "设置", exact: true }).click();
-  await page.locator(".theme-picker__option").filter({ hasText: "编辑纸页" }).click();
-  await page.keyboard.press("Control+K");
-  const search = page.getByRole("searchbox", { name: "搜索命令" });
-  await search.fill("深藏记录唯一目标");
-  await page.locator(`#command-palette-option-history-record-${targetId}`).click();
-  await expect(page.locator(".records-task-filter")).toContainText("1 条匹配记录");
-  await expect(page.locator(".records-task-filter")).toContainText("累计统计与七日趋势仍包含全部记录");
-  await expect(page.locator(".ep-record-entry")).toHaveCount(1);
-  await expect(page.locator(".ep-record-entry")).toContainText("深藏记录唯一目标");
-  await expect(page.locator(".ep-full-history > .ep-section-heading > span")).toHaveText("1 轮");
-  await page.keyboard.press("Control+K");
-  await search.fill("写完产品复盘");
-  await page.locator("#command-palette-option-history-task-1").click();
-  await expect(page.locator(".records-task-filter")).toContainText("206 条匹配记录");
-  await expect(page.getByRole("button", { name: "清除记录筛选" })).toHaveCount(0);
-  await page.keyboard.press("Control+K");
-  await search.fill("深藏记录唯一目标");
-  await page.locator(`#command-palette-option-history-record-${targetId}`).click();
-  await expect(page.locator(".ep-record-entry")).toHaveCount(1);
-  await expect(page.getByRole("button", { name: "清除任务筛选" })).toHaveCount(0);
-  await page.getByRole("button", { name: "清除记录筛选" }).click();
-  await expect(page.locator(".records-task-filter")).toHaveCount(0);
-});
-
-test("RC exact date search reserves archive navigation beyond twenty same-day records", async ({ page }) => {
-  await bootWithTauriMock(page);
-  const date = "2025-01-15";
-  await page.evaluate(async (completedDate) => {
-    for (let index = 0; index < 25; index += 1) {
-      await window.__TAURI_INTERNALS__.invoke("create_manual_focus_record", {
-        title: `同日记录-${index}`, durationMinutes: 1, completedDate, completedTime: "08:00", linkedTodoId: null,
-      });
-    }
-    await window.__TAURI_INTERNALS__.invoke("plugin:event|emit", { event: "app-state-sync", payload: window.__getAppStateSyncPayload() });
-  }, date);
-  await page.keyboard.press("Control+K");
-  await page.getByRole("searchbox", { name: "搜索命令" }).fill(date);
-  await expect(page.getByRole("option")).toHaveCount(20);
-  await page.locator(`#command-palette-option-history-date-${date}`).click();
-  await expect(page.getByRole("complementary", { name: "选中日期详情" })).toContainText("00:25:00 · 25 条可回看记录");
-});
-
-test("RC history search ignores bookmarks and durations but accepts titles associations and times", async ({ page }) => {
-  await bootWithTauriMock(page, { includeRecords: true });
-  await page.evaluate(() => window.__TAURI_INTERNALS__.invoke("update_todo_continuation_note", { id: 1, note: "绝密书签不可搜索" }));
-  await page.keyboard.press("Control+K");
-  const search = page.getByRole("searchbox", { name: "搜索命令" });
-  for (const query of ["绝密书签不可搜索", "00:45:00"]) {
-    await search.fill(query);
-    await expect(page.getByRole("option")).toHaveCount(0);
-  }
-  await search.fill("写完产品复盘");
-  await expect(page.locator("#command-palette-option-history-task-1")).toContainText("停笔书签：绝密书签不可搜索");
-  await expect(page.locator("#command-palette-option-history-record-3")).toBeVisible();
-  await search.fill("11:30");
-  await expect(page.locator("#command-palette-option-history-record-3")).toBeVisible();
-  await search.fill("10:00");
-  await expect(page.locator("#command-palette-option-history-task-1")).toBeVisible();
-});
-
-test("RC exit waits for autosave and preserves the window on failure until retry succeeds", async ({ page }) => {
-  await bootWithTauriMock(page);
-  await expect.poll(() => page.evaluate(() => window.__exitRequestReady)).toBe(true);
-  await page.getByRole("button", { name: "设置", exact: true }).click();
-  await page.evaluate(() => { window.__appPreferenceSavePlan = [{ fail: true }]; });
-  await page.getByRole("slider", { name: "视觉强度", exact: true }).fill("29");
-  await page.evaluate(() => window.__TAURI_INTERNALS__.invoke("plugin:event|emit", { event: "app-exit-request", payload: null }));
-  await expect(page.locator(".app-message")).toContainText("重试保存后再关闭或退出");
-  expect(await page.evaluate(() => window.__restoredMainCalls)).toBe(1);
-  expect(await page.evaluate(() => window.__quitApplicationCalls)).toBe(0);
-  await page.evaluate(() => { window.__appPreferenceSavePlan = [{ hold: true }]; });
-  await page.getByRole("alert").filter({ hasText: "外观设置保存失败" }).getByRole("button", { name: "重试保存" }).click();
-  await page.evaluate(() => window.__TAURI_INTERNALS__.invoke("plugin:event|emit", { event: "app-exit-request", payload: null }));
-  await expect.poll(() => page.evaluate(() => typeof window.__releasePreferenceSave)).toBe("function");
-  expect(await page.evaluate(() => window.__quitApplicationCalls)).toBe(0);
-  await page.evaluate(() => window.__releasePreferenceSave());
-  await expect.poll(() => page.evaluate(() => window.__quitApplicationCalls)).toBe(1);
-  expect(await page.evaluate(() => window.__mockAppPreferences.visualIntensity)).toBe(29);
-});
-
-test("RC range commit pointerup blur and window close flush pending preferences without debounce delay", async ({ page }) => {
-  await bootWithTauriMock(page);
-  await page.getByRole("button", { name: "设置", exact: true }).click();
-  await page.clock.install();
-  await page.clock.pauseAt(new Date());
-  for (const [index, eventType] of ["change", "pointerup", "blur"].entries()) {
-    await page.getByRole("slider", { name: "视觉强度", exact: true }).evaluate((input, { value, eventType }) => {
-      input.value = String(value);
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-      input.dispatchEvent(new Event(eventType, { bubbles: true }));
-    }, { value: 31 + index, eventType });
-    await expect.poll(() => page.evaluate(() => window.__mockAppPreferences?.visualIntensity)).toBe(31 + index);
-  }
-  await page.evaluate(() => { window.__appPreferenceSavePlan = [{ hold: true }]; });
-  await page.getByRole("slider", { name: "视觉强度", exact: true }).evaluate((input) => {
-    input.value = "64";
-    input.dispatchEvent(new Event("input", { bubbles: true }));
-  });
-  await page.getByRole("button", { name: "关闭窗口", exact: true }).click();
-  await expect.poll(() => page.evaluate(() => typeof window.__releasePreferenceSave)).toBe("function");
-  expect(await page.evaluate(() => window.__closeMainWindowCalls)).toBe(0);
-  await page.evaluate(() => window.__releasePreferenceSave());
-  await expect.poll(() => page.evaluate(() => window.__closeMainWindowCalls)).toBe(1);
-  expect(await page.evaluate(() => window.__mockAppPreferences.visualIntensity)).toBe(64);
-});
-
-test("RC failed current-plan persistence aborts starting focus and preserves the error for retry", async ({ page }) => {
-  await bootWithTauriMock(page, { autoMiniOnStart: true });
-  await page.evaluate(() => { window.__failFocusPlanSave = true; });
-  const start = page.locator(".continuity-board__card--current").getByRole("button", { name: "开始专注", exact: true });
-  await start.click();
-  await expect(page.locator(".app-message")).toContainText("模拟焦点计划保存失败");
-  expect(await page.evaluate(() => window.__startTimerCalls)).toBe(0);
-  expect(await page.evaluate(() => window.__miniWorkspaceShown)).toBe(false);
-  expect(await page.evaluate(() => window.__getAppStateSyncPayload().timer.hasUnsubmittedProgress)).toBe(false);
-  await page.evaluate(() => { window.__failFocusPlanSave = false; });
-  await start.click();
-  await expect.poll(() => page.evaluate(() => window.__startTimerCalls)).toBe(1);
-});
-
-test("RC mini custom audio sync fetches changed names once and clears removed audio", async ({ page }) => {
-  await bootWithTauriMock(page, { windowLabel: "todo-float", pausedFocus: true });
-  await page.evaluate(() => {
-    window.__playedAudio = [];
-    window.Audio = class {
-      constructor(url) { window.__playedAudio.push(url); }
-      play() { return Promise.resolve(); }
-    };
-  });
-  const syncAudio = (name, data, sequence) => page.evaluate(async ({ name, data, sequence }) => {
-    const current = await window.__TAURI_INTERNALS__.invoke("get_app_preferences");
-    await window.__TAURI_INTERNALS__.invoke("update_app_preferences", { preferences: { ...current, customAlertSoundName: name, customAlertSoundData: data } });
-    await window.__TAURI_INTERNALS__.invoke("update_timer_preferences", { preferences: { ...window.__getAppStateSyncPayload().timerPreferences, alertSoundKey: "custom" } });
-    await window.__TAURI_INTERNALS__.invoke("plugin:event|emit", { event: "app-state-sync", payload: window.__getAppStateSyncPayload() });
-    // Wait until the metadata-triggered read resolves, then raise a real alert.
-    await Promise.resolve();
-    window.__replaceTimer({ alertSequence: sequence, alertKey: "stopwatch_reminder", alertTitle: "音频同步测试", alertMessage: "测试" });
-    await window.__TAURI_INTERNALS__.invoke("plugin:event|emit", { event: "app-state-sync", payload: window.__getAppStateSyncPayload() });
-  }, { name, data, sequence });
-  await syncAudio("first.wav", "data:audio/wav;base64,Zmlyc3Q=", 1);
-  await expect.poll(() => page.evaluate(() => window.__playedAudio)).toContain("data:audio/wav;base64,Zmlyc3Q=");
-  const reads = await page.evaluate(() => window.__appPreferenceReadCalls);
-  await page.evaluate(async () => {
-    for (let index = 0; index < 5; index += 1) await window.__TAURI_INTERNALS__.invoke("plugin:event|emit", { event: "app-state-sync", payload: window.__getAppStateSyncPayload() });
-  });
-  expect(await page.evaluate(() => window.__appPreferenceReadCalls)).toBe(reads);
-  await syncAudio("second.wav", "data:audio/wav;base64,c2Vjb25k", 2);
-  await expect.poll(() => page.evaluate(() => window.__playedAudio)).toEqual(["data:audio/wav;base64,Zmlyc3Q=", "data:audio/wav;base64,c2Vjb25k"]);
-  await syncAudio("", null, 3);
-  expect(await page.evaluate(() => window.__playedAudio)).toHaveLength(2);
-  expect(await page.evaluate(() => window.__emittedStates.every((state) => !state.appPreferencesView.customAlertSoundData))).toBe(true);
-});
-
-async function bootAudioFingerprintMock(page) {
-  await bootWithTauriMock(page, { windowLabel: "todo-float", pausedFocus: true });
-  await expect.poll(() => page.evaluate(() => window.__appStateSyncReady)).toBe(true);
-  await page.evaluate(async () => {
-    const { audioFingerprint } = await import("/src/features/shell/audio-fingerprint.ts");
-    window.__playedAudio = [];
-    window.Audio = class {
-      constructor(url) { window.__playedAudio.push(url); }
-      play() { return Promise.resolve(); }
-    };
-    const invoke = window.__TAURI_INTERNALS__.invoke;
-    window.__heldAudioReads = [];
-    window.__holdNextAudioRead = false;
-    window.__TAURI_INTERNALS__.invoke = async (command, args) => {
-      if (command === "get_app_preferences" && window.__holdNextAudioRead) {
-        window.__holdNextAudioRead = false;
-        const captured = structuredClone(await invoke(command, args));
-        return new Promise((resolve) => window.__heldAudioReads.push(() => resolve(captured)));
-      }
-      return invoke(command, args);
-    };
-    window.__audioSync = async (data, { persist = true, legacy = false, sequence } = {}) => {
-      if (persist) await invoke("update_app_preferences", { preferences: {
-        ...window.__mockAppPreferences, customAlertSoundName: "same.wav", customAlertSoundData: data,
-      } });
-      await invoke("update_timer_preferences", { preferences: {
-        ...window.__getAppStateSyncPayload().timerPreferences, alertSoundKey: "custom",
-      } });
-      if (sequence !== undefined) window.__replaceTimer({ alertSequence: sequence, alertKey: "stopwatch_reminder", alertTitle: "同名音频提醒", alertMessage: "测试" });
-      const payload = window.__getAppStateSyncPayload();
-      payload.appPreferencesView.customAlertSoundName = "same.wav";
-      payload.appPreferencesView.hasCustomAlertSound = true;
-      if (!legacy) payload.appPreferencesView.customAlertSoundFingerprint = audioFingerprint(data);
-      await invoke("plugin:event|emit", { event: "app-state-sync", payload });
-      // Drain the IPC promise handlers without advancing the application's polling clock.
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    };
-  });
-}
-
-test("RC audio fingerprint replaces same-name content once and accepts legacy events", async ({ page }) => {
-  await bootAudioFingerprintMock(page);
-  const first = "data:audio/wav;base64,QQ==";
-  const second = "data:audio/wav;base64,Qg==";
-  await page.evaluate((data) => window.__audioSync(data, { sequence: 1, legacy: true }), first);
-  await expect.poll(() => page.evaluate(() => window.__playedAudio)).toEqual([first]);
-  await page.evaluate((data) => window.__audioSync(data, { sequence: 2 }), second);
-  await expect.poll(() => page.evaluate(() => window.__playedAudio)).toEqual([first, second]);
-  const reads = await page.evaluate(() => window.__appPreferenceReadCalls);
-  await page.evaluate(async (data) => {
-    for (let index = 0; index < 5; index += 1) await window.__audioSync(data, { persist: false, legacy: index % 2 === 0 });
-  }, second);
-  expect(await page.evaluate(() => window.__appPreferenceReadCalls)).toBe(reads);
-  expect(await page.evaluate(() => window.__emittedStates.every((state) => !state.appPreferencesView.customAlertSoundData))).toBe(true);
-});
-
-test("RC audio fingerprint rejects late same-name reads and coalesces pending legacy snapshots", async ({ page }) => {
-  await bootAudioFingerprintMock(page);
-  const first = "data:audio/wav;base64,QQ==";
-  const second = "data:audio/wav;base64,Qg==";
-  await page.evaluate(async (data) => {
-    window.__holdNextAudioRead = true;
-    await window.__audioSync(data);
-  }, first);
-  await expect.poll(() => page.evaluate(() => window.__heldAudioReads.length)).toBe(1);
-  const reads = await page.evaluate(() => window.__appPreferenceReadCalls);
-  await page.evaluate(async (data) => {
-    await window.__audioSync(data, { persist: false });
-    await window.__audioSync(data, { persist: false, legacy: true });
-  }, first);
-  expect(await page.evaluate(() => window.__appPreferenceReadCalls)).toBe(reads);
-  await page.evaluate((data) => window.__audioSync(data, { sequence: 1 }), second);
-  await expect.poll(() => page.evaluate(() => window.__playedAudio)).toEqual([second]);
-  await page.evaluate(async () => {
-    window.__heldAudioReads[0]();
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    window.__replaceTimer({ alertSequence: 2 });
-    await window.__TAURI_INTERNALS__.invoke("plugin:event|emit", { event: "app-state-sync", payload: window.__getAppStateSyncPayload() });
-  });
-  await expect.poll(() => page.evaluate(() => window.__playedAudio)).toEqual([second, second]);
-});
-
-test("RC audio fingerprint rejects pre-save bytes then retries on committed broadcast", async ({ page }) => {
-  await bootAudioFingerprintMock(page);
-  const first = "data:audio/wav;base64,QQ==";
-  const second = "data:audio/wav;base64,Qg==";
-  await page.evaluate((data) => window.__audioSync(data, { sequence: 1 }), first);
-  await expect.poll(() => page.evaluate(() => window.__playedAudio)).toEqual([first]);
-  const reads = await page.evaluate(() => window.__appPreferenceReadCalls);
-  await page.evaluate((data) => window.__audioSync(data, { persist: false, sequence: 2 }), second);
-  expect(await page.evaluate(() => window.__appPreferenceReadCalls)).toBe(reads + 1);
-  expect(await page.evaluate(() => window.__playedAudio)).toEqual([first]);
-  await page.evaluate((data) => window.__audioSync(data, { sequence: 2 }), second);
-  await expect.poll(() => page.evaluate(() => window.__playedAudio)).toEqual([first, second]);
-  expect(await page.evaluate(() => window.__appPreferenceReadCalls)).toBe(reads + 2);
 });

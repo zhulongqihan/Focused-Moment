@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-solid";
 import {
+  closeMainWindow,
   lockFocusFloating,
   lockFloatingTodos,
   minimizeMainWindow,
@@ -36,6 +37,7 @@ import {
   formatDurationMs,
   formatRecordDate,
   formatRecordDay,
+  getToday,
 } from "./features/shared/date-utils";
 import { formatTodoDue, importanceLabel } from "./features/todos/derived";
 import {
@@ -97,10 +99,6 @@ function MainShell() {
     portableBackupPath,
     setPortableBackupPath,
     portableBackupPreview,
-    restorePortableTodos,
-    setRestorePortableTodos,
-    restorePortableRecords,
-    setRestorePortableRecords,
     restorePortableAppPreferences,
     setRestorePortableAppPreferences,
     commandPaletteOpen,
@@ -121,14 +119,9 @@ function MainShell() {
     setFloatingOpacityPanelOpen,
     selectedArchiveDate,
     setSelectedArchiveDate,
-    todayDate,
-    selectedSearchRecordId,
-    selectedSearchRecordTitle,
-    visibleRecords,
     recordTaskFilterId,
     recordTaskFilterTitle,
     clearRecordTaskFilter,
-    closeMainWindowAfterSave,
     themeId,
     visualIntensity,
     motionIntensity,
@@ -713,7 +706,7 @@ function MainShell() {
               class="window-control window-control--close"
               aria-label="关闭窗口"
               title="关闭窗口（隐藏到托盘）"
-              onClick={() => void closeMainWindowAfterSave()}
+              onClick={() => void closeMainWindow()}
             >
               <X size={15} strokeWidth={1.8} aria-hidden="true" />
             </button>
@@ -850,13 +843,11 @@ function MainShell() {
               </button>
             </div>
           </Show>
-          <Show when={activeView() === "records" && (recordTaskFilterId() !== null || selectedSearchRecordId() !== null)}>
+          <Show when={activeView() === "records" && recordTaskFilterId() !== null}>
             <div class="records-task-filter" role="status">
-              <span>{selectedSearchRecordId() !== null ? "正在回顾记录：" : "正在回顾任务："}<strong>{selectedSearchRecordId() !== null ? selectedSearchRecordTitle() : recordTaskFilterTitle()}</strong> · {visibleRecords().length} 条匹配记录</span>
-              <span>列表和时段分布按筛选展示；累计统计与七日趋势仍包含全部记录。</span>
-              <Show when={visibleRecords().length === 0}><span>没有匹配的专注记录。</span></Show>
+              <span>正在回顾任务：<strong>{recordTaskFilterTitle()}</strong></span>
               <button type="button" class="text-button" onClick={clearRecordTaskFilter}>
-                {selectedSearchRecordId() !== null ? "清除记录筛选" : "清除任务筛选"}
+                清除任务筛选
               </button>
             </div>
           </Show>
@@ -864,8 +855,8 @@ function MainShell() {
             activeView={() => activeView()}
             themeId={() => themeId()}
             today={{
-              todayDate: todayDate(),
-              todayLabel: formatAnalyticsDate(todayDate()),
+              todayDate: getToday(),
+              todayLabel: formatAnalyticsDate(getToday()),
               timer: () => timer(),
               ready,
               busy,
@@ -875,7 +866,7 @@ function MainShell() {
               currentTodo,
               todayPickTodos,
               todayPickIds: () => focusPlan().todayPickIds,
-              planTodos: () => pendingTodos().filter((item) => item.scheduledDate === todayDate() || item.scheduledDate === ""),
+              planTodos: () => pendingTodos().filter((item) => item.scheduledDate === getToday() || item.scheduledDate === ""),
               todayTodos,
               todayCompletedTodos,
               records: () => records(),
@@ -963,7 +954,7 @@ function MainShell() {
             }}
             records={{
               analytics: () => analytics(),
-              records: () => visibleRecords(),
+              records: () => records(),
               archiveDays: () => archiveDays(),
               archivePath: () => archivePath(),
               selectedArchiveDate: () => selectedArchiveDate(),
@@ -981,10 +972,7 @@ function MainShell() {
               formatRecordDate,
               formatRecordDay,
               formatDurationMs,
-              onSelectDate: (date) => {
-                clearRecordTaskFilter();
-                setSelectedArchiveDate(date);
-              },
+              onSelectDate: setSelectedArchiveDate,
               onBeginEdit: beginEditRecord,
               onBeginDetailedEdit: beginDetailedRecordEdit,
               onPatchEdit: patchEditingRecordTitle,
@@ -1034,16 +1022,12 @@ function MainShell() {
             <PortableBackupPanel
               path={portableBackupPath()}
               preview={portableBackupPreview()}
-              restoreTodos={restorePortableTodos()}
-              restoreRecords={restorePortableRecords()}
               restoreAppPreferences={restorePortableAppPreferences()}
               busy={busy()}
               onPathChange={setPortableBackupPath}
               onPreview={previewPortableBackup}
               onExport={exportPortableBackup}
               onImport={importPortableBackup}
-              onRestoreTodosChange={setRestorePortableTodos}
-              onRestoreRecordsChange={setRestorePortableRecords}
               onRestoreAppPreferencesChange={setRestorePortableAppPreferences}
             />
           </Show>
@@ -1059,7 +1043,7 @@ function MainShell() {
           <ManualFocusRecordDialog
             open={manualRecordOpen}
             busy={busy}
-            todayDate={todayDate()}
+            todayDate={getToday()}
             todos={() => todos()}
             onSubmit={async (payload) => {
               if (await createManualRecord(payload)) closeManualRecord();

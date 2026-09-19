@@ -185,9 +185,7 @@ export default function CommandPalette(props: CommandPaletteProps) {
                     id={`command-palette-option-${command.id}`}
                     tabIndex={-1}
                     aria-selected={index() === activeIndex()}
-                    // Refreshes can replace the row under a stationary pointer.
-                    // Only actual mouse movement should override keyboard selection.
-                    onMouseMove={() => setActiveIndex(index())}
+                    onMouseEnter={() => setActiveIndex(index())}
                     onFocus={() => setActiveIndex(index())}
                     onClick={() => props.onExecute(command.id)}
                   >

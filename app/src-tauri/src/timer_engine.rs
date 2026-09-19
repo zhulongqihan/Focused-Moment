@@ -59,7 +59,7 @@ pub(crate) struct CompletedSession {
     pub(crate) complete_linked_todo_on_finish: bool,
 }
 
-pub(crate) fn normalize_focus_plan(
+fn normalize_focus_plan(
     mut plan: FocusPlanState,
     todo_items: &[TodoItem],
     seed_picks: bool,
@@ -99,12 +99,8 @@ pub(crate) fn normalize_focus_plan(
 
 impl TimerEngineState {
     pub(crate) fn new() -> Self {
-        Self::with_persistence(PersistenceStore::new())
-    }
-
-    pub(crate) fn with_persistence(store: Result<PersistenceStore, String>) -> Self {
         let mut startup_error = None;
-        let persistence = match store {
+        let persistence = match PersistenceStore::new() {
             Ok(store) => Some(store),
             Err(error) => {
                 let message = format!(
@@ -141,57 +137,27 @@ impl TimerEngineState {
         let should_migrate_persisted_storage = startup_error.is_none()
             && (persisted.schema_version < CURRENT_STORAGE_SCHEMA_VERSION
                 || persisted_runtime.schema_version < CURRENT_STORAGE_SCHEMA_VERSION);
-        if persisted.schema_version > CURRENT_STORAGE_SCHEMA_VERSION
-            || persisted_runtime.schema_version > CURRENT_STORAGE_SCHEMA_VERSION
-        {
-            startup_error =
-                Some("本地数据来自更新版本，已进入恢复保护状态，未覆盖原文件。".to_string());
-        }
 
         let PersistedState {
             schema_version,
-            focus_records,
+            mut focus_records,
             next_record_id,
-            todo_items,
+            mut todo_items,
             next_todo_id,
             timer_preferences,
             app_preferences,
             focus_plan,
         } = persisted;
 
-        if let Err(error) =
-            validate_persisted_id(next_record_id).and_then(|_| validate_persisted_id(next_todo_id))
-        {
-            startup_error = Some(format!("本地数据编号无效，已进入恢复保护状态：{error}"));
-        }
-
-        let (mut todo_items, mut focus_records) = if startup_error.is_none() {
-            match normalize_persisted_collections(todo_items, focus_records) {
-                Ok(collections) => collections,
-                Err(error) => {
-                    let message = format!(
-                        "本地数据未加载：状态内容无效（{error}）。为避免覆盖有效数据，应用已进入恢复保护状态；请修复数据或备份后重启。"
-                    );
-                    eprintln!("{message}");
-                    startup_error = Some(message);
-                    (Vec::new(), Vec::new())
-                }
-            }
-        } else {
-            (Vec::new(), Vec::new())
-        };
-
         sort_focus_records(&mut focus_records);
         sort_todo_items(&mut todo_items);
 
-        let normalized_preferences = timer_preferences.normalized().unwrap_or_else(|error| {
-            startup_error = Some(format!("本地计时设置无效，已进入恢复保护状态：{error}"));
-            TimerPreferences::default()
-        });
-        let normalized_app_preferences = app_preferences.normalized().unwrap_or_else(|error| {
-            startup_error = Some(format!("本地应用设置无效，已进入恢复保护状态：{error}"));
-            AppPreferences::default()
-        });
+        let normalized_preferences = timer_preferences
+            .normalized()
+            .unwrap_or_else(|_| TimerPreferences::default());
+        let normalized_app_preferences = app_preferences
+            .normalized()
+            .unwrap_or_else(|_| AppPreferences::default());
         let normalized_focus_plan = normalize_focus_plan(
             focus_plan,
             &todo_items,
@@ -428,24 +394,14 @@ impl TimerEngineState {
         &self,
         backup: AppBackupFile,
     ) -> Result<BackupImportResult, String> {
-        self.apply_backup_file_with_options(
-            backup,
-            BackupImportOptions {
-                restore_todos: true,
-                restore_records: true,
-                restore_app_preferences: true,
-            },
-        )
+        self.apply_backup_file_with_options(backup, true)
     }
 
     pub(crate) fn apply_backup_file_with_options(
         &self,
         backup: AppBackupFile,
-        options: BackupImportOptions,
+        restore_app_preferences: bool,
     ) -> Result<BackupImportResult, String> {
-        if !options.restore_todos && !options.restore_records && !options.restore_app_preferences {
-            return Err("请至少选择一项要恢复的内容。".to_string());
-        }
         let seed_legacy_focus_plan = backup.format_version < APP_BACKUP_FORMAT_VERSION
             || backup.schema_version < CURRENT_STORAGE_SCHEMA_VERSION
             || backup.state.schema_version < CURRENT_STORAGE_SCHEMA_VERSION;
@@ -462,8 +418,7 @@ impl TimerEngineState {
 
         debug_assert_eq!(kind, APP_BACKUP_KIND);
 
-        let current = self.snapshot_bundle()?;
-        let imported_preferences = state
+        let normalized_preferences = state
             .timer_preferences
             .normalized()
             .map_err(|_| "备份中的计时设置不合法，无法恢复。".to_string())?;
@@ -472,89 +427,32 @@ impl TimerEngineState {
             .clone()
             .normalized()
             .map_err(|_| "备份中的应用设置不合法，无法恢复。".to_string())?;
-        let mut normalized_app_preferences = if options.restore_app_preferences {
+        let normalized_app_preferences = if restore_app_preferences {
             imported_app_preferences
         } else {
-            current.state.app_preferences.clone()
+            self.app_preferences
+                .lock()
+                .map_err(|_| "应用设置状态锁定失败".to_string())?
+                .clone()
         };
-        if seed_legacy_focus_plan && normalized_app_preferences.custom_alert_sound_data.is_none() {
-            normalized_app_preferences.custom_alert_sound_data = current
-                .state
-                .app_preferences
-                .custom_alert_sound_data
-                .clone();
-            normalized_app_preferences.custom_alert_sound_name = current
-                .state
-                .app_preferences
-                .custom_alert_sound_name
-                .clone();
-        }
-        // Validate the complete file without prematurely clearing references against
-        // its todos: a records-only restore must resolve against the retained todos.
-        normalize_persisted_collections(state.todo_items.clone(), state.focus_records.clone())?;
-
-        let mut todo_items = if options.restore_todos {
-            state.todo_items
-        } else {
-            current.state.todo_items.clone()
-        };
-        let mut focus_records = if options.restore_records {
-            state.focus_records
-        } else {
-            current.state.focus_records.clone()
-        };
-        (todo_items, focus_records) = normalize_persisted_collections(todo_items, focus_records)?;
-        sort_todo_items(&mut todo_items);
+        let mut focus_records = state.focus_records;
+        let mut todo_items = state.todo_items;
         sort_focus_records(&mut focus_records);
-
-        let normalized_focus_plan = if options.restore_todos {
-            normalize_focus_plan(state.focus_plan, &todo_items, seed_legacy_focus_plan)
-        } else {
-            normalize_focus_plan(current.state.focus_plan.clone(), &todo_items, false)
-        };
-        let mut normalized_preferences = if options.restore_app_preferences {
-            imported_preferences
-        } else {
-            current.state.timer_preferences
-        };
-        if normalized_preferences.alert_sound_key == AlertSoundKey::Custom
-            && normalized_app_preferences.custom_alert_sound_data.is_none()
-        {
-            normalized_preferences.alert_sound_key = AlertSoundKey::SoftChime;
-        }
-        // A partial business restore must not replace an unrelated active session.
-        // Full business restore includes the backed-up session; settings remain opt-in.
-        let restore_runtime = options.restore_todos && options.restore_records;
-        let mut normalized_runtime = if restore_runtime {
-            normalize_imported_runtime(runtime, &todo_items, normalized_preferences)
-        } else {
-            normalize_imported_runtime(current.runtime.clone(), &todo_items, normalized_preferences)
-        };
+        sort_todo_items(&mut todo_items);
+        let normalized_focus_plan =
+            normalize_focus_plan(state.focus_plan, &todo_items, seed_legacy_focus_plan);
+        let mut normalized_runtime =
+            normalize_imported_runtime(runtime, &todo_items, normalized_preferences);
 
         {
             let mut timer = self
                 .timer
                 .lock()
                 .map_err(|_| "计时引擎状态锁定失败".to_string())?;
-            if restore_runtime {
-                *timer = TimerEngine::from_persisted_runtime(
-                    normalized_runtime.clone(),
-                    normalized_preferences,
-                );
-            } else {
-                // Preserve the live monotonic anchor, elapsed time and alert state.
-                // Rebuilding from a snapshot here could resume/re-anchor a session.
-                if options.restore_app_preferences {
-                    timer.apply_preferences(normalized_preferences);
-                }
-                if timer.linked_todo_id.is_some_and(|id| {
-                    !todo_items
-                        .iter()
-                        .any(|item| item.id == id && !item.is_completed)
-                }) {
-                    timer.linked_todo_id = None;
-                }
-            }
+            *timer = TimerEngine::from_persisted_runtime(
+                normalized_runtime.clone(),
+                normalized_preferences,
+            );
             normalized_runtime = timer.persisted_runtime_state();
         }
 
@@ -586,16 +484,9 @@ impl TimerEngineState {
                 .next_record_id
                 .lock()
                 .map_err(|_| "记录编号状态锁定失败".to_string())?;
-            *next_record_id = if options.restore_records {
-                state
-                    .next_record_id
-                    .max(next_focus_record_id(&focus_records))
-            } else {
-                current
-                    .state
-                    .next_record_id
-                    .max(next_focus_record_id(&focus_records))
-            };
+            *next_record_id = state
+                .next_record_id
+                .max(next_focus_record_id(&focus_records));
         }
 
         {
@@ -611,14 +502,7 @@ impl TimerEngineState {
                 .next_todo_id
                 .lock()
                 .map_err(|_| "任务编号状态锁定失败".to_string())?;
-            *next_todo_id = if options.restore_todos {
-                state.next_todo_id.max(next_todo_id_value(&todo_items))
-            } else {
-                current
-                    .state
-                    .next_todo_id
-                    .max(next_todo_id_value(&todo_items))
-            };
+            *next_todo_id = state.next_todo_id.max(next_todo_id_value(&todo_items));
         }
         {
             let mut focus_plan = self
@@ -635,16 +519,15 @@ impl TimerEngineState {
             rollback_file_name: String::new(),
             focus_record_count: focus_records.len(),
             todo_count: todo_items.len(),
-            restored_runtime_session: restore_runtime
-                && (normalized_runtime.is_running
-                    || normalized_runtime.stopwatch_elapsed_ms > 0
-                    || normalized_runtime.countdown_elapsed_ms > 0
-                    || normalized_runtime.pomodoro_elapsed_ms > 0
-                    || normalized_runtime.pending_pomodoro_record_ms.is_some()
-                    || !normalized_runtime.current_task_title.trim().is_empty()
-                    || normalized_runtime.linked_todo_id.is_some()),
+            restored_runtime_session: normalized_runtime.is_running
+                || normalized_runtime.stopwatch_elapsed_ms > 0
+                || normalized_runtime.countdown_elapsed_ms > 0
+                || normalized_runtime.pomodoro_elapsed_ms > 0
+                || normalized_runtime.pending_pomodoro_record_ms.is_some()
+                || !normalized_runtime.current_task_title.trim().is_empty()
+                || normalized_runtime.linked_todo_id.is_some(),
             migrated_from_format_version,
-            restored_app_preferences: options.restore_app_preferences,
+            restored_app_preferences: restore_app_preferences,
         })
     }
 
@@ -698,8 +581,26 @@ impl TimerEngineState {
         };
         let current = self.snapshot_bundle()?;
 
-        if let Err(error) = store.save_bundle(&current.state, &current.runtime) {
+        if let Err(error) = store.save(&current.state) {
             let rollback_errors = self.restore_bundle(&previous).err().into_iter().collect();
+            return Err(Self::format_persistence_failure(
+                "保存本地状态与运行态",
+                error,
+                rollback_errors,
+            ));
+        }
+
+        if let Err(error) = store.save_runtime(&current.runtime) {
+            let mut rollback_errors = Vec::new();
+            if let Err(rollback_error) = store.save(&previous.state) {
+                rollback_errors.push(format!("磁盘状态回退失败：{rollback_error}"));
+            }
+            if let Err(rollback_error) = store.save_runtime(&previous.runtime) {
+                rollback_errors.push(format!("磁盘运行态回退失败：{rollback_error}"));
+            }
+            if let Err(rollback_error) = self.restore_bundle(&previous) {
+                rollback_errors.push(format!("内存状态回退失败：{rollback_error}"));
+            }
             return Err(Self::format_persistence_failure(
                 "保存本地状态与运行态",
                 error,

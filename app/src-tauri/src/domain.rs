@@ -29,7 +29,7 @@ pub(crate) struct TimerPreferences {
     pub(crate) alert_sound_key: AlertSoundKey,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum AlertSoundKey {
     SoftChime,

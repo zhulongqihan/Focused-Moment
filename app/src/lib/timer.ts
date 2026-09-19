@@ -164,8 +164,6 @@ export async function exportAppBackupToPath(path: string) {
 export async function importAppBackupPath(path: string, options: BackupImportOptions) {
   return invoke<BackupImportResult>("import_app_backup_path", {
     path,
-    restoreTodos: options.restoreTodos,
-    restoreRecords: options.restoreRecords,
     restoreAppPreferences: options.restoreAppPreferences,
   });
 }

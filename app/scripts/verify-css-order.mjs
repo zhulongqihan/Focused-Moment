@@ -3,8 +3,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
-const sourceCssSha256 = "646F193069898745892C48B363CE03590104ECB8007E457995FF26E081D11140";
-const sourceCssLength = 445703;
+const sourceCssSha256 = "948706D48171384A74E02026942CC55DEE4C174926DB1BFBF2B8654B401B089C";
+const sourceCssLength = 444986;
 const modules = [
   ["00-foundation.css", 1, 900],
   ["10-trail-reference.css", 901, 3175],

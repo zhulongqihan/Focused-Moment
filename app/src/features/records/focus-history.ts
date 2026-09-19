@@ -43,7 +43,7 @@ export function buildFocusHistoryResults(
     const linked = records.filter((record) => record.linkedTodoId === todo.id);
     const durationMs = linked.reduce((total, record) => total + record.durationMs, 0);
     const latest = linked[0];
-    const searchable = `${todo.title} ${todo.scheduledDate} ${todo.scheduledTime}`;
+    const searchable = `${todo.title} ${todo.scheduledDate} ${todo.scheduledTime} ${todo.continuationNote}`;
     if (!matches(searchable, normalizedQuery)) continue;
     results.push({
       id: `history-task-${todo.id}`,
@@ -52,13 +52,13 @@ export function buildFocusHistoryResults(
       recordId: null,
       date: null,
       label: `任务：${todo.title}`,
-      detail: `${todo.scheduledDate || "收件箱"} ${todo.scheduledTime} · ${linked.length} 轮 · ${formatMinutes(durationMs)} · 最近 ${latest ? `${recordDate(latest)} ${latest.completedTime || "未填写时间"}` : "暂无记录"}${todo.continuationNote ? ` · 停笔书签：${todo.continuationNote}` : ""}`,
+      detail: `${linked.length} 轮 · ${formatMinutes(durationMs)} · 最近 ${latest ? `${recordDate(latest)} ${latest.completedTime || "未填写时间"}` : "暂无记录"}${todo.continuationNote ? ` · 下次：${todo.continuationNote}` : ""}`,
     });
   }
 
   for (const record of records) {
     const date = recordDate(record);
-    const searchable = `${record.title} ${record.linkedTodoTitle ?? ""} ${date} ${record.completedTime}`;
+    const searchable = `${record.title} ${record.linkedTodoTitle ?? ""} ${date} ${record.completedTime} ${record.durationLabel}`;
     if (!matches(searchable, normalizedQuery)) continue;
     results.push({
       id: `history-record-${record.id}`,
@@ -92,6 +92,5 @@ export function buildFocusHistoryResults(
     });
   }
 
-  // Date navigation must remain available even when one day has many records.
-  return [...results.filter((result) => result.kind === "date"), ...results.filter((result) => result.kind !== "date")].slice(0, 20);
+  return results.slice(0, 20);
 }

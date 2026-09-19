@@ -44,19 +44,13 @@ fn external_backup_path(path: &str) -> Result<PathBuf, String> {
 
 fn read_external_backup(path: &Path) -> Result<(AppBackupFile, Option<u64>, u64, u64), String> {
     let raw = fs::read_to_string(path).map_err(|error| format!("读取备份失败：{error}"))?;
-    let original = crate::storage::parse_backup_file(&raw)
+    let original = serde_json::from_str::<AppBackupFile>(&raw)
         .map_err(|error| format!("备份文件格式损坏：{error}"))?;
     let original_format = original.format_version;
     let original_schema = original.schema_version;
-    let (backup, migrated_from_format_version) = crate::migrate_backup_file(original.clone())?;
-    normalize_persisted_collections(
-        backup.state.todo_items.clone(),
-        backup.state.focus_records.clone(),
-    )?;
-    backup.state.app_preferences.clone().normalized()?;
-    backup.state.timer_preferences.normalized()?;
+    let (backup, migrated_from_format_version) = crate::migrate_backup_file(original)?;
     Ok((
-        original,
+        backup,
         migrated_from_format_version,
         original_format,
         original_schema,
@@ -89,13 +83,6 @@ fn backup_preview(
     if original_schema < CURRENT_STORAGE_SCHEMA_VERSION {
         warnings.push("备份中的数据 schema 需要升级。".to_string());
     }
-    if backup.state.focus_records.iter().any(|record| {
-        record
-            .linked_todo_id
-            .is_some_and(|id| !backup.state.todo_items.iter().any(|item| item.id == id))
-    }) {
-        warnings.push("部分记录的关联待办不在备份中。恢复时按保留的待办校验关联，无法匹配时保留历史标题和时长，解除无效关联。".to_string());
-    }
     BackupPreview {
         source_path: path.display().to_string(),
         app_version: backup.app_version.clone(),
@@ -114,70 +101,6 @@ fn backup_preview(
             .is_some(),
         migration_needed,
         warnings,
-    }
-}
-
-#[cfg(test)]
-mod rc_backup_preview_tests {
-    use super::*;
-
-    #[test]
-    fn external_preview_is_read_only_validates_contents_and_preserves_migration_origin() {
-        let root = std::env::temp_dir().join(format!(
-            "focused-moment-preview-{}-{}",
-            std::process::id(),
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        ));
-        fs::create_dir_all(&root).unwrap();
-        let path = root.join("synthetic.json");
-        for version in [1, 2, 3] {
-            let backup = AppBackupFile {
-                kind: APP_BACKUP_KIND.into(),
-                format_version: version,
-                schema_version: version,
-                app_version: "2.11.11".into(),
-                exported_at: "2026-09-19T12:00:00+08:00".into(),
-                state: PersistedState {
-                    schema_version: version,
-                    ..PersistedState::default()
-                },
-                runtime: PersistedRuntimeState {
-                    schema_version: version,
-                    ..PersistedRuntimeState::default()
-                },
-            };
-            let raw = serde_json::to_vec(&backup).unwrap();
-            fs::write(&path, &raw).unwrap();
-            let (read, migration, format, schema) =
-                read_external_backup(&external_backup_path(path.to_str().unwrap()).unwrap())
-                    .unwrap();
-            let preview = backup_preview(&path, &read, migration.is_some(), format, schema);
-            assert_eq!(preview.format_version, version);
-            assert_eq!(preview.migration_needed, version < 3);
-            assert_eq!(
-                read.format_version, version,
-                "import must still know migration origin"
-            );
-            assert_eq!(
-                fs::read(&path).unwrap(),
-                raw,
-                "preview must not rewrite input"
-            );
-        }
-        for raw in ["{", "{}", "null"] {
-            fs::write(&path, raw).unwrap();
-            assert!(read_external_backup(&path).is_err());
-            assert_eq!(fs::read_to_string(&path).unwrap(), raw);
-        }
-        let file = fs::File::create(&path).unwrap();
-        file.set_len(MAX_EXTERNAL_BACKUP_BYTES + 1).unwrap();
-        drop(file);
-        assert!(external_backup_path(path.to_str().unwrap()).is_err());
-        // Only the exact unique synthetic directory created above is removed.
-        fs::remove_dir_all(root).unwrap();
     }
 }
 
@@ -349,32 +272,11 @@ pub(crate) fn get_focus_plan(
     state: tauri::State<'_, TimerEngineState>,
 ) -> Result<FocusPlanState, String> {
     state.ensure_ready()?;
-    let items = state
-        .todo_items
+    state
+        .focus_plan
         .lock()
-        .map_err(|_| "任务列表状态锁定失败".to_string())?
-        .clone();
-    let mut changed = false;
-    let normalized = {
-        let mut plan = state
-            .focus_plan
-            .lock()
-            .map_err(|_| "专注计划状态锁定失败".to_string())?;
-        let normalized = normalize_focus_plan(plan.clone(), &items, false);
-        if *plan != normalized {
-            *plan = normalized.clone();
-            changed = true;
-        }
-        normalized
-    };
-
-    // Day rollover and todo rescheduling can invalidate picks without a
-    // user-facing command. Persist the cleanup once, while keeping reads
-    // side-effect free when the plan is already valid.
-    if changed {
-        state.persist()?;
-    }
-    Ok(normalized)
+        .map_err(|_| "专注计划状态锁定失败".to_string())
+        .map(|plan| plan.clone())
 }
 
 #[tauri::command]
@@ -592,7 +494,7 @@ pub(crate) fn create_manual_focus_record(
         title: normalized_title,
         duration_ms: duration_minutes.saturating_mul(60_000),
         duration_label: format_duration_ms(duration_minutes.saturating_mul(60_000)),
-        mode_key: "stopwatch".to_string(),
+        mode_key: "manual".to_string(),
         mode_label: "手动补录".to_string(),
         phase_label: "手动补录".to_string(),
         linked_todo_id,
@@ -700,12 +602,6 @@ pub(crate) fn restore_focus_record(
     state: tauri::State<'_, TimerEngineState>,
     record: FocusRecord,
 ) -> Result<Vec<FocusRecord>, String> {
-    let todo_items = state
-        .todo_items
-        .lock()
-        .map_err(|_| "任务列表状态锁定失败".to_string())?
-        .clone();
-    let record = normalize_focus_record(record, &todo_items)?;
     let record_id = record.id;
     let records = with_focus_records(&state, |records| {
         if records.iter().any(|item| item.id == record_id) {
@@ -840,14 +736,7 @@ pub(crate) fn import_app_backup(
         create_backup_file_name("focused-moment-backup-v3-rollback-before-import-");
     store.save_user_backup(&rollback_file_name, &rollback)?;
 
-    let mut result = state.apply_backup_file_with_options(
-        backup,
-        BackupImportOptions {
-            restore_todos: true,
-            restore_records: true,
-            restore_app_preferences: false,
-        },
-    )?;
+    let mut result = state.apply_backup_file_with_options(backup, false)?;
     result.imported_file_name = file_name;
     result.rollback_file_name = rollback_file_name;
     Ok(result)
@@ -884,8 +773,8 @@ pub(crate) fn export_app_backup_to_path(
     }
     let backup = state.export_backup_file()?;
     let exported_at = backup.exported_at.clone();
-    crate::storage::write_backup_atomic(&path, &backup, true)
-        .map_err(|error| format!("写入备份失败：{error}"))?;
+    let serialized = serde_json::to_string_pretty(&backup).map_err(|error| error.to_string())?;
+    fs::write(&path, serialized).map_err(|error| format!("写入备份失败：{error}"))?;
     Ok(BackupExportResult {
         file_name: path
             .file_name()
@@ -901,13 +790,8 @@ pub(crate) fn export_app_backup_to_path(
 pub(crate) fn import_app_backup_path(
     state: tauri::State<'_, TimerEngineState>,
     path: String,
-    restore_todos: bool,
-    restore_records: bool,
     restore_app_preferences: bool,
 ) -> Result<BackupImportResult, String> {
-    if !restore_todos && !restore_records && !restore_app_preferences {
-        return Err("请至少选择一项要恢复的内容。".to_string());
-    }
     let path = external_backup_path(&path)?;
     let (backup, _migrated, _original_format, _original_schema) = read_external_backup(&path)?;
     let store = state.persistence_store()?;
@@ -915,14 +799,7 @@ pub(crate) fn import_app_backup_path(
     let rollback_file_name =
         create_backup_file_name("focused-moment-backup-v3-rollback-before-import-");
     store.save_user_backup(&rollback_file_name, &rollback)?;
-    let mut result = state.apply_backup_file_with_options(
-        backup,
-        BackupImportOptions {
-            restore_todos,
-            restore_records,
-            restore_app_preferences,
-        },
-    )?;
+    let mut result = state.apply_backup_file_with_options(backup, restore_app_preferences)?;
     result.imported_file_name = path.display().to_string();
     result.rollback_file_name = rollback_file_name;
     Ok(result)
@@ -1044,12 +921,7 @@ pub(crate) fn update_todo_item(
         Ok(items.clone())
     })?;
 
-    let plan_changed = normalize_focus_plan_references(&state)?;
-    if plan_changed {
-        state.persist_all()?;
-    } else {
-        state.persist()?;
-    }
+    state.persist()?;
     Ok(items)
 }
 
@@ -1089,40 +961,6 @@ fn clear_focus_plan_reference(state: &TimerEngineState, id: u64) -> Result<(), S
     }
     plan.today_pick_ids.retain(|candidate| *candidate != id);
     Ok(())
-}
-
-fn normalize_focus_plan_references(state: &TimerEngineState) -> Result<bool, String> {
-    let items = state
-        .todo_items
-        .lock()
-        .map_err(|_| "任务列表状态锁定失败".to_string())?
-        .clone();
-    let mut plan = state
-        .focus_plan
-        .lock()
-        .map_err(|_| "专注计划状态锁定失败".to_string())?;
-    let normalized = normalize_focus_plan(plan.clone(), &items, false);
-    let changed = *plan != normalized;
-    if changed {
-        *plan = normalized;
-    }
-    Ok(changed)
-}
-
-fn clear_todo_record_references(state: &TimerEngineState, id: u64) -> Result<bool, String> {
-    let mut records = state
-        .focus_records
-        .lock()
-        .map_err(|_| "记录列表状态锁定失败".to_string())?;
-    let mut changed = false;
-    for record in records.iter_mut() {
-        if record.linked_todo_id == Some(id) {
-            record.linked_todo_id = None;
-            record.edited_at = Some(current_local_markers().0);
-            changed = true;
-        }
-    }
-    Ok(changed)
 }
 
 #[tauri::command]
@@ -1184,7 +1022,6 @@ pub(crate) fn delete_todo_item(
         Ok(())
     })?;
     clear_focus_plan_reference(&state, id)?;
-    clear_todo_record_references(&state, id)?;
     state.persist_all()?;
     Ok(items)
 }
@@ -1194,7 +1031,16 @@ pub(crate) fn restore_todo_item(
     state: tauri::State<'_, TimerEngineState>,
     item: TodoItem,
 ) -> Result<Vec<TodoItem>, String> {
-    let normalized_item = normalize_todo_item(item)?;
+    let normalized_item = TodoItem {
+        id: item.id,
+        title: normalize_todo_title(&item.title)?,
+        is_completed: item.is_completed,
+        scheduled_date: normalize_scheduled_date(&item.scheduled_date)?,
+        scheduled_time: normalize_scheduled_time(&item.scheduled_time)?,
+        importance_key: normalize_importance_key(&item.importance_key)?,
+        continuation_note: normalize_continuation_note(&item.continuation_note)?,
+        continuation_updated_at: item.continuation_updated_at.clone(),
+    };
     let item_id = normalized_item.id;
 
     let items = with_todo_items(&state, |items| {

@@ -20,10 +20,10 @@
 
 ## 当前验证证据
 
-截至 2026-09-19 的 RC 收口，已通过：
+截至 2026-09-18 最终收口，已通过：
 
 - `pnpm check`
-- `pnpm verify:css`：9 个 CSS 模块、445323 个规范化字节，SHA-256 `406717E88316DFCF18C0C2745CD2430A4401CC3941D06559C61E990C9A8A1590`
+- `pnpm verify:css`
 - `pnpm verify:structure`
 - `pnpm verify:playwright-output`
 - `pnpm test:structure`
@@ -32,16 +32,18 @@
 - `pnpm test:local-delivery`
 - `cargo fmt --check --manifest-path src-tauri/Cargo.toml`
 - `cargo check --locked --manifest-path src-tauri/Cargo.toml`
-- `cargo test --locked --manifest-path src-tauri/Cargo.toml`：42 passed, 0 failed；新增非法 ID、重复恢复、选择性恢复 custom audio fallback 等隔离测试。
-- `pnpm test:frontend -- --list`：64 tests in 2 files。
-- `pnpm test:frontend -- --workers=1 --retries=0`：64 passed, 0 failed, 0 skipped；覆盖完整当前 RC workflow、五套主题和 1487px/1024px/560px 响应式路径。
-- 重构前 `origin/main` 的 101 项旧视觉回归已保留为 `app/tests/today-visual-v2.11.11.legacy.mjs`，并完成一次不改断言的对照运行：155 项（当前 RC 54+8 与旧基线 45+101 的并集）中 63 passed、92 failed、0 skipped；失败均为旧 2.11.11 选择器/虚假 Today 信息架构与 2.12.0 明确要求冲突，未把旧断言删掉或用跳过制造通过。当前默认套件用 64 项重新覆盖对应流程。
+- `cargo test --locked --manifest-path src-tauri/Cargo.toml`：38 passed, 0 failed
+- `pnpm exec playwright test tests/app.spec.mjs --workers=4`：54 passed, 0 failed
+- `pnpm exec playwright test tests/today-visual.spec.mjs --workers=4`：8 passed, 0 failed，覆盖 1487px、1024px、560px、五套主题、收件箱/精选/Records/Settings/Focus。
 - 浏览器证据写入 `artifacts/qa/frontend/` 的唯一 run 目录；最终通过 run 的 `.last-run.json` 状态为 `passed`。
 
 ## Windows 交付证据
 
-- 之前的 `local-20260918-210054-fefe1be612` / `2381F980...` 是本轮修复前的工作树构建，不作为最终 RC provenance；最终 clean build、manifest 和根入口 hash 以 RC 报告中的最终提交为准。
-- 本轮不会使用 `SkipBuild`；最终提交确认后重新执行 `pnpm package:local`，并保留旧根入口到对应 `archive/executables/local/` 恢复副本。
-- `pnpm native:windows` 的自动范围是启动、路径隔离、构建 provenance 和旧存储迁移；计时按钮、tray、迷你工作台、备份 UI、自定义音效、通知和完整书签交互必须单独标为 MANUAL/UNVERIFIED，不能用 browser mock 或 native startup smoke 替代。
+- `pnpm package:local` 已用最新源码生成 2.12.0 Release 根入口。
+- build ID：`local-20260918-210054-fefe1be612`。
+- 根入口：`F:\Focused Moment\Focused Moment.exe`。
+- 根入口 SHA-256：`2381F9802D66ADB0B5ACA96F3F275CC22EE7DF604DC300A500E2C861F350D809`。
+- provenance：`artifacts/builds/local/local-20260918-210054-fefe1be612/manifest.json`；旧根入口已保留在对应 `archive/executables/local/` 恢复副本。
+- `pnpm native:windows`：`windows-native-20260918-210227-591fa23e7b`，通过真实 Release 入口复制、隔离 LOCALAPPDATA/APPDATA/TEMP/USERPROFILE、WebView2 数据目录、无旧工作目录存储、v2 legacy migration 和受控清理。
 
 Windows native smoke 的自动范围是启动、路径隔离、构建 provenance 和迁移；计时按钮、tray、迷你工作台、备份 UI、自定义音效和通知的完整手工窗口验收仍属于需要真实交互的独立证据，不能用 browser mock 或 smoke 结果替代。未创建 tag、GitHub Release、安装器或强制推送。
