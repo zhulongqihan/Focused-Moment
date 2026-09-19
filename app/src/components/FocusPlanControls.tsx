@@ -1,7 +1,12 @@
 import { For, Show } from "solid-js";
 import type { TodaySurfaceProps } from "../lib/theme-contracts";
 
-export default function FocusPlanControls(props: TodaySurfaceProps) {
+type FocusPlanControlProps = Pick<TodaySurfaceProps,
+  "planTodos" | "currentTodo" | "todayPickIds" | "busy" | "timerHasProgress" |
+  "formatTodoDue" | "onQuickCapture" | "onSetCurrentTodo" | "onToggleTodayPick" | "onStartTodo"
+>;
+
+export default function FocusPlanControls(props: FocusPlanControlProps) {
   return (
     <section class="focus-plan-controls" aria-label="当前事项和今日精选">
       <header class="focus-plan-controls__header">
@@ -16,7 +21,7 @@ export default function FocusPlanControls(props: TodaySurfaceProps) {
               const isPicked = () => props.todayPickIds().includes(item.id);
               return (
                 <article classList={{ "focus-plan-controls__row": true, "is-current": isCurrent(), "is-picked": isPicked() }}>
-                  <div><strong>{item.title}</strong><small>{props.formatTodoDue(item)}{isCurrent() ? " · 当前事项" : ""}</small></div>
+                  <div><strong>{item.title}</strong><small>{props.formatTodoDue(item)}{isCurrent() ? " · 当前事项" : ""}</small><Show when={item.continuationNote}><small>下次继续：{item.continuationNote}</small></Show></div>
                   <div class="focus-plan-controls__actions">
                     <button type="button" class="text-button" disabled={props.busy()} onClick={() => void props.onSetCurrentTodo(isCurrent() ? null : item.id)}>{isCurrent() ? "取消当前" : "设为当前"}</button>
                     <button type="button" class="text-button" disabled={props.busy() || (!isPicked() && props.todayPickIds().length >= 3)} onClick={() => void props.onToggleTodayPick(item.id)}>{isPicked() ? "移出精选" : "加入精选"}</button>

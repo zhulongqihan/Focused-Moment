@@ -30,6 +30,7 @@ import ManualFocusRecordDialog from "./components/ManualFocusRecordDialog";
 import ContinuationNotePrompt from "./components/ContinuationNotePrompt";
 import FocusRecordEditDialog from "./components/FocusRecordEditDialog";
 import PortableBackupPanel from "./components/PortableBackupPanel";
+import FocusPlanControls from "./components/FocusPlanControls";
 import ThemeSurface from "./components/ThemeSurface";
 import {
   formatAnalyticsDate,
@@ -180,6 +181,7 @@ function MainShell() {
     appPreferenceSaveError,
     appPreferenceSaveBusy,
     retryAppPreferencesSave,
+    flushAppPreferencesSave,
     updateAutoMiniOnStart,
     currentTodo,
     todayPickTodos,
@@ -1005,6 +1007,7 @@ function MainShell() {
               appPreferenceSaveBusy,
               onAutoMiniOnStartChange: updateAutoMiniOnStart,
               onRetryAppPreferenceSave: retryAppPreferencesSave,
+              onSaveVisualSettings: flushAppPreferencesSave,
               onSaveTimerPreferences: saveTimerPreferences,
               onPreviewAlertSound: previewAlertSound,
               onChooseCustomAlertSound: chooseCustomAlertSound,
@@ -1019,6 +1022,12 @@ function MainShell() {
           />
 
           <Show when={activeView() === "settings"}>
+            <section class="restored-settings-compatibility" aria-label="工作台与保存状态">
+              <label><input type="checkbox" checked={autoMiniOnStart()} onChange={(event) => updateAutoMiniOnStart(event.currentTarget.checked)} />开始专注时自动打开迷你工作台</label>
+              <Show when={appPreferenceSaveError()}>
+                <div role="alert"><span>{appPreferenceSaveError()}</span><button type="button" class="text-button" disabled={appPreferenceSaveBusy()} onClick={retryAppPreferencesSave}>重试保存</button></div>
+              </Show>
+            </section>
             <PortableBackupPanel
               path={portableBackupPath()}
               preview={portableBackupPreview()}
@@ -1030,6 +1039,24 @@ function MainShell() {
               onImport={importPortableBackup}
               onRestoreAppPreferencesChange={setRestorePortableAppPreferences}
             />
+          </Show>
+
+          <Show when={activeView() === "todos"}>
+            <details class="restored-focus-plan">
+              <summary>当前事项和今日精选</summary>
+              <FocusPlanControls
+                planTodos={() => pendingTodos().filter((item) => item.scheduledDate === getToday() || item.scheduledDate === "")}
+                currentTodo={currentTodo}
+                todayPickIds={() => focusPlan().todayPickIds}
+                busy={busy}
+                timerHasProgress={timerHasProgress}
+                formatTodoDue={formatTodoDue}
+                onQuickCapture={openQuickCapture}
+                onSetCurrentTodo={(id) => void setCurrentTodo(id)}
+                onToggleTodayPick={(id) => void toggleTodayPick(id)}
+                onStartTodo={(item) => void startFocusForTodo(item)}
+              />
+            </details>
           </Show>
 
           <QuickCaptureDialog

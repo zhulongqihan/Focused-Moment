@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-solid";
 import type { AlertSoundKey, AnalyticsSnapshot, FocusRecord, TodoImportance, TodoItem, TimerSnapshot } from "../lib/contracts";
+import { themes } from "../lib/themes";
 import type {
   FocusSurfaceProps,
   RecordsSurfaceProps,
@@ -24,7 +25,6 @@ import DailyFocusLine from "./DailyFocusLine";
 import { TodoDateGroupList } from "../features/todos/TodoDateGroupList";
 import { groupTodosByDate } from "../features/todos/todo-groups";
 import { NightValleyClock } from "./NightValleyDateStamp";
-import ThemePicker from "./ThemePicker";
 
 function formatPreviewMinutes(value: number) {
   const totalSeconds = Math.max(0, Math.round((Number.isFinite(value) ? value : 0) * 60));
@@ -79,6 +79,7 @@ function EditorialPaperDateTime(props: { date?: string }) {
 }
 
 export function EditorialPaperToday(props: TodaySurfaceProps) {
+  const streak = createMemo(() => props.analytics()?.currentStreakDays ?? 0);
   const completionCount = createMemo(() => props.todayCompletedTodos().length);
   const totalTodayCount = createMemo(() => completionCount() + props.todayTodos().length);
 
@@ -92,10 +93,10 @@ export function EditorialPaperToday(props: TodaySurfaceProps) {
             <h1>今日节奏</h1>
             <p>把注意力放在真正重要的事上，时间会给出回应。</p>
           </div>
-          <div class="ep-stamp" aria-label={`今日完成 ${completionCount()} 项`}>
-            <span>今日完成</span>
-            <strong>{completionCount()}</strong>
-            <span>项</span>
+          <div class="ep-stamp" aria-label={`连续 ${streak()} 天`}>
+            <span>连续</span>
+            <strong>{streak()}</strong>
+            <span>日</span>
           </div>
         </div>
         <DailyFocusLine date={props.todayDate} theme="editorial-paper" />
@@ -161,7 +162,7 @@ export function EditorialPaperToday(props: TodaySurfaceProps) {
       <footer class="ep-facts-row">
         <div><span>今日专注</span><strong>{analyticsValue(props.analytics(), "todayFocusDurationLabel", "0 分钟")}</strong></div>
         <div><span>完成段数</span><strong>{analyticsValue(props.analytics(), "todaySessionCount", "0")}</strong></div>
-        <div><span>待办完成</span><strong>{completionCount()} / {totalTodayCount()}</strong></div>
+        <div><span>当前步调</span><strong>{streak()} 日连续</strong></div>
         <div class="ep-facts-row__actions"><button type="button" class="ep-text-button" onClick={props.onOpenRecords}><BookOpen size={15} strokeWidth={1.6} aria-hidden="true" />回看记录</button><button type="button" class="ep-text-button" onClick={props.onOpenTodos}>打开待办</button></div>
       </footer>
     </section>
@@ -371,6 +372,7 @@ export function EditorialPaperRecords(props: RecordsSurfaceProps) {
 
 export function EditorialPaperSettings(props: SettingsSurfaceProps) {
   let customAlertSoundInput: HTMLInputElement | undefined;
+  const activeTheme = createMemo(() => themes.find((theme) => theme.id === props.themeId()) ?? themes[0]);
 
   return (
     <section class="ep-page ep-settings-page" aria-label="专注手册">
@@ -382,17 +384,18 @@ export function EditorialPaperSettings(props: SettingsSurfaceProps) {
       </header>
 
       <div class="ep-settings-spread">
-        <section class="ep-settings-paper ep-settings-paper--appearance"><div class="ep-section-heading"><div><span class="ep-section-label">01 / APPEARANCE</span><h2>外观样式</h2></div><SlidersHorizontal size={18} strokeWidth={1.4} aria-hidden="true" /></div><ThemePicker value={props.themeId()} onChange={props.onThemeSelect} className="ep-theme-picker" /></section>
+        <section class="ep-settings-paper ep-settings-paper--appearance"><div class="ep-section-heading"><div><span class="ep-section-label">01 / APPEARANCE</span><h2>外观样式</h2></div><SlidersHorizontal size={18} strokeWidth={1.4} aria-hidden="true" /></div><div class="ep-theme-swatches"><For each={themes}>{(theme) => <button type="button" classList={{ "ep-theme-swatch": true, selected: props.themeId() === theme.id, disabled: !theme.implemented }} disabled={!theme.implemented} aria-pressed={props.themeId() === theme.id} onClick={() => props.onThemeSelect(theme.id)}><span class={`ep-theme-swatch__paper ep-theme-swatch__paper--${theme.id}`} /><strong>{theme.name}</strong><small>{theme.implemented ? "可用" : "尚未实现"}</small></button>}</For></div><div class="ep-live-preview"><span>当前样式预览</span><div class={`ep-live-preview__paper ep-live-preview__paper--${activeTheme().id}`}><strong>{activeTheme().name}</strong><small>{activeTheme().description}</small></div></div></section>
 
         <section class="ep-settings-paper ep-settings-paper--behavior"><div class="ep-section-heading"><div><span class="ep-section-label">02 / BEHAVIOR</span><h2>专注行为</h2></div><Settings size={18} strokeWidth={1.4} aria-hidden="true" /></div><div class="ep-setting-list"><label><input type="checkbox" checked={props.timerPreferences().toastReminderEnabled} disabled={props.busy()} onChange={(event) => void props.onSaveTimerPreferences({ toastReminderEnabled: event.currentTarget.checked })} /><span><strong>应用内弹窗</strong><small>在当前窗口显示结束提醒。</small></span></label><label><input type="checkbox" checked={props.timerPreferences().windowAttentionReminderEnabled} disabled={props.busy()} onChange={(event) => void props.onSaveTimerPreferences({ windowAttentionReminderEnabled: event.currentTarget.checked })} /><span><strong>任务栏提醒</strong><small>窗口在后台时提醒你回来。</small></span></label><label><input type="checkbox" checked={props.timerPreferences().soundReminderEnabled} disabled={props.busy()} onChange={(event) => void props.onSaveTimerPreferences({ soundReminderEnabled: event.currentTarget.checked })} /><span><strong>声音提醒</strong><small>播放一次短促音效。</small></span></label></div><p class="ep-hand-note">边界清晰，节奏自然。</p></section>
 
         <section class="ep-settings-paper ep-settings-paper--sound"><div class="ep-section-heading"><div><span class="ep-section-label">03 / SOUND</span><h2>声音与提示</h2></div><Volume2 size={18} strokeWidth={1.4} aria-hidden="true" /></div><label class="ep-select-row"><span>提醒音效</span><select name="editorialAlertSound" value={props.timerPreferences().alertSoundKey} disabled={props.busy()} onChange={(event) => void props.onSaveTimerPreferences({ alertSoundKey: event.currentTarget.value as AlertSoundKey })}><option value="soft_chime">柔和铃音</option><option value="bright_bell">明亮三连</option><option value="deep_pulse">沉稳脉冲</option><option value="wooden_tick">木鱼单击</option><option value="glass_ping">玻璃回响</option><option value="morning_chord">晨光和弦</option><option value="custom" disabled={!props.customAlertSoundName()}>自定义音效</option></select></label><div class="ep-sound-actions"><button type="button" class="ep-secondary-button" disabled={props.busy()} onClick={props.onPreviewAlertSound}><Volume2 size={15} strokeWidth={1.6} aria-hidden="true" />试听</button><button type="button" class="ep-secondary-button" disabled={props.busy()} onClick={() => customAlertSoundInput?.click()}>导入音效</button><Show when={props.customAlertSoundName()}><button type="button" class="ep-text-button" disabled={props.busy()} onClick={() => void props.onClearCustomAlertSound()}>移除自定义</button></Show><input ref={(element) => { customAlertSoundInput = element; }} class="sr-only" type="file" accept="audio/*" aria-label="导入自定义音效" onChange={(event) => void props.onChooseCustomAlertSound(event)} /></div></section>
 
-        <section class="ep-settings-paper ep-settings-paper--workspace"><div class="ep-section-heading"><div><span class="ep-section-label">04 / WORKSPACE</span><h2>工作台布局</h2></div><SlidersHorizontal size={18} strokeWidth={1.4} aria-hidden="true" /></div><p class="ep-workspace-note">亮度、动效和信息密度会立即应用，并保存在本机。</p><div class="ep-workspace-controls"><label class="ep-slider-row"><span>画面明暗 <b>{props.visualIntensity()}%</b></span><input type="range" min="0" max="100" value={props.visualIntensity()} aria-label="画面明暗" onInput={(event) => props.onVisualIntensityChange(Number(event.currentTarget.value))} /></label><label class="ep-slider-row"><span>动效程度 <b>{props.motionIntensity()}%</b></span><input type="range" min="0" max="100" value={props.motionIntensity()} aria-label="动效程度" onInput={(event) => props.onMotionIntensityChange(Number(event.currentTarget.value))} /></label><div class="ep-density-row"><span>信息密度</span><div role="group" aria-label="信息密度"><button type="button" classList={{ selected: props.density() === "roomy" }} aria-pressed={props.density() === "roomy"} onClick={() => props.onDensityChange("roomy")}>舒展</button><button type="button" classList={{ selected: props.density() === "compact" }} aria-pressed={props.density() === "compact"} onClick={() => props.onDensityChange("compact")}>紧凑</button></div></div><label class="ep-auto-mini-toggle"><input type="checkbox" checked={props.autoMiniOnStart()} onChange={(event) => props.onAutoMiniOnStartChange(event.currentTarget.checked)} /><span>开始专注时自动打开迷你工作台</span></label><Show when={props.appPreferenceSaveError()}><div class="ep-settings-error" role="alert"><span>{props.appPreferenceSaveError()}</span><button type="button" disabled={props.appPreferenceSaveBusy()} onClick={props.onRetryAppPreferenceSave}>重试保存</button></div></Show></div><p class="ep-workspace-apply-note">显示设置会跨主题保留，随时可以在这里微调。</p></section>
+        <section class="ep-settings-paper ep-settings-paper--workspace"><div class="ep-section-heading"><div><span class="ep-section-label">04 / WORKSPACE</span><h2>工作台布局</h2></div><SlidersHorizontal size={18} strokeWidth={1.4} aria-hidden="true" /></div><p class="ep-workspace-note">把纸面调到适合自己的状态：亮度、动效和信息密度都会立即应用，并保存在本机。</p><div class="ep-workspace-controls"><label class="ep-slider-row"><span>画面明暗 <b>{props.visualIntensity()}%</b></span><input type="range" min="0" max="100" value={props.visualIntensity()} aria-label="画面明暗" onInput={(event) => props.onVisualIntensityChange(Number(event.currentTarget.value))} /></label><label class="ep-slider-row"><span>动效程度 <b>{props.motionIntensity()}%</b></span><input type="range" min="0" max="100" value={props.motionIntensity()} aria-label="动效程度" onInput={(event) => props.onMotionIntensityChange(Number(event.currentTarget.value))} /></label><div class="ep-density-row"><span>信息密度</span><div role="group" aria-label="信息密度"><button type="button" classList={{ selected: props.density() === "roomy" }} aria-pressed={props.density() === "roomy"} onClick={() => props.onDensityChange("roomy")}>舒展</button><button type="button" classList={{ selected: props.density() === "compact" }} aria-pressed={props.density() === "compact"} onClick={() => props.onDensityChange("compact")}>紧凑</button></div></div></div><p class="ep-workspace-apply-note">显示设置会跨主题保留，随时可以在这里微调。</p></section>
 
         <section class="ep-settings-paper ep-settings-paper--backup"><div class="ep-section-heading"><div><span class="ep-section-label">05 / DATA</span><h2>数据与备份</h2></div><BookOpen size={18} strokeWidth={1.4} aria-hidden="true" /></div><p>待办、专注记录和未完成计时状态留在这台电脑上。</p><div class="ep-settings-actions"><button type="button" class="ep-primary-button" disabled={props.busy()} onClick={() => void props.onCreateBackup()}>{props.busy() ? props.busyLabel() : "导出备份"}</button><button type="button" class="ep-secondary-button" disabled={props.busy()} onClick={() => void props.onOpenBackupFolder()}>打开备份目录</button></div><Show when={props.lastBackupPath()}><p class="ep-path">最近备份：{props.lastBackupPath()}</p></Show><Show when={props.backupLoadState() === "loading"}><p class="ep-empty">正在读取备份列表…</p></Show><Show when={props.backupLoadState() === "error"}><div class="ep-error"><strong>备份列表读取失败</strong><span>{props.backupLoadError()}</span><button type="button" class="ep-text-button" onClick={() => void props.onLoadBackups()}>重试读取</button></div></Show><Show when={props.backupLoadState() === "ready" && props.backups().length > 0}><label class="ep-select-row"><span>选择备份</span><select value={props.selectedBackupFile()} onChange={(event) => props.onSelectedBackupFile(event.currentTarget.value)}><For each={props.backups()}>{(backup) => <option value={backup.fileName}>{backup.fileName}</option>}</For></select></label><button type="button" class="ep-secondary-button" disabled={props.busy() || !props.selectedBackupFile()} onClick={() => void props.onRestoreBackup()}>导入并替换当前数据</button></Show><Show when={props.backupLoadState() === "ready" && props.backups().length === 0}><p class="ep-empty">还没有备份。建议在清理前先导出一份。</p></Show><button type="button" class="ep-danger-button" disabled={props.busy()} onClick={() => void props.onClearAllData()}>清空当前数据</button></section>
       </div>
 
+      <footer class="ep-settings-footer"><span>当前样式：{activeTheme().name}</span><span>主题与提醒设置会立即保存。</span></footer>
     </section>
   );
 }

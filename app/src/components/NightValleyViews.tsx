@@ -20,10 +20,10 @@ import type {
   SettingsSurfaceProps,
   TodoSurfaceProps,
 } from "../lib/theme-contracts";
+import { themes } from "../lib/themes";
 import { TodoDateGroupList } from "../features/todos/TodoDateGroupList";
 import { groupTodosByDate } from "../features/todos/todo-groups";
 import { NightValleyDateStamp } from "./NightValleyDateStamp";
-import ThemePicker from "./ThemePicker";
 
 function currentDateLabel() {
   return new Date()
@@ -758,6 +758,7 @@ export function NightValleyRecords(props: RecordsSurfaceProps) {
 }
 
 export function NightValleySettings(props: SettingsSurfaceProps) {
+  const activeTheme = createMemo(() => themes.find((theme) => theme.id === props.themeId()) ?? themes[0]);
   let customAlertSoundInput: HTMLInputElement | undefined;
   return (
     <section class="nv-page nv-settings-page settings-page" aria-label="设置">
@@ -768,14 +769,7 @@ export function NightValleySettings(props: SettingsSurfaceProps) {
           <section id="nv-appearance" class="settings-section nv-settings-panel nv-settings-panel--appearance">
             <div class="settings-section__heading"><span class="nv-section-kicker">APPEARANCE / 01</span><h2>外观</h2><p>选择一个工作氛围，切换会立即生效并自动保存。</p></div>
             <div class="nv-theme-grid" aria-label="主题选择">
-              <ThemePicker value={props.themeId()} onChange={props.onThemeSelect} className="nv-theme-picker" />
-            </div>
-            <div class="nv-appearance-controls">
-              <label><span>视觉强度 <b>{props.visualIntensity()}%</b></span><input type="range" min="0" max="100" value={props.visualIntensity()} aria-label="视觉强度" onInput={(event) => props.onVisualIntensityChange(Number(event.currentTarget.value))} /></label>
-              <label><span>动效强度 <b>{props.motionIntensity()}%</b></span><input type="range" min="0" max="100" value={props.motionIntensity()} aria-label="动效强度" onInput={(event) => props.onMotionIntensityChange(Number(event.currentTarget.value))} /></label>
-              <label><span>信息密度</span><span class="nv-density-buttons"><button type="button" classList={{ active: props.density() === "roomy" }} aria-pressed={props.density() === "roomy"} onClick={() => props.onDensityChange("roomy")}>舒展</button><button type="button" classList={{ active: props.density() === "compact" }} aria-pressed={props.density() === "compact"} onClick={() => props.onDensityChange("compact")}>紧凑</button></span></label>
-              <label class="nv-auto-mini-toggle"><input type="checkbox" checked={props.autoMiniOnStart()} onChange={(event) => props.onAutoMiniOnStartChange(event.currentTarget.checked)} /><span>开始专注时自动打开迷你工作台</span></label>
-              <Show when={props.appPreferenceSaveError()}><div class="nv-settings-error" role="alert"><span>{props.appPreferenceSaveError()}</span><button type="button" disabled={props.appPreferenceSaveBusy()} onClick={props.onRetryAppPreferenceSave}>重试保存</button></div></Show>
+              <For each={themes}>{(theme) => <button type="button" classList={{ "nv-theme-card": true, "is-selected": props.themeId() === theme.id, "is-disabled": !theme.implemented }} disabled={!theme.implemented} aria-pressed={props.themeId() === theme.id} title={theme.implemented ? `使用${theme.name}主题` : `${theme.name}主题尚未实现`} onClick={() => props.onThemeSelect(theme.id)}><img src={theme.preview} alt={`${theme.englishName} 概念预览`} /><span class="nv-theme-card__shade" /><strong>{theme.name}</strong><small>{theme.implemented ? "已实现" : "尚未实现"}</small></button>}</For>
             </div>
           </section>
 
@@ -789,6 +783,7 @@ export function NightValleySettings(props: SettingsSurfaceProps) {
 
           <section class="settings-section settings-section--danger nv-settings-panel nv-settings-panel--danger"><div class="settings-section__heading"><h2>清空当前数据</h2><p>不会删除已经导出的备份。</p></div><button type="button" class="secondary-button" disabled={props.busy()} onClick={() => void props.onClearAllData()}>清空当前数据</button></section>
         </div>
+        <aside class="nv-settings-preview nv-settings-theme-lab" aria-label="主题观测站"><div class="nv-theme-lab__header"><span>THEME OBSERVATORY / 主题观测站</span><strong>LIVE</strong></div><div class="nv-theme-lab__core"><div class="nv-theme-lab__orbit" aria-hidden="true"><i /><i /><i /><b /></div><div class="nv-theme-lab__copy"><small>当前工作氛围</small><strong>{activeTheme().name}</strong><span>{activeTheme().englishName}</span><p>{activeTheme().description}</p></div></div><div class="nv-theme-lab__signals"><div><span>状态</span><b>实时应用</b></div><div><span>保存</span><b>自动保留</b></div><div><span>建议</span><b>选一件事开始</b></div></div><div class="nv-theme-lab__footer"><span />切换主题后立即生效，无需再点保存</div></aside>
       </div>
     </section>
   );

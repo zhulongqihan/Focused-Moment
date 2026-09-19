@@ -5,6 +5,7 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  Flame,
   Plus,
 } from "lucide-solid";
 import type { FocusRecord, TodoItem } from "../lib/contracts";
@@ -316,21 +317,12 @@ export default function TodayDashboard(props: TodaySurfaceProps) {
     props.analytics()?.todayFocusDurationLabel || formatRecordsDuration(todayRecords()),
   );
   const todaySessionCount = createMemo(() => props.analytics()?.todaySessionCount ?? todayRecords().length);
+  const todayStreakDays = createMemo(() => props.analytics()?.currentStreakDays ?? 0);
   const todayTodoCompletionCount = createMemo(() => props.todayCompletedTodos().length);
   const todayTodoTotal = createMemo(() => todayTodoCompletionCount() + props.todayTodos().length);
   const todayTodoCompletionRate = createMemo(() => {
     const total = todayTodoTotal();
     return total === 0 ? 0 : Math.round((todayTodoCompletionCount() / total) * 100);
-  });
-
-  const currentTodoStats = createMemo(() => {
-    const item = props.currentTodo();
-    if (!item) return { rounds: 0, durationMs: 0 };
-    const linked = props.records().filter((record) => record.linkedTodoId === item.id);
-    return {
-      rounds: linked.length,
-      durationMs: linked.reduce((total, record) => total + record.durationMs, 0),
-    };
   });
 
   const trailSegments = createMemo<TrailSegment[]>(() => {
@@ -466,41 +458,12 @@ export default function TodayDashboard(props: TodaySurfaceProps) {
         <DailyFocusLine date={props.todayDate} theme="night-valley" />
       </header>
 
-      <section class="today-continuity-grid" aria-label="从想到到继续">
-        <article class="today-continuity-card today-continuity-card--current">
-          <div class="today-continuity-card__heading"><span>当前事项</span><button type="button" class="trail-link-button" onClick={props.onQuickCapture}><Plus size={16} aria-hidden="true" />快速记一件事</button></div>
-          <Show when={props.currentTodo()} fallback={<div class="today-empty-state"><strong>选择一件事开始</strong><span>从今天任务或收件箱加入当前事项。</span><button type="button" class="secondary-button" onClick={props.onOpenTodos}>打开待办</button></div>}>
-            {(item) => <>
-              <h2>{item().title}</h2>
-              <div class="today-continuity-card__stats"><span>{currentTodoStats().rounds} 轮专注</span><span>{formatDurationMs(currentTodoStats().durationMs)} 累计</span></div>
-              <Show when={item().continuationNote}><p class="today-continuation-note">下次继续：{item().continuationNote}</p></Show>
-              <div class="today-continuity-card__actions"><button type="button" class="primary-button" disabled={props.busy() || props.timerHasProgress()} onClick={() => void props.onStartTodo(item())}>{props.timerHasProgress() ? "当前已有专注" : currentTodoStats().rounds > 0 ? "继续专注" : "开始专注"}</button><button type="button" class="text-button" onClick={() => void props.onSetCurrentTodo(null)}>取消当前</button></div>
-            </>}
-          </Show>
-        </article>
-
-        <article class="today-continuity-card">
-          <div class="today-continuity-card__heading"><span>今日精选</span><small>{props.todayPickTodos().length} / 3</small></div>
-          <Show when={props.todayPickTodos().length > 0} fallback={<div class="today-empty-state"><strong>从待办或收件箱加入</strong><span>最多挑三件，今天只看眼前的下一步。</span></div>}>
-            <div class="today-picks-list"><For each={props.todayPickTodos()}>{(item) => <div class="today-pick-row"><button type="button" class="today-pick-row__main" onClick={() => void props.onSetCurrentTodo(item.id)}><strong>{item.title}</strong><small>{item.id === props.currentTodo()?.id ? "当前事项" : props.formatTodoDue(item)}</small></button><button type="button" class="text-button" onClick={() => void props.onStartTodo(item)} disabled={props.busy() || props.timerHasProgress()}>开始</button><button type="button" class="text-button" aria-label={`移出今日精选：${item.title}`} onClick={() => void props.onToggleTodayPick(item.id)}>移出</button></div>}</For></div>
-          </Show>
-          <button type="button" class="text-button today-continuity-card__footer-action" onClick={props.onOpenTodos}>管理精选</button>
-        </article>
-
-        <article class="today-continuity-card today-continuity-card--investment">
-          <div class="today-continuity-card__heading"><span>今日投入</span><button type="button" class="trail-link-button" onClick={props.onOpenRecords}><BookOpen size={15} aria-hidden="true" />查看记录</button></div>
-          <strong class="today-investment-value">{todayFocusDurationLabel()}</strong>
-          <div class="today-continuity-card__stats"><span>{todaySessionCount()} 段完成</span><span>{todayTodoCompletionCount()} 项待办完成</span></div>
-          <p>按完成日期归属，不把跨午夜时段拆成虚假的两天。</p>
-        </article>
-      </section>
-
       <div class="trail-page__headline-actions">
-        <div class="trail-day-summary">
-          <span class="trail-day-summary__icon"><Check size={21} strokeWidth={1.9} aria-hidden="true" /></span>
+        <div class="trail-streak">
+          <span class="trail-streak__icon"><Flame size={23} strokeWidth={1.8} aria-hidden="true" /></span>
           <div>
-            <strong>{todaySessionCount() > 0 ? `今天已完成 ${todaySessionCount()} 段专注` : "今天还没有专注记录"}</strong>
-            <small>{todayTodoCompletionCount() > 0 ? `另有 ${todayTodoCompletionCount()} 项待办已完成` : "从下一件事开始就好。"}</small>
+            <strong>连续 {props.analytics()?.currentStreakDays ?? 0} 天</strong>
+            <small>{props.analytics()?.currentStreakDays ? "保持节奏，继续前行。" : "从今天开始，走出第一段。"}</small>
           </div>
         </div>
         <button type="button" class="trail-link-button" onClick={props.onOpenRecords}>
@@ -635,7 +598,7 @@ export default function TodayDashboard(props: TodaySurfaceProps) {
           <div class="trail-overview-lead">
             <span>今天的投入</span>
             <strong>{todayFocusDurationLabel()}</strong>
-            <small>{todaySessionCount()} 段专注 · 待办完成 {todayTodoCompletionCount()} / {todayTodoTotal()}</small>
+            <small>{todaySessionCount()} 段专注 · 连续 {todayStreakDays()} 天</small>
           </div>
 
           <div class="trail-overview-stats">
@@ -645,9 +608,9 @@ export default function TodayDashboard(props: TodaySurfaceProps) {
               <small>今天已完成</small>
             </div>
             <div>
-              <span>待办完成</span>
-              <strong>{todayTodoCompletionCount()}</strong>
-              <small>{todayTodoTotal() > 0 ? `共 ${todayTodoTotal()} 项` : "今天还没有安排"}</small>
+              <span>连续节奏</span>
+              <strong>{todayStreakDays()} 天</strong>
+              <small>{todayStreakDays() > 0 ? "连续记录" : "从今天开始"}</small>
             </div>
           </div>
 

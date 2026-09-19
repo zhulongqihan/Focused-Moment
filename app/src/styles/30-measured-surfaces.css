@@ -871,14 +871,14 @@ body,
   gap: 34px;
 }
 
-.minimal-app--trail .trail-day-summary {
+.minimal-app--trail .trail-streak {
   display: flex;
   align-items: center;
   gap: 9px;
   color: rgba(227, 219, 191, 0.82);
 }
 
-.minimal-app--trail .trail-day-summary__icon {
+.minimal-app--trail .trail-streak__icon {
   display: grid;
   width: 32px;
   height: 32px;
@@ -889,17 +889,17 @@ body,
   box-shadow: 0 0 15px rgba(225, 167, 73, 0.13);
 }
 
-.minimal-app--trail .trail-day-summary strong,
-.minimal-app--trail .trail-day-summary small {
+.minimal-app--trail .trail-streak strong,
+.minimal-app--trail .trail-streak small {
   display: block;
 }
 
-.minimal-app--trail .trail-day-summary strong {
+.minimal-app--trail .trail-streak strong {
   font-size: 14px;
   font-weight: 500;
 }
 
-.minimal-app--trail .trail-day-summary small {
+.minimal-app--trail .trail-streak small {
   margin-top: 4px;
   color: rgba(218, 213, 191, 0.54);
   font-size: 11px;
@@ -1821,6 +1821,7 @@ body,
 .nv-theme-card.is-selected { border-color: rgba(224, 184, 103, 0.9); box-shadow: 0 0 0 1px rgba(224, 184, 103, 0.18), 0 0 18px rgba(214, 164, 73, 0.16); }
 .nv-theme-card.is-selected small { color: var(--nv-mint); }
 .nv-theme-card.is-disabled { cursor: not-allowed; filter: grayscale(0.45); }
+.nv-theme-card.is-disabled::after { content: "尚未实现"; position: absolute; top: 7px; right: 6px; padding: 3px 4px; border: 1px solid rgba(224, 195, 142, 0.32); border-radius: 3px; background: rgba(3, 8, 10, 0.74); color: rgba(237, 217, 175, 0.72); font: 8px/1 "Cascadia Mono", Consolas, monospace; }
 .nv-setting-sliders { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-top: 18px; }
 .nv-setting-sliders label { display: grid; gap: 8px; color: rgba(220, 216, 193, 0.58); font-size: 10px; }
 .nv-setting-sliders label > span { display: flex; justify-content: space-between; }

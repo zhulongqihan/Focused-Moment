@@ -10,6 +10,40 @@ function localDate() {
   return `${year}-${month}-${day}`;
 }
 
+
+async function openQuickCaptureFromPalette(page) {
+  await page.keyboard.press("Control+K");
+  await page.getByRole("searchbox", { name: "搜索命令" }).fill("快速收进收件箱");
+  await page.getByRole("option", { name: "快速收进收件箱 记下一件事，不填日期也可以", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "你想做什么？" })).toBeHidden();
+  await expect(page.getByRole("dialog", { name: "先记下来，稍后再整理" })).toBeVisible();
+}
+
+async function openRestoredFocusPlan(page) {
+  await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: /^待办/ }).click();
+  const details = page.locator("details.restored-focus-plan");
+  await expect(details).not.toHaveAttribute("open");
+  await expect(details.locator(".focus-plan-controls")).toBeHidden();
+  await details.locator("summary").filter({ hasText: "当前事项和今日精选" }).click();
+  await expect(details).toHaveAttribute("open", "");
+  const plan = details.getByRole("region", { name: "当前事项和今日精选" });
+  await expect(plan).toBeVisible();
+  return plan;
+}
+
+async function startRestoredCurrentTodo(page) {
+  const plan = await openRestoredFocusPlan(page);
+  const current = plan.locator(".focus-plan-controls__row.is-current");
+  await expect(current).toContainText("写完产品复盘");
+  await current.getByRole("button", { name: "开始专注", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => window.__startTimerCalls)).toBe(1);
+  await expect.poll(() => page.evaluate(async () => {
+    const timer = await window.__TAURI_INTERNALS__.invoke("get_timer_snapshot");
+    return { running: timer.isRunning, title: timer.activeTaskTitle, linkedTodoId: timer.linkedTodoId };
+  })).toEqual({ running: true, title: "写完产品复盘", linkedTodoId: 1 });
+  await expect(page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: /^待办/ })).toHaveClass(/active/);
+}
+
 async function bootWithTauriMock(page, { includeOverdue = false, includeRecords = false, windowLabel = "main", pausedFocus = false, completedCountdown = false, initialLoadError = false, autoMiniOnStart = false, todayRecordCount = includeRecords ? 1 : 0, todayTodoCount = 1, futureTodoCount = 0, completedTodoCount = 0, historyDayCount = 0, freshTodoSnapshots = false, freshRecordSnapshots = false } = {}) {
   await page.addInitScript(({ today, includeOverdue, includeRecords, windowLabel, pausedFocus, completedCountdown, initialLoadError, autoMiniOnStart, todayRecordCount, todayTodoCount, futureTodoCount, completedTodoCount, historyDayCount, freshTodoSnapshots, freshRecordSnapshots }) => {
     const yesterday = new Date(`${today}T00:00:00`);
@@ -168,6 +202,7 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
     window.__completedFocusCalls = 0;
     window.__resetTimerCalls = 0;
     window.__startTimerCalls = 0;
+    window.__pauseTimerCalls = 0;
     window.__miniWorkspaceShown = false;
     window.__quickCaptureCalls = 0;
     window.__continuationNoteCalls = 0;
@@ -548,6 +583,7 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
             timerPreferences = args.preferences;
             return timerPreferences;
           case "pause_timer":
+            window.__pauseTimerCalls += 1;
             timer = { ...timer, isRunning: false, status: "已暂停" };
             return timer;
           case "reset_timer":
@@ -612,11 +648,12 @@ test("Today cockpit exposes the overview and command palette", async ({ page }) 
 
   await expect(page.getByText("写完产品复盘").first()).toBeVisible();
   await expect(page.getByRole("heading", { name: "今天，从一件事开始", exact: true })).toBeVisible();
-  await expect(page.getByText("当前事项", { exact: true }).first()).toBeVisible();
-  await expect(page.getByText("今日精选", { exact: true })).toBeVisible();
-  await expect(page.getByText("今日投入", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "今日概览", exact: true })).toBeVisible();
+  await expect(page.locator(".trail-overview-progress-heading strong")).toHaveText("0 / 1");
+  await expect(page.locator(".unified-today-page, .continuity-board, .today-continuity-grid")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "查看计时", exact: true })).toHaveCount(0);
-  await expect(page.locator(".trail-node")).toHaveCount(0);
+  await expect(page.locator(".trail-node")).toHaveCount(1);
+  await expect(page.locator(".trail-node--current")).toContainText("写完产品复盘");
 
   await page.keyboard.press("Control+K");
   await expect(page.getByRole("dialog", { name: "你想做什么？" })).toBeVisible();
@@ -731,13 +768,15 @@ test("initial data errors stay visible and recover through the retry action", as
 
   await expect(page.getByRole("heading", { name: "今天，从一件事开始" })).toBeVisible();
   await expect(loadError).toBeHidden();
-  await expect(page.getByText("当前事项", { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "今日概览", exact: true })).toBeVisible();
+  await expect(page.locator(".trail-node--current")).toContainText("写完产品复盘");
 });
 
 test("Today overview keeps timing work in the focus page", async ({ page }) => {
   await bootWithTauriMock(page);
 
   await expect(page.getByRole("heading", { name: "今天，从一件事开始", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "今日概览", exact: true })).toBeVisible();
   await expect(page.locator(".trail-timer")).toHaveCount(0);
   await page.getByRole("button", { name: "计时", exact: true }).click();
 
@@ -748,18 +787,29 @@ test("Today overview keeps timing work in the focus page", async ({ page }) => {
 
 test("Today trail expands into a scrollable route beyond five segments", async ({ page }) => {
   await bootWithTauriMock(page, { includeRecords: true, todayRecordCount: 7, todayTodoCount: 6 });
-
-  await expect(page.locator(".trail-node")).toHaveCount(0);
+  await expect(page.locator(".trail-node")).toHaveCount(13);
+  await expect(page.locator(".trail-node--done")).toHaveCount(7);
   await expect(page.getByRole("heading", { name: "今天，从一件事开始", exact: true })).toBeVisible();
-  await expect(page.getByText("今日投入", { exact: true })).toBeVisible();
+  const dimensions = await page.locator(".trail-map__viewport").evaluate((element) => ({
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth,
+    canvasWidth: element.querySelector(".trail-map__canvas").getBoundingClientRect().width,
+  }));
+  expect(dimensions.canvasWidth).toBeGreaterThan(dimensions.clientWidth);
+  expect(dimensions.scrollWidth).toBeGreaterThan(dimensions.clientWidth);
+  await page.locator(".trail-map__viewport").evaluate((element) => { element.scrollLeft = element.scrollWidth; });
+  await expect(page.getByRole("button", { name: /^13\./ })).toBeVisible();
 });
 
 test("Today trail does not invent tasks when there are no todos", async ({ page }) => {
   await bootWithTauriMock(page, { todayTodoCount: 0 });
 
-  await expect(page.locator(".trail-node")).toHaveCount(0);
+  await expect(page.locator(".trail-node")).toHaveCount(1);
+  await expect(page.locator(".trail-node--done")).toHaveCount(0);
+  await expect(page.locator(".trail-node__meta")).toContainText("今天的第一段");
   await expect(page.getByRole("heading", { name: "今天，从一件事开始", exact: true })).toBeVisible();
-  await expect(page.getByText("选择一件事开始", { exact: true })).toBeVisible();
+  await expect(page.getByText("今天还没有安排待办", { exact: true })).toBeVisible();
+  await expect(page.locator(".trail-map__footer strong")).toHaveText("今天的第一段，从这里开始");
   await expect(page.getByText("本段任务", { exact: true })).toHaveCount(0);
   await expect(page.getByText("整理今天的会议笔记", { exact: true })).toHaveCount(0);
   await expect(page.getByText("OPEN SLOT", { exact: true })).toHaveCount(0);
@@ -1564,7 +1614,7 @@ test("Today cockpit remains usable on a narrow window", async ({ page }) => {
 test("quick capture creates an inbox item and keeps the current page", async ({ page }) => {
   await bootWithTauriMock(page);
 
-  await page.getByRole("button", { name: "快速记一件事", exact: true }).click();
+  await openQuickCaptureFromPalette(page);
   const dialog = page.getByRole("dialog", { name: "先记下来，稍后再整理" });
   await dialog.getByRole("textbox").fill("临时想到的开头");
   await dialog.getByRole("button", { name: "放入收件箱" }).click();
@@ -1582,16 +1632,19 @@ test("quick capture creates an inbox item and keeps the current page", async ({ 
 test("quick capture during a running timer does not pause or navigate", async ({ page }) => {
   await bootWithTauriMock(page);
 
-  await page.locator(".continuity-board__card--current").getByRole("button", { name: "开始专注" }).click();
+  await startRestoredCurrentTodo(page);
+  await page.getByRole("button", { name: "今日", exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.__startTimerCalls)).toBe(1);
   await expect(page.getByRole("heading", { name: "今天，从一件事开始" })).toBeVisible();
 
-  await page.getByRole("button", { name: "快速记一件事", exact: true }).click();
+  await openQuickCaptureFromPalette(page);
   const dialog = page.getByRole("dialog", { name: "先记下来，稍后再整理" });
   await dialog.getByRole("textbox").fill("计时中想到的补充");
   await dialog.getByRole("button", { name: "放入收件箱" }).click();
 
   await expect.poll(() => page.evaluate(() => window.__quickCaptureCalls)).toBe(1);
+  expect(await page.evaluate(() => window.__pauseTimerCalls)).toBe(0);
+  await expect.poll(() => page.evaluate(async () => (await window.__TAURI_INTERNALS__.invoke("get_timer_snapshot")).isRunning)).toBe(true);
   await expect.poll(() => page.evaluate(() => window.__startTimerCalls)).toBe(1);
   await expect(page.getByRole("heading", { name: "今天，从一件事开始" })).toBeVisible();
 });
@@ -1599,8 +1652,7 @@ test("quick capture during a running timer does not pause or navigate", async ({
 test("current item and today picks stay user-controlled with a three-item limit", async ({ page }) => {
   await bootWithTauriMock(page, { todayTodoCount: 4 });
 
-  await page.getByRole("button", { name: /^待办/ }).click();
-  const plan = page.getByRole("region", { name: "当前事项和今日精选" });
+  const plan = await openRestoredFocusPlan(page);
   await expect(plan.getByRole("button", { name: "移出精选" })).toHaveCount(3);
   await expect(plan.getByRole("button", { name: "加入精选" })).toBeDisabled();
 
@@ -1611,12 +1663,15 @@ test("current item and today picks stay user-controlled with a three-item limit"
 
   await plan.getByRole("button", { name: "设为当前" }).first().click();
   await expect(plan.getByRole("button", { name: "取消当前" }).first()).toBeVisible();
+  await plan.getByRole("button", { name: "取消当前", exact: true }).click();
+  await expect(plan.getByRole("button", { name: "取消当前", exact: true })).toHaveCount(0);
+  await expect.poll(() => page.evaluate(async () => (await window.__TAURI_INTERNALS__.invoke("get_focus_plan")).currentTodoId)).toBeNull();
 });
 
 test("finishing a linked round keeps the todo open and saves a continuation bookmark", async ({ page }) => {
   await bootWithTauriMock(page);
 
-  await page.locator(".continuity-board__card--current").getByRole("button", { name: "开始专注" }).click();
+  await startRestoredCurrentTodo(page);
   await page.getByRole("button", { name: "计时", exact: true }).click();
   const finish = page.getByRole("button", { name: "完成并记录", exact: true });
   await expect(finish).toBeEnabled();
@@ -1629,9 +1684,16 @@ test("finishing a linked round keeps the todo open and saves a continuation book
 
   await expect.poll(() => page.evaluate(() => window.__continuationNoteCalls)).toBe(1);
   await expect(prompt).toBeHidden();
-  await page.getByRole("button", { name: "今日", exact: true }).click();
-  await expect(page.getByText("下次继续：从第三段的例子继续", { exact: true })).toBeVisible();
-  await expect(page.getByText("1 轮", { exact: true })).toBeVisible();
+  const plan = await openRestoredFocusPlan(page);
+  await expect(plan.getByText("下次继续：从第三段的例子继续", { exact: true })).toBeVisible();
+  await expect(page.locator(".todo-row").filter({ hasText: "写完产品复盘" })).toBeVisible();
+  await expect(page.locator(".completed-row").filter({ hasText: "写完产品复盘" })).toHaveCount(0);
+  await expect.poll(() => page.evaluate(async () => {
+    const records = await window.__TAURI_INTERNALS__.invoke("get_focus_records");
+    const todos = await window.__TAURI_INTERNALS__.invoke("get_todo_items");
+    const todo = todos.find((item) => item.id === 1);
+    return { rounds: records.filter((record) => record.linkedTodoId === 1).length, completed: todo.isCompleted, note: todo.continuationNote };
+  })).toEqual({ rounds: 1, completed: false, note: "从第三段的例子继续" });
 });
 
 test("records support manual entry and detailed correction", async ({ page }) => {
@@ -1677,12 +1739,14 @@ test("failed appearance persistence keeps the live change and offers retry", asy
   await bootWithTauriMock(page);
   await page.getByRole("button", { name: "设置", exact: true }).click();
   await page.evaluate(() => { window.__failAppPreferenceSave = true; });
-  await page.locator(".theme-picker__option").filter({ hasText: "编辑纸页" }).click();
+  await page.locator(".nv-theme-card").filter({ hasText: "编辑纸页" }).click();
 
-  const error = page.getByRole("alert").filter({ hasText: "外观设置保存失败" });
+  await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "editorial-paper");
+  const error = page.locator(".restored-settings-compatibility").getByRole("alert").filter({ hasText: "外观设置保存失败" });
   await expect(error).toBeVisible({ timeout: 3000 });
   await page.evaluate(() => { window.__failAppPreferenceSave = false; });
   await error.getByRole("button", { name: "重试保存" }).click();
   await expect(error).toBeHidden({ timeout: 3000 });
   await expect.poll(() => page.evaluate(() => window.__appPreferenceUpdateCalls)).toBeGreaterThan(1);
+  await expect.poll(() => page.evaluate(async () => (await window.__TAURI_INTERNALS__.invoke("get_app_preferences")).themeId)).toBe("editorial-paper");
 });

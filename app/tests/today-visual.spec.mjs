@@ -11,11 +11,49 @@ const themes = [
   ["botanical-library", "植物书房"],
 ];
 
+
+const themeLayouts = {
+  "night-valley": { prefix: "nv", today: ".trail-page", landmark: ".trail-map", secondary: ".trail-focus-panel", picker: ".nv-theme-card", preview: ".nv-settings-theme-lab", task: ".trail-node--current", pause: "暂停" },
+  "editorial-paper": { prefix: "ep", today: ".ep-today-page", landmark: ".ep-field-sheet", secondary: ".ep-next-card", picker: ".ep-theme-swatch", preview: ".ep-live-preview", task: ".ep-next-card .ep-paper-button--green", pause: "暂停" },
+  "graphite-console": { prefix: "gc", today: ".gc-today-page", landmark: ".gc-sequence-panel", secondary: ".gc-operation-panel", picker: ".gc-theme-card", preview: ".gc-settings-footer", task: ".gc-operation-card .gc-lime-button", pause: "暂停本段" },
+  // ec8ed25 names these controls bubbles and books, not generic cards.
+  "aurora-ocean": { prefix: "ao", today: ".ao-today-page", landmark: ".ao-orbit-stage", secondary: ".ao-next-capsule", picker: ".ao-theme-bubble", preview: ".ao-settings-preview", task: ".ao-intro-actions .ao-aqua-button", pause: "暂停此潮" },
+  "botanical-library": { prefix: "bl", today: ".bl-today-page", landmark: ".bl-library-stilllife", secondary: ".bl-stilllife-paper", picker: ".bl-theme-book", preview: ".bl-settings-preview", task: ".bl-intro-actions .bl-ink-button", pause: "暂停这一页" },
+};
+
+function surfaceSelector(themeId, view) {
+  const layout = themeLayouts[themeId];
+  if (view === "today") return layout.today;
+  if (themeId === "night-valley" && view === "todos") return ".nv-todo-page";
+  return `.${layout.prefix}-${view}-page`;
+}
+
+async function selectTheme(page, themeId, themeName) {
+  await navButton(page, "设置").click();
+  const activeTheme = await page.locator(".minimal-app").getAttribute("data-theme");
+  await page.locator(themeLayouts[activeTheme].picker).filter({ hasText: themeName }).click();
+  await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", themeId);
+  await expect(page.locator(themeLayouts[themeId].picker).filter({ hasText: themeName })).toHaveAttribute("aria-pressed", "true");
+}
+
+async function expectOriginalToday(page, themeId) {
+  const layout = themeLayouts[themeId];
+  await expect(page.locator(layout.today)).toBeVisible();
+  await expect(page.locator(layout.landmark)).toBeVisible();
+  await expect(page.locator(layout.secondary)).toBeVisible();
+  await expect(page.locator(`.daily-focus-line--${themeId}`)).toHaveCount(1);
+  await expect(page.locator(".unified-today-page, .continuity-board, .today-continuity-grid")).toHaveCount(0);
+  for (const [otherId, other] of Object.entries(themeLayouts)) {
+    if (otherId !== themeId) await expect(page.locator(other.today)).toHaveCount(0);
+  }
+}
+
 function navButton(page, label) {
   return page.locator(".minimal-nav > button").filter({ hasText: label }).first();
 }
 
 async function bootReferenceMock(page, {
+  themeId = "night-valley",
   includeTodo = true,
   includeInbox = true,
   recordCount = 3,
@@ -37,8 +75,9 @@ async function bootReferenceMock(page, {
     window.Date = ReferenceDate;
   });
 
-  await page.addInitScript(({ today, includeTodo, includeInbox, recordCount, currentTodoId, todayPickIds }) => {
-    const selectedTheme = localStorage.getItem("focused-moment.theme") || "night-valley";
+  await page.addInitScript(({ today, themeId, includeTodo, includeInbox, recordCount, currentTodoId, todayPickIds }) => {
+    const selectedTheme = themeId;
+    localStorage.setItem("focused-moment.theme", themeId);
     const todoSeeds = [
       [101, "整理研究资料", today],
       [102, "写下发布清单", today],
@@ -51,7 +90,7 @@ async function bootReferenceMock(page, {
         title,
         isCompleted: false,
         scheduledDate,
-        scheduledTime: "",
+        scheduledTime: id === 101 ? "09:00" : id === 102 ? "10:00" : "",
         importanceKey: "medium",
         continuationNote: id === 101 ? "从研究结论的第三段继续" : "",
         continuationUpdatedAt: id === 101 ? `${today}T11:00:00+08:00` : null,
@@ -216,81 +255,121 @@ async function bootReferenceMock(page, {
         }
       },
     };
-  }, { today, includeTodo, includeInbox, recordCount, currentTodoId, todayPickIds });
+  }, { today, themeId, includeTodo, includeInbox, recordCount, currentTodoId, todayPickIds });
 
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "今天，从一件事开始", exact: true })).toBeVisible();
+  await expect(page.locator(themeLayouts[themeId].today)).toBeVisible();
+  await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", themeId);
 }
 
-test("Today exposes the three continuity layers and real data at desktop width", async ({ page }) => {
+test("Night Valley restores the trail and real Today overview at desktop width", async ({ page }) => {
   await page.setViewportSize({ width: 1487, height: 1058 });
   await bootReferenceMock(page);
-
-  await expect(page.locator(".unified-today-page")).toBeVisible();
-  await expect(page.locator(".continuity-board__card")).toHaveCount(3);
-  await expect(page.getByText("当前事项", { exact: true })).toBeVisible();
-  await expect(page.getByText("今日精选", { exact: true })).toBeVisible();
-  await expect(page.getByText("今日投入", { exact: true })).toBeVisible();
-  await expect(page.getByText("整理研究资料", { exact: true }).first()).toBeVisible();
-  await expect(page.getByText("2 小时 15 分钟", { exact: true })).toBeVisible();
-  await expect(page.locator(".trail-node, .trail-map, .gc-sequence-row, .ao-orbit-stage, .bl-library-stilllife")).toHaveCount(0);
-  await expect(page.getByText("连续 9 天", { exact: true })).toHaveCount(0);
-  await expect(page.getByText("OPEN SLOT", { exact: true })).toHaveCount(0);
-  await page.screenshot({ path: testOutputPath("screenshots", "today-continuity-desktop.png"), animations: "disabled" });
+  await expectOriginalToday(page, "night-valley");
+  await expect(page.locator(".trail-page__heading h1")).toHaveText("今日路径");
+  await expect(page.getByRole("heading", { name: "今日概览", exact: true })).toBeVisible();
+  await expect(page.locator(".trail-node")).toHaveCount(5);
+  await expect(page.locator(".trail-node--done")).toHaveCount(3);
+  await expect(page.locator(".trail-node--current")).toContainText("整理研究资料");
+  await expect(page.locator(".trail-overview-lead strong")).toHaveText("02:15:00");
+  await expect(page.locator(".trail-overview-progress-heading strong")).toHaveText("0 / 2");
+  await expect(page.locator(".trail-streak")).toContainText("连续 9 天");
+  await expect(page.locator(".trail-timer")).toHaveCount(0);
+  await page.screenshot({ path: testOutputPath("screenshots", "restored-night-valley-desktop.png"), animations: "disabled" });
 });
 
-test("All five themes share the same Today workflow and one focus line", async ({ page }) => {
+test("All five themes restore distinct Today compositions and one stable focus line", async ({ page }) => {
   test.setTimeout(90_000);
   await page.setViewportSize({ width: 1487, height: 1058 });
   await bootReferenceMock(page);
-
+  const focusLines = [];
   for (const [themeId, themeName] of themes) {
-    await navButton(page, "设置").click();
-    await page.locator(".theme-picker__option").filter({ hasText: themeName }).click({ force: true });
+    await selectTheme(page, themeId, themeName);
     await navButton(page, "今日").click();
-    await expect(page.locator(`.unified-today-page--${themeId}`)).toBeVisible();
-    await expect(page.locator(`.daily-focus-line--${themeId}`)).toHaveCount(1);
-    await expect(page.getByRole("heading", { name: "今天，从一件事开始", exact: true })).toBeVisible();
-    await expect(page.locator(".continuity-board__card")).toHaveCount(3);
+    await expectOriginalToday(page, themeId);
+    await expect(page.locator(themeLayouts[themeId].today)).toContainText("整理研究资料");
+    await expect(page.locator(themeLayouts[themeId].today)).toContainText("02:15:00");
+    const copyId = await page.locator(".daily-focus-line").getAttribute("data-copy-id");
+    expect(copyId).toBeTruthy();
+    focusLines.push(copyId);
+  }
+  expect(new Set(focusLines).size).toBe(1);
+});
+
+test("Restored Today empty states distinguish layout placeholders from real tasks and records", async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.setViewportSize({ width: 1024, height: 900 });
+  await bootReferenceMock(page, { includeTodo: false, includeInbox: false, recordCount: 0, currentTodoId: null, todayPickIds: [] });
+  for (const [themeId, themeName] of themes) {
+    await selectTheme(page, themeId, themeName);
+    await navButton(page, "今日").click();
+    const surface = page.locator(themeLayouts[themeId].today);
+    await expect(surface).toBeVisible();
+    await expect(surface).toContainText("00:00:00");
+    await expect(surface).not.toContainText("整理研究资料");
+    await expect(surface).not.toContainText("专注轮次");
+    await expect(page.locator(".unified-today-page, .continuity-board, .virtual-record")).toHaveCount(0);
+    if (themeId === "night-valley") {
+      await expect(page.locator(".trail-node")).toHaveCount(1);
+      await expect(page.locator(".trail-node--done")).toHaveCount(0);
+      await expect(page.locator(".trail-node")).toContainText("今天的第一段");
+      await expect(page.locator(".trail-map__footer strong")).toHaveText("今天的第一段，从这里开始");
+      await expect(surface.getByText("今天还没有安排待办", { exact: true })).toBeVisible();
+    } else if (themeId === "editorial-paper") {
+      await expect(page.locator(".ep-field-row")).toHaveCount(0);
+      await expect(page.locator(".ep-next-card h2")).toHaveText("留白也有意义");
+    } else if (themeId === "graphite-console") {
+      // Original seven non-interactive empty slots are decoration, never fake tasks.
+      await expect(page.locator(".gc-sequence-row--empty")).toHaveCount(7);
+      await expect(page.locator("button.gc-sequence-row")).toHaveCount(0);
+      await expect(page.locator(".gc-operation-empty h2")).toHaveText("等待下一件事");
+    } else if (themeId === "aurora-ocean") {
+      await expect(page.locator(".ao-orbit-node")).toHaveCount(0);
+      await expect(page.locator(".ao-orbit-empty")).toContainText("轨道还没有节点");
+    } else {
+      await expect(page.locator(".bl-plant-marker")).toHaveCount(0);
+      await expect(page.locator(".bl-shelf-empty")).toContainText("书架还没有新的生长点");
+    }
   }
 });
 
-test("Today empty states contain no virtual records or slots", async ({ page }) => {
-  await page.setViewportSize({ width: 1024, height: 900 });
-  await bootReferenceMock(page, { includeTodo: false, includeInbox: false, recordCount: 0, currentTodoId: null, todayPickIds: [] });
-
-  await expect(page.getByText("选择一件事开始", { exact: true })).toBeVisible();
-  await expect(page.getByText("从待办或收件箱加入", { exact: true })).toBeVisible();
-  await expect(page.getByText("0 分钟", { exact: true })).toBeVisible();
-  await expect(page.locator(".continuity-board__card")).toHaveCount(3);
-  await expect(page.locator(".trail-node, .gc-sequence-row--empty, .todo-placeholder, .virtual-record")).toHaveCount(0);
-});
-
-test("Today remains inside the viewport from desktop to narrow mobile", async ({ page }) => {
+test("Restored Today remains inside the viewport from desktop to narrow mobile", async ({ page }) => {
   test.setTimeout(90_000);
   for (const [width, height, name] of [[1487, 1058, "wide"], [1024, 900, "medium"], [560, 900, "narrow"]]) {
     await page.setViewportSize({ width, height });
     await bootReferenceMock(page);
-    const rect = await page.locator(".unified-today-page").boundingBox();
-    expect(rect).not.toBeNull();
-    expect(rect.x).toBeGreaterThanOrEqual(0);
-    expect(rect.x + rect.width).toBeLessThanOrEqual(width + 1);
-    const boardRect = await page.locator(".continuity-board").boundingBox();
-    expect(boardRect).not.toBeNull();
-    expect(boardRect.x).toBeGreaterThanOrEqual(0);
-    expect(boardRect.x + boardRect.width).toBeLessThanOrEqual(width + 1);
-    await page.screenshot({ path: testOutputPath("screenshots", `today-${name}.png`), animations: "disabled" });
+    for (const selector of [".trail-page", ".trail-map__viewport"]) {
+      const rect = await page.locator(selector).boundingBox();
+      expect(rect).not.toBeNull();
+      expect(rect.x).toBeGreaterThanOrEqual(0);
+      expect(rect.x + rect.width).toBeLessThanOrEqual(width + 1);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width + 1);
+    await expect(page.locator(".trail-node")).toHaveCount(5);
+    await page.screenshot({ path: testOutputPath("screenshots", `restored-today-${name}.png`), animations: "disabled" });
   }
 });
 
-test("Todos exposes the inbox and focus-plan controls without fabricating a due date", async ({ page }) => {
+test("Todos keeps inbox semantics and exposes the focus plan only after expanding its footer", async ({ page }) => {
   await bootReferenceMock(page);
   await navButton(page, "待办").click();
+  const disclosure = page.locator("details.restored-focus-plan");
+  await expect(disclosure).toHaveCount(1);
+  await expect(disclosure).not.toHaveAttribute("open");
+  await expect(page.locator(".focus-plan-controls")).toBeHidden();
+  await disclosure.locator("summary").click();
+  await expect(disclosure).toHaveAttribute("open", "");
   await expect(page.locator(".focus-plan-controls")).toBeVisible();
-  await expect(page.getByText("收件箱 · 未安排", { exact: true })).toBeVisible();
+  const inbox = page.locator(".nv-todo-date-group").filter({ hasText: "收件箱 · 未安排" });
+  await expect(inbox).toContainText("回看上次停笔位置");
+  await expect(inbox).not.toContainText("已过期");
   await expect(page.locator(".focus-plan-controls")).toContainText("回看上次停笔位置");
-  await expect(page.getByRole("button", { name: "快速记一件事", exact: true })).toBeVisible();
+  await page.keyboard.press("Control+K");
+  await page.getByRole("searchbox", { name: "搜索命令" }).fill("快速收进收件箱");
+  await page.getByRole("option", { name: "快速收进收件箱 记下一件事，不填日期也可以", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "先记下来，稍后再整理" })).toBeVisible();
+  await expect(navButton(page, "待办")).toHaveClass(/active/);
 });
 
 test("Records keeps long-term statistics and real record source labels", async ({ page }) => {
@@ -303,34 +382,108 @@ test("Records keeps long-term statistics and real record source labels", async (
   await expect(page.getByText("连续 9 天", { exact: true })).toHaveCount(0);
 });
 
-test("Settings uses five real previews, immediate theme changes, and no developer status copy", async ({ page }) => {
-  await bootReferenceMock(page);
-  await navButton(page, "设置").click();
-  const picker = page.locator(".theme-picker__option");
-  await expect(picker).toHaveCount(5);
-  await expect(picker.locator("img")).toHaveCount(5);
-  await expect(picker.filter({ hasText: "夜谷" })).toHaveAttribute("aria-pressed", "true");
-  for (const [, name] of themes.slice(1)) {
-    await picker.filter({ hasText: name }).click({ force: true });
-    await expect(picker.filter({ hasText: name })).toHaveAttribute("aria-pressed", "true");
-  }
-  const bodyText = await page.locator("body").innerText();
-  for (const forbidden of ["已实现", "已接入", "尚未实现", "未装订", "主题观测站", "待排定"]) {
-    expect(bodyText).not.toContain(forbidden);
-  }
-  await expect(page.getByRole("button", { name: /保存书房布置|保存光场设置|保存设置/ })).toHaveCount(0);
-});
-
-test("Every theme keeps Focus reachable after Today consolidation", async ({ page }) => {
+test("Settings restores each theme's original picker and preview while persisting immediate changes", async ({ page }) => {
   test.setTimeout(90_000);
+  await page.setViewportSize({ width: 1487, height: 1058 });
   await bootReferenceMock(page);
   for (const [themeId, themeName] of themes) {
-    await navButton(page, "设置").click();
-    await page.locator(".theme-picker__option").filter({ hasText: themeName }).click({ force: true });
-    await navButton(page, "计时").click();
-    await expect(page.locator('[class*="focus-page"]').first()).toBeVisible();
-    await expect(page.locator('[class*="focus-page"] button').filter({ hasText: /开始/ }).first()).toBeVisible();
-    await navButton(page, "今日").click();
-    await expect(page.locator(`.unified-today-page--${themeId}`)).toBeVisible();
+    await selectTheme(page, themeId, themeName);
+    const layout = themeLayouts[themeId];
+    const picker = page.locator(layout.picker);
+    await expect(picker).toHaveCount(5);
+    await expect(page.locator(".theme-picker__option")).toHaveCount(0);
+    for (const [, name] of themes) await expect(picker.filter({ hasText: name })).toBeEnabled();
+    await expect(picker.filter({ hasText: themeName })).toHaveAttribute("aria-pressed", "true");
+    if (themeId === "editorial-paper") {
+      await expect(picker.locator(".ep-theme-swatch__paper")).toHaveCount(5);
+      await expect(page.locator(".ep-live-preview__paper")).toContainText(themeName);
+    } else if (themeId === "graphite-console") {
+      await expect(picker.locator(".gc-theme-card__preview")).toHaveCount(5);
+      await expect(page.locator(".gc-settings-footer")).toContainText(themeName);
+    } else {
+      await expect(picker.locator("img")).toHaveCount(5);
+      await expect.poll(() => picker.locator("img").evaluateAll((images) => images.every((image) => image.complete && image.naturalWidth > 0))).toBe(true);
+    }
+    await expect(page.locator(layout.preview)).toBeVisible();
+    await expect.poll(() => page.evaluate(async () => (await window.__TAURI_INTERNALS__.invoke("get_app_preferences")).themeId)).toBe(themeId);
+  }
+  expect(await page.evaluate(() => window.__appPreferenceUpdateCalls)).toBeGreaterThanOrEqual(4);
+});
+
+test("Every restored Today task starts once without leaving Today or opening mini", async ({ browser }) => {
+  test.setTimeout(90_000);
+  for (const [themeId] of themes) {
+    const context = await browser.newContext({ viewport: { width: 1487, height: 1058 } });
+    const page = await context.newPage();
+    try {
+      await bootReferenceMock(page, { themeId });
+      await expectOriginalToday(page, themeId);
+      await page.locator(themeLayouts[themeId].task).click();
+      await expect.poll(() => page.evaluate(() => window.__startTimerCalls)).toBe(1);
+      await expect.poll(() => page.evaluate(async () => {
+        const timer = await window.__TAURI_INTERNALS__.invoke("get_timer_snapshot");
+        return { running: timer.isRunning, title: timer.activeTaskTitle, linkedTodoId: timer.linkedTodoId };
+      })).toEqual({ running: true, title: "整理研究资料", linkedTodoId: 101 });
+      await expectOriginalToday(page, themeId);
+      await expect(navButton(page, "今日")).toHaveClass(/active/);
+      await expect(page.locator(surfaceSelector(themeId, "focus"))).toHaveCount(0);
+      expect(await page.evaluate(() => window.__miniWorkspaceShown)).toBe(0);
+      await navButton(page, "计时").click();
+      const focus = page.locator(surfaceSelector(themeId, "focus"));
+      await expect(focus).toBeVisible();
+      await expect(focus.getByRole("button", { name: themeLayouts[themeId].pause, exact: true })).toBeVisible();
+      await expect(navButton(page, "计时")).toHaveClass(/active/);
+      expect(await page.evaluate(() => window.__startTimerCalls)).toBe(1);
+      await navButton(page, "今日").click();
+      await expectOriginalToday(page, themeId);
+    } finally {
+      await context.close();
+    }
   }
 });
+
+// This restoration scope intentionally does not import the 101-test legacy RC suite.
+for (const [themeId] of themes) {
+  for (const [view, label] of [["today", "今日"], ["focus", "计时"], ["todos", "待办"], ["records", "记录"], ["settings", "设置"]]) {
+    for (const width of view === "today" ? [1487, 1024, 560] : [1487]) {
+      test(`Restored UI screenshot ${themeId} ${view} ${width}`, async ({ page }) => {
+        const errors = [];
+        page.on("pageerror", (error) => errors.push(error.message));
+        await page.setViewportSize({ width, height: width === 1487 ? 1058 : 900 });
+        await bootReferenceMock(page, { themeId });
+        if (view !== "today") await navButton(page, label).click();
+        const surface = page.locator(surfaceSelector(themeId, view));
+        await expect(surface).toBeVisible();
+        await expect(navButton(page, label)).toHaveClass(/active/);
+        await expect(page.locator(".unified-today-page, .continuity-board")).toHaveCount(0);
+        await expect(page.locator(".minimal-nav > button")).toHaveCount(5);
+        await expect(page.locator(".window-control")).toHaveCount(3);
+        for (const control of await page.locator(".window-control").all()) {
+          await expect(control).toBeVisible();
+          await expect(control).toBeEnabled();
+        }
+        const rect = await surface.boundingBox();
+        expect(rect).not.toBeNull();
+        expect(rect.width).toBeGreaterThan(0);
+        expect(rect.x).toBeGreaterThanOrEqual(0);
+        expect(rect.x + rect.width).toBeLessThanOrEqual(width + 1);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width + 1);
+        if (view === "today") await expectOriginalToday(page, themeId);
+        if (view === "focus") await expect(surface.getByRole("button", { name: themeId === "night-valley" ? "开始" : "开始专注", exact: true })).toBeVisible();
+        if (view === "todos") {
+          await expect(surface).toContainText("回看上次停笔位置");
+          const todayGroup = surface.locator(".nv-todo-date-group__toggle").filter({ hasText: "今天 · 9月5日" });
+          await expect(todayGroup).toHaveAttribute("aria-expanded", "false");
+          await todayGroup.click();
+          await expect(todayGroup).toHaveAttribute("aria-expanded", "true");
+          await expect(surface).toContainText("整理研究资料");
+          await expect(surface).toContainText("写下发布清单");
+        }
+        if (view === "records") await expect(surface).toContainText("02:15:00");
+        if (view === "settings") await expect(page.locator(themeLayouts[themeId].picker)).toHaveCount(5);
+        await page.screenshot({ path: testOutputPath("restored-ui", `${themeId}-${view}-${width}.png`), fullPage: true, animations: "disabled" });
+        expect(errors).toEqual([]);
+      });
+    }
+  }
+}

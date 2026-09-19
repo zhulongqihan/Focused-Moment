@@ -10,11 +10,13 @@ import {
   Play,
   Plus,
   RotateCcw,
+  Save,
   ShieldCheck,
   Volume2,
   X,
 } from "lucide-solid";
 import type { AlertSoundKey, AnalyticsSnapshot, FocusRecord, TodoImportance, TodoItem, TimerSnapshot } from "../lib/contracts";
+import { themes } from "../lib/themes";
 import type {
   FocusSurfaceProps,
   RecordsSurfaceProps,
@@ -25,7 +27,6 @@ import type {
 import DailyFocusLine from "./DailyFocusLine";
 import { TodoDateGroupList } from "../features/todos/TodoDateGroupList";
 import { groupTodosByDate } from "../features/todos/todo-groups";
-import ThemePicker from "./ThemePicker";
 import "./AuroraOceanViews.css";
 
 const orbitPositions = [
@@ -123,6 +124,7 @@ function AoStatusLine(props: { analytics: () => AnalyticsSnapshot | null; timer:
 }
 
 export function AuroraOceanToday(props: TodaySurfaceProps) {
+  const streak = createMemo(() => props.analytics()?.currentStreakDays ?? 0);
   const sequence = createMemo(() => [...props.todayCompletedTodos(), ...props.todayTodos()].slice(0, 7));
   const activeIndex = createMemo(() => props.todayCompletedTodos().length);
   const nextTodo = createMemo(() => props.nextTodo());
@@ -132,7 +134,7 @@ export function AuroraOceanToday(props: TodaySurfaceProps) {
     <section class="ao-page ao-today-page" aria-label="潮汐轨迹">
       <header class="ao-page-top">
         <div><span class="ao-eyebrow">AURORA OCEAN / {aoDate(props.todayDate)}</span><span class="ao-breadcrumb">深海光场 · 今日轨迹</span></div>
-        <div class="ao-live-chip"><i class="ao-status-dot" /> 今日完成 <strong>{String(props.todayCompletedTodos().length).padStart(2, "0")}</strong> 项</div>
+        <div class="ao-streak-chip"><span>连续投入</span><strong>{String(streak()).padStart(2, "0")}</strong><small>天</small></div>
       </header>
 
       <div class="ao-today-hero">
@@ -323,6 +325,7 @@ export function AuroraOceanRecords(props: RecordsSurfaceProps) {
 
 export function AuroraOceanSettings(props: SettingsSurfaceProps) {
   let customAlertSoundInput: HTMLInputElement | undefined;
+  const activeTheme = createMemo(() => themes.find((theme) => theme.id === props.themeId()) ?? themes[0]);
   const toggle = (checked: boolean, key: "toastReminderEnabled" | "windowAttentionReminderEnabled" | "soundReminderEnabled") => void props.onSaveTimerPreferences({ [key]: checked });
   const saveRhythmMinutes = (key: "pomodoroFocusMinutes" | "pomodoroBreakMinutes" | "stopwatchReminderMinutes", value: string, min: number, max: number) => {
     const minutes = Math.min(max, Math.max(min, Number(value) || min));
@@ -336,12 +339,13 @@ export function AuroraOceanSettings(props: SettingsSurfaceProps) {
       <div class="ao-settings-grid">
         <nav class="ao-settings-nav" aria-label="设置分组"><a href="#ao-appearance">01 <span>光场</span></a><a href="#ao-behavior">02 <span>提醒</span></a><a href="#ao-audio">03 <span>声音</span></a><a href="#ao-rhythm">04 <span>节奏</span></a><a href="#ao-data">05 <span>本地数据</span></a></nav>
         <div class="ao-settings-main">
-          <AoGlass title="THE LIGHT FIELD / 光场" note="APPEARANCE / 01" class="ao-setting-card"><div id="ao-appearance" class="ao-theme-bubbles"><ThemePicker value={props.themeId()} onChange={props.onThemeSelect} className="ao-theme-picker" /></div><div class="ao-setting-sliders"><label><span>光场强度 <b>{props.visualIntensity()}%</b></span><input type="range" min="0" max="100" value={props.visualIntensity()} aria-label="光场强度" onInput={(event) => props.onVisualIntensityChange(Number(event.currentTarget.value))} /></label><label><span>水流动效 <b>{props.motionIntensity()}%</b></span><input type="range" min="0" max="100" value={props.motionIntensity()} aria-label="水流动效" onInput={(event) => props.onMotionIntensityChange(Number(event.currentTarget.value))} /></label><label><span>界面密度 <b>{props.density() === "roomy" ? "舒展" : "紧凑"}</b></span><div class="ao-density-buttons"><button type="button" classList={{ active: props.density() === "roomy" }} aria-pressed={props.density() === "roomy"} onClick={() => props.onDensityChange("roomy")}>舒展</button><button type="button" classList={{ active: props.density() === "compact" }} aria-pressed={props.density() === "compact"} onClick={() => props.onDensityChange("compact")}>紧凑</button></div></label></div><label class="ao-auto-mini-toggle"><input type="checkbox" checked={props.autoMiniOnStart()} onChange={(event) => props.onAutoMiniOnStartChange(event.currentTarget.checked)} /><span>开始专注时自动打开迷你工作台</span></label><Show when={props.appPreferenceSaveError()}><div class="ao-load-error" role="alert"><span>{props.appPreferenceSaveError()}</span><button type="button" class="ao-text-button" disabled={props.appPreferenceSaveBusy()} onClick={props.onRetryAppPreferenceSave}>重试保存</button></div></Show></AoGlass>
+          <AoGlass title="THE LIGHT FIELD / 光场" note="APPEARANCE / 01" class="ao-setting-card"><div id="ao-appearance" class="ao-theme-bubbles"><For each={themes}>{(theme) => <button type="button" classList={{ "ao-theme-bubble": true, selected: props.themeId() === theme.id, disabled: !theme.implemented }} disabled={!theme.implemented} aria-pressed={props.themeId() === theme.id} title={theme.implemented ? "使用" + theme.name + "主题" : theme.name + "主题尚未实现"} onClick={() => props.onThemeSelect(theme.id)}><img src={theme.preview} alt={theme.englishName + " 概念预览"} /><span class="ao-theme-bubble__orb" /><strong>{theme.name}</strong><small>{theme.implemented ? "已接入" : "未接入"}</small></button>}</For></div><div class="ao-setting-sliders"><label><span>光场强度 <b>{props.visualIntensity()}%</b></span><input type="range" min="0" max="100" value={props.visualIntensity()} aria-label="光场强度" onInput={(event) => props.onVisualIntensityChange(Number(event.currentTarget.value))} /></label><label><span>水流动效 <b>{props.motionIntensity()}%</b></span><input type="range" min="0" max="100" value={props.motionIntensity()} aria-label="水流动效" onInput={(event) => props.onMotionIntensityChange(Number(event.currentTarget.value))} /></label><label><span>界面密度 <b>{props.density() === "roomy" ? "舒展" : "紧凑"}</b></span><div class="ao-density-buttons"><button type="button" classList={{ active: props.density() === "roomy" }} onClick={() => props.onDensityChange("roomy")}>舒展</button><button type="button" classList={{ active: props.density() === "compact" }} onClick={() => props.onDensityChange("compact")}>紧凑</button></div></label></div></AoGlass>
           <AoGlass title="RETURN SIGNAL / 回来提醒" note="BEHAVIOR / 02" class="ao-setting-card"><div id="ao-behavior" class="ao-toggle-list"><label><input type="checkbox" checked={props.timerPreferences().toastReminderEnabled} disabled={props.busy()} onChange={(event) => toggle(event.currentTarget.checked, "toastReminderEnabled")} /><span><strong>应用内弹窗</strong><small>在当前光场里轻轻出现。</small></span><i /></label><label><input type="checkbox" checked={props.timerPreferences().windowAttentionReminderEnabled} disabled={props.busy()} onChange={(event) => toggle(event.currentTarget.checked, "windowAttentionReminderEnabled")} /><span><strong>任务栏提醒</strong><small>窗口在后台时让你回来。</small></span><i /></label><label><input type="checkbox" checked={props.timerPreferences().soundReminderEnabled} disabled={props.busy()} onChange={(event) => toggle(event.currentTarget.checked, "soundReminderEnabled")} /><span><strong>声音提醒</strong><small>播放一枚短促的潮汐声。</small></span><i /></label></div></AoGlass>
         <AoGlass title="SOUND CURRENT / 声音" note="AUDIO / 03" class="ao-setting-card"><div id="ao-audio" class="ao-audio-setting"><AoFieldLabel label="提醒音效"><select value={props.timerPreferences().alertSoundKey} disabled={props.busy()} onChange={(event) => void props.onSaveTimerPreferences({ alertSoundKey: event.currentTarget.value as AlertSoundKey })}><option value="soft_chime">柔和铃音</option><option value="bright_bell">明亮三连</option><option value="deep_pulse">沉稳脉冲</option><option value="wooden_tick">木鱼单击</option><option value="glass_ping">玻璃回响</option><option value="morning_chord">晨光和弦</option><option value="custom" disabled={!props.customAlertSoundName()}>自定义音效</option></select></AoFieldLabel><div><button type="button" class="ao-glass-button" disabled={props.busy()} onClick={props.onPreviewAlertSound}><Volume2 size={15} />试听</button><button type="button" class="ao-glass-button" disabled={props.busy()} onClick={() => customAlertSoundInput?.click()}>导入</button><Show when={props.customAlertSoundName()}><button type="button" class="ao-ghost-link" disabled={props.busy()} onClick={() => void props.onClearCustomAlertSound()}>移除</button></Show><input ref={(element) => { customAlertSoundInput = element; }} class="sr-only" type="file" accept="audio/*" aria-label="导入自定义音效" onChange={(event) => void props.onChooseCustomAlertSound(event)} /></div></div></AoGlass>
           <AoGlass title="TIDE RHYTHM / 专注节奏" note="TIMER / 04" class="ao-setting-card"><div id="ao-rhythm" class="ao-rhythm-grid"><label><span>默认专注 <small>分钟</small></span><input type="number" min="5" max="180" step="5" value={props.timerPreferences().pomodoroFocusMinutes} disabled={props.busy()} onChange={(event) => saveRhythmMinutes("pomodoroFocusMinutes", event.currentTarget.value, 5, 180)} /></label><label><span>默认休息 <small>分钟</small></span><input type="number" min="1" max="60" step="1" value={props.timerPreferences().pomodoroBreakMinutes} disabled={props.busy()} onChange={(event) => saveRhythmMinutes("pomodoroBreakMinutes", event.currentTarget.value, 1, 60)} /></label><label><span>长专注提醒 <small>分钟</small></span><input type="number" min="5" max="180" step="5" value={props.timerPreferences().stopwatchReminderMinutes ?? props.timerPreferences().pomodoroFocusMinutes} disabled={props.busy()} onChange={(event) => saveRhythmMinutes("stopwatchReminderMinutes", event.currentTarget.value, 5, 180)} /></label></div></AoGlass>
           <AoGlass title="LOCAL WATER / 本地数据" note="SAFETY / 05" class="ao-setting-card"><div id="ao-data" class="ao-data-setting"><div class="ao-data-copy"><ShieldCheck size={21} /><p>待办、专注记录和未完成计时状态只保存在这台电脑上。</p></div><div class="ao-data-actions"><button type="button" class="ao-aqua-button" disabled={props.busy()} onClick={() => void props.onCreateBackup()}>{props.busy() ? props.busyLabel() : "导出备份"}</button><button type="button" class="ao-glass-button" disabled={props.busy()} onClick={() => void props.onOpenBackupFolder()}>打开目录</button><button type="button" class="ao-danger-button" disabled={props.busy()} onClick={() => void props.onClearAllData()}>清空数据</button></div><Show when={props.lastBackupPath()}><p class="ao-path">最近备份：{props.lastBackupPath()}</p></Show><Show when={props.backupLoadState() === "error"}><div class="ao-load-error"><strong>备份列表读取失败</strong><span>{props.backupLoadError()}</span><button type="button" class="ao-text-button" onClick={() => void props.onLoadBackups()}>重试</button></div></Show><Show when={props.backupLoadState() === "ready" && props.backups().length > 0}><AoFieldLabel label="选择备份"><select value={props.selectedBackupFile()} onChange={(event) => props.onSelectedBackupFile(event.currentTarget.value)}><For each={props.backups()}>{(backup) => <option value={backup.fileName}>{backup.fileName}</option>}</For></select></AoFieldLabel><button type="button" class="ao-glass-button" disabled={props.busy() || !props.selectedBackupFile()} onClick={() => void props.onRestoreBackup()}>导入并替换当前数据</button></Show></div></AoGlass>
         </div>
+        <aside class="ao-settings-preview"><div class="ao-preview-orbit"><div class="ao-preview-orbit__core"><span>LIVE</span><strong>{activeTheme().name}</strong></div><i /><i /><i /></div><span>ACTIVE LIGHT FIELD</span><strong>{activeTheme().englishName}</strong><p>{activeTheme().description}</p><button type="button" class="ao-aqua-button ao-aqua-button--wide" onClick={props.onSaveVisualSettings}><Save size={15} /> 保存光场设置</button></aside>
       </div>
     </section>
   );

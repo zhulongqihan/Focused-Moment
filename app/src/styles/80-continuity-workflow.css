@@ -1,4 +1,10 @@
 /* Continuity workflow: capture, start, continue, correct, and restore. */
+.restored-focus-plan,
+.restored-settings-compatibility { margin: 24px clamp(18px, 4vw, 58px); color: inherit; }
+.restored-focus-plan > summary { cursor: pointer; font-size: .85rem; }
+.restored-focus-plan .focus-plan-controls { width: 100%; margin: 12px 0 0; background: transparent; color: inherit; border-color: currentColor; }
+.restored-settings-compatibility > label { display: flex; align-items: center; gap: 8px; font-size: .85rem; }
+.restored-settings-compatibility [role="alert"] { margin-top: 12px; }
 .unified-today-page {
   min-height: 100%;
   padding: 34px clamp(18px, 4vw, 58px) 52px;

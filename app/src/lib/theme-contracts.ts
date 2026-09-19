@@ -187,6 +187,8 @@ export interface SettingsSurfaceProps {
   onDensityChange: (value: "roomy" | "compact") => void;
   onAutoMiniOnStartChange: (value: boolean) => void;
   onRetryAppPreferenceSave: () => void;
+  /** Compatibility action for the original theme settings; flushes native autosave. */
+  onSaveVisualSettings: () => void;
   onSaveTimerPreferences: (patch: Partial<TimerPreferences>) => void | Promise<void>;
   onPreviewAlertSound: () => void;
   onChooseCustomAlertSound: (event: Event) => void | Promise<void>;

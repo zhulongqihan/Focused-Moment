@@ -3,8 +3,9 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
-const sourceCssSha256 = "948706D48171384A74E02026942CC55DEE4C174926DB1BFBF2B8654B401B089C";
-const sourceCssLength = 444986;
+// Original theme CSS restored from ec8ed25, plus scoped compatibility controls.
+const sourceCssSha256 = "CC9B657520E0C588215148961EC6EE11D2EC7DB27F5436501931482CE172115D";
+const sourceCssLength = 445688;
 const modules = [
   ["00-foundation.css", 1, 900],
   ["10-trail-reference.css", 901, 3175],
