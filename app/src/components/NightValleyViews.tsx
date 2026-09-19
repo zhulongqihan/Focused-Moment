@@ -31,7 +31,7 @@ function currentDateLabel() {
     .replace(/\//g, "-");
 }
 
-type BuiltInAlertSoundKey = Exclude<AlertSoundKey, "custom">;
+type BuiltInAlertSoundKey = Exclude<AlertSoundKey, "custom" | "viral_quote">;
 
 const alertSoundOptions: Array<{ key: BuiltInAlertSoundKey; label: string; note: string }> = [
   { key: "soft_chime", label: "柔和铃音", note: "轻 · 双音" },
@@ -40,7 +40,6 @@ const alertSoundOptions: Array<{ key: BuiltInAlertSoundKey; label: string; note:
   { key: "wooden_tick", label: "木鱼单击", note: "静 · 一声" },
   { key: "glass_ping", label: "玻璃回响", note: "亮 · 余韵" },
   { key: "morning_chord", label: "晨光和弦", note: "暖 · 上行" },
-  { key: "viral_quote", label: "老牧师原声", note: "经典 · 口播" },
 ];
 
 function formatPreviewMinutes(value: number) {
@@ -213,10 +212,10 @@ export function NightValleyFocus(props: FocusSurfaceProps) {
                   type="button"
                   class="secondary-button nv-focus-floating-link nv-focus-floating-link--header"
                   disabled={props.busy()}
-                  title="隐藏主窗口，回到悬浮计时"
+                  title="打开迷你工作台"
                   onClick={() => void props.onShowFocusFloating()}
                 >
-                  进入悬浮窗 <ArrowUpRight size={15} strokeWidth={1.8} aria-hidden="true" />
+                  打开迷你工作台 <ArrowUpRight size={15} strokeWidth={1.8} aria-hidden="true" />
                 </button>
               </Show>
             </div>
@@ -616,6 +615,7 @@ export function NightValleyRecords(props: RecordsSurfaceProps) {
         <NightValleyDateStamp date={currentDateLabel()} />
         <h1>专注记录</h1>
         <p>看见投入留下的轨迹。</p>
+        <button type="button" class="primary-button" disabled={props.busy()} onClick={() => void props.onCreateManualRecord?.()}>补录专注</button>
       </header>
 
       <section class="records-archive nv-records-archive" aria-label="个人专注档案">
@@ -680,7 +680,7 @@ export function NightValleyRecords(props: RecordsSurfaceProps) {
 
         <section class="records-stats records-archive__stats" aria-label="专注概览">
           <div><span>活跃日</span><strong>{props.analytics()?.activeDays ?? 0}</strong><small>活跃日平均 {props.analytics()?.averageDailyDurationLabel ?? "00:00:00"}</small></div>
-          <div><span>连续回来</span><strong>{props.analytics()?.currentStreakDays ?? 0} 天</strong><small>保持你的节奏</small></div>
+          <div><span>节奏成就</span><strong>{props.analytics()?.currentStreakDays ?? 0} 天</strong><small>下一次回来从今天算起</small></div>
           <div><span>独立专注</span><strong>{props.analytics()?.independentSessionCount ?? 0}</strong><small>没有关联待办</small></div>
           <div class="records-stats__progress"><div class="records-stats__progress-heading"><span>待办完成轨迹</span><strong>{props.todoCompletionPercent()}%</strong></div><div class="records-progress" aria-hidden="true"><span style={{ width: `${props.todoCompletionPercent()}%` }} /></div><small>完成的事项会回到今日路径。</small></div>
         </section>
@@ -738,7 +738,7 @@ export function NightValleyRecords(props: RecordsSurfaceProps) {
                         <article class="record-row">
                           <Show
                             when={props.editingRecord()?.id === record.id}
-                            fallback={<><div class="record-row__details"><div class="record-row__title-line"><strong title={record.title}>{record.title}</strong><span class="record-row__mode">{record.modeLabel}</span></div><small>{props.formatRecordDate(record)}</small></div><b>{record.durationLabel}</b><div class="record-row__actions"><button type="button" class="row-action" aria-label={`编辑记录“${record.title}”`} disabled={props.busy()} onClick={() => props.onBeginEdit(record)}>编辑</button><button type="button" class="row-action row-action--danger" aria-label={`删除记录“${record.title}”`} disabled={props.busy()} onClick={() => void props.onRemove(record.id)}>删除</button></div></>}
+                            fallback={<><div class="record-row__details"><div class="record-row__title-line"><strong title={record.title}>{record.title}</strong><span class="record-row__mode">{record.modeLabel}</span></div><small>{props.formatRecordDate(record)} · {record.source === "manual" ? "手动补录" : "计时完成"}{record.editedAt ? " · 已修正" : ""}</small></div><b>{record.durationLabel}</b><div class="record-row__actions"><button type="button" class="row-action" aria-label={`编辑记录“${record.title}”`} disabled={props.busy()} onClick={() => props.onBeginEdit(record)}>改名</button><Show when={props.onBeginDetailedEdit}><button type="button" class="row-action" disabled={props.busy()} onClick={() => props.onBeginDetailedEdit?.(record)}>详细编辑</button></Show><button type="button" class="row-action row-action--danger" aria-label={`删除记录“${record.title}”`} disabled={props.busy()} onClick={() => void props.onRemove(record.id)}>删除</button></div></>}
                           >
                             <div class="record-row__details record-row__details--editing"><label class="sr-only" for={`editRecordTitle-${record.id}`}>记录名称</label><input id={`editRecordTitle-${record.id}`} type="text" name={`editRecordTitle-${record.id}`} autocomplete="off" maxlength="200" autofocus aria-label="记录名称" value={props.editingRecord()?.title ?? ""} onInput={(event) => props.onPatchEdit(event.currentTarget.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void props.onSaveEdit(); } else if (event.key === "Escape") { event.preventDefault(); props.onCancelEdit(); } }} /><small>{props.formatRecordDate(record)}</small></div><b>{record.durationLabel}</b><div class="record-row__actions"><button type="button" class="primary-button" disabled={props.busy()} onClick={() => void props.onSaveEdit()}>保存</button><button type="button" class="text-button" disabled={props.busy()} onClick={props.onCancelEdit}>取消</button></div>
                           </Show>

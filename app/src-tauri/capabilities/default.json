@@ -4,6 +4,7 @@
   "description": "Capability for the main window",
   "windows": ["main", "todo-float", "todo-unlock", "focus-float", "focus-unlock"],
   "permissions": [
-    "core:default"
+    "core:default",
+    "dialog:default"
   ]
 }

@@ -9,6 +9,8 @@ pub(crate) struct RunAnchor {
 pub(crate) struct TimerEngineState {
     pub(crate) timer: Mutex<TimerEngine>,
     pub(crate) timer_preferences: Mutex<TimerPreferences>,
+    pub(crate) app_preferences: Mutex<AppPreferences>,
+    pub(crate) focus_plan: Mutex<FocusPlanState>,
     pub(crate) focus_records: Mutex<Vec<FocusRecord>>,
     pub(crate) next_record_id: Mutex<u64>,
     pub(crate) todo_items: Mutex<Vec<TodoItem>>,
@@ -57,6 +59,44 @@ pub(crate) struct CompletedSession {
     pub(crate) complete_linked_todo_on_finish: bool,
 }
 
+fn normalize_focus_plan(
+    mut plan: FocusPlanState,
+    todo_items: &[TodoItem],
+    seed_picks: bool,
+) -> FocusPlanState {
+    let today = Local::now().format("%Y-%m-%d").to_string();
+    let pending = todo_items
+        .iter()
+        .filter(|item| !item.is_completed)
+        .collect::<Vec<_>>();
+    let valid_current = |id: u64| pending.iter().any(|item| item.id == id);
+    let valid_pick = |id: u64| {
+        pending.iter().any(|item| {
+            item.id == id && (item.scheduled_date.is_empty() || item.scheduled_date == today)
+        })
+    };
+
+    if plan.current_todo_id.is_some_and(|id| !valid_current(id)) {
+        plan.current_todo_id = None;
+    }
+
+    let mut seen = std::collections::HashSet::new();
+    plan.today_pick_ids
+        .retain(|id| seen.insert(*id) && valid_pick(*id));
+    plan.today_pick_ids.truncate(3);
+
+    if seed_picks && plan.today_pick_ids.is_empty() {
+        plan.today_pick_ids = pending
+            .iter()
+            .filter(|item| item.scheduled_date.is_empty() || item.scheduled_date == today)
+            .take(3)
+            .map(|item| item.id)
+            .collect();
+    }
+
+    plan
+}
+
 impl TimerEngineState {
     pub(crate) fn new() -> Self {
         let mut startup_error = None;
@@ -99,12 +139,14 @@ impl TimerEngineState {
                 || persisted_runtime.schema_version < CURRENT_STORAGE_SCHEMA_VERSION);
 
         let PersistedState {
-            schema_version: _,
+            schema_version,
             mut focus_records,
             next_record_id,
             mut todo_items,
             next_todo_id,
             timer_preferences,
+            app_preferences,
+            focus_plan,
         } = persisted;
 
         sort_focus_records(&mut focus_records);
@@ -113,6 +155,14 @@ impl TimerEngineState {
         let normalized_preferences = timer_preferences
             .normalized()
             .unwrap_or_else(|_| TimerPreferences::default());
+        let normalized_app_preferences = app_preferences
+            .normalized()
+            .unwrap_or_else(|_| AppPreferences::default());
+        let normalized_focus_plan = normalize_focus_plan(
+            focus_plan,
+            &todo_items,
+            schema_version < CURRENT_STORAGE_SCHEMA_VERSION,
+        );
         let mut timer =
             TimerEngine::from_persisted_runtime(persisted_runtime, normalized_preferences);
         if let Some(linked_todo_id) = timer.linked_todo_id {
@@ -124,6 +174,8 @@ impl TimerEngineState {
         let mut state = Self {
             timer: Mutex::new(timer),
             timer_preferences: Mutex::new(normalized_preferences),
+            app_preferences: Mutex::new(normalized_app_preferences),
+            focus_plan: Mutex::new(normalized_focus_plan),
             next_record_id: Mutex::new(next_record_id.max(next_focus_record_id(&focus_records))),
             focus_records: Mutex::new(focus_records),
             next_todo_id: Mutex::new(next_todo_id.max(next_todo_id_value(&todo_items))),
@@ -184,6 +236,16 @@ impl TimerEngineState {
                 .timer_preferences
                 .lock()
                 .map_err(|_| "计时设置状态锁定失败".to_string())?,
+            app_preferences: self
+                .app_preferences
+                .lock()
+                .map_err(|_| "应用设置状态锁定失败".to_string())?
+                .clone(),
+            focus_plan: self
+                .focus_plan
+                .lock()
+                .map_err(|_| "专注计划状态锁定失败".to_string())?
+                .clone(),
         })
     }
 
@@ -220,6 +282,13 @@ impl TimerEngineState {
             .timer_preferences
             .normalized()
             .map_err(|_| "无法回退：计时设置快照不合法。".to_string())?;
+        let normalized_app_preferences = snapshot
+            .app_preferences
+            .clone()
+            .normalized()
+            .map_err(|_| "无法回退：应用设置快照不合法。".to_string())?;
+        let normalized_focus_plan =
+            normalize_focus_plan(snapshot.focus_plan.clone(), &snapshot.todo_items, false);
 
         {
             let mut timer = self
@@ -234,6 +303,13 @@ impl TimerEngineState {
                 .lock()
                 .map_err(|_| "计时设置状态锁定失败".to_string())?;
             *preferences = normalized_preferences;
+        }
+        {
+            let mut preferences = self
+                .app_preferences
+                .lock()
+                .map_err(|_| "应用设置状态锁定失败".to_string())?;
+            *preferences = normalized_app_preferences;
         }
         {
             let mut records = self
@@ -266,6 +342,13 @@ impl TimerEngineState {
             *next_todo_id = snapshot
                 .next_todo_id
                 .max(next_todo_id_value(&snapshot.todo_items));
+        }
+        {
+            let mut focus_plan = self
+                .focus_plan
+                .lock()
+                .map_err(|_| "专注计划状态锁定失败".to_string())?;
+            *focus_plan = normalized_focus_plan;
         }
 
         Ok(())
@@ -311,6 +394,17 @@ impl TimerEngineState {
         &self,
         backup: AppBackupFile,
     ) -> Result<BackupImportResult, String> {
+        self.apply_backup_file_with_options(backup, true)
+    }
+
+    pub(crate) fn apply_backup_file_with_options(
+        &self,
+        backup: AppBackupFile,
+        restore_app_preferences: bool,
+    ) -> Result<BackupImportResult, String> {
+        let seed_legacy_focus_plan = backup.format_version < APP_BACKUP_FORMAT_VERSION
+            || backup.schema_version < CURRENT_STORAGE_SCHEMA_VERSION
+            || backup.state.schema_version < CURRENT_STORAGE_SCHEMA_VERSION;
         let (backup, migrated_from_format_version) = migrate_backup_file(backup)?;
         let AppBackupFile {
             kind,
@@ -328,10 +422,25 @@ impl TimerEngineState {
             .timer_preferences
             .normalized()
             .map_err(|_| "备份中的计时设置不合法，无法恢复。".to_string())?;
+        let imported_app_preferences = state
+            .app_preferences
+            .clone()
+            .normalized()
+            .map_err(|_| "备份中的应用设置不合法，无法恢复。".to_string())?;
+        let normalized_app_preferences = if restore_app_preferences {
+            imported_app_preferences
+        } else {
+            self.app_preferences
+                .lock()
+                .map_err(|_| "应用设置状态锁定失败".to_string())?
+                .clone()
+        };
         let mut focus_records = state.focus_records;
         let mut todo_items = state.todo_items;
         sort_focus_records(&mut focus_records);
         sort_todo_items(&mut todo_items);
+        let normalized_focus_plan =
+            normalize_focus_plan(state.focus_plan, &todo_items, seed_legacy_focus_plan);
         let mut normalized_runtime =
             normalize_imported_runtime(runtime, &todo_items, normalized_preferences);
 
@@ -353,6 +462,13 @@ impl TimerEngineState {
                 .lock()
                 .map_err(|_| "计时设置状态锁定失败".to_string())?;
             *preferences = normalized_preferences;
+        }
+        {
+            let mut preferences = self
+                .app_preferences
+                .lock()
+                .map_err(|_| "应用设置状态锁定失败".to_string())?;
+            *preferences = normalized_app_preferences;
         }
 
         {
@@ -388,6 +504,13 @@ impl TimerEngineState {
                 .map_err(|_| "任务编号状态锁定失败".to_string())?;
             *next_todo_id = state.next_todo_id.max(next_todo_id_value(&todo_items));
         }
+        {
+            let mut focus_plan = self
+                .focus_plan
+                .lock()
+                .map_err(|_| "专注计划状态锁定失败".to_string())?;
+            *focus_plan = normalized_focus_plan;
+        }
 
         self.persist_all()?;
 
@@ -404,6 +527,7 @@ impl TimerEngineState {
                 || !normalized_runtime.current_task_title.trim().is_empty()
                 || normalized_runtime.linked_todo_id.is_some(),
             migrated_from_format_version,
+            restored_app_preferences: restore_app_preferences,
         })
     }
 
@@ -1295,5 +1419,48 @@ pub(crate) fn parse_alert_key_value(value: &str) -> Option<AlertKind> {
         "stopwatch_target_reached" => Some(AlertKind::StopwatchTargetReached),
         "countdown_complete" => Some(AlertKind::CountdownComplete),
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn todo(id: u64, scheduled_date: &str, is_completed: bool) -> TodoItem {
+        TodoItem {
+            id,
+            title: format!("事项 {id}"),
+            is_completed,
+            scheduled_date: scheduled_date.to_string(),
+            scheduled_time: String::new(),
+            importance_key: "medium".to_string(),
+            continuation_note: String::new(),
+            continuation_updated_at: None,
+        }
+    }
+
+    #[test]
+    fn focus_plan_migration_removes_invalid_duplicates_and_seeds_today_or_inbox() {
+        let today = Local::now().format("%Y-%m-%d").to_string();
+        let todos = vec![
+            todo(1, &today, false),
+            todo(2, &today, true),
+            todo(3, "", false),
+            todo(4, "2099-01-01", false),
+        ];
+
+        let normalized = normalize_focus_plan(
+            FocusPlanState {
+                current_todo_id: Some(2),
+                today_pick_ids: vec![1, 1, 2, 3, 4],
+            },
+            &todos,
+            false,
+        );
+        assert_eq!(normalized.current_todo_id, None);
+        assert_eq!(normalized.today_pick_ids, vec![1, 3]);
+
+        let seeded = normalize_focus_plan(FocusPlanState::default(), &todos, true);
+        assert_eq!(seeded.today_pick_ids, vec![1, 3]);
     }
 }

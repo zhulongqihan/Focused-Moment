@@ -24,6 +24,10 @@ export async function updateTodoItem(id: number, input: TodoDraft) {
   });
 }
 
+export async function updateTodoContinuationNote(id: number, note: string) {
+  return invoke<TodoItem[]>("update_todo_continuation_note", { id, note });
+}
+
 export async function toggleTodoItem(id: number) {
   return invoke<TodoItem[]>("toggle_todo_item", { id });
 }

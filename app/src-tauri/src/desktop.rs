@@ -121,7 +121,7 @@ pub(crate) fn ensure_todo_floating_window(app: &AppHandle) -> Result<tauri::Webv
             build_floating_window(
                 app,
                 "todo-float",
-                "Focused Moment 悬浮工作台",
+                "Focused Moment 迷你工作台",
                 360.0,
                 340.0,
                 280.0,
@@ -298,7 +298,7 @@ pub(crate) fn build_windows_tray_menu(app: &AppHandle) -> Result<Menu<Wry>, Stri
         .enabled(timer_action_enabled)
         .build(app)
         .map_err(|error| error.to_string())?;
-    let focus_floating_item = MenuItemBuilder::with_id(TRAY_FOCUS_FLOATING_ID, "打开专注悬浮窗")
+    let focus_floating_item = MenuItemBuilder::with_id(TRAY_FOCUS_FLOATING_ID, "打开迷你工作台")
         .enabled(tray_has_progress(&snapshot))
         .build(app)
         .map_err(|error| error.to_string())?;
@@ -629,7 +629,7 @@ pub(crate) async fn show_floating_todos(app: tauri::AppHandle) -> Result<(), Str
 pub(crate) async fn lock_floating_todos(app: tauri::AppHandle) -> Result<(), String> {
     let floating_window = app
         .get_webview_window("todo-float")
-        .ok_or_else(|| "找不到悬浮待办窗口".to_string())?;
+        .ok_or_else(|| "找不到迷你工作台".to_string())?;
     let unlock_window = ensure_todo_unlock_window(&app)?;
 
     let floating_position = floating_window
@@ -662,7 +662,7 @@ pub(crate) async fn lock_floating_todos(app: tauri::AppHandle) -> Result<(), Str
 pub(crate) fn unlock_floating_todos(app: tauri::AppHandle) -> Result<(), String> {
     let floating_window = app
         .get_webview_window("todo-float")
-        .ok_or_else(|| "找不到悬浮待办窗口".to_string())?;
+        .ok_or_else(|| "找不到迷你工作台".to_string())?;
 
     // Restore interaction before closing the fallback unlock window. If a
     // native focus/show call is delayed, the user must still have a visible
@@ -705,7 +705,7 @@ pub(crate) async fn show_focus_floating(app: tauri::AppHandle) -> Result<(), Str
 pub(crate) async fn lock_focus_floating(app: tauri::AppHandle) -> Result<(), String> {
     let focus_window = app
         .get_webview_window("focus-float")
-        .ok_or_else(|| "找不到专注小窗".to_string())?;
+        .ok_or_else(|| "找不到迷你工作台".to_string())?;
     let unlock_window = ensure_focus_unlock_window(&app)?;
 
     let floating_position = focus_window
@@ -736,7 +736,7 @@ pub(crate) async fn lock_focus_floating(app: tauri::AppHandle) -> Result<(), Str
 pub(crate) fn unlock_focus_floating(app: tauri::AppHandle) -> Result<(), String> {
     let focus_window = app
         .get_webview_window("focus-float")
-        .ok_or_else(|| "找不到专注小窗".to_string())?;
+        .ok_or_else(|| "找不到迷你工作台".to_string())?;
     // Keep the fallback unlock window alive until the floating window is
     // visible, interactive, and focused. Hiding it first can strand the
     // floating window in click-through mode when Windows delays a focus call.

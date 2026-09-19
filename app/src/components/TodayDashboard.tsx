@@ -523,7 +523,7 @@ export default function TodayDashboard(props: TodaySurfaceProps) {
                     data-trail-index={node.index}
                     aria-label={`${node.index}. ${node.title} · ${node.time}`}
                     disabled={props.busy()}
-                    onClick={() => node.item ? props.onUseTodo(node.item) : node.record ? props.onOpenRecords() : props.onOpenFocus()}
+                    onClick={() => node.item ? props.onStartTodo(node.item) : node.record ? props.onOpenRecords() : props.onOpenFocus()}
                   >
                     <span
                       classList={{

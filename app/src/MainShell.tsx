@@ -25,6 +25,12 @@ import {
   unlockFocusFloating,
 } from "./lib/window-controls";
 import CommandPalette from "./components/CommandPalette";
+import QuickCaptureDialog from "./components/QuickCaptureDialog";
+import ManualFocusRecordDialog from "./components/ManualFocusRecordDialog";
+import ContinuationNotePrompt from "./components/ContinuationNotePrompt";
+import FocusRecordEditDialog from "./components/FocusRecordEditDialog";
+import PortableBackupPanel from "./components/PortableBackupPanel";
+import FocusPlanControls from "./components/FocusPlanControls";
 import ThemeSurface from "./components/ThemeSurface";
 import {
   formatAnalyticsDate,
@@ -84,12 +90,18 @@ function MainShell() {
     setTodoImportance,
     editingTodo,
     editingRecord,
+    recordEditDialogOpen,
     backups,
     backupLoadState,
     backupLoadError,
     selectedBackupFile,
     setSelectedBackupFile,
     lastBackupPath,
+    portableBackupPath,
+    setPortableBackupPath,
+    portableBackupPreview,
+    restorePortableAppPreferences,
+    setRestorePortableAppPreferences,
     commandPaletteOpen,
     commandSearch,
     setCommandSearch,
@@ -108,6 +120,9 @@ function MainShell() {
     setFloatingOpacityPanelOpen,
     selectedArchiveDate,
     setSelectedArchiveDate,
+    recordTaskFilterId,
+    recordTaskFilterTitle,
+    clearRecordTaskFilter,
     themeId,
     visualIntensity,
     motionIntensity,
@@ -152,6 +167,8 @@ function MainShell() {
     removeTodo,
     removeRecord,
     beginEditRecord,
+    beginDetailedRecordEdit,
+    patchEditingRecord,
     patchEditingRecordTitle,
     saveRecordEdit,
     cancelEditRecord,
@@ -160,7 +177,32 @@ function MainShell() {
     updateVisualIntensity,
     updateMotionIntensity,
     updateDensity,
-    saveVisualSettings,
+    autoMiniOnStart,
+    appPreferenceSaveError,
+    appPreferenceSaveBusy,
+    retryAppPreferencesSave,
+    flushAppPreferencesSave,
+    updateAutoMiniOnStart,
+    currentTodo,
+    todayPickTodos,
+    focusPlan,
+    setCurrentTodo,
+    toggleTodayPick,
+    startFocusForTodo,
+    saveContinuationNote,
+    createManualRecord,
+    continuationPrompt,
+    continuationSaveError,
+    dismissContinuationPrompt,
+    quickCaptureOpen,
+    quickCaptureTitle,
+    setQuickCaptureTitle,
+    openQuickCapture,
+    closeQuickCapture,
+    saveQuickCapture,
+    manualRecordOpen,
+    openManualRecord,
+    closeManualRecord,
     saveTimerPreferences,
     previewAlertSound,
     chooseCustomAlertSound,
@@ -169,6 +211,9 @@ function MainShell() {
     createBackup,
     openBackupFolder,
     restoreBackup,
+    previewPortableBackup,
+    exportPortableBackup,
+    importPortableBackup,
     clearAllData,
     changeView,
     startNextTodo,
@@ -178,7 +223,6 @@ function MainShell() {
     paletteCommands,
     updateFloatingOpacity,
     showFloatingTodos,
-    showFocusFloating,
     setCommandInput,
     setCommandTrigger,
     setFloatingWorkspaceElement,
@@ -342,7 +386,7 @@ function MainShell() {
     return (
       <aside
         class="floating-todo"
-        aria-label="桌面悬浮工作台"
+        aria-label="迷你工作台"
         ref={(element) => {
           setFloatingWorkspaceElement(element);
         }}
@@ -359,7 +403,7 @@ function MainShell() {
             }}
           >
             <span>Focused Moment</span>
-            <strong>悬浮工作台</strong>
+            <strong>迷你工作台</strong>
           </div>
           <div class="floating-todo__actions">
             <button
@@ -634,7 +678,7 @@ function MainShell() {
             disabled={busy()}
             onClick={() => void showFloatingTodos()}
           >
-            悬浮工作台
+            迷你工作台
           </button>
           <div
             class="window-controls"
@@ -801,6 +845,14 @@ function MainShell() {
               </button>
             </div>
           </Show>
+          <Show when={activeView() === "records" && recordTaskFilterId() !== null}>
+            <div class="records-task-filter" role="status">
+              <span>正在回顾任务：<strong>{recordTaskFilterTitle()}</strong></span>
+              <button type="button" class="text-button" onClick={clearRecordTaskFilter}>
+                清除任务筛选
+              </button>
+            </div>
+          </Show>
           <ThemeSurface
             activeView={() => activeView()}
             themeId={() => themeId()}
@@ -813,6 +865,10 @@ function MainShell() {
               timerHasProgress,
               timerCanContinue,
               nextTodo,
+              currentTodo,
+              todayPickTodos,
+              todayPickIds: () => focusPlan().todayPickIds,
+              planTodos: () => pendingTodos().filter((item) => item.scheduledDate === getToday() || item.scheduledDate === ""),
               todayTodos,
               todayCompletedTodos,
               records: () => records(),
@@ -824,6 +880,10 @@ function MainShell() {
               onContinue: () => void startFocus(),
               onFinish: () => finishFocus(),
               onStartNext: () => void startNextTodo(),
+              onSetCurrentTodo: (id) => void setCurrentTodo(id),
+              onToggleTodayPick: (id) => void toggleTodayPick(id),
+              onStartTodo: (item) => void startFocusForTodo(item),
+              onQuickCapture: openQuickCapture,
               onOpenFocus: () => changeView("focus"),
               onOpenRecords: () => changeView("records"),
               onUseTodo: useTodoForFocus,
@@ -834,6 +894,7 @@ function MainShell() {
               todaySessionCount: () => analytics()?.todaySessionCount ?? 0,
               timerPreferences: () => timerPreferences(),
               todos: () => todos(),
+              records: () => records(),
               pendingTodos,
               ready,
               busy,
@@ -858,7 +919,7 @@ function MainShell() {
               onPause: () => void pauseFocus(),
               onFinish: () => void finishFocus(),
               onReset: () => void resetFocus(),
-              onShowFocusFloating: () => void showFocusFloating(),
+              onShowFocusFloating: () => void showFloatingTodos(),
               onOpenRecords: () => changeView("records"),
             }}
             todos={{
@@ -915,10 +976,12 @@ function MainShell() {
               formatDurationMs,
               onSelectDate: setSelectedArchiveDate,
               onBeginEdit: beginEditRecord,
+              onBeginDetailedEdit: beginDetailedRecordEdit,
               onPatchEdit: patchEditingRecordTitle,
               onSaveEdit: () => void saveRecordEdit(),
               onCancelEdit: cancelEditRecord,
               onRemove: (id) => void removeRecord(id),
+              onCreateManualRecord: openManualRecord,
             }}
             settings={{
               timerPreferences: () => timerPreferences(),
@@ -939,7 +1002,12 @@ function MainShell() {
               onVisualIntensityChange: updateVisualIntensity,
               onMotionIntensityChange: updateMotionIntensity,
               onDensityChange: updateDensity,
-              onSaveVisualSettings: saveVisualSettings,
+              autoMiniOnStart,
+              appPreferenceSaveError,
+              appPreferenceSaveBusy,
+              onAutoMiniOnStartChange: updateAutoMiniOnStart,
+              onRetryAppPreferenceSave: retryAppPreferencesSave,
+              onSaveVisualSettings: flushAppPreferencesSave,
               onSaveTimerPreferences: saveTimerPreferences,
               onPreviewAlertSound: previewAlertSound,
               onChooseCustomAlertSound: chooseCustomAlertSound,
@@ -951,6 +1019,81 @@ function MainShell() {
               onRestoreBackup: restoreBackup,
               onClearAllData: clearAllData,
             }}
+          />
+
+          <Show when={activeView() === "settings"}>
+            <section class="restored-settings-compatibility" aria-label="工作台与保存状态">
+              <label><input type="checkbox" checked={autoMiniOnStart()} onChange={(event) => updateAutoMiniOnStart(event.currentTarget.checked)} />开始专注时自动打开迷你工作台</label>
+              <Show when={appPreferenceSaveError()}>
+                <div role="alert"><span>{appPreferenceSaveError()}</span><button type="button" class="text-button" disabled={appPreferenceSaveBusy()} onClick={retryAppPreferencesSave}>重试保存</button></div>
+              </Show>
+            </section>
+            <PortableBackupPanel
+              path={portableBackupPath()}
+              preview={portableBackupPreview()}
+              restoreAppPreferences={restorePortableAppPreferences()}
+              busy={busy()}
+              onPathChange={setPortableBackupPath}
+              onPreview={previewPortableBackup}
+              onExport={exportPortableBackup}
+              onImport={importPortableBackup}
+              onRestoreAppPreferencesChange={setRestorePortableAppPreferences}
+            />
+          </Show>
+
+          <Show when={activeView() === "todos"}>
+            <details class="restored-focus-plan">
+              <summary>当前事项和今日精选</summary>
+              <FocusPlanControls
+                planTodos={() => pendingTodos().filter((item) => item.scheduledDate === getToday() || item.scheduledDate === "")}
+                currentTodo={currentTodo}
+                todayPickIds={() => focusPlan().todayPickIds}
+                busy={busy}
+                timerHasProgress={timerHasProgress}
+                formatTodoDue={formatTodoDue}
+                onQuickCapture={openQuickCapture}
+                onSetCurrentTodo={(id) => void setCurrentTodo(id)}
+                onToggleTodayPick={(id) => void toggleTodayPick(id)}
+                onStartTodo={(item) => void startFocusForTodo(item)}
+              />
+            </details>
+          </Show>
+
+          <QuickCaptureDialog
+            open={quickCaptureOpen}
+            title={quickCaptureTitle}
+            busy={busy}
+            onTitleChange={setQuickCaptureTitle}
+            onSave={saveQuickCapture}
+            onClose={closeQuickCapture}
+          />
+          <ManualFocusRecordDialog
+            open={manualRecordOpen}
+            busy={busy}
+            todayDate={getToday()}
+            todos={() => todos()}
+            onSubmit={async (payload) => {
+              if (await createManualRecord(payload)) closeManualRecord();
+            }}
+            onClose={closeManualRecord}
+          />
+          <FocusRecordEditDialog
+            open={recordEditDialogOpen()}
+            draft={editingRecord()}
+            todos={todos()}
+            busy={busy()}
+            onChange={patchEditingRecord}
+            onSubmit={() => void saveRecordEdit()}
+            onClose={cancelEditRecord}
+          />
+          <ContinuationNotePrompt
+            prompt={continuationPrompt}
+            error={continuationSaveError}
+            busy={busy}
+            onSave={async (id, note) => {
+              if (await saveContinuationNote(id, note)) dismissContinuationPrompt();
+            }}
+            onSkip={dismissContinuationPrompt}
           />
 
           <Show when={message()}>
