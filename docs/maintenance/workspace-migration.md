@@ -67,5 +67,7 @@
 - 应用修复：为石墨记录页增加真实 30 天日期桶和可选历史日期选择；趋势节点、日期标签、悬停说明、投入天数与总时长均来自实际记录；节奏日志改为状态、完成时间、专注内容、时长、来源、操作六列，时长强度条和来源文案读取真实记录字段，并把底部操作改为“回到最近”。
 - 响应式验收：桌面端完整显示 30 个趋势节点；1024px 与 560px 视口均无横向溢出，日志列与趋势节点仍存在。
 - 验证：Graphite 专项 Playwright 1/1 通过；单 worker 前端全量 101/101 通过；`pnpm verify` 通过，Rust 单元测试 38/38 通过；`pnpm build` 通过。Rust 仍只有既有 unused/dead-code 警告。
-- 版本与交付边界：本轮为源码/测试修复，不发布新版本，不重建根目录 EXE，不创建安装器、tag 或 GitHub Release；应用提交 `72ddeeb` 已推送至 `origin/codex/focused-moment-continuity`。
-- 保护项：`PROJECT_PLAN.md` 未修改、未暂存、未提交；其既有用户修改继续保留在工作树中。
+- 本地交付：源码提交 `c2db71e` 已通过 `app/scripts/package-local.ps1` 重新生成根入口，build ID 为 `local-20260923-112146-c83d1ef813`，版本为 `2.12.1`；候选 EXE 与根 `Focused Moment.exe` SHA-256 均为 `BA71167AA310F890BAF382211208711F5A9F39ACC53CD1869F8590A34C90D952`，provenance 位于 `artifacts/builds/local/local-20260923-112146-c83d1ef813/manifest.json`，旧入口恢复副本位于对应 `archive/executables/local/`。
+- Windows 原生冒烟：`windows-native-20260923-112312-e6053388dd` 通过，源 EXE 与隔离 QA 副本哈希一致，启动可见、隔离存储、WebView2 目录、旧状态迁移和进程清理均通过。
+- 版本与发布边界：本轮不发布新版本，不创建安装器、tag 或 GitHub Release；应用提交 `72ddeeb` 已推送至 `origin/codex/focused-moment-continuity`，本条交接更新随文档提交一并推送。
+- 保护项：`PROJECT_PLAN.md` 未修改、未暂存、未提交；并行主题设计改动已原样恢复到工作树，未被本轮打包、修改或提交。
