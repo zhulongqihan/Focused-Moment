@@ -60,3 +60,12 @@
 - `pnpm verify`、单 worker Playwright `100/100`、`pnpm build` 均通过；Playwright 用例完成后本地 webServer 子进程未自行退出，按既有流程停止 runner，不影响已完成用例结果。
 - 根目录可运行入口已通过 `app/scripts/package-local.ps1` 从最终 `app/` Release 构建重新生成：build ID 为 `local-20260923-031515-b74828e1e6`，版本为 `2.12.1`，根入口与候选 EXE SHA-256 均为 `1F564F21476D3E9D26659FEB016C14D51F3D4195CD0C6AF4F334B71C1CC39EBB`；完整 provenance 在 `artifacts/builds/local/local-20260923-031515-b74828e1e6/manifest.json`，旧入口在对应 `archive/executables/local/` 恢复副本中。
 - Windows 原生冒烟 `windows-native-20260923-031639-ab660521df` 通过，验证新根 EXE 启动、隔离存储、WebView2 数据目录和旧状态迁移；不创建安装器、tag 或 GitHub Release。
+
+## 2026-09-23 石墨主题记录页修复
+
+- 用户目标：修复石墨主题“更长的路”趋势展示不完整、节奏日志文案与记录字段不一致，以及底部摘要缺少实际意义的问题。
+- 应用修复：为石墨记录页增加真实 30 天日期桶和可选历史日期选择；趋势节点、日期标签、悬停说明、投入天数与总时长均来自实际记录；节奏日志改为状态、完成时间、专注内容、时长、来源、操作六列，时长强度条和来源文案读取真实记录字段，并把底部操作改为“回到最近”。
+- 响应式验收：桌面端完整显示 30 个趋势节点；1024px 与 560px 视口均无横向溢出，日志列与趋势节点仍存在。
+- 验证：Graphite 专项 Playwright 1/1 通过；单 worker 前端全量 101/101 通过；`pnpm verify` 通过，Rust 单元测试 38/38 通过；`pnpm build` 通过。Rust 仍只有既有 unused/dead-code 警告。
+- 版本与交付边界：本轮为源码/测试修复，不发布新版本，不重建根目录 EXE，不创建安装器、tag 或 GitHub Release；应用提交 `72ddeeb` 已推送至 `origin/codex/focused-moment-continuity`。
+- 保护项：`PROJECT_PLAN.md` 未修改、未暂存、未提交；其既有用户修改继续保留在工作树中。
