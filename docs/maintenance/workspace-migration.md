@@ -51,3 +51,12 @@
 - GitHub Actions Checks `35300876683`（提交 `e863e93`）通过：Repository verification、前端构建、Playwright 和 Rust 检查全部成功；远程 Playwright 首次运行报告 142 passed、4 flaky，最终作业成功。
 
 当前 Git 工作树只保留这一项受保护的既有修改：`PROJECT_PLAN.md`；应用构建输入提交为 `e863e93`，本记录后续文档提交不改变 `app/` 构建输入。归档内仍可见迁移前 fixture 自带的 4 个历史 Junction，它们没有被新建、没有被当前工程引用，原始目标事实记录在 `archive/MIGRATION_MANIFEST.json`。
+
+## 2026-09-23 主题可见性与记录交互修复
+
+- 本轮继续以 `F:\Focused Moment` 为唯一工作区，未修改、暂存或提交受保护的 `PROJECT_PLAN.md`；该文件的既有用户修改保留原位。
+- 应用输入更新为 `2.12.1`，修复夜谷记录日期展开、编辑纸页设置说明、极光海面/植物书房长页面裁切、七日潮汐坐标错位，以及两个主题已废弃的手动保存按钮。
+- 浏览器证据继续写入 `artifacts/qa/frontend/<unique-run-id>/`；本轮不把测试生成物或用户数据加入版本控制。
+- `pnpm verify`、单 worker Playwright `100/100`、`pnpm build` 均通过；Playwright 用例完成后本地 webServer 子进程未自行退出，按既有流程停止 runner，不影响已完成用例结果。
+- 根目录可运行入口已通过 `app/scripts/package-local.ps1` 从最终 `app/` Release 构建重新生成：build ID 为 `local-20260923-031515-b74828e1e6`，版本为 `2.12.1`，根入口与候选 EXE SHA-256 均为 `1F564F21476D3E9D26659FEB016C14D51F3D4195CD0C6AF4F334B71C1CC39EBB`；完整 provenance 在 `artifacts/builds/local/local-20260923-031515-b74828e1e6/manifest.json`，旧入口在对应 `archive/executables/local/` 恢复副本中。
+- Windows 原生冒烟 `windows-native-20260923-031639-ab660521df` 通过，验证新根 EXE 启动、隔离存储、WebView2 数据目录和旧状态迁移；不创建安装器、tag 或 GitHub Release。

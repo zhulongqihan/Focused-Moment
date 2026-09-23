@@ -4,8 +4,8 @@ import { resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
 // Original theme CSS restored from ec8ed25, plus scoped compatibility controls.
-const sourceCssSha256 = "CC9B657520E0C588215148961EC6EE11D2EC7DB27F5436501931482CE172115D";
-const sourceCssLength = 445688;
+const sourceCssSha256 = "B1F2DFB4B66DA0B98ED74A78D5AAC6CA5D110E92049B72C8D4F003A518B969B0";
+const sourceCssLength = 446137;
 const modules = [
   ["00-foundation.css", 1, 900],
   ["10-trail-reference.css", 901, 3175],

@@ -60,8 +60,9 @@ use storage::{
 };
 use tauri::{Manager, WindowEvent};
 
-const APP_VERSION: &str = "2.12.0";
-const APP_MILESTONE: &str = "v2.12.0 From capture to continuation; Windows-only release";
+const APP_VERSION: &str = "2.12.1";
+const APP_MILESTONE: &str =
+    "v2.12.1 Theme surface visibility and interaction polish; Windows-only patch";
 const APP_BACKUP_KIND: &str = "focused-moment-backup";
 const APP_BACKUP_FORMAT_VERSION: u64 = 3;
 const FLOATING_WORKSPACE_SYNC_EVENT: &str = "floating-workspace-sync";

@@ -426,7 +426,7 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
             window.__backupPreviewCalls += 1;
             return {
               sourcePath: args.path,
-              appVersion: "2.12.0",
+              appVersion: "2.12.1",
               formatVersion: 3,
               schemaVersion: 3,
               exportedAt: `${today}T12:00:00Z`,
@@ -1023,14 +1023,14 @@ test("records page turns a long history into a selectable archive trail", async 
 
   const recordDays = page.locator(".record-day");
   await expect(recordDays).toHaveCount(2);
-  await expect(recordDays.first()).toHaveAttribute("open", "");
-  await expect(recordDays.nth(1)).toHaveAttribute("open", "");
+  await expect(recordDays.first().locator(".record-day__summary")).toHaveAttribute("aria-expanded", "true");
+  await expect(recordDays.nth(1).locator(".record-day__summary")).toHaveAttribute("aria-expanded", "true");
   await expect(recordDays.nth(1).locator(".record-row").first()).toBeVisible();
 
-  await recordDays.nth(1).locator("summary").click();
+  await recordDays.nth(1).locator(".record-day__summary").click();
   await expect(recordDays.nth(1).locator(".record-row").first()).toBeHidden();
 
-  await recordDays.nth(1).locator("summary").click();
+  await recordDays.nth(1).locator(".record-day__summary").click();
   await expect(recordDays.nth(1).locator(".record-row").first()).toBeVisible();
 
   const dimensions = await page.evaluate(() => ({
@@ -1064,11 +1064,11 @@ test("records page keeps a long archive inside a bounded history viewport", asyn
   await historyList.evaluate((element) => {
     element.scrollTop = element.scrollHeight;
   });
-  await recordDays.last().locator("summary").scrollIntoViewIfNeeded();
+  await recordDays.last().locator(".record-day__summary").scrollIntoViewIfNeeded();
   await expect(recordDays.last().locator(".record-row").first()).toBeVisible();
-  await recordDays.last().locator("summary").evaluate((element) => element.click());
+  await recordDays.last().locator(".record-day__summary").evaluate((element) => element.click());
   await expect(recordDays.last().locator(".record-row").first()).toBeHidden();
-  await recordDays.last().locator("summary").evaluate((element) => element.click());
+  await recordDays.last().locator(".record-day__summary").evaluate((element) => element.click());
   await expect(recordDays.last().locator(".record-row")).toBeVisible();
   await expect(recordDays.last()).toContainText("历史归档 28");
 });
@@ -1079,14 +1079,14 @@ test("record day keeps its collapsed state during background refresh", async ({ 
   await page.getByRole("button", { name: "记录", exact: true }).click();
 
   const recordDays = page.locator(".record-day");
-  await recordDays.nth(1).locator("summary").click();
+  await recordDays.nth(1).locator(".record-day__summary").click();
   await expect(recordDays.nth(1).locator(".record-row").first()).toBeHidden();
 
   const callsBeforeRefresh = await page.evaluate(() => window.__focusRecordCalls);
   await expect.poll(() => page.evaluate(() => window.__focusRecordCalls), { timeout: 3000 })
     .toBeGreaterThan(callsBeforeRefresh);
   await expect(recordDays.nth(1).locator(".record-row").first()).toBeHidden();
-  await expect(recordDays.nth(1)).not.toHaveAttribute("open", "");
+  await expect(recordDays.nth(1).locator(".record-day__summary")).toHaveAttribute("aria-expanded", "false");
 });
 
 test("records page aligns route points and explains focus hours", async ({ page }) => {

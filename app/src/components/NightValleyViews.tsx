@@ -729,25 +729,31 @@ export function NightValleyRecords(props: RecordsSurfaceProps) {
           <Show when={!props.ready()}><p class="load-copy">正在读取专注记录…</p></Show>
           <Show when={props.ready() && props.records().length > 0}>
             <For each={stableRecordGroups()}>
-              {(group) => (
-                <details class="record-day" open={isRecordDayExpanded(group.date)}>
-                  <summary class="record-day__summary" aria-expanded={isRecordDayExpanded(group.date)} onClick={(event) => { event.preventDefault(); toggleRecordDay(group.date); }}><span class="record-day__date"><strong>{props.formatRecordDay(group.date)}</strong><small>{group.records.length} 轮 · {props.formatDurationMs(group.totalDurationMs)}</small></span><span class="record-day__chevron" aria-hidden="true">⌄</span></summary>
-                  <div class="record-day__items">
-                    <For each={group.records}>
-                      {(record) => (
-                        <article class="record-row">
-                          <Show
-                            when={props.editingRecord()?.id === record.id}
-                            fallback={<><div class="record-row__details"><div class="record-row__title-line"><strong title={record.title}>{record.title}</strong><span class="record-row__mode">{record.modeLabel}</span></div><small>{props.formatRecordDate(record)} · {record.source === "manual" ? "手动补录" : "计时完成"}{record.editedAt ? " · 已修正" : ""}</small></div><b>{record.durationLabel}</b><div class="record-row__actions"><button type="button" class="row-action" aria-label={`编辑记录“${record.title}”`} disabled={props.busy()} onClick={() => props.onBeginEdit(record)}>改名</button><Show when={props.onBeginDetailedEdit}><button type="button" class="row-action" disabled={props.busy()} onClick={() => props.onBeginDetailedEdit?.(record)}>详细编辑</button></Show><button type="button" class="row-action row-action--danger" aria-label={`删除记录“${record.title}”`} disabled={props.busy()} onClick={() => void props.onRemove(record.id)}>删除</button></div></>}
-                          >
-                            <div class="record-row__details record-row__details--editing"><label class="sr-only" for={`editRecordTitle-${record.id}`}>记录名称</label><input id={`editRecordTitle-${record.id}`} type="text" name={`editRecordTitle-${record.id}`} autocomplete="off" maxlength="200" autofocus aria-label="记录名称" value={props.editingRecord()?.title ?? ""} onInput={(event) => props.onPatchEdit(event.currentTarget.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void props.onSaveEdit(); } else if (event.key === "Escape") { event.preventDefault(); props.onCancelEdit(); } }} /><small>{props.formatRecordDate(record)}</small></div><b>{record.durationLabel}</b><div class="record-row__actions"><button type="button" class="primary-button" disabled={props.busy()} onClick={() => void props.onSaveEdit()}>保存</button><button type="button" class="text-button" disabled={props.busy()} onClick={props.onCancelEdit}>取消</button></div>
-                          </Show>
-                        </article>
-                      )}
-                    </For>
-                  </div>
-                </details>
-              )}
+              {(group) => {
+                const expanded = () => isRecordDayExpanded(group.date);
+                const itemsId = `record-history-${group.date}`;
+                return (
+                  <article classList={{ "record-day": true, "record-day--expanded": expanded() }}>
+                    <button type="button" class="record-day__summary" aria-expanded={expanded()} aria-controls={itemsId} onClick={() => toggleRecordDay(group.date)}><span class="record-day__date"><strong>{props.formatRecordDay(group.date)}</strong><small>{group.records.length} 轮 · {props.formatDurationMs(group.totalDurationMs)}</small></span><span class="record-day__chevron" aria-hidden="true">⌄</span></button>
+                    <Show when={expanded()}>
+                      <div id={itemsId} class="record-day__items">
+                        <For each={group.records}>
+                          {(record) => (
+                            <article class="record-row">
+                              <Show
+                                when={props.editingRecord()?.id === record.id}
+                                fallback={<><div class="record-row__details"><div class="record-row__title-line"><strong title={record.title}>{record.title}</strong><span class="record-row__mode">{record.modeLabel}</span></div><small>{props.formatRecordDate(record)} · {record.source === "manual" ? "手动补录" : "计时完成"}{record.editedAt ? " · 已修正" : ""}</small></div><b>{record.durationLabel}</b><div class="record-row__actions"><button type="button" class="row-action" aria-label={`编辑记录“${record.title}”`} disabled={props.busy()} onClick={() => props.onBeginEdit(record)}>改名</button><Show when={props.onBeginDetailedEdit}><button type="button" class="row-action" disabled={props.busy()} onClick={() => props.onBeginDetailedEdit?.(record)}>详细编辑</button></Show><button type="button" class="row-action row-action--danger" aria-label={`删除记录“${record.title}”`} disabled={props.busy()} onClick={() => void props.onRemove(record.id)}>删除</button></div></>}
+                              >
+                                <div class="record-row__details record-row__details--editing"><label class="sr-only" for={`editRecordTitle-${record.id}`}>记录名称</label><input id={`editRecordTitle-${record.id}`} type="text" name={`editRecordTitle-${record.id}`} autocomplete="off" maxlength="200" autofocus aria-label="记录名称" value={props.editingRecord()?.title ?? ""} onInput={(event) => props.onPatchEdit(event.currentTarget.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void props.onSaveEdit(); } else if (event.key === "Escape") { event.preventDefault(); props.onCancelEdit(); } }} /><small>{props.formatRecordDate(record)}</small></div><b>{record.durationLabel}</b><div class="record-row__actions"><button type="button" class="primary-button" disabled={props.busy()} onClick={() => void props.onSaveEdit()}>保存</button><button type="button" class="text-button" disabled={props.busy()} onClick={props.onCancelEdit}>取消</button></div>
+                              </Show>
+                            </article>
+                          )}
+                        </For>
+                      </div>
+                    </Show>
+                  </article>
+                );
+              }}
             </For>
           </Show>
           <Show when={props.ready() && props.records().length === 0}><p class="empty-copy">完成一次计时后，记录会显示在这里。</p></Show>

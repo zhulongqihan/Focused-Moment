@@ -382,6 +382,87 @@ test("Records keeps long-term statistics and real record source labels", async (
   await expect(page.getByText("连续 9 天", { exact: true })).toHaveCount(0);
 });
 
+test("Night Valley record dates expand and collapse through an explicit control", async ({ page }) => {
+  await bootReferenceMock(page);
+  await navButton(page, "记录").click();
+  const day = page.locator(".record-day").first();
+  const toggle = day.locator(".record-day__summary");
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  await expect(day.locator(".record-row")).toHaveCount(3);
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await expect(day.locator(".record-day__items")).toHaveCount(0);
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  await expect(day.locator(".record-row")).toHaveCount(3);
+});
+
+test("Editorial Paper explains workspace motion and density with a live preview", async ({ page }) => {
+  await bootReferenceMock(page);
+  await navButton(page, "设置").click();
+  await selectTheme(page, "editorial-paper", "编辑纸页");
+  const workspace = page.locator(".ep-settings-paper--workspace");
+  const preview = workspace.locator(".ep-workspace-preview");
+  await expect(workspace).toContainText("动效改变切换的存在感");
+  await expect(preview).toHaveAttribute("data-motion", "subtle");
+  await expect(preview).toContainText("轻盈");
+  await workspace.getByRole("slider", { name: "动效程度" }).fill("0");
+  await expect(preview).toHaveAttribute("data-motion", "off");
+  await expect(preview).toContainText("静息");
+  await workspace.getByRole("slider", { name: "动效程度" }).fill("80");
+  await expect(preview).toHaveAttribute("data-motion", "full");
+  await expect(preview).toContainText("流动");
+  await workspace.getByRole("button", { name: "紧凑", exact: true }).click();
+  await expect(page.locator(".minimal-app")).toHaveAttribute("data-density", "compact");
+  await expect(preview).toHaveAttribute("data-density", "compact");
+  await expect(preview).toContainText("一屏可以看到更多信息");
+});
+
+test("Aurora and Botanical keep full pages scrollable and align seven-day charts", async ({ page }) => {
+  test.setTimeout(60_000);
+  for (const [themeId] of [["aurora-ocean"], ["botanical-library"]]) {
+    await bootReferenceMock(page, { themeId });
+    const prefix = themeId === "aurora-ocean" ? "ao" : "bl";
+    const surface = page.locator(`.${prefix}-today-page`);
+    const todayMetrics = await page.evaluate((surfaceSelector) => {
+      const app = document.querySelector(".minimal-app");
+      const target = document.querySelector(surfaceSelector);
+      const footer = target?.querySelector("footer");
+      if (!app || !target || !footer) return null;
+      const rect = footer.getBoundingClientRect();
+      return { footerBottom: rect.bottom + window.scrollY, documentHeight: document.documentElement.scrollHeight, appHeight: app.scrollHeight };
+    }, `.${prefix}-today-page`);
+    expect(todayMetrics).not.toBeNull();
+    expect(Math.max(todayMetrics.documentHeight, todayMetrics.appHeight)).toBeGreaterThanOrEqual(todayMetrics.footerBottom - 1);
+
+    await navButton(page, "记录").click();
+    const chart = page.locator(`.${prefix === "ao" ? "ao-archive-chart" : "bl-growth-chart"}`);
+    const svg = chart.locator("svg");
+    const path = chart.locator(`.${prefix === "ao" ? "ao-archive-path" : "bl-growth-path"}`);
+    await expect(svg).toHaveAttribute("viewBox", "0 0 100 100");
+    const svgBox = await svg.boundingBox();
+    const pathBox = await path.boundingBox();
+    expect(svgBox).not.toBeNull();
+    expect(pathBox).not.toBeNull();
+    expect(pathBox.width).toBeGreaterThan(svgBox.width * 0.7);
+    const points = await chart.locator(`.${prefix === "ao" ? "ao-archive-point" : "bl-growth-point"}`).evaluateAll((buttons) => buttons.map((button) => ({ left: Number.parseFloat(button.style.left), top: Number.parseFloat(button.style.top) })));
+    expect(points.length).toBe(7);
+    expect(points[0].left).toBeCloseTo(7, 1);
+    expect(points.at(-1).left).toBeCloseTo(93, 1);
+
+    const recordsMetrics = await page.evaluate((surfaceSelector) => {
+      const app = document.querySelector(".minimal-app");
+      const target = document.querySelector(surfaceSelector);
+      const history = target?.querySelector("[class*='history-index']");
+      if (!app || !target || !history) return null;
+      const rect = history.getBoundingClientRect();
+      return { historyBottom: rect.bottom + window.scrollY, documentHeight: document.documentElement.scrollHeight, appHeight: app.scrollHeight };
+    }, `.${prefix}-records-page`);
+    expect(recordsMetrics).not.toBeNull();
+    expect(Math.max(recordsMetrics.documentHeight, recordsMetrics.appHeight)).toBeGreaterThanOrEqual(recordsMetrics.historyBottom - 1);
+  }
+});
+
 test("Settings restores each theme's original picker and preview while persisting immediate changes", async ({ page }) => {
   test.setTimeout(90_000);
   await page.setViewportSize({ width: 1487, height: 1058 });
@@ -404,6 +485,8 @@ test("Settings restores each theme's original picker and preview while persistin
       await expect(picker.locator("img")).toHaveCount(5);
       await expect.poll(() => picker.locator("img").evaluateAll((images) => images.every((image) => image.complete && image.naturalWidth > 0))).toBe(true);
     }
+    if (themeId === "aurora-ocean") await expect(page.getByRole("button", { name: "保存光场设置", exact: true })).toHaveCount(0);
+    if (themeId === "botanical-library") await expect(page.getByRole("button", { name: "保存书房布置", exact: true })).toHaveCount(0);
     await expect(page.locator(layout.preview)).toBeVisible();
     await expect.poll(() => page.evaluate(async () => (await window.__TAURI_INTERNALS__.invoke("get_app_preferences")).themeId)).toBe(themeId);
   }
