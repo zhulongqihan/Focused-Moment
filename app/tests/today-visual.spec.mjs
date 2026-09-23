@@ -382,6 +382,41 @@ test("Records keeps long-term statistics and real record source labels", async (
   await expect(page.getByText("连续 9 天", { exact: true })).toHaveCount(0);
 });
 
+test("Graphite records show a complete thirty-day trail and aligned rhythm log", async ({ page }) => {
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootReferenceMock(page, { themeId: "graphite-console" });
+  await navButton(page, "记录").click();
+
+  const trend = page.locator(".gc-trend-panel");
+  await expect(trend.locator(".gc-trend-lines > button")).toHaveCount(30);
+  await expect(trend.locator(".gc-trend-footer")).toContainText("最近 30 天");
+  await expect(trend.locator(".gc-trend-footer")).toContainText("1 天有投入 · 共 02:15:00");
+  await expect(trend.getByRole("button", { name: /回到最近/ })).toBeVisible();
+
+  const log = page.locator(".gc-event-log");
+  await expect(log).toContainText("每行是一段已保存的专注");
+  await expect(log.locator(".gc-event-log__heading > span")).toHaveCount(6);
+  await expect(log.locator(".gc-event-log__heading")).toContainText("完成时间");
+  await expect(log.locator(".gc-event-log__heading")).toContainText("时长");
+  const firstEvent = log.locator(".gc-event-row").first();
+  await expect(firstEvent.locator(".gc-event-row__record")).toContainText("正向计时");
+  await expect(firstEvent.locator(".gc-event-row__status")).toHaveText("已保存");
+  await expect(firstEvent.locator(".gc-event-row__duration")).toContainText("00:45:00");
+  await expect(firstEvent.locator(".gc-event-row__source")).toHaveText("计时完成");
+  await expect(firstEvent).not.toContainText("OK");
+  await expect(firstEvent.locator(".gc-event-row__actions button")).toHaveCount(2);
+
+  for (const width of [1024, 560]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(trend.locator(".gc-trend-lines > button")).toHaveCount(30);
+    const dimensions = await page.evaluate(() => ({
+      clientWidth: document.documentElement.clientWidth,
+      scrollWidth: document.documentElement.scrollWidth,
+    }));
+    expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth + 1);
+  }
+});
+
 test("Night Valley record dates expand and collapse through an explicit control", async ({ page }) => {
   await bootReferenceMock(page);
   await navButton(page, "记录").click();

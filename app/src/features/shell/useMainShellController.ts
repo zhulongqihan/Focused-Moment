@@ -564,9 +564,14 @@ export function useMainShellController() {
   const recentBreakdown = createMemo(() => getRecentTrendDays(analytics()?.dailyBreakdown ?? []));
   const recordGroups = createMemo(() => groupRecordsByDate(records()));
   const archiveDays = createMemo(() => mergeArchiveDays(recentBreakdown(), records()));
+  const extendedArchiveDays = createMemo(() =>
+    mergeArchiveDays(getRecentTrendDays(analytics()?.dailyBreakdown ?? [], 30), records()),
+  );
   const archivePath = createMemo(() => createArchivePath(archiveDays()));
   const selectedArchiveDay = createMemo(() =>
-    archiveDays().find((day) => day.date === selectedArchiveDate()) ?? archiveDays()[archiveDays().length - 1] ?? null,
+    extendedArchiveDays().find((day) => day.date === selectedArchiveDate())
+      ?? extendedArchiveDays()[extendedArchiveDays().length - 1]
+      ?? null,
   );
   const selectedArchiveRecords = createMemo(() => {
     const taskFilterId = recordTaskFilterId();
@@ -603,7 +608,7 @@ export function useMainShellController() {
   const canFinish = () => timer().elapsedMs > 0 && timer().canCompleteSession;
 
   createEffect(() => {
-    const days = archiveDays();
+    const days = extendedArchiveDays();
     if (days.length > 0 && !days.some((day) => day.date === selectedArchiveDate())) {
       setSelectedArchiveDate(days[days.length - 1].date);
     }
@@ -1974,6 +1979,7 @@ export function useMainShellController() {
     recentBreakdown,
     recordGroups,
     archiveDays,
+    extendedArchiveDays,
     archivePath,
     selectedArchiveDay,
     selectedArchiveRecords,

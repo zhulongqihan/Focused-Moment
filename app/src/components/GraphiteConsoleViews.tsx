@@ -16,6 +16,7 @@ import {
 import type { AlertSoundKey, AnalyticsSnapshot, FocusRecord, TodoImportance, TodoItem, TimerSnapshot } from "../lib/contracts";
 import { themes } from "../lib/themes";
 import type {
+  ArchiveDayShape,
   FocusSurfaceProps,
   RecordsSurfaceProps,
   SettingsSurfaceProps,
@@ -25,7 +26,10 @@ import type {
 import DailyFocusLine from "./DailyFocusLine";
 import { TodoDateGroupList } from "../features/todos/TodoDateGroupList";
 import { groupTodosByDate } from "../features/todos/todo-groups";
+import { formatDurationMs } from "../features/shared/date-utils";
 import "./GraphiteConsoleViews.css";
+
+const GRAPHITE_TREND_DAY_COUNT = 30;
 
 function gcDate(value: string) {
   return value.replace(/-/g, " / ");
@@ -34,6 +38,73 @@ function gcDate(value: string) {
 function gcLocalDateKey() {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
+function gcRecordDateKey(record: FocusRecord) {
+  if (record.completedDate.trim()) return record.completedDate;
+  return record.completedAt.match(/^\d{4}-\d{2}-\d{2}/)?.[0] ?? "";
+}
+
+function gcDateKeyFromOffset(offset: number) {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  date.setDate(date.getDate() - offset);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function gcTrendDays(days: ArchiveDayShape[], records: FocusRecord[]) {
+  const byDate = new Map(days.map((day) => [day.date, day]));
+  const recordsByDate = new Map<string, FocusRecord[]>();
+
+  for (const record of records) {
+    const date = gcRecordDateKey(record);
+    if (!date) continue;
+    const grouped = recordsByDate.get(date) ?? [];
+    grouped.push(record);
+    recordsByDate.set(date, grouped);
+  }
+
+  return Array.from({ length: GRAPHITE_TREND_DAY_COUNT }, (_, index) => {
+    const date = gcDateKeyFromOffset(GRAPHITE_TREND_DAY_COUNT - index - 1);
+    const grouped = recordsByDate.get(date);
+    if (!grouped || grouped.length === 0) {
+      return byDate.get(date) ?? {
+        date,
+        totalDurationMs: 0,
+        totalDurationLabel: formatDurationMs(0),
+        sessionCount: 0,
+        linkedSessionCount: 0,
+        independentSessionCount: 0,
+      };
+    }
+
+    const totalDurationMs = grouped.reduce((total, record) => total + record.durationMs, 0);
+    const linkedSessionCount = grouped.filter((record) => record.linkedTodoId !== null).length;
+    return {
+      date,
+      totalDurationMs,
+      totalDurationLabel: formatDurationMs(totalDurationMs),
+      sessionCount: grouped.length,
+      linkedSessionCount,
+      independentSessionCount: grouped.length - linkedSessionCount,
+    };
+  });
+}
+
+function gcTrendLabelVisible(index: number, total: number) {
+  return index === 0 || index === total - 1 || index % 5 === 0;
+}
+
+function gcRecordSourceLabel(record: FocusRecord) {
+  return record.source === "manual" ? "手动补录" : "计时完成";
+}
+
+function gcRecordModeLabel(record: FocusRecord) {
+  return record.modeLabel || record.phaseLabel || "专注";
+}
+
+function gcDurationLevel(durationMs: number, maxDurationMs: number) {
+  return Math.max(1, Math.min(5, Math.ceil((durationMs / Math.max(1, maxDurationMs)) * 5)));
 }
 
 function gcTime(record: FocusRecord) {
@@ -271,6 +342,11 @@ export function GraphiteConsoleRecords(props: RecordsSurfaceProps) {
   const selectedDate = createMemo(() => props.selectedArchiveDay()?.date ?? props.selectedArchiveDate());
   const selectedRecords = createMemo(() => props.selectedArchiveRecords());
   const maxDuration = createMemo(() => Math.max(1, ...props.archiveDays().map((day) => day.totalDurationMs)));
+  const trendDays = createMemo(() => gcTrendDays(props.extendedArchiveDays(), props.records()));
+  const maxTrendDuration = createMemo(() => Math.max(1, ...trendDays().map((day) => day.totalDurationMs)));
+  const trendActiveDays = createMemo(() => trendDays().filter((day) => day.totalDurationMs > 0).length);
+  const trendDurationMs = createMemo(() => trendDays().reduce((total, day) => total + day.totalDurationMs, 0));
+  const maxSelectedRecordDuration = createMemo(() => Math.max(1, ...selectedRecords().map((record) => record.durationMs)));
   const [visibleCount, setVisibleCount] = createSignal(200);
   const [expandedDate, setExpandedDate] = createSignal<string | null>(null);
   const visibleRecords = createMemo(() => selectedRecords().slice(0, visibleCount()));
@@ -306,8 +382,8 @@ export function GraphiteConsoleRecords(props: RecordsSurfaceProps) {
       <header class="gc-page-head gc-page-head--split"><div><span class="gc-date-code">SIGNAL SYS / FOCUS TELEMETRY</span><h1>RECORDS <em>/ 专注遥测</em></h1><p>把注意力的波形留在系统里。</p></div><div class="gc-records-actions"><span class="gc-head-status"><i class="gc-led gc-led--lime" /> DATA LINK OK</span><button type="button" class="gc-lime-button" disabled={props.busy()} onClick={() => void props.onCreateManualRecord?.()}>补录专注</button></div></header>
       <GcPanel title="FOCUS SIGNAL / 专注信号" code={`${props.formatAnalyticsDate(selectedDate())} · 7D`} class="gc-signal-panel"><div class="gc-signal-chart"><div class="gc-signal-y"><span>100</span><span>75</span><span>50</span><span>25</span><span>0</span></div><div class="gc-signal-days"><For each={props.archiveDays()}>{(day) => <button type="button" classList={{ "gc-signal-day": true, active: day.date === selectedDate() }} onClick={() => props.onSelectDate(day.date)}><span>{props.formatAnalyticsDate(day.date)}</span><strong>{day.totalDurationLabel}</strong><i><b style={{ height: `${Math.max(6, (day.totalDurationMs / maxDuration()) * 100)}%` }} /></i><small>{day.sessionCount} SEG</small></button>}</For></div></div><div class="gc-chart-foot"><span>0</span><strong>累计 {props.formatDurationMs(props.recentWeekDurationMs())}</strong><span>100</span></div></GcPanel>
       <section class="gc-record-stat-grid"><div><span>累计专注</span><strong>{gcAnalytics(props.analytics(), "totalFocusDurationLabel", "00:00:00")}</strong><small>HH : MM : SS</small></div><div><span>完成段数</span><strong>{gcAnalytics(props.analytics(), "sessionCount", "0")}</strong><small>SEGMENTS</small></div><div><span>平均时长</span><strong>{props.analytics()?.sessionCount ? props.formatDurationMs(props.recentWeekDurationMs() / Math.max(1, props.analytics()?.sessionCount ?? 1)) : "00:00:00"}</strong><small>PER SEGMENT</small></div><div><span>节奏成就</span><strong>{gcAnalytics(props.analytics(), "currentStreakDays", "0")}</strong><small>RETURN WHEN READY</small></div></section>
-      <div class="gc-records-grid"><GcPanel title="节奏日志 / EVENT LOG" code={`${selectedRecords().length} EVENTS`} class="gc-event-log"><div class="gc-event-log__heading"><span>时间</span><span>事件</span><span>强度</span><span>状态</span><span>动作</span></div><Show when={visibleRecords().length > 0} fallback={<div class="gc-empty-console">当前日期没有专注事件</div>}><For each={visibleRecords().slice(0, 12)}>{(record) => <div class="gc-event-row"><i class="gc-led gc-led--lime" /><time>{gcTime(record)}</time><span>{record.title}<small>{record.source === "manual" ? "手动补录" : "计时完成"}{record.editedAt ? " · 已修正" : ""}</small></span><b><i /><i /><i /><i /><i /></b><strong>OK</strong><div class="gc-event-row__actions"><button type="button" class="gc-inline-button" disabled={props.busy()} onClick={() => props.onBeginDetailedEdit ? props.onBeginDetailedEdit(record) : props.onBeginEdit(record)}>编辑</button><button type="button" class="gc-inline-button" disabled={props.busy()} onClick={() => void props.onRemove(record.id)}>删除</button></div></div>}</For><Show when={visibleCount() < selectedRecords().length}><button type="button" class="gc-inline-button" onClick={() => setVisibleCount((count) => Math.min(count + 200, selectedRecords().length))}>加载更多 · {visibleCount()} / {selectedRecords().length}</button></Show></Show></GcPanel><GcPanel title="专注分布 / SIGNAL ANALYZER" code="BAND / ALL" class="gc-analyzer-panel"><div class="gc-radar"><i /><i /><i /><span>FOCUS</span></div><div class="gc-band-list"><For each={bandStats()}>{(band) => <div><span>{band.label} <small>{band.range}</small></span><strong>{band.percent}%</strong></div>}</For></div><p>洞察 / INSIGHT<br /><strong>{props.records().length === 0 ? "完成一次专注后，这里会显示真实的时段分布。" : `${dominantBand().label}时段投入最多，可作为下一次深度工作的参考。`}</strong></p></GcPanel></div>
-      <GcPanel title="更长的路" code="30-DAY TREND / ARCHIVE" class="gc-trend-panel"><div class="gc-trend-lines"><For each={props.archiveDays()}>{(day, index) => <button type="button" classList={{ active: day.date === selectedDate() }} style={{ left: `${index() * (100 / Math.max(1, props.archiveDays().length - 1))}%`, bottom: `${Math.max(8, (day.totalDurationMs / maxDuration()) * 80)}%` }} onClick={() => props.onSelectDate(day.date)}><i /><span>{props.formatAnalyticsDate(day.date)}</span></button>}</For></div><div class="gc-trend-footer"><span>最近 7 天</span><strong>{props.recentWeekActiveDays()} 天有投入</strong><button type="button" class="gc-quiet-button" onClick={() => props.onSelectDate(props.archiveDays()[props.archiveDays().length - 1]?.date ?? selectedDate())}>VIEW ALL <ChevronRight size={14} aria-hidden="true" /></button></div></GcPanel>
+      <div class="gc-records-grid"><GcPanel title="节奏日志 / FOCUS LOG" code={`${selectedRecords().length} RECORDS`} class="gc-event-log"><p class="gc-event-log__intro">每行是一段已保存的专注；时长、模式与来源都来自这条记录。</p><div class="gc-event-log__heading"><span>状态</span><span>完成时间</span><span>专注内容</span><span>时长</span><span>来源</span><span>操作</span></div><Show when={visibleRecords().length > 0} fallback={<div class="gc-empty-console">当前日期没有专注记录</div>}><For each={visibleRecords().slice(0, 12)}>{(record) => <div class="gc-event-row"><span class="gc-event-row__status" aria-label="已保存"><i class="gc-led gc-led--lime" aria-hidden="true" /><small>已保存</small></span><time>{gcTime(record)}</time><span class="gc-event-row__record"><strong>{record.title}</strong><small>{gcRecordModeLabel(record)}{record.editedAt ? " · 已修正" : ""}</small></span><span class="gc-event-row__duration" aria-label={`时长 ${record.durationLabel}`}><b class="gc-event-row__meter" aria-hidden="true"><For each={Array.from({ length: 5 })}>{(_, index) => <i classList={{ "is-filled": index() < gcDurationLevel(record.durationMs, maxSelectedRecordDuration()) }} />}</For></b><small>{record.durationLabel}</small></span><strong class="gc-event-row__source">{gcRecordSourceLabel(record)}</strong><div class="gc-event-row__actions"><button type="button" class="gc-inline-button" disabled={props.busy()} onClick={() => props.onBeginDetailedEdit ? props.onBeginDetailedEdit(record) : props.onBeginEdit(record)}>编辑</button><button type="button" class="gc-inline-button" disabled={props.busy()} onClick={() => void props.onRemove(record.id)}>删除</button></div></div>}</For><Show when={visibleCount() < selectedRecords().length}><button type="button" class="gc-inline-button" onClick={() => setVisibleCount((count) => Math.min(count + 200, selectedRecords().length))}>加载更多 · {visibleCount()} / {selectedRecords().length}</button></Show></Show></GcPanel><GcPanel title="专注分布 / SIGNAL ANALYZER" code="BAND / ALL" class="gc-analyzer-panel"><div class="gc-radar"><i /><i /><i /><span>FOCUS</span></div><div class="gc-band-list"><For each={bandStats()}>{(band) => <div><span>{band.label} <small>{band.range}</small></span><strong>{band.percent}%</strong></div>}</For></div><p>洞察 / INSIGHT<br /><strong>{props.records().length === 0 ? "完成一次专注后，这里会显示真实的时段分布。" : `${dominantBand().label}时段投入最多，可作为下一次深度工作的参考。`}</strong></p></GcPanel></div>
+      <GcPanel title="更长的路" code="30-DAY TREND / ARCHIVE" class="gc-trend-panel"><div class="gc-trend-lines" aria-label="最近 30 天专注趋势"><For each={trendDays()}>{(day, index) => { const level = Math.max(8, (day.totalDurationMs / maxTrendDuration()) * 80); const showLabel = gcTrendLabelVisible(index(), trendDays().length); const label = props.formatAnalyticsDate(day.date); return <button type="button" classList={{ active: day.date === selectedDate() }} aria-label={`${label} · ${day.totalDurationLabel} · ${day.sessionCount} 段`} title={`${label} · ${day.totalDurationLabel} · ${day.sessionCount} 段`} style={`left: ${index() * (100 / Math.max(1, trendDays().length - 1))}%; --gc-trend-level: ${level}%;`} onClick={() => props.onSelectDate(day.date)}><i aria-hidden="true" /><Show when={showLabel}><span>{label}</span></Show></button>; }}</For></div><div class="gc-trend-footer"><span>最近 30 天</span><strong>{trendActiveDays()} 天有投入 · 共 {props.formatDurationMs(trendDurationMs())}</strong><button type="button" class="gc-quiet-button" onClick={() => props.onSelectDate(trendDays()[trendDays().length - 1]?.date ?? selectedDate())}>回到最近 <ChevronRight size={14} aria-hidden="true" /></button></div></GcPanel>
       <section class="gc-history-index"><header><span>FULL INDEX / ALL RECORDS</span><strong>{props.records().length} ROUNDS</strong></header><Show when={props.ready() && props.records().length > 0} fallback={<div class="gc-empty-console">完成一次计时后，记录会显示在这里。</div>}><For each={props.recordGroups()}>{(group) => <details open={expandedDate() === group.date}><summary onClick={(event) => { event.preventDefault(); setExpandedDate((date) => date === group.date ? null : group.date); }}><span>{props.formatRecordDay(group.date)}</span><strong>{group.records.length} 轮 · {props.formatDurationMs(group.totalDurationMs)}</strong></summary><Show when={expandedDate() === group.date}><div>{group.records.slice(0, 200).map((record) => <span>{record.title} · {record.durationLabel}</span>)}</div></Show></details>}</For></Show></section>
     </section>
   );

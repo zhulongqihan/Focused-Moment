@@ -137,6 +137,7 @@ export interface RecordsSurfaceProps {
   analytics: Accessor<AnalyticsSnapshot | null>;
   records: Accessor<FocusRecord[]>;
   archiveDays: Accessor<ArchiveDayShape[]>;
+  extendedArchiveDays: Accessor<ArchiveDayShape[]>;
   archivePath: Accessor<string>;
   selectedArchiveDate: Accessor<string>;
   selectedArchiveDay: Accessor<ArchiveDayShape | null>;
