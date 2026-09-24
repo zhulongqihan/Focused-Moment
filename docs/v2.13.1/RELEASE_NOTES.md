@@ -14,5 +14,6 @@
 - `pnpm build` 通过（2089 modules）；Vite 保留现有大 chunk 提示，不影响构建成功。
 - Playwright CLI 纯 Vite 预览确认设置页折叠/展开布局；该预览没有 Tauri IPC，不作为持久化或 Windows 原生证据。
 - Release 候选已从源提交 `cce109596d4b5091b57754e56ba7a69a270cb521` 构建：版本 `2.13.1`，34,907,648 bytes，SHA-256 `C42EC636B5E07D78C3C72A1313A3257074D8DE14A5E0F4D9FC9C4038CFA1C360`，位于 `app/src-tauri/target/release/focused-moment.exe`。
-- 根目录入口尚未替换：当前 `Focused Moment.exe` 仍为 `2.13.0`，SHA-256 `D936D5D419319993818D7E9C5B8973B892D0038AED9D732CA13FA63C5EE7E5B9`；构建前后检测到该程序仍由 PID 17784 运行。为避免覆盖正在使用的文件，`package:local`、交付 provenance/恢复副本及 Windows 原生冒烟尚未运行。关闭应用后可用现有候选执行 `package-local.ps1 -SkipBuild`，再运行 `pnpm native:windows` 并补齐本节。
-- 本次为本地 Windows 构建与分支同步；不创建 GitHub Release、tag 或安装器。
+- 根目录可运行入口已由 `package-local.ps1 -SkipBuild` 从上述 Release 候选安全交付，build ID 为 `local-20260924-110129-5edbedd7b5`。根 EXE 与候选均为 `2.13.1`、34,907,648 bytes、SHA-256 `C42EC636B5E07D78C3C72A1313A3257074D8DE14A5E0F4D9FC9C4038CFA1C360`；manifest 与 delivery journal 位于 `artifacts/builds/local/local-20260924-110129-5edbedd7b5/`。候选由应用提交 `cce109596d4b5091b57754e56ba7a69a270cb521` 构建；交付 manifest 记录打包时仓库 HEAD `4e448ea9b191db5521d7262ec4f45cdbbd0691fc`、179 项构建输入指纹及 `relevantBuildInputDirty=false`。旧根入口 `2.13.0` 已可恢复地备份至 `archive/executables/local/local-20260924-110129-5edbedd7b5/Focused Moment.exe`，SHA-256 为 `D936D5D419319993818D7E9C5B8973B892D0038AED9D732CA13FA63C5EE7E5B9`。
+- Windows 原生冒烟 `windows-native-20260924-110208-18c79bb7d3` 通过，报告为 `artifacts/qa/native/windows-native-20260924-110208-18c79bb7d3/report.md`。新根 EXE 与隔离 QA 副本哈希完全一致；可见窗口启动、隔离存储和 WebView2 目录、旧状态迁移、迁移源文件保持不变及测试子进程清理均 PASS。该自动检查不覆盖计时按钮、托盘、浮窗、备份 UI、音效或通知等人工原生交互。
+- 本次为本地 Windows 构建与分支同步；不创建 GitHub Release、tag、安装器或上传资产。

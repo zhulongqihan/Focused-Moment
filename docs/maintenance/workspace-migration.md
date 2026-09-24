@@ -151,7 +151,7 @@
 - 无 tag、GitHub Release、安装器或资产上传。根 EXE 由 build ID `local-20260924-083251-392d39dfb0` 交付；文档提交不改变应用构建输入。
 - `PROJECT_PLAN.md` 仍保持保护基线 SHA-256 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`，未改写既有用户 diff。`div` 与四份 `docs/context_summary_*.md` 继续留在本地且未暂存、提交或推送。
 
-## 2026-09-24 v2.13.1 旧主题设置入口 — 本地验证通过，待交付
+## 2026-09-24 v2.13.1 旧主题设置入口 — 本地交付与原生验收完成
 
 - 新的用户决定：把旧「极光海面」「植物书房」留作设置页小角落里的可选项，以便以后切回；这覆盖 v2.13.0“只存档、不提供选择”的旧决定，但不改常用五主题排列。
 - 当前实现方案：全主题设置页尾部提供默认收起的旧版主题折叠区；切到旧主题时自动展开。两套旧主题重新接入五个页面路由；独立偏好 ID 为 `legacy-aurora-ocean` / `legacy-botanical-library`，原存量 ID 映射到新第四/第五主题的规则继续保留。
@@ -159,5 +159,6 @@
 - 已完成：`pnpm check`、`pnpm verify`（Rust 39/39）、全量 Playwright 浏览器 mock 156/156、追加断言后的旧主题专项 2/2、`pnpm build`（2089 modules）；截图 `artifacts/qa/frontend/run-inv-muex68ba-19912-c4488d85-96a9-4485-92ee-f803680130be/today-visual-archived-them-a4fbb-itchable-in-both-directions-chromium/legacy-theme-shelf-expanded.png`。
 - Playwright CLI 的纯 Vite 页面能检查折叠区视觉与键盘/导航结构，三个页面快照位于 `artifacts/qa/frontend/run-cli-legacy-settings-20260924-1035-e89c/`；因无 Tauri IPC，数据持久化以 mock 浏览器测试和 Rust 测试为证据；此结果不替代 Windows 原生验收。
 - 应用实现提交 `cce109596d4b5091b57754e56ba7a69a270cb521` 已快进推送到当前分支。其 Release 候选 `app/src-tauri/target/release/focused-moment.exe` 已构建并核验：`2.13.1`、34,907,648 bytes、SHA-256 `C42EC636B5E07D78C3C72A1313A3257074D8DE14A5E0F4D9FC9C4038CFA1C360`。
-- 最终根入口仍为 `2.13.0`（SHA-256 `D936D5D419319993818D7E9C5B8973B892D0038AED9D732CA13FA63C5EE7E5B9`）；PID 17784 在本轮多次核验时仍运行。没有调用会覆盖根 EXE 的脚本，也没有运行会因现有进程而失败的 native smoke。下一步必须等该进程退出，再用已有候选运行 `package-local.ps1 -SkipBuild`，核验 provenance/恢复副本并执行 `pnpm native:windows`，补齐记录后推送文档提交。
-- 不创建 tag、GitHub Release、安装器或资产上传。`PROJECT_PLAN.md` 本轮继续只读，保护基线 SHA-256 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`；`div` 与四份上下文摘要继续排除在暂存/提交之外。
+- 用户确认已退出应用，随后进程核验为 0。使用已有候选执行 `package-local.ps1 -SkipBuild` 成功；build ID `local-20260924-110129-5edbedd7b5`，根入口与候选均为 `2.13.1`、34,907,648 bytes、SHA-256 `C42EC636B5E07D78C3C72A1313A3257074D8DE14A5E0F4D9FC9C4038CFA1C360`。候选由应用提交 `cce109596d4b5091b57754e56ba7a69a270cb521` 构建；交付 manifest / journal 位于 `artifacts/builds/local/local-20260924-110129-5edbedd7b5/`，manifest 记录打包时仓库 HEAD `4e448ea9b191db5521d7262ec4f45cdbbd0691fc`、179 项输入指纹及 `relevantBuildInputDirty=false`。前版根入口备份位于 `archive/executables/local/local-20260924-110129-5edbedd7b5/Focused Moment.exe`，SHA-256 `D936D5D419319993818D7E9C5B8973B892D0038AED9D732CA13FA63C5EE7E5B9`。
+- `pnpm native:windows` 通过，run `windows-native-20260924-110208-18c79bb7d3`，报告 `artifacts/qa/native/windows-native-20260924-110208-18c79bb7d3/report.md`。根入口与隔离 QA 副本哈希一致；可见原生窗口启动、隔离 LOCALAPPDATA / WebView2 路径、合成旧数据迁移、旧源保持字节稳定及仅清理测试自身进程均通过。该自动冒烟不等于计时、托盘、浮窗、备份 UI、音效和通知的人工原生交互验收。
+- 该版本本地交付与原生冒烟已经完成；尚待本次文档闭环提交并快进推送当前分支。无 tag、GitHub Release、安装器或资产上传。`PROJECT_PLAN.md` 继续按保护要求保持原字节与哈希 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`；`div` 和四份上下文摘要不暂存、不提交。
