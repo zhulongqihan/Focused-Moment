@@ -158,6 +158,6 @@
 - 版本按已交付的 v2.13.0 之后的用户可见功能更新到 2.13.1；`PROJECT_PLAN.md` 继续只读，既有 SHA-256 为 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`。
 - 已完成：`pnpm check`、`pnpm verify`（Rust 39/39）、全量 Playwright 浏览器 mock 156/156、追加断言后的旧主题专项 2/2、`pnpm build`（2089 modules）；截图 `artifacts/qa/frontend/run-inv-muex68ba-19912-c4488d85-96a9-4485-92ee-f803680130be/today-visual-archived-them-a4fbb-itchable-in-both-directions-chromium/legacy-theme-shelf-expanded.png`。
 - Playwright CLI 的纯 Vite 页面能检查折叠区视觉与键盘/导航结构，三个页面快照位于 `artifacts/qa/frontend/run-cli-legacy-settings-20260924-1035-e89c/`；因无 Tauri IPC，数据持久化以 mock 浏览器测试和 Rust 测试为证据；此结果不替代 Windows 原生验收。
-- 还需完成：经路径审计后提交应用源代码/测试/本说明，构建并更新根目录 EXE 与 provenance/恢复副本，运行隔离 Windows native smoke，回填交付证据，随后快进推送当前分支；不创建 tag、GitHub Release、安装器或资产上传。
-- 根目录旧版 EXE 在本轮开始时正在运行；用户已确认会手动退出，随后核验该进程已结束。打包前仍会再次检查进程，不关闭任何用户进程。
-- `PROJECT_PLAN.md` 本轮继续只读，保护基线 SHA-256 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`；`div` 与四份上下文摘要继续排除在暂存/提交之外。
+- 应用实现提交 `cce109596d4b5091b57754e56ba7a69a270cb521` 已快进推送到当前分支。其 Release 候选 `app/src-tauri/target/release/focused-moment.exe` 已构建并核验：`2.13.1`、34,907,648 bytes、SHA-256 `C42EC636B5E07D78C3C72A1313A3257074D8DE14A5E0F4D9FC9C4038CFA1C360`。
+- 最终根入口仍为 `2.13.0`（SHA-256 `D936D5D419319993818D7E9C5B8973B892D0038AED9D732CA13FA63C5EE7E5B9`）；PID 17784 在本轮多次核验时仍运行。没有调用会覆盖根 EXE 的脚本，也没有运行会因现有进程而失败的 native smoke。下一步必须等该进程退出，再用已有候选运行 `package-local.ps1 -SkipBuild`，核验 provenance/恢复副本并执行 `pnpm native:windows`，补齐记录后推送文档提交。
+- 不创建 tag、GitHub Release、安装器或资产上传。`PROJECT_PLAN.md` 本轮继续只读，保护基线 SHA-256 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`；`div` 与四份上下文摘要继续排除在暂存/提交之外。
