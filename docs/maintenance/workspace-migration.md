@@ -135,3 +135,11 @@
 - 完整 Playwright 套件为 154/154，run `artifacts/qa/frontend/v2130-full-playwright-20260924-inv-mues5r0r-30492-ddf94a9e-4dcb-461b-8c42-fbcac4f4e74f/`；专门跨主题视觉套件 100/100，旧 ID 备份恢复迁移专项通过。生产构建 `pnpm build` 已通过（2086 modules，Vite 有大 chunk 提示）。
 - 状态审计脚本确认受保护的 `PROJECT_PLAN.md` 快照早于本轮已确认进展；本文件是较新交接记录。按用户保护要求，不改写计划中的既有 31 行用户 diff；本轮有效范围以用户批准的 v2.13.0 任务与本文件最新记录为准。
 - 剩余：先提交经路径审计的应用源码/概念图/发布说明；再运行 `pnpm package:local`，核验根 EXE、provenance 与旧入口恢复副本；原生进程仍为 0 时运行 `pnpm native:windows`；补齐最终交付记录后仅推送当前分支。禁止创建 tag、GitHub Release、安装器或上传资产。
+
+## 2026-09-24 v2.13.0 本地交付与 Windows 原生验收
+
+- 应用/概念/测试与初版说明已提交为 `39dd66965b49f5e7a74ee2a3341f3ed142acd5d0`（`feat: ship metro pulse and clutch court themes v2.13.0`）。
+- `pnpm package:local` 成功，Release build ID `local-20260924-083251-392d39dfb0`。根目录 `Focused Moment.exe` 与候选 SHA-256 均为 `D936D5D419319993818D7E9C5B8973B892D0038AED9D732CA13FA63C5EE7E5B9`，34,896,896 bytes；provenance 为 `artifacts/builds/local/local-20260924-083251-392d39dfb0/manifest.json`，记录源提交、178 项输入指纹和 `relevantBuildInputDirty=false`。
+- 旧入口 SHA-256 `BA71167AA310F890BAF382211208711F5A9F39ACC53CD1869F8590A34C90D952` 已在 `archive/executables/local/local-20260924-083251-392d39dfb0/Focused Moment.exe` 核验保存；交付 journal 标记 `delivered` 且 `rollbackSupported=true`。
+- `pnpm native:windows` 通过，run `windows-native-20260924-083426-1fc83e8741`，验证新入口原生窗口启动、隔离 LOCALAPPDATA/WebView2、合成旧数据迁移及旧源备份；只关闭脚本创建的隔离子进程。此检查不等于计时、托盘、浮窗、音效和通知等人工界面操作的 Windows 原生验收。
+- 无 tag、GitHub Release、安装器或资产上传。接下来执行路径核验后的文档补充提交，并快进推送两个本轮提交至已确认分支；`PROJECT_PLAN.md` 保持哈希 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`。

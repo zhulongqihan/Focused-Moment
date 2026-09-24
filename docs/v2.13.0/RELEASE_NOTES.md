@@ -24,6 +24,8 @@
 - 旧主题备份恢复迁移专项 Rust 测试通过。
 - `pnpm verify` 通过：TypeScript、结构/样式与原生契约、交付脚本测试，以及 Rust fmt/check/test（39/39）；Rust 仍输出既有未使用代码警告。
 - 前端生产构建 `pnpm build` 通过（2086 modules）；Vite 提示部分产物 chunk 超过 500 kB，构建成功。
-- Windows Release 构建、原生冒烟与根目录可运行入口 provenance 将在最终交付验证后补记。
+- Windows Release 构建 `pnpm package:local` 通过，build ID `local-20260924-083251-392d39dfb0`；根目录 `Focused Moment.exe` SHA-256 `D936D5D419319993818D7E9C5B8973B892D0038AED9D732CA13FA63C5EE7E5B9`，与 Release 候选一致。provenance 位于忽略目录 `artifacts/builds/local/local-20260924-083251-392d39dfb0/manifest.json`；构建源提交为 `39dd66965b49f5e7a74ee2a3341f3ed142acd5d0`，相关构建输入无未提交改动。
+- 原根入口已校验备份至 `archive/executables/local/local-20260924-083251-392d39dfb0/Focused Moment.exe`，SHA-256 `BA71167AA310F890BAF382211208711F5A9F39ACC53CD1869F8590A34C90D952`，可用于恢复。
+- Windows 原生隔离冒烟 `windows-native-20260924-083426-1fc83e8741` 通过：Release 副本可显示原生窗口，隔离存储/WebView2 路径正确，合成旧数据迁移成功且旧源保持不变。此脚本不覆盖计时控件、托盘、浮窗、音效和提醒等人工 UI 流程。
 
 本版本按本地 Windows 构建与分支同步流程交付；不创建 GitHub Release、tag 或安装器。
