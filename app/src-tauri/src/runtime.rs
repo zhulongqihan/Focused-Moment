@@ -60,9 +60,9 @@ use storage::{
 };
 use tauri::{Manager, WindowEvent};
 
-const APP_VERSION: &str = "2.12.1";
+const APP_VERSION: &str = "2.13.0";
 const APP_MILESTONE: &str =
-    "v2.12.1 Theme surface visibility and interaction polish; Windows-only patch";
+    "v2.13.0 Metro Pulse and Clutch Court themes; theme migration and records/layout fixes";
 const APP_BACKUP_KIND: &str = "focused-moment-backup";
 const APP_BACKUP_FORMAT_VERSION: u64 = 3;
 const FLOATING_WORKSPACE_SYNC_EVENT: &str = "floating-workspace-sync";
@@ -159,6 +159,11 @@ impl AppPreferences {
         if self.theme_id.trim().is_empty() {
             self.theme_id = default_theme_id();
         }
+        self.theme_id = match self.theme_id.as_str() {
+            "aurora-ocean" => "metro-pulse".to_string(),
+            "botanical-library" => "clutch-court".to_string(),
+            _ => self.theme_id,
+        };
         self.density = if self.density == "compact" {
             "compact".to_string()
         } else {
@@ -776,6 +781,63 @@ fn normalize_imported_runtime(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn legacy_theme_ids_migrate_by_position_in_preferences_and_restored_backups() {
+        let metro = AppPreferences {
+            theme_id: "aurora-ocean".to_string(),
+            ..AppPreferences::default()
+        }
+        .normalized()
+        .expect("legacy fourth theme normalizes");
+        let clutch = AppPreferences {
+            theme_id: "botanical-library".to_string(),
+            ..AppPreferences::default()
+        }
+        .normalized()
+        .expect("legacy fifth theme normalizes");
+
+        assert_eq!(metro.theme_id, "metro-pulse");
+        assert_eq!(clutch.theme_id, "clutch-court");
+
+        let root = isolated_root();
+        let store = PersistenceStore::for_test(&root).expect("create backup migration store");
+        let state = state_with_store(store, 0, 0);
+        for (legacy_id, expected_id) in [
+            ("aurora-ocean", "metro-pulse"),
+            ("botanical-library", "clutch-court"),
+        ] {
+            let backup = AppBackupFile {
+                kind: APP_BACKUP_KIND.to_string(),
+                format_version: APP_BACKUP_FORMAT_VERSION,
+                schema_version: CURRENT_STORAGE_SCHEMA_VERSION,
+                app_version: APP_VERSION.to_string(),
+                exported_at: "2026-09-24T12:00:00+08:00".to_string(),
+                state: PersistedState {
+                    schema_version: CURRENT_STORAGE_SCHEMA_VERSION,
+                    app_preferences: AppPreferences {
+                        theme_id: legacy_id.to_string(),
+                        ..AppPreferences::default()
+                    },
+                    ..PersistedState::default()
+                },
+                runtime: PersistedRuntimeState {
+                    schema_version: CURRENT_STORAGE_SCHEMA_VERSION,
+                    ..PersistedRuntimeState::default()
+                },
+            };
+
+            state
+                .apply_backup_file_with_options(backup, true)
+                .expect("restore legacy theme preference from backup");
+            let restored = state
+                .snapshot_state()
+                .expect("snapshot restored preferences")
+                .app_preferences;
+            assert_eq!(restored.theme_id, expected_id);
+        }
+        cleanup_isolated_root(&root);
+    }
 
     #[test]
     fn alert_sound_keys_round_trip_through_runtime_preferences() {

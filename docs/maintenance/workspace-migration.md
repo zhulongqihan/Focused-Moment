@@ -71,3 +71,67 @@
 - Windows 原生冒烟：`windows-native-20260923-112312-e6053388dd` 通过，源 EXE 与隔离 QA 副本哈希一致，启动可见、隔离存储、WebView2 目录、旧状态迁移和进程清理均通过。
 - 版本与发布边界：本轮不发布新版本，不创建安装器、tag 或 GitHub Release；应用提交 `72ddeeb` 已推送至 `origin/codex/focused-moment-continuity`，本条交接更新随文档提交一并推送。
 - 保护项：`PROJECT_PLAN.md` 未修改、未暂存、未提交；并行主题设计改动已原样恢复到工作树，未被本轮打包、修改或提交。
+
+## 2026-09-24 v2.13.0 新主题逐页执行进度
+
+- 用户已批准先交付两套主题各 5 张概念图，再按 MP-01→MP-05、CC-01→CC-05 顺序逐页实施；10 张 PNG 已存在于 `docs/design-references/concept-images/06-metro-pulse/` 和 `07-clutch-court/`，作为逐页唯一视觉参考保留。
+- MP-01「今日班次：首页」通过固定画布与响应式检查：概念对照 run `v2130-MP01-visual-pass-28`、响应式 run `v2130-MP01-responsive-final`（1487/1024/560，3 项通过）。浏览器 mock 截图不是 Windows 原生验证。
+- MP-02「今日班次：计时」通过固定画布概念截图、人工叠图复核、尺寸断言和响应式门槛：视觉 run `v2130-MP02-visual-pass-8`；响应式 run `v2130-MP02-responsive-final`（3 项通过）；运行/暂停/继续/倒计时结束待保存状态 run `v2130-MP02-state-pass-1`（1 项通过）。对照文件、透明叠图、差异图均在 `artifacts/qa/frontend/v2130-MP02-visual-pass-8-inv-muecwgna-25004-7810ab04-3e94-4ac9-be16-8e8e87d36f69/today-visual-MP-02-concept-comparison-capture-·-班次计时-chromium/concept-comparison/`；计时板和设置卡实测高度分别为 601px、600px。
+- MP-02 对照中保留计划明确要求的命令入口与窗口控制，因此顶部外壳与省略系统控件的概念图有受约束差异；未让控件遮挡标题、计时牌、设置项或底部导航。实际倒计时、完成按钮启用条件及用户待办数据仍由现有业务逻辑决定，不用概念图固定数据替代。
+- MP-03「今日班次：待办」通过视觉、交互和响应式门槛：run `v2130-MP03-final-pass-inv-mueemru2-31760-fa5963be-ca3b-4fe1-8893-25f339e54e7e`，3/3 通过（概念对照、1487/1024/560 表单与溢出、编辑/完成/新增/开始专注）；概念图尺寸与三列位置/高度、分隔线和首行坐标均有自动几何断言。透明叠图和差异图位于 `artifacts/qa/frontend/v2130-MP03-final-pass-inv-mueemru2-31760-fa5963be-ca3b-4fe1-8893-25f339e54e7e/today-visual-MP-03-concept-comparison-capture-·-班次待办-chromium/concept-comparison/`，ImageMagick MAE 为 `0.0229605`；最终截图经人工对照，正文版面与概念图对齐。
+- MP-03 概念图中的待办结束时间在现有 `TodoItem` 数据契约中不存在；页面只呈现实际安排的开始时间，并在已到站列表透传真实关联专注记录来显示最近记录时间/时长，未伪造计划时长。完成数和比例按所选日期真实待办计算。系统命令入口与窗口控制继续由 shell 提供。
+- MP-04「今日班次：记录」已通过固定概念画布几何与交互门槛：`v2130-MP04-final-pass` 5/5；覆盖七点/日期轴/柱线共坐标，日期与前后周切换、零记录日、补录/改名/详细编辑/删除、日历史展开、65 条记录加载更多，以及 1024/560 响应式无横向溢出。概念画布的周图和摘要卡坐标均以 ±2px 断言；当日三条演示时间已修正为与设计稿相符。
+- MP-04 概念画布截图位于 `artifacts/qa/frontend/v2130-MP04-final-pass-inv-muefo62g-22436-727624e4-01b6-463c-a960-935d8b766b74/today-visual-MP-04-concept-comparison-capture-·-七日班次记录-chromium/concept-comparison/MP-04-metro-pulse-records.png`。最初的概念图仍是 `docs/design-references/concept-images/06-metro-pulse/records.png`。
+- MP-05「今日班次：设置」通过概念图和响应式验收：`v2130-MP05-slider-polish-20260924-0313-inv-muehzsp1-41464-0ee9b74b-d36c-4dbc-9499-6160f7cebe6e` 3/3。覆盖固定画布、三个真实分钟设置值加迷你工作台开关、应用内/桌面/音效三种提醒、实时预览明度/动效/密度变化、自动保存、移除手动“保存书房布置”按钮，以及 1024/560 窄屏可达性；新增三项设置行为与溢出断言。修订概念图保持 1487×1058，仅更新主题/时钟/提醒卡内容；原始概念图副本和编辑前后稿保存在 `artifacts/qa/frontend/v2130-MP05-concept-revision-20260924-0240/`。
+- MP-05 逐页截图位于 `artifacts/qa/frontend/v2130-MP05-slider-polish-20260924-0313-inv-muehzsp1-41464-0ee9b74b-d36c-4dbc-9499-6160f7cebe6e/today-visual-MP-05-concept-comparison-capture-·-站台控制-chromium/concept-comparison/MP-05-metro-pulse-settings.png`；透明叠图/差异图与概念图正文 MAE 0.0478572 位于同一 run 的 `concept-comparison/`。四卡边界、预览区、密度选择区、滑轨进度和计时设置行已进行目视叠图复核。计划要求 shell 仍显示的命令和窗口入口与不含这些系统控件的概念图存在受约束差异，但未覆盖设置卡或底部导航。
+- MP-04「今日班次：记录」在 MP-05 样式完成后重新回归，`v2130-MP04-regression-20260924-0314-inv-muei23q2-32700-e51cdc5f-9139-4c15-a139-6fd3dda4b412` 5/5；透明叠图和差异图位于该 run `concept-comparison/`，正文 MAE 0.0293334。七日日期/点线/柱对齐、选日联动、编辑/删除/补录、零和密集记录及响应式再次通过。
+- CC-01「今日赛场：首页」通过页面内容、交互与响应式门槛：`run-inv-mueleqyf-10228-d00586fd-8850-40f0-aa35-cd3b9d198f5b` 4/4；包含固定 1487×1058 概念截图、1024/560 宽度无溢出、空场首回合入口、计时开始/暂停状态。图像和覆盖层、差异图位于 `artifacts/qa/frontend/run-inv-mueleqyf-10228-d00586fd-8850-40f0-aa35-cd3b9d198f5b/today-visual-CC-01-concept-comparison-capture-·-今日赛场-chromium/concept-comparison/`；全窗口 MAE 0.228047。对照中保留了共享 app-bar/命令/窗口控件，因此完整截图顶部与无 app-bar 的概念画布有受约束差异；球场主体、中圈、五个可见回合、球星卡、底导航已人工叠图检查，几何断言包括 380×380 中圈计时、回合标记坐标、篮筐和 130px 导航。
+- CC-01 演示概念图已按真实数据契约修正：固定 `第4回合 / 45:00 / 创作专注 / 准备开球`，任务只显示真实开始时间、不伪造结束时间；更新后 SHA-256 为 `B856646A0A9569F75560EECABB4F45A495CCC7D5955559461D50FE8557A446BA`，1487×1058。修改前概念图 SHA-256 `57A57C08C7CCA4AFA519E4B9B945AF8A691A4E6897279E36EA7B03F78FCDEDFA` 已保存在 `artifacts/qa/frontend/v2130-CC01-concept-alignment-20260924-050501-642fd647/concept-revision/today-before-correction.png`；候选图、概念叠图和差异图也在同目录。
+- 用户针对 MP-05 明确选择保留现有单一休息时长数据字段，不新增短休息/长休息字段；设置概念图按此约束展示单个 5 分钟休息选项。
+- CC-02「今日赛场：计时」已通过：最终 run `run-inv-muemocci-12968-9b163d78-4fd3-48ad-8d7a-1aa07d6aa76a` 3/3（概念截图与几何断言、空闲/运行/暂停/倒计时结束待保存/完成记录、1024/560 响应式可达）。按钮归属断言确认“完成并记录/重置”在右侧战术板；中圈不再重复状态行，增加概念稿中的四个回合点标；页眉徽标显示真实当前回合和状态。
+- CC-02 概念稿发现原记分牌“第 2 节”与实际数据模型不符，已更正为“第 4 回合 / 45:00”，并将空闲态“完成并记录”视觉置灰。最终概念图 `docs/design-references/concept-images/07-clutch-court/timer.png` 尺寸 1487×1058，SHA-256 `F8EA9521A65ECDC5D716CDABADF2398EF60F150CEE11EF18D584302A9EDA97DD`；原图 SHA-256 `A4CCA3A795FB7D9218989712EF36065DD7FDA4BDAC826FB81E222D7E1F5E1A66` 保存在 `artifacts/qa/frontend/run-inv-muem46dg-34548-a7fece32-1748-4ce5-bdb5-dba9859ec650/concept-revision/timer-before-factual-correction.png`。修正版按 ImageGen 输出做了 1px 画布尺寸归一化，未改视觉构图。
+- CC-02 最终截图、50% 叠图和差异图在 `artifacts/qa/frontend/run-inv-muemocci-12968-9b163d78-4fd3-48ad-8d7a-1aa07d6aa76a/today-visual-CC-02-concept-comparison-capture-·-赛场计时-chromium/concept-comparison/`；全画布 MAE 0.123271。剩余主要差异来自概念稿未画出的共享 app-bar/命令/窗口控件和由此产生的约 8px 正文纵向位移；这部分按共享 shell 约束保留，计时页主体及按钮位置已人工叠图复核。
+- CC-01 至 CC-05 已完成；下一步进行跨主题回归、版本同步、构建/原生验证与交付。`PROJECT_PLAN.md` 是本轮只读保护文件，故未改动；此处为本轮进度记录。
+
+## CC-03「今日赛场：待办」验收 — 2026-09-24
+
+- 根因是看板把所有今日未完成项都放入“本场战术”，造成当前项与待开始事项混组；现已只把计时关联/选中的当前事项列入本场战术，其余未完成项进热身准备，完成事项留在已命中。
+- 默认固定 fixture 的三组分别为 1/2/3；完成“创作专注”后“整理收尾”成为当前回合；恢复、编辑、删除和新增操作仍通过。另验收收件箱、未来、过期、空看板场景，未生成虚假命中项或比分。
+- 视觉实现对齐概念：红/蓝/绿全高分区、对应列宽、球队球衣编号兼作完成/恢复按钮、状态标签尺寸、Butler 小卡和不换行的新增按钮。控件保留可访问名称、禁用态和键盘焦点。
+- 最终 run `run-inv-muep0ijs-27940-d34a415f-a347-45f6-af83-e108cd156935`：CC-03 5/5；包含概念截图、三个列/球星卡/按钮几何、固定数据与新增/编辑/删除/完成/恢复、空态、过期/未来/收件箱，以及 1024×900、560×900 可达性。
+- 最终浏览器图、响应式图和透明叠图/差异图位于 `artifacts/qa/frontend/run-inv-muep0ijs-27940-d34a415f-a347-45f6-af83-e108cd156935/`。概念对照全画布 MAE `0.0803826`，正文区 MAE `0.0622691`；目视叠图确认内容与三列边界/位置对齐，剩余明显差异是按计划保留的共享 app-bar/命令/窗口控制与底部导航，不由页面覆盖。
+- 概念 `docs/design-references/concept-images/07-clutch-court/todos.png` 已纠正六项真实任务名和“今天截止”文案，尺寸 1487×1058，SHA-256 `F86674C781D457D05D54823564A6D063B1C6244A08AF53DC6BD118DD9AE108C8`；编辑前版本完整备份 `artifacts/qa/frontend/run-inv-muemuppi-21232-bdf9967d-1ada-45c8-ae93-4e451090147c/concept-revision/todos-before-title-and-metadata-correction.png`（SHA-256 `CD2C49B322466C953D8F425BBE7485736C9FFB58A6BF909E6C5B675D3FFDEBFC`）。因图像生成反复未能逐字修正中文，最终只用实际浏览器文字层替换错误标题；其他构图不动，调整 provenance 在两个 run 的 `concept-revision/`。
+- MP-05 继续保留单一休息时长字段；未扩展计时设置数据结构。此处不是正式版本发布；`PROJECT_PLAN.md` 继续只读，版本同步/提交/推送待全套主题验收后执行。
+
+## CC-04「今日赛场：记录」验收 — 2026-09-24
+
+- 最终 run `run-inv-mueprqt5-40780-916a7da3-bdfb-4931-9117-76ad1a3c81ef`：5/5。覆盖七日任意日选中联动、补录/改名/详细编辑/删除/展开历史、零记录、65 条密集历史加载更多，以及 1024×900、560×900 响应式访问。
+- 新增固定演示数据的事实与几何断言：7 个散点、日期标签和曲线端点均一一对齐，点位横向占 7%–93%；选中 9/23 时摘要为 2h45m、3 段、平均 55m、6/7 活跃；分时柱按真实完成时段为上午 2h、午后 45m、傍晚/夜间 0m。少于 50 条记录时不显示“加载更多”。
+- 逐页对比中发现原概念图把每条记录误当成一个时段、摘要写成“已完成待办”，且 3 条记录仍画有“加载更多”。已修订概念图纠正统计、摘要和按钮状态，保留原图备份。当前 `records.png` 为 1487×1058，SHA-256 `409564EE09896E2D4BD9D939D721DBA9BE567F00DEED9A5F5E095BECD6FE73E0`；旧图 SHA-256 `966F4FFA98A9AE5FE7B20326D06A734865477126C56717B1789B4E1EAC302EBB`，备份与生成候选位于 `artifacts/qa/frontend/run-inv-muepcjnc-23592-275416eb-79da-421a-82f8-acb2e68914e1/concept-revision/`。
+- 为与修订概念一致，图表标题/坐标说明改为分列展示；最终截图、50% 叠图和差异图在 `artifacts/qa/frontend/run-inv-mueprqt5-40780-916a7da3-bdfb-4931-9117-76ad1a3c81ef/today-visual-CC-04-concept-comparison-capture-·-七日-box-score-chromium/concept-comparison/`。全画布 MAE `0.0768566`，去除顶部共享外壳和底部导航后的正文 MAE `0.0622994`；人工复核确认暖木色主题、主要卡片边界、图表和列表构图对齐，剩余差异主要为 AI 概念图与 Chromium 字形/反锯齿细节及共享 app-bar/命令/窗口控件。该外壳差异属于现有 shell 约束，不用页面覆盖系统入口。
+- 当前 CC-04 页面验收通过；下一卡为 CC-05。版本、完整回归、构建、本地入口、Windows 原生冒烟、提交与推送仍待完成；`PROJECT_PLAN.md` 继续只读。
+
+## CC-05「今日赛场：设置」验收 — 2026-09-24
+
+- 最终 run `run-inv-mueqqccr-41296-429ddf63-1616-4d37-a7d5-3d7375cd1485`：3/3。覆盖 1487×1058 固定概念画布、1024/560 宽度无横向溢出和球星预览可达，以及灯光/动效/密度实时预览、计时设置、提醒开关与音效选择即时保存。
+- 固定画布增加四个设置卡几何门槛（每项坐标/尺寸误差不超过 2px）和 384×620 球星预览尺寸门槛。精确断言单一休息字段 5 分钟（无短休/长休）、正向/番茄专注各 45 分钟、迷你工作台开关、三类提醒、默认音效、备份列表/四项数据操作/可折叠 JSON 备份；不存在“保存书房布置”或其他手动视觉保存按钮。
+- 概念修订是必要的事实校正：旧图含虚构的今日得分/第 2 节 45:00、短休/长休值和遗漏应用内提醒；尝试的整图生成会重排卡片，因此最终保留原始构图/尺寸，用浏览器实际控件局部校准外壳、计时、提醒、备份、密度和主题数量。旧图 SHA-256 `E8DB0D69A8F2D4F7B615D90BE78FBDD5E017A635121891C79A30A6EBFCDBB131` 保存在 `artifacts/qa/frontend/run-inv-muepuy64-34000-12afb3c5-670f-43a0-bf0e-7e1092626146/concept-revision/settings-before-factual-correction.png`；当前 `settings.png` 为 1487×1058，SHA-256 `ED9AE5134E997E43C58E4BE5AE3231870AFEE40A77D8CB08EE78C1E55BCFA69E`。候选、图像生成迭代、控件裁片和合成底稿均留在同目录供追溯。
+- 最终截图和 50% 叠图/差异图在 `artifacts/qa/frontend/run-inv-mueqqccr-41296-429ddf63-1616-4d37-a7d5-3d7375cd1485/today-visual-CC-05-concept-comparison-capture-·-球馆更衣室-chromium/concept-comparison/`。全画布 MAE `0.055471`，避开 app-bar/导航后的正文 MAE `0.0484357`；四卡与预览几何对齐，剩余差异主要是左侧主题缩略/球衣概念处理、Chromium 字形抗锯齿和共享壳层文案，不遮挡控件。
+- 五页顺序现已完成。下一步跨主题回归（夜谷日记录展开、编辑纸页动效/密度、旧主题 ID 迁移、其他主题布局和保存按钮），之后再做版本同步、全量测试、构建、本地 EXE/原生验证、提交和推送；`PROJECT_PLAN.md` 不修改。
+
+## 2026-09-24 v2.13.0 跨主题回归与概念数据校正
+
+- 跨主题最终 Playwright run `v2130-cross-theme-final-20260924-inv-muerun0z-40852-3735c6c8-024c-4c4e-bc5c-a0d4e5b752bc`：`today-visual.spec.mjs` 100/100 通过；覆盖五主题独立首页、十页概念截图、桌面/平板/手机可达性、记录图日期坐标和展开联动、设置实时预览/自动保存、计时状态以及待办操作。
+- 回归新增旧 ID 偏好启动检查：`aurora-ocean` 映射到「今日班次」，`botanical-library` 映射到「今日赛场」。Rust 专项测试 `legacy_theme_ids_migrate_by_position_in_preferences_and_restored_backups` 1/1 通过；测试确实经 `apply_backup_file_with_options(..., true)` 恢复两种旧 ID 的备份并核验持久化偏好，不再只测归一化函数。
+- 首轮视觉回归揭示三处断言/概念数据陈旧：分时摘要真实单位是 `52m`；紧凑预览真实文案是“同屏显示更多。”；MP-03「深度工作/专注时段」实际完成时间为 `10:50 / 14:51`，并显示“记录于”，与 MP-04 共用的当天专注记录一致。更新测试期望和 MP-03 概念图，没有改动用户数据模型或虚构专注记录。
+- ImageGen 的局部文字替换稿改动了轨道版式，已明确拒收；原概念图完整备份 `artifacts/qa/frontend/v2130-mp03-corrected-capture-20260924-inv-muerjahs-40696-260aa380-8a28-4b32-a334-9000731655c9/concept-revision/todos-before-record-time-correction.png`，SHA-256 `E7E07C1C6567DCC17186404BA3295D4D1501B8EE11E06EB3D9EDA2E0461D0056`。最终保留原构图，仅以实际页面文字局部校正；`docs/design-references/concept-images/06-metro-pulse/todos.png` 尺寸仍为 1487×1058，SHA-256 `D57EA9CCE7765E44C33B04590D22F3EEE8052F13DA73C39174A5B63105FB4B92`。
+- MP-03 最终对照截图与 50% 叠图/差异图在 `artifacts/qa/frontend/v2130-mp03-corrected-capture-20260924-inv-muerjahs-40696-260aa380-8a28-4b32-a334-9000731655c9/today-visual-MP-03-concept-comparison-capture-·-班次待办-chromium/concept-comparison/`；全画布 MAE `0.0226769`，剔除共享顶栏与底导航后的正文 MAE `0.0149849`。放大复核确认任务行标题、卡片和分栏未受局部修订影响。
+- `PROJECT_PLAN.md` 仍只读；SHA-256 保持 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`。下一步同步全部 v2.13.0 版本源与正式发布说明，再运行 `pnpm verify`、全量 Playwright、build、Windows native smoke 和本地根 EXE 打包；之后只提交本轮授权文件并推送当前分支，不创建 tag/Release。
+
+## 2026-09-24 v2.13.0 最终打包前复核
+
+- 继续任务时核对了 branch/upstream 为 `codex/focused-moment-continuity`，HEAD 基线 `f2e3507d9334ab7b403da18014d43b6ffa6caa53`，当时与 upstream 对齐；当前根 `Focused Moment.exe` 仍是旧入口，SHA-256 `BA71167AA310F890BAF382211208711F5A9F39ACC53CD1869F8590A34C90D952`。原生验证开始前进程检查为 0，不关闭任何用户进程。
+- 再次执行 `pnpm verify` 成功：TypeScript、CSS 顺序、结构、Playwright 输出 guardrail、结构/原生契约及本地交付脚本测试通过；Rust fmt/check/test 共 39/39。Rust 当前有未使用导入/死代码警告，不影响通过。
+- 完整 Playwright 套件为 154/154，run `artifacts/qa/frontend/v2130-full-playwright-20260924-inv-mues5r0r-30492-ddf94a9e-4dcb-461b-8c42-fbcac4f4e74f/`；专门跨主题视觉套件 100/100，旧 ID 备份恢复迁移专项通过。生产构建 `pnpm build` 已通过（2086 modules，Vite 有大 chunk 提示）。
+- 状态审计脚本确认受保护的 `PROJECT_PLAN.md` 快照早于本轮已确认进展；本文件是较新交接记录。按用户保护要求，不改写计划中的既有 31 行用户 diff；本轮有效范围以用户批准的 v2.13.0 任务与本文件最新记录为准。
+- 剩余：先提交经路径审计的应用源码/概念图/发布说明；再运行 `pnpm package:local`，核验根 EXE、provenance 与旧入口恢复副本；原生进程仍为 0 时运行 `pnpm native:windows`；补齐最终交付记录后仅推送当前分支。禁止创建 tag、GitHub Release、安装器或上传资产。

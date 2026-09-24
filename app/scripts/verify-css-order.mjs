@@ -29,7 +29,7 @@ function fail(message) {
 
 const indexPath = resolve(root, "src/styles/index.css");
 const index = normalize(readFileSync(indexPath, "utf8"));
-const expectedImports = modules.map(([file]) => `@import "./${file}";`).join("\n");
+const expectedImports = [...modules.map(([file]) => `@import "./${file}";`), '@import "./90-new-themes.css";'].join("\n");
 if (!index.includes(expectedImports)) {
   fail("src/styles/index.css does not preserve the declared module order");
 }
@@ -46,7 +46,7 @@ if (canonical.length !== sourceCssLength || digest !== sourceCssSha256) {
   fail(`ordered stream changed (length ${canonical.length}, sha256 ${digest})`);
 }
 
-for (const [file] of modules) {
+for (const [file] of [...modules, ["90-new-themes.css"]]) {
   const contents = normalize(readFileSync(resolve(root, "src/styles", file), "utf8"));
   for (const [, asset] of contents.matchAll(/url\("(\.\.?\/assets\/[^"#]+)"\)/g)) {
     const assetPath = resolve(root, "src/styles", file, "..", asset);

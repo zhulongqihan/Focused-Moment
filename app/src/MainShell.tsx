@@ -1,8 +1,9 @@
 import { For, Show } from "solid-js";
 import {
   ChartNoAxesCombined,
-  CircleDot,
+  ClipboardList,
   Clock3,
+  ArrowUpRight,
   LockKeyhole,
   LockKeyholeOpen,
   Maximize2,
@@ -10,6 +11,7 @@ import {
   Settings,
   SlidersHorizontal,
   SquareCheck,
+  TrainFront,
   X,
 } from "lucide-solid";
 import {
@@ -58,6 +60,7 @@ import "./components/AuroraOceanViews.css";
 import "./components/BotanicalLibraryViews.css";
 import "./components/DailyFocusLine.css";
 import "./components/BrandMark.css";
+import "./styles/91-new-theme-shell-compat.css";
 
 function MainShell() {
   const {
@@ -648,6 +651,9 @@ function MainShell() {
         "minimal-app--records": activeView() === "records",
         "minimal-app--settings": activeView() === "settings",
         "minimal-app--trail": activeView() === "today",
+        "minimal-app--metro-pulse": themeId() === "metro-pulse",
+        "minimal-app--clutch-court": themeId() === "clutch-court",
+        "minimal-app--new-theme": themeId() === "metro-pulse" || themeId() === "clutch-court",
       }}
       data-theme={themeId()}
       data-density={density()}
@@ -660,7 +666,19 @@ function MainShell() {
           <span class="app-brand__mark" />
           <strong>Focused Moment</strong>
         </div>
+        <Show when={themeId() === "metro-pulse" || themeId() === "clutch-court"}>
+          <div class="new-theme-bar-center">
+            <strong>{getToday()}　{new Intl.DateTimeFormat("zh-CN", { weekday: "short" }).format(new Date(getToday() + "T00:00:00"))}</strong>
+            <small>{themeId() === "metro-pulse" ? "把注意力，送往更好的自己。" : "ONE POSSESSION AT A TIME"}</small>
+          </div>
+        </Show>
         <div class="app-bar__actions">
+          <Show when={themeId() === "metro-pulse" || themeId() === "clutch-court"}>
+            <div class="new-theme-bar-meta">
+              <strong>{themeId() === "metro-pulse" ? "专注创造更好的日常" : "JIMMY BUTLER　·　#22"}</strong>
+              <span>{themeId() === "metro-pulse" ? "下一班：" + (nextTodo()?.scheduledTime || "待安排") + "　/　站台 03" : "CLUTCH MODE　/　HOME COURT"}</span>
+            </div>
+          </Show>
           <button
             type="button"
             class="command-trigger"
@@ -733,7 +751,9 @@ function MainShell() {
             aria-current={activeView() === "today" ? "page" : undefined}
             onClick={() => changeView("today")}
           >
-            <CircleDot class="trail-nav__icon trail-nav__icon--today" size={23} strokeWidth={1.7} aria-hidden="true" />
+            <Show when={themeId() === "metro-pulse" && activeView() !== "today"} fallback={<TrainFront class="trail-nav__icon trail-nav__icon--today" size={40} strokeWidth={1.7} aria-hidden="true" />}>
+              <ClipboardList class="trail-nav__icon trail-nav__icon--today" size={23} strokeWidth={1.7} aria-hidden="true" />
+            </Show>
             <span class="minimal-nav__label">今日</span>
           </button>
           <button
@@ -773,6 +793,13 @@ function MainShell() {
             <Settings class="trail-nav__icon trail-nav__icon--settings" size={23} strokeWidth={1.7} aria-hidden="true" />
             <span class="minimal-nav__label">设置</span>
           </button>
+          <Show when={themeId() === "metro-pulse" || themeId() === "clutch-court"}>
+            <div classList={{ "new-theme-nav-note": true, "new-theme-nav-note--metro": themeId() === "metro-pulse", "new-theme-nav-note--court": themeId() === "clutch-court" }}>
+              <strong>{themeId() === "metro-pulse" ? "下一段旅程" : "NEXT POSSESSION"}</strong>
+              <span classList={{ "new-theme-nav-note--metro-copy": themeId() === "metro-pulse" }}>{themeId() === "metro-pulse" ? <><span class="new-theme-nav-note--metro-copy__lead">从专注出发。</span><small class="new-theme-nav-note--metro-copy__english">A MORE FOCUSED YOU<br />DEPARTS HERE.</small></> : "专注守住这一球，把每个回合打完整。"}</span>
+              <Show when={themeId() === "metro-pulse"}><ArrowUpRight size={40} strokeWidth={2.2} aria-hidden="true" /></Show>
+            </div>
+          </Show>
         </nav>
 
         <section
@@ -892,11 +919,13 @@ function MainShell() {
             }}
             focus={{
               timer: () => timer(),
+              currentStreakDays: () => analytics()?.currentStreakDays ?? 0,
               todaySessionCount: () => analytics()?.todaySessionCount ?? 0,
               timerPreferences: () => timerPreferences(),
               todos: () => todos(),
               records: () => records(),
               pendingTodos,
+              formatTodoDue,
               ready,
               busy,
               timerHasProgress,
@@ -925,6 +954,7 @@ function MainShell() {
             }}
             todos={{
               todos: () => todos(),
+              records: () => records(),
               activeTodos,
               overdueTodos,
               completedTodos,
@@ -1007,8 +1037,16 @@ function MainShell() {
               autoMiniOnStart,
               appPreferenceSaveError,
               appPreferenceSaveBusy,
+              portableBackupPath: () => portableBackupPath(),
+              portableBackupPreview: () => portableBackupPreview(),
+              restorePortableAppPreferences: () => restorePortableAppPreferences(),
               onAutoMiniOnStartChange: updateAutoMiniOnStart,
               onRetryAppPreferenceSave: retryAppPreferencesSave,
+              onPortableBackupPathChange: setPortableBackupPath,
+              onPreviewPortableBackup: previewPortableBackup,
+              onExportPortableBackup: exportPortableBackup,
+              onImportPortableBackup: importPortableBackup,
+              onRestorePortableAppPreferencesChange: setRestorePortableAppPreferences,
               onSaveVisualSettings: flushAppPreferencesSave,
               onSaveTimerPreferences: saveTimerPreferences,
               onPreviewAlertSound: previewAlertSound,
@@ -1023,7 +1061,7 @@ function MainShell() {
             }}
           />
 
-          <Show when={activeView() === "settings"}>
+          <Show when={activeView() === "settings" && !((themeId() === "metro-pulse") || (themeId() === "clutch-court"))}>
             <section class="restored-settings-compatibility" aria-label="工作台与保存状态">
               <label><input type="checkbox" checked={autoMiniOnStart()} onChange={(event) => updateAutoMiniOnStart(event.currentTarget.checked)} />开始专注时自动打开迷你工作台</label>
               <Show when={appPreferenceSaveError()}>
@@ -1043,7 +1081,7 @@ function MainShell() {
             />
           </Show>
 
-          <Show when={activeView() === "todos"}>
+          <Show when={activeView() === "todos" && themeId() !== "metro-pulse" && themeId() !== "clutch-court"}>
             <details class="restored-focus-plan">
               <summary>当前事项和今日精选</summary>
               <FocusPlanControls

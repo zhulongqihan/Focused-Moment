@@ -72,7 +72,7 @@ import { createArchivePath, getRecentTrendDays, groupRecordsByDate, mergeArchive
 import { buildFocusHistoryResults } from "../records/focus-history";
 import { sortTodos } from "../todos/derived";
 import type { PaletteCommand } from "../../components/CommandPalette";
-import { getTheme, implementedThemeId, type ThemeId } from "../../lib/themes";
+import { getTheme, implementedThemeId, normalizeThemeId, type ThemeId } from "../../lib/themes";
 
 type AppView = "today" | "focus" | "todos" | "records" | "settings";
 type TimerMode = "stopwatch" | "countdown";
@@ -233,7 +233,7 @@ function readPercentage(key: string, fallback: number) {
 }
 
 function readThemeId(): ThemeId {
-  const theme = getTheme(readLocalStorageValue(themeStorageKey));
+  const theme = getTheme(normalizeThemeId(readLocalStorageValue(themeStorageKey)));
   return theme.implemented ? theme.id : implementedThemeId;
 }
 
@@ -429,7 +429,7 @@ export function useMainShellController() {
   }
 
   function applyAppPreferences(next: AppPreferences) {
-    setThemeId(next.themeId);
+    setThemeId(normalizeThemeId(next.themeId));
     setVisualIntensity(next.visualIntensity);
     setMotionIntensity(next.motionIntensity);
     setDensity(next.density);

@@ -15,19 +15,19 @@ import {
   GraphiteConsoleTodos,
 } from "./GraphiteConsoleViews";
 import {
-  AuroraOceanFocus,
-  AuroraOceanRecords,
-  AuroraOceanSettings,
-  AuroraOceanToday,
-  AuroraOceanTodos,
-} from "./AuroraOceanViews";
+  MetroPulseFocus,
+  MetroPulseRecords,
+  MetroPulseSettings,
+  MetroPulseToday,
+  MetroPulseTodos,
+} from "./MetroPulseViews";
 import {
-  BotanicalLibraryFocus,
-  BotanicalLibraryRecords,
-  BotanicalLibrarySettings,
-  BotanicalLibraryToday,
-  BotanicalLibraryTodos,
-} from "./BotanicalLibraryViews";
+  ClutchCourtFocus,
+  ClutchCourtRecords,
+  ClutchCourtSettings,
+  ClutchCourtToday,
+  ClutchCourtTodos,
+} from "./ClutchCourtViews";
 import {
   NightValleyFocus,
   NightValleyRecords,
@@ -56,7 +56,7 @@ export interface ThemeSurfaceProps {
   settings: SettingsSurfaceProps;
 }
 
-type ThemeImplementation = "night-valley" | "editorial-paper" | "graphite-console" | "aurora-ocean" | "botanical-library";
+type ThemeImplementation = "night-valley" | "editorial-paper" | "graphite-console" | "metro-pulse" | "clutch-court";
 
 function resolveThemeImplementation(themeId: ThemeId): ThemeImplementation {
   switch (getTheme(themeId).id) {
@@ -66,10 +66,10 @@ function resolveThemeImplementation(themeId: ThemeId): ThemeImplementation {
       return "editorial-paper";
     case "graphite-console":
       return "graphite-console";
-    case "aurora-ocean":
-      return "aurora-ocean";
-    case "botanical-library":
-      return "botanical-library";
+    case "metro-pulse":
+      return "metro-pulse";
+    case "clutch-court":
+      return "clutch-court";
     default:
       return "night-valley";
   }
@@ -106,19 +106,19 @@ export default function ThemeSurface(props: ThemeSurfaceProps) {
         <Show when={props.activeView() === "records"}><GraphiteConsoleRecords {...props.records} /></Show>
         <Show when={props.activeView() === "settings"}><GraphiteConsoleSettings {...props.settings} /></Show>
       </Match>
-      <Match when={themeImplementation() === "aurora-ocean"}>
-        <Show when={props.activeView() === "today"}><AuroraOceanToday {...props.today} /></Show>
-        <Show when={props.activeView() === "focus"}><AuroraOceanFocus {...props.focus} /></Show>
-        <Show when={props.activeView() === "todos"}><AuroraOceanTodos {...props.todos} /></Show>
-        <Show when={props.activeView() === "records"}><AuroraOceanRecords {...props.records} /></Show>
-        <Show when={props.activeView() === "settings"}><AuroraOceanSettings {...props.settings} /></Show>
+      <Match when={themeImplementation() === "metro-pulse"}>
+        <Show when={props.activeView() === "today"}><MetroPulseToday {...props.today} /></Show>
+        <Show when={props.activeView() === "focus"}><MetroPulseFocus {...props.focus} /></Show>
+        <Show when={props.activeView() === "todos"}><MetroPulseTodos {...props.todos} /></Show>
+        <Show when={props.activeView() === "records"}><MetroPulseRecords {...props.records} /></Show>
+        <Show when={props.activeView() === "settings"}><MetroPulseSettings {...props.settings} /></Show>
       </Match>
-      <Match when={themeImplementation() === "botanical-library"}>
-        <Show when={props.activeView() === "today"}><BotanicalLibraryToday {...props.today} /></Show>
-        <Show when={props.activeView() === "focus"}><BotanicalLibraryFocus {...props.focus} /></Show>
-        <Show when={props.activeView() === "todos"}><BotanicalLibraryTodos {...props.todos} /></Show>
-        <Show when={props.activeView() === "records"}><BotanicalLibraryRecords {...props.records} /></Show>
-        <Show when={props.activeView() === "settings"}><BotanicalLibrarySettings {...props.settings} /></Show>
+      <Match when={themeImplementation() === "clutch-court"}>
+        <Show when={props.activeView() === "today"}><ClutchCourtToday {...props.today} /></Show>
+        <Show when={props.activeView() === "focus"}><ClutchCourtFocus {...props.focus} /></Show>
+        <Show when={props.activeView() === "todos"}><ClutchCourtTodos {...props.todos} /></Show>
+        <Show when={props.activeView() === "records"}><ClutchCourtRecords {...props.records} /></Show>
+        <Show when={props.activeView() === "settings"}><ClutchCourtSettings {...props.settings} /></Show>
       </Match>
     </Switch>
   );
