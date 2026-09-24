@@ -60,9 +60,9 @@ use storage::{
 };
 use tauri::{Manager, WindowEvent};
 
-const APP_VERSION: &str = "2.13.0";
+const APP_VERSION: &str = "2.13.1";
 const APP_MILESTONE: &str =
-    "v2.13.0 Metro Pulse and Clutch Court themes; theme migration and records/layout fixes";
+    "v2.13.1 Archived Aurora Ocean and Botanical Library themes available in Settings";
 const APP_BACKUP_KIND: &str = "focused-moment-backup";
 const APP_BACKUP_FORMAT_VERSION: u64 = 3;
 const FLOATING_WORKSPACE_SYNC_EVENT: &str = "floating-workspace-sync";
@@ -783,7 +783,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn legacy_theme_ids_migrate_by_position_in_preferences_and_restored_backups() {
+    fn legacy_ids_migrate_and_archived_theme_ids_survive_preferences_and_backups() {
         let metro = AppPreferences {
             theme_id: "aurora-ocean".to_string(),
             ..AppPreferences::default()
@@ -799,6 +799,15 @@ mod tests {
 
         assert_eq!(metro.theme_id, "metro-pulse");
         assert_eq!(clutch.theme_id, "clutch-court");
+        for archived_id in ["legacy-aurora-ocean", "legacy-botanical-library"] {
+            let archived = AppPreferences {
+                theme_id: archived_id.to_string(),
+                ..AppPreferences::default()
+            }
+            .normalized()
+            .expect("archived theme remains selectable");
+            assert_eq!(archived.theme_id, archived_id);
+        }
 
         let root = isolated_root();
         let store = PersistenceStore::for_test(&root).expect("create backup migration store");
@@ -806,6 +815,8 @@ mod tests {
         for (legacy_id, expected_id) in [
             ("aurora-ocean", "metro-pulse"),
             ("botanical-library", "clutch-court"),
+            ("legacy-aurora-ocean", "legacy-aurora-ocean"),
+            ("legacy-botanical-library", "legacy-botanical-library"),
         ] {
             let backup = AppBackupFile {
                 kind: APP_BACKUP_KIND.to_string(),

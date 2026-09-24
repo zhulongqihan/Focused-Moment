@@ -150,3 +150,14 @@
 - 两套新主题、十张概念参考、兼容迁移、记录/设置修复、154/154 Playwright、`pnpm verify`（Rust 39/39）、Windows Release 根入口 provenance 与隔离原生冒烟均已完成；具体证据见本节之前条目及 `docs/v2.13.0/RELEASE_NOTES.md`。
 - 无 tag、GitHub Release、安装器或资产上传。根 EXE 由 build ID `local-20260924-083251-392d39dfb0` 交付；文档提交不改变应用构建输入。
 - `PROJECT_PLAN.md` 仍保持保护基线 SHA-256 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`，未改写既有用户 diff。`div` 与四份 `docs/context_summary_*.md` 继续留在本地且未暂存、提交或推送。
+
+## 2026-09-24 v2.13.1 旧主题设置入口 — 本地验证通过，待交付
+
+- 新的用户决定：把旧「极光海面」「植物书房」留作设置页小角落里的可选项，以便以后切回；这覆盖 v2.13.0“只存档、不提供选择”的旧决定，但不改常用五主题排列。
+- 当前实现方案：全主题设置页尾部提供默认收起的旧版主题折叠区；切到旧主题时自动展开。两套旧主题重新接入五个页面路由；独立偏好 ID 为 `legacy-aurora-ocean` / `legacy-botanical-library`，原存量 ID 映射到新第四/第五主题的规则继续保留。
+- 版本按已交付的 v2.13.0 之后的用户可见功能更新到 2.13.1；`PROJECT_PLAN.md` 继续只读，既有 SHA-256 为 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`。
+- 已完成：`pnpm check`、`pnpm verify`（Rust 39/39）、全量 Playwright 浏览器 mock 156/156、追加断言后的旧主题专项 2/2、`pnpm build`（2089 modules）；截图 `artifacts/qa/frontend/run-inv-muex68ba-19912-c4488d85-96a9-4485-92ee-f803680130be/today-visual-archived-them-a4fbb-itchable-in-both-directions-chromium/legacy-theme-shelf-expanded.png`。
+- Playwright CLI 的纯 Vite 页面能检查折叠区视觉与键盘/导航结构，三个页面快照位于 `artifacts/qa/frontend/run-cli-legacy-settings-20260924-1035-e89c/`；因无 Tauri IPC，数据持久化以 mock 浏览器测试和 Rust 测试为证据；此结果不替代 Windows 原生验收。
+- 还需完成：经路径审计后提交应用源代码/测试/本说明，构建并更新根目录 EXE 与 provenance/恢复副本，运行隔离 Windows native smoke，回填交付证据，随后快进推送当前分支；不创建 tag、GitHub Release、安装器或资产上传。
+- 根目录旧版 EXE 在本轮开始时正在运行；用户已确认会手动退出，随后核验该进程已结束。打包前仍会再次检查进程，不关闭任何用户进程。
+- `PROJECT_PLAN.md` 本轮继续只读，保护基线 SHA-256 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`；`div` 与四份上下文摘要继续排除在暂存/提交之外。

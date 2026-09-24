@@ -15,7 +15,7 @@ import {
   X,
 } from "lucide-solid";
 import type { AlertSoundKey, AnalyticsSnapshot, FocusRecord, TodoImportance, TodoItem, TimerSnapshot } from "../lib/contracts";
-import { themes } from "../lib/themes";
+import { getTheme, themes } from "../lib/themes";
 import type {
   FocusSurfaceProps,
   RecordsSurfaceProps,
@@ -324,7 +324,7 @@ export function AuroraOceanRecords(props: RecordsSurfaceProps) {
 
 export function AuroraOceanSettings(props: SettingsSurfaceProps) {
   let customAlertSoundInput: HTMLInputElement | undefined;
-  const activeTheme = createMemo(() => themes.find((theme) => theme.id === props.themeId()) ?? themes[0]);
+  const activeTheme = createMemo(() => getTheme(props.themeId()));
   const toggle = (checked: boolean, key: "toastReminderEnabled" | "windowAttentionReminderEnabled" | "soundReminderEnabled") => void props.onSaveTimerPreferences({ [key]: checked });
   const saveRhythmMinutes = (key: "pomodoroFocusMinutes" | "pomodoroBreakMinutes" | "stopwatchReminderMinutes", value: string, min: number, max: number) => {
     const minutes = Math.min(max, Math.max(min, Number(value) || min));

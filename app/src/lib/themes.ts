@@ -3,7 +3,9 @@ export type ThemeId =
   | "editorial-paper"
   | "graphite-console"
   | "metro-pulse"
-  | "clutch-court";
+  | "clutch-court"
+  | "legacy-aurora-ocean"
+  | "legacy-botanical-library";
 
 export interface ThemeDefinition {
   id: ThemeId;
@@ -12,6 +14,7 @@ export interface ThemeDefinition {
   preview: string;
   implemented: boolean;
   description: string;
+  visualThemeId?: string;
 }
 
 /**
@@ -62,6 +65,28 @@ export const themes: ThemeDefinition[] = [
   },
 ];
 
+/** Earlier fourth/fifth themes are deliberately kept out of the primary picker. */
+export const legacyThemes: ThemeDefinition[] = [
+  {
+    id: "legacy-aurora-ocean",
+    name: "极光海面",
+    englishName: "Aurora Ocean · Legacy",
+    preview: "/theme-previews/04-aurora-ocean.png",
+    implemented: true,
+    description: "旧版深海光场与潮汐记录界面。",
+    visualThemeId: "aurora-ocean",
+  },
+  {
+    id: "legacy-botanical-library",
+    name: "植物书房",
+    englishName: "Botanical Library · Legacy",
+    preview: "/theme-previews/05-botanical-library.png",
+    implemented: true,
+    description: "旧版木质书房与生长记录界面。",
+    visualThemeId: "botanical-library",
+  },
+];
+
 export const implementedThemeId: ThemeId = "night-valley";
 
 const legacyThemeIds: Record<string, ThemeId> = {
@@ -72,9 +97,15 @@ const legacyThemeIds: Record<string, ThemeId> = {
 export function normalizeThemeId(themeId: string | null | undefined): ThemeId {
   if (!themeId) return implementedThemeId;
   const migrated = legacyThemeIds[themeId] ?? themeId;
-  return themes.find((theme) => theme.id === migrated)?.id ?? implementedThemeId;
+  return [...themes, ...legacyThemes].find((theme) => theme.id === migrated)?.id ?? implementedThemeId;
 }
 
 export function getTheme(themeId: string | null | undefined) {
-  return themes.find((theme) => theme.id === normalizeThemeId(themeId)) ?? themes[0];
+  const normalized = normalizeThemeId(themeId);
+  return [...themes, ...legacyThemes].find((theme) => theme.id === normalized) ?? themes[0];
+}
+
+export function getThemeVisualId(themeId: string | null | undefined): string {
+  const theme = getTheme(themeId);
+  return theme.visualThemeId ?? theme.id;
 }

@@ -261,6 +261,8 @@ async function bootReferenceMock(page, {
     window.__startTimerCalls = 0;
     window.__miniWorkspaceShown = 0;
     window.__appPreferenceUpdateCalls = 0;
+    window.__lastAppPreferencesUpdate = null;
+    window.__appPreferenceUpdateHistory = [];
     window.__timerPreferenceUpdateCalls = 0;
     window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
     window.__TAURI_INTERNALS__ = {
@@ -289,6 +291,8 @@ async function bootReferenceMock(page, {
             return appPreferences;
           case "update_app_preferences":
             window.__appPreferenceUpdateCalls += 1;
+            window.__lastAppPreferencesUpdate = args.preferences ?? {};
+            window.__appPreferenceUpdateHistory.push(args.preferences ?? {});
             appPreferences = { ...appPreferences, ...(args.preferences ?? {}) };
             return appPreferences;
           case "get_focus_plan":
@@ -716,6 +720,80 @@ test("legacy fourth and fifth theme preferences resolve to their new positional 
     await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", themeId);
     await navButton(page, "设置").click();
     await expect(page.locator(".nt-theme-choice").filter({ hasText: themeName })).toHaveAttribute("aria-pressed", "true");
+  }
+});
+
+test("archived themes are tucked into Settings and remain switchable in both directions", async ({ page }) => {
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootReferenceMock(page);
+  await navButton(page, "设置").click();
+
+  await expect(page.locator(".nv-theme-card")).toHaveCount(5);
+  const shelf = page.locator(".legacy-theme-shelf");
+  const disclosure = shelf.locator("details");
+  await expect(shelf).toBeVisible();
+  await expect(disclosure).not.toHaveAttribute("open");
+  await expect(disclosure.getByRole("button")).toHaveCount(0);
+
+  await shelf.getByText("旧版主题", { exact: true }).click();
+  await expect(disclosure.getByRole("button")).toHaveCount(2);
+  await expect.poll(() => shelf.locator("img").evaluateAll((images) => images.filter((image) => image.complete && image.naturalWidth > 0).length)).toBe(2);
+  await page.screenshot({ path: test.info().outputPath("legacy-theme-shelf-expanded.png") });
+
+  await shelf.getByRole("button", { name: "切换到旧版主题：极光海面" }).click();
+  await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "aurora-ocean");
+  await expect(page.locator(".ao-settings-page")).toBeVisible();
+  await expect(page.locator(".ao-theme-bubble")).toHaveCount(5);
+  await expect(shelf.getByRole("button", { name: "切换到旧版主题：极光海面" })).toHaveAttribute("aria-pressed", "true");
+  await expect.poll(() => page.evaluate(() => window.__appPreferenceUpdateHistory.some(({ themeId }) => themeId === "legacy-aurora-ocean"))).toBe(true);
+
+  for (const label of ["今日", "计时", "待办", "记录", "设置"]) {
+    await navButton(page, label).click();
+    await expect(page.locator(".ao-page")).toHaveCount(1);
+  }
+
+  await page.locator(".ao-theme-bubble").filter({ hasText: "今日班次" }).click();
+  await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "metro-pulse");
+  await expect(page.locator(".nt-theme-choice")).toHaveCount(5);
+  await expect.poll(() => page.evaluate(() => window.__appPreferenceUpdateHistory.some(({ themeId }) => themeId === "metro-pulse"))).toBe(true);
+
+  await shelf.getByText("旧版主题", { exact: true }).click();
+  await shelf.getByRole("button", { name: "切换到旧版主题：植物书房" }).click();
+  await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "botanical-library");
+  await expect(page.locator(".bl-settings-page")).toBeVisible();
+  await expect(page.locator(".bl-theme-book")).toHaveCount(5);
+  await expect(shelf.getByRole("button", { name: "切换到旧版主题：植物书房" })).toHaveAttribute("aria-pressed", "true");
+  await expect.poll(() => page.evaluate(() => window.__appPreferenceUpdateHistory.some(({ themeId }) => themeId === "legacy-botanical-library"))).toBe(true);
+
+  for (const label of ["今日", "计时", "待办", "记录", "设置"]) {
+    await navButton(page, label).click();
+    await expect(page.locator(".bl-page")).toHaveCount(1);
+  }
+
+  await page.locator(".bl-theme-book").filter({ hasText: "今日赛场" }).click();
+  await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "clutch-court");
+  await expect(page.locator(".nt-settings-page")).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.__appPreferenceUpdateHistory.some(({ themeId }) => themeId === "clutch-court"))).toBe(true);
+});
+
+test("archived theme settings shelf stays within medium and narrow viewports", async ({ page }) => {
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootReferenceMock(page, { themeId: "metro-pulse" });
+  await navButton(page, "设置").click();
+  const shelf = page.locator(".legacy-theme-shelf");
+  await shelf.getByText("旧版主题", { exact: true }).click();
+
+  for (const [width, height] of [[1024, 900], [560, 900]]) {
+    await page.setViewportSize({ width, height });
+    await shelf.scrollIntoViewIfNeeded();
+    const dimensions = await shelf.evaluate((element) => ({
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+    }));
+    expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth + 1);
+    await expect(shelf.getByText("旧版主题", { exact: true })).toBeVisible();
+    await expect(shelf.getByRole("button", { name: "切换到旧版主题：极光海面" })).toBeVisible();
+    await expect(shelf.getByRole("button", { name: "切换到旧版主题：植物书房" })).toBeVisible();
   }
 });
 

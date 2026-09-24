@@ -43,6 +43,7 @@ import {
   getToday,
 } from "./features/shared/date-utils";
 import { formatTodoDue, importanceLabel } from "./features/todos/derived";
+import { getThemeVisualId } from "./lib/themes";
 import {
   defaultFloatingOpacity,
   minFloatingOpacity,
@@ -655,7 +656,7 @@ function MainShell() {
         "minimal-app--clutch-court": themeId() === "clutch-court",
         "minimal-app--new-theme": themeId() === "metro-pulse" || themeId() === "clutch-court",
       }}
-      data-theme={themeId()}
+      data-theme={getThemeVisualId(themeId())}
       data-density={density()}
       data-motion={getMotionIntensityMode(motionIntensity())}
       style={`--nv-visual-intensity: ${visualIntensity() / 100}; --nv-visual-opacity: ${0.55 + (visualIntensity() / 100) * 0.45}; --nv-motion-intensity: ${motionIntensity() / 100};`}
