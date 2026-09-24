@@ -143,3 +143,10 @@
 - 旧入口 SHA-256 `BA71167AA310F890BAF382211208711F5A9F39ACC53CD1869F8590A34C90D952` 已在 `archive/executables/local/local-20260924-083251-392d39dfb0/Focused Moment.exe` 核验保存；交付 journal 标记 `delivered` 且 `rollbackSupported=true`。
 - `pnpm native:windows` 通过，run `windows-native-20260924-083426-1fc83e8741`，验证新入口原生窗口启动、隔离 LOCALAPPDATA/WebView2、合成旧数据迁移及旧源备份；只关闭脚本创建的隔离子进程。此检查不等于计时、托盘、浮窗、音效和通知等人工界面操作的 Windows 原生验收。
 - 无 tag、GitHub Release、安装器或资产上传。接下来执行路径核验后的文档补充提交，并快进推送两个本轮提交至已确认分支；`PROJECT_PLAN.md` 保持哈希 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`。
+
+## 2026-09-24 v2.13.0 Git 同步闭环
+
+- 应用提交 `39dd66965b49f5e7a74ee2a3341f3ed142acd5d0` 与交付说明提交 `804e9f6` 已通过普通 fast-forward 推送至 `origin/codex/focused-moment-continuity`。
+- 两套新主题、十张概念参考、兼容迁移、记录/设置修复、154/154 Playwright、`pnpm verify`（Rust 39/39）、Windows Release 根入口 provenance 与隔离原生冒烟均已完成；具体证据见本节之前条目及 `docs/v2.13.0/RELEASE_NOTES.md`。
+- 无 tag、GitHub Release、安装器或资产上传。根 EXE 由 build ID `local-20260924-083251-392d39dfb0` 交付；文档提交不改变应用构建输入。
+- `PROJECT_PLAN.md` 仍保持保护基线 SHA-256 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`，未改写既有用户 diff。`div` 与四份 `docs/context_summary_*.md` 继续留在本地且未暂存、提交或推送。
