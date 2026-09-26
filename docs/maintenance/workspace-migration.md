@@ -174,3 +174,13 @@
 - `pnpm native:windows` 通过：`windows-native-20260926-132018-03ec821d5c`，验证可见原生窗口、隔离用户数据/WebView2 目录、模拟旧状态迁移和受控清理。此冒烟不覆盖人工计时/托盘/浮窗/音效等交互。
 - 应用与当前交付说明提交 `3618120f288769389c8d2e53cb599376ade1d97d` 已快进推送到 `origin/codex/focused-moment-continuity`；本地验证、构建、根入口 provenance 和隔离 Windows 冒烟均收口。
 - 当前不创建安装包、tag、GitHub Release 或上传资产。`PROJECT_PLAN.md` 按保护要求保持未改动，SHA-256 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`；既有 `div` 与四份 `docs/context_summary_20260924_*.md` 未混入本工作单元。
+
+## 2026-09-26 v2.13.5 Jimmy Butler 肖像区分与本地交付
+
+- 用户复核指出肖像仍像重复。对源码映射和实际截图检查后确认：计时与待办虽引用不同 PNG，但同为正面头带棚拍肖像；首页旧背身海报与设置预览也复用了同款素材。现将待办页换为勇士 10 号侧身指挥动作，设置预览换为勇士 10 号无头带抱臂形象；首页与计时素材不改。页面背景、球场、控件布局均保持原样。
+- 新图 `jimmy-butler-playbook-calling.png`（1024×1536，SHA-256 `70C78746CF2560BCB3EEA0867F38B54187A2845A4EF43D5FEF687BDBDE514152`）与 `jimmy-butler-settings-composed.png`（1024×1536，SHA-256 `BC94EDC5B1A82A00615DCA885F06ED6F2ACF708F63BE0C5F8A30227179795D83`）均为 RGBA 真透明素材；角点和边缘抽样 alpha 为 0。自动回归验证首页、计时、待办、设置四个位置使用四个不同路径。
+- 版本源统一为 `2.13.5`：`app/package.json`、Tauri `Cargo.toml` / `Cargo.lock` / `tauri.conf.json`、`runtime.rs`。新增正式说明 `docs/v2.13.5/RELEASE_NOTES.md`。
+- 定向 CC-03/CC-05 回归 8/8；四页肖像唯一性回归 1/1；`pnpm verify` 通过（Rust 39/39）；`pnpm build` 通过（2089 modules）。完整 156 项浏览器回归结果为 154 通过、2 项外观偏好保存/切换时序用例失败；独立重跑结果不稳定。本轮不涉及偏好保存逻辑且未放宽断言，图像映射相关用例均通过，详见 Release Notes。
+- 应用提交 `8fb5e67e8883b3ed7e0e8aa64453d9deb3819682` 已推送到 `origin/codex/focused-moment-continuity`。根 EXE 为 Release 2.13.5，43,741,696 bytes，SHA-256 `A84C09BDE80A900B41D40B43443549C9A2E1CD62DA2218B840A86089131B8F14`；build ID `local-20260926-141653-0a52e15a68`，183 项输入指纹且 `relevantBuildInputDirty=false`。旧入口 SHA-256 `5B7E9B565C3357699020A4BD44B41BDEEAA539EDAB5AD3851B30887A58D65641` 保存在同 build ID 的 `archive/executables/local/` 恢复副本中。
+- Windows 原生隔离冒烟 `windows-native-20260926-141850-67b81e35a3` 通过；仅验证启动可见性、隔离数据/WebView2 路径和合成旧数据迁移，不代表人工计时/托盘/浮窗等交互覆盖。未创建安装包、tag、GitHub Release 或上传资产。
+- `PROJECT_PLAN.md` 未改动，哈希保持 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`；原有 `div` 和四份 `docs/context_summary_20260924_*.md` 均未暂存、提交或推送。
