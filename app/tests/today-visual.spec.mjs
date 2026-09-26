@@ -54,6 +54,24 @@ function navButton(page, label) {
   return page.locator(".minimal-nav > button").filter({ hasText: label }).first();
 }
 
+async function expectTransparentCutout(image, width, height) {
+  await expect(image).toHaveJSProperty("naturalWidth", width);
+  await expect(image).toHaveJSProperty("naturalHeight", height);
+  const alphaSamples = await image.evaluate((element) => {
+    const canvas = document.createElement("canvas");
+    canvas.width = element.naturalWidth;
+    canvas.height = element.naturalHeight;
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Canvas 2D context unavailable");
+    context.drawImage(element, 0, 0);
+    return [
+      context.getImageData(0, 0, 1, 1).data[3],
+      context.getImageData(Math.floor(element.naturalWidth * 0.05), Math.floor(element.naturalHeight * 0.5), 1, 1).data[3],
+    ];
+  });
+  expect(alphaSamples).toEqual([0, 0]);
+}
+
 async function bootReferenceMock(page, {
   themeId = "night-valley",
   persistedThemeId = themeId,
@@ -1396,7 +1414,9 @@ for (const [card, themeId, view, label] of conceptScreens) {
       await expect(butlerCard).toHaveAttribute("data-butler-style", "sideline-playbook");
       await expect(butlerCard.locator("img")).toBeVisible();
       await expect(butlerCard.locator("img")).toHaveAttribute("src", "/theme-assets/jimmy-butler-playbook-sideline.png");
-      await expect(butlerCard.locator("div span")).toHaveText("JIMMY BUTLER　·　#22");
+      await expectTransparentCutout(butlerCard.locator("img"), 1254, 1254);
+      await expect(page.locator(".new-theme-bar-meta > strong")).toHaveText("JIMMY BUTLER　·　WARRIORS");
+      await expect(butlerCard.locator("div span")).toHaveText("JIMMY BUTLER　·　#10");
       const compactButlerCopy = butlerCard.locator("div strong, div small");
       await expect(compactButlerCopy).toHaveCount(2);
       await expect(compactButlerCopy.nth(0)).toBeHidden();
@@ -1488,6 +1508,9 @@ for (const [card, themeId, view, label] of conceptScreens) {
       const butlerCard = page.locator(".cc-timer-layout > .cc-butler-card--timer");
       await expect(butlerCard).toHaveAttribute("data-butler-style", "focus-portrait");
       await expect(butlerCard.locator("img")).toHaveAttribute("src", "/theme-assets/jimmy-butler-focus-action.png");
+      await expectTransparentCutout(butlerCard.locator("img"), 1024, 1536);
+      await expect(page.locator(".new-theme-bar-meta > strong")).toHaveText("JIMMY BUTLER　·　WARRIORS");
+      await expect(butlerCard.locator("div span")).toHaveText("JIMMY BUTLER　·　#10");
       await expect(butlerCard.locator("div strong")).toHaveText("CLUTCH MODE");
       await expect(butlerCard.locator("div small")).toHaveText("关键时刻，专注打好眼前这一球。");
     }

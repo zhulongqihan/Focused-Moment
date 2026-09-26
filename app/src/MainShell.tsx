@@ -676,7 +676,7 @@ function MainShell() {
         <div class="app-bar__actions">
           <Show when={themeId() === "metro-pulse" || themeId() === "clutch-court"}>
             <div class="new-theme-bar-meta">
-              <strong>{themeId() === "metro-pulse" ? "专注创造更好的日常" : "JIMMY BUTLER　·　#22"}</strong>
+              <strong>{themeId() === "metro-pulse" ? "专注创造更好的日常" : "JIMMY BUTLER　·　WARRIORS"}</strong>
               <span>{themeId() === "metro-pulse" ? "下一班：" + (nextTodo()?.scheduledTime || "待安排") + "　/　站台 03" : "CLUTCH MODE　/　HOME COURT"}</span>
             </div>
           </Show>

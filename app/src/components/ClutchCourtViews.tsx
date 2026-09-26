@@ -68,7 +68,7 @@ function ButlerCard(props: { variant: ButlerCardVariant }) {
     aria-label={label()}
   >
     <img src={image()} alt="Jimmy Butler 风格人物视觉" />
-    <Show when={today()} fallback={<div><span>JIMMY BUTLER　·　#22</span><strong>CLUTCH MODE</strong><small>关键时刻，专注打好眼前这一球。</small></div>}>
+    <Show when={today()} fallback={<div><span>JIMMY BUTLER　·　#10</span><strong>CLUTCH MODE</strong><small>关键时刻，专注打好眼前这一球。</small></div>}>
       <div><span>JIMMY<br />BUTLER</span><strong>CLUTCH MODE</strong><b>22</b><small>关键时刻，专注打好这一回合。</small></div>
     </Show>
   </aside>;

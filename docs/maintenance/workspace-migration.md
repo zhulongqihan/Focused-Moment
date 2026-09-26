@@ -162,3 +162,14 @@
 - 用户确认已退出应用，随后进程核验为 0。使用已有候选执行 `package-local.ps1 -SkipBuild` 成功；build ID `local-20260924-110129-5edbedd7b5`，根入口与候选均为 `2.13.1`、34,907,648 bytes、SHA-256 `C42EC636B5E07D78C3C72A1313A3257074D8DE14A5E0F4D9FC9C4038CFA1C360`。候选由应用提交 `cce109596d4b5091b57754e56ba7a69a270cb521` 构建；交付 manifest / journal 位于 `artifacts/builds/local/local-20260924-110129-5edbedd7b5/`，manifest 记录打包时仓库 HEAD `4e448ea9b191db5521d7262ec4f45cdbbd0691fc`、179 项输入指纹及 `relevantBuildInputDirty=false`。前版根入口备份位于 `archive/executables/local/local-20260924-110129-5edbedd7b5/Focused Moment.exe`，SHA-256 `D936D5D419319993818D7E9C5B8973B892D0038AED9D732CA13FA63C5EE7E5B9`。
 - `pnpm native:windows` 通过，run `windows-native-20260924-110208-18c79bb7d3`，报告 `artifacts/qa/native/windows-native-20260924-110208-18c79bb7d3/report.md`。根入口与隔离 QA 副本哈希一致；可见原生窗口启动、隔离 LOCALAPPDATA / WebView2 路径、合成旧数据迁移、旧源保持字节稳定及仅清理测试自身进程均通过。该自动冒烟不等于计时、托盘、浮窗、备份 UI、音效和通知的人工原生交互验收。
 - 该版本本地交付与原生冒烟已经完成；尚待本次文档闭环提交并快进推送当前分支。无 tag、GitHub Release、安装器或资产上传。`PROJECT_PLAN.md` 继续按保护要求保持原字节与哈希 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`；`div` 和四份上下文摘要不暂存、不提交。
+
+## 2026-09-26 v2.13.4 Jimmy Butler 勇士 10 号肖像与本地交付
+
+- 用户选择只更新计时页和待办页两张新肖像为金州勇士 10 号；保留首页旧海报及设置页预览素材。新图分别为计时页正面持球肖像（1024×1536，SHA-256 `E5A3E92A61C41BDADB15AF0CB5E6329B473574D4BA197B5102026541A56001E4`）和待办页侧场近景肖像（1254×1254，SHA-256 `0A1EDF876664B9C19702E3B336049AE638F1D826BE329497E68C7A3B454456E8`）；均为 PNG 真透明底，原球场背景不变。
+- 发现计时/待办肖像旁原有 `#22` 标注与新球衣冲突，已改为两页卡片 `#10`、共用顶栏的中性球队名；首页海报与其 `22` 标记不改。浏览器自动断言确认资源尺寸及透明采样点。
+- 版本源统一为 `2.13.4`：`app/package.json`、Tauri `Cargo.toml` / `Cargo.lock` / `tauri.conf.json`、`runtime.rs`。
+- 完整浏览器回归 `156/156` 通过，run `artifacts/qa/frontend/butler-warriors-10-20260926-inv-muhxc3kq-6912-33a0c40f-0189-4295-a59f-eb5967aa37ab/`；配套标签与透明断言更新后，CC-02/CC-03 最终截图定向回归 `2/2` 通过，run `artifacts/qa/frontend/butler-warriors-10-final-inv-muhxs7j6-16340-ef38b4f8-8a8a-41b7-9f96-90f4856854cc/`。两张页面截图已目视核对，构图、控件和背景无裁切/遮挡。
+- `pnpm verify` 通过，Rust 单测 39/39；`pnpm build` 通过（2089 modules）。仅有既有 unused/dead-code 编译警告。
+- 根目录 Release EXE：build ID `local-20260926-131839-aeab5611c6`，2.13.4，39,206,400 bytes，SHA-256 `5B7E9B565C3357699020A4BD44B41BDEEAA539EDAB5AD3851B30887A58D65641`。provenance/journal 在 `artifacts/builds/local/local-20260926-131839-aeab5611c6/`，记录 181 项输入指纹；打包时相关源码尚未提交，故 `relevantBuildInputDirty=true`，全部输入摘要均已记录。旧根 EXE SHA-256 `AE8E65FC7BFE156C022B9D9A5D9170048BFC99CBB5848C6BAEFD4B5837F61F91` 可从 `archive/executables/local/local-20260926-131839-aeab5611c6/Focused Moment.exe` 恢复。
+- `pnpm native:windows` 通过：`windows-native-20260926-132018-03ec821d5c`，验证可见原生窗口、隔离用户数据/WebView2 目录、模拟旧状态迁移和受控清理。此冒烟不覆盖人工计时/托盘/浮窗/音效等交互。
+- 当前不创建安装包、tag、GitHub Release 或上传资产。`PROJECT_PLAN.md` 按保护要求保持未改动，SHA-256 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`；既有 `div` 与四份 `docs/context_summary_20260924_*.md` 未混入本工作单元。

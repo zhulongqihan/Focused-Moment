@@ -60,9 +60,9 @@ use storage::{
 };
 use tauri::{Manager, WindowEvent};
 
-const APP_VERSION: &str = "2.13.3";
+const APP_VERSION: &str = "2.13.4";
 const APP_MILESTONE: &str =
-    "v2.13.3 New Jimmy Butler poses with original court backgrounds preserved";
+    "v2.13.4 Jimmy Butler Warriors number 10 portraits with original court backgrounds preserved";
 const APP_BACKUP_KIND: &str = "focused-moment-backup";
 const APP_BACKUP_FORMAT_VERSION: u64 = 3;
 const FLOATING_WORKSPACE_SYNC_EVENT: &str = "floating-workspace-sync";
