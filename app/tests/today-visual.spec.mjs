@@ -1395,11 +1395,12 @@ for (const [card, themeId, view, label] of conceptScreens) {
       const butlerCard = page.locator(".cc-todos-header-actions .cc-butler-card--playbook");
       await expect(butlerCard).toHaveAttribute("data-butler-style", "sideline-playbook");
       await expect(butlerCard.locator("img")).toBeVisible();
-      await expect(butlerCard.locator("img")).toHaveAttribute("src", "/theme-assets/jimmy-butler-cutout.png");
-      await expect(butlerCard.locator("div span")).toHaveText("J. BUTLER　/　#22");
-      await expect(butlerCard.locator("div strong")).toHaveText("READ THE FLOOR");
-      await expect(butlerCard.locator("div small")).toHaveText("先观察，再选择下一步。");
-      await expect(butlerCard).toHaveCSS("background-color", "rgb(245, 237, 223)");
+      await expect(butlerCard.locator("img")).toHaveAttribute("src", "/theme-assets/jimmy-butler-playbook-sideline.png");
+      await expect(butlerCard.locator("div span")).toHaveText("JIMMY BUTLER　·　#22");
+      const compactButlerCopy = butlerCard.locator("div strong, div small");
+      await expect(compactButlerCopy).toHaveCount(2);
+      await expect(compactButlerCopy.nth(0)).toBeHidden();
+      await expect(compactButlerCopy.nth(1)).toBeHidden();
       expect(butler.y).toBeGreaterThanOrEqual(120);
       expect(butler.y).toBeLessThanOrEqual(140);
     }
@@ -1486,10 +1487,9 @@ for (const [card, themeId, view, label] of conceptScreens) {
       expect(Math.abs(tactics.y - portrait.y)).toBeLessThanOrEqual(1);
       const butlerCard = page.locator(".cc-timer-layout > .cc-butler-card--timer");
       await expect(butlerCard).toHaveAttribute("data-butler-style", "focus-portrait");
-      await expect(butlerCard.locator("img")).toHaveAttribute("src", "/theme-assets/jimmy-butler-portrait.png");
-      await expect(butlerCard.locator("div strong")).toHaveText("LOCK IN");
-      await expect(butlerCard.locator("div small")).toHaveText("稳住呼吸，把注意力留给这一球。");
-      await expect(butlerCard.locator("img")).toHaveCSS("filter", "grayscale(0.78) contrast(1.16) brightness(0.82)");
+      await expect(butlerCard.locator("img")).toHaveAttribute("src", "/theme-assets/jimmy-butler-focus-action.png");
+      await expect(butlerCard.locator("div strong")).toHaveText("CLUTCH MODE");
+      await expect(butlerCard.locator("div small")).toHaveText("关键时刻，专注打好眼前这一球。");
     }
     if (themeId === "clutch-court" && view === "records") {
       await expect(page.locator(".cc-boxscore > div")).toHaveCount(4);

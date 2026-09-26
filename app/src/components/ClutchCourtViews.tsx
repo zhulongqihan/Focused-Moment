@@ -44,9 +44,11 @@ function ButlerCard(props: { variant: ButlerCardVariant }) {
   const today = () => props.variant === "today";
   const focus = () => props.variant === "focus";
   const playbook = () => props.variant === "playbook";
-  const image = () => today() || playbook()
+  const image = () => today()
     ? "/theme-assets/jimmy-butler-cutout.png"
-    : "/theme-assets/jimmy-butler-portrait.png";
+    : focus()
+      ? "/theme-assets/jimmy-butler-focus-action.png"
+      : "/theme-assets/jimmy-butler-playbook-sideline.png";
   const label = () => today()
     ? "Jimmy Butler 赛场海报"
     : focus()
@@ -65,29 +67,9 @@ function ButlerCard(props: { variant: ButlerCardVariant }) {
     data-butler-style={today() ? "court-poster" : focus() ? "focus-portrait" : "sideline-playbook"}
     aria-label={label()}
   >
-    <img src={image()} alt="" aria-hidden="true" />
-    <Show when={today()}>
-      <div>
-        <span>JIMMY<br />BUTLER</span>
-        <strong>CLUTCH MODE</strong>
-        <b class="cc-butler-card__jersey">22</b>
-        <small>关键时刻，专注打好这一回合。</small>
-      </div>
-    </Show>
-    <Show when={focus()}>
-      <div>
-        <span>JIMMY BUTLER　·　#22</span>
-        <strong>LOCK IN</strong>
-        <b class="cc-butler-card__jersey">22</b>
-        <small>稳住呼吸，把注意力留给这一球。</small>
-      </div>
-    </Show>
-    <Show when={playbook()}>
-      <div>
-        <span>J. BUTLER　/　#22</span>
-        <strong>READ THE FLOOR</strong>
-        <small>先观察，再选择下一步。</small>
-      </div>
+    <img src={image()} alt="Jimmy Butler 风格人物视觉" />
+    <Show when={today()} fallback={<div><span>JIMMY BUTLER　·　#22</span><strong>CLUTCH MODE</strong><small>关键时刻，专注打好眼前这一球。</small></div>}>
+      <div><span>JIMMY<br />BUTLER</span><strong>CLUTCH MODE</strong><b>22</b><small>关键时刻，专注打好这一回合。</small></div>
     </Show>
   </aside>;
 }
