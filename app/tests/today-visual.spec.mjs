@@ -1392,12 +1392,14 @@ for (const [card, themeId, view, label] of conceptScreens) {
       expect(Math.abs(addPlay.height - 38)).toBeLessThanOrEqual(2);
       expect(Math.abs(currentStatus.width - 58)).toBeLessThanOrEqual(2);
       expect(Math.abs(warmupStatus.width - 50)).toBeLessThanOrEqual(4);
-      await expect(page.locator(".cc-todos-header-actions .cc-butler-card.compact img")).toBeVisible();
-      await expect(page.locator(".cc-todos-header-actions .cc-butler-card.compact > div span")).toHaveText("JIMMY BUTLER　·　#22");
-      const redundantButlerCopy = page.locator(".cc-todos-header-actions .cc-butler-card.compact > div strong, .cc-todos-header-actions .cc-butler-card.compact > div small");
-      await expect(redundantButlerCopy).toHaveCount(2);
-      await expect(redundantButlerCopy.nth(0)).toBeHidden();
-      await expect(redundantButlerCopy.nth(1)).toBeHidden();
+      const butlerCard = page.locator(".cc-todos-header-actions .cc-butler-card--playbook");
+      await expect(butlerCard).toHaveAttribute("data-butler-style", "sideline-playbook");
+      await expect(butlerCard.locator("img")).toBeVisible();
+      await expect(butlerCard.locator("img")).toHaveAttribute("src", "/theme-assets/jimmy-butler-cutout.png");
+      await expect(butlerCard.locator("div span")).toHaveText("J. BUTLER　/　#22");
+      await expect(butlerCard.locator("div strong")).toHaveText("READ THE FLOOR");
+      await expect(butlerCard.locator("div small")).toHaveText("先观察，再选择下一步。");
+      await expect(butlerCard).toHaveCSS("background-color", "rgb(245, 237, 223)");
       expect(butler.y).toBeGreaterThanOrEqual(120);
       expect(butler.y).toBeLessThanOrEqual(140);
     }
@@ -1417,6 +1419,10 @@ for (const [card, themeId, view, label] of conceptScreens) {
       await expect(page.locator(".cc-round-markers > .cc-round-marker .cc-round-marker__copy > small")).toHaveText(["08:00", "09:30", "14:00", "16:00", "19:00"]);
       await expect(page.locator(".cc-round-markers > .cc-round-marker .cc-round-marker__copy > em")).toHaveText(["已完成", "已完成", "已完成", "当前回合", "待开始"]);
       await expect(page.locator(".cc-shotclock-badge")).toContainText("THEME PLATE");
+      const butlerCard = page.locator(".cc-butler-card--today");
+      await expect(butlerCard).toHaveAttribute("data-butler-style", "court-poster");
+      await expect(butlerCard.locator("img")).toHaveAttribute("src", "/theme-assets/jimmy-butler-cutout.png");
+      await expect(butlerCard.locator("div strong")).toHaveText("CLUTCH MODE");
       await expect(page.locator(".cc-round-markers > .cc-round-marker.done").first()).toHaveCSS("opacity", "1");
       const hero = await page.locator(".cc-today-hero").boundingBox();
       const court = await page.locator(".cc-home-court").boundingBox();
@@ -1478,6 +1484,12 @@ for (const [card, themeId, view, label] of conceptScreens) {
       expect(portrait.y).toBeGreaterThanOrEqual(200);
       expect(portrait.y).toBeLessThanOrEqual(230);
       expect(Math.abs(tactics.y - portrait.y)).toBeLessThanOrEqual(1);
+      const butlerCard = page.locator(".cc-timer-layout > .cc-butler-card--timer");
+      await expect(butlerCard).toHaveAttribute("data-butler-style", "focus-portrait");
+      await expect(butlerCard.locator("img")).toHaveAttribute("src", "/theme-assets/jimmy-butler-portrait.png");
+      await expect(butlerCard.locator("div strong")).toHaveText("LOCK IN");
+      await expect(butlerCard.locator("div small")).toHaveText("稳住呼吸，把注意力留给这一球。");
+      await expect(butlerCard.locator("img")).toHaveCSS("filter", "grayscale(0.78) contrast(1.16) brightness(0.82)");
     }
     if (themeId === "clutch-court" && view === "records") {
       await expect(page.locator(".cc-boxscore > div")).toHaveCount(4);

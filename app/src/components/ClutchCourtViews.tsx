@@ -38,8 +38,58 @@ function Scoreboard(props: { points: number; timer: TimerSnapshot; streak: numbe
     : ccCompactLabel(props.timer.elapsedLabel));
   return <section classList={{ "cc-scoreboard": true, "cc-scoreboard--featured": Boolean(props.featured) }} aria-label="今日记分牌"><div><span>今日得分</span><strong>{String(props.points).padStart(2, "0")}</strong><small>已完成事项</small></div><div><span>当前回合　/　实际计时</span><strong>{props.featured ? <><span>第 {Math.max(1, props.timer.currentRound)} 回合</span><b>{clock()}</b></> : `第 ${Math.max(1, props.timer.currentRound)} 回合　·　${clock()}`}</strong><small>{props.status}</small></div><div><span>连续专注</span><strong>{props.streak}<small> 天</small></strong><small>专注节奏</small></div></section>;
 }
-function ButlerCard(props: { compact?: boolean; featured?: boolean }) {
-  return <aside classList={{ "cc-butler-card": true, compact: Boolean(props.compact), "cc-butler-card--featured": Boolean(props.featured) }}><img src={props.featured ? "/theme-assets/jimmy-butler-cutout.png" : "/theme-assets/jimmy-butler-portrait.png"} alt="Jimmy Butler 风格人物视觉" /><Show when={props.featured} fallback={<div><span>JIMMY BUTLER　·　#22</span><strong>CLUTCH MODE</strong><small>关键时刻，专注打好眼前这一球。</small></div>}><div><span>JIMMY<br />BUTLER</span><strong>CLUTCH MODE</strong><b>22</b><small>关键时刻，专注打好这一回合。</small></div></Show></aside>;
+type ButlerCardVariant = "today" | "focus" | "playbook";
+
+function ButlerCard(props: { variant: ButlerCardVariant }) {
+  const today = () => props.variant === "today";
+  const focus = () => props.variant === "focus";
+  const playbook = () => props.variant === "playbook";
+  const image = () => today() || playbook()
+    ? "/theme-assets/jimmy-butler-cutout.png"
+    : "/theme-assets/jimmy-butler-portrait.png";
+  const label = () => today()
+    ? "Jimmy Butler 赛场海报"
+    : focus()
+      ? "Jimmy Butler 关键时刻肖像"
+      : "Jimmy Butler 战术板球员签条";
+
+  return <aside
+    classList={{
+      "cc-butler-card": true,
+      compact: playbook(),
+      "cc-butler-card--featured": today(),
+      "cc-butler-card--today": today(),
+      "cc-butler-card--timer": focus(),
+      "cc-butler-card--playbook": playbook(),
+    }}
+    data-butler-style={today() ? "court-poster" : focus() ? "focus-portrait" : "sideline-playbook"}
+    aria-label={label()}
+  >
+    <img src={image()} alt="" aria-hidden="true" />
+    <Show when={today()}>
+      <div>
+        <span>JIMMY<br />BUTLER</span>
+        <strong>CLUTCH MODE</strong>
+        <b class="cc-butler-card__jersey">22</b>
+        <small>关键时刻，专注打好这一回合。</small>
+      </div>
+    </Show>
+    <Show when={focus()}>
+      <div>
+        <span>JIMMY BUTLER　·　#22</span>
+        <strong>LOCK IN</strong>
+        <b class="cc-butler-card__jersey">22</b>
+        <small>稳住呼吸，把注意力留给这一球。</small>
+      </div>
+    </Show>
+    <Show when={playbook()}>
+      <div>
+        <span>J. BUTLER　/　#22</span>
+        <strong>READ THE FLOOR</strong>
+        <small>先观察，再选择下一步。</small>
+      </div>
+    </Show>
+  </aside>;
 }
 
 export function ClutchCourtToday(props: TodaySurfaceProps) {
@@ -61,7 +111,7 @@ export function ClutchCourtToday(props: TodaySurfaceProps) {
       <div class="cc-home-manifest"><span>CLUTCH MOMENT</span><p>把注意力放在当下，<br />每一节都是新的开始。</p><small>HOME COURT　·　2026 SEASON</small></div>
       <Scoreboard featured clockLabel={clock()} points={props.todayCompletedTodos().length} timer={props.timer()} streak={streak()} status={status()} />
       <div class="cc-home-hero-note"><strong>FOCUS BUILDS A BETTER YOU</strong><span>专注打好眼前这一回合。</span></div>
-      <ButlerCard featured />
+      <ButlerCard variant="today" />
     </div>
     <div class="cc-home-court">
       <div class="cc-court-lines" aria-hidden="true"><span class="cc-halfway" /><span class="cc-center-circle" /><span class="cc-left-key" /><span class="cc-right-key" /><span class="cc-left-hoop" /><span class="cc-right-hoop" /><span class="cc-three-left" /><span class="cc-three-right" /><span class="cc-basketball-art" /></div>
@@ -127,7 +177,7 @@ export function ClutchCourtFocus(props: FocusSurfaceProps) {
     <Scoreboard featured clockLabel={display()} points={props.todaySessionCount()} timer={props.timer()} streak={props.currentStreakDays()} status={ccStatus(props.timer(), props.timerHasProgress())} />
     <ClutchHeader eyebrow="GAME CLOCK　/　FOCUS SESSION" title="关键时刻 · 专注计时" description="把这一回合打完整，暂停与继续都由你掌控。" trailing={<span class="cc-quarter-badge">第 {Math.max(1, props.timer().currentRound)} 回合　/　{ccStatus(props.timer(), props.timerHasProgress())}</span>} />
     <div class="cc-timer-layout">
-      <ButlerCard />
+      <ButlerCard variant="focus" />
       <section class="cc-court-dial" aria-label="专注计时盘">
         <div class="cc-center-circle cc-center-circle--timer">
           <span>FOCUS CLOCK　/　{props.timer().mode}</span>
@@ -230,7 +280,7 @@ export function ClutchCourtTodos(props: TodoSurfaceProps) {
         description="今日战术清楚，下一回合就知道往哪里跑。"
         trailing={
           <div class="cc-todos-header-actions">
-            <ButlerCard compact />
+            <ButlerCard variant="playbook" />
             <button type="button" class="cc-orange-button" onClick={() => setFormOpen((open) => !open)}>
               <Plus size={16} />{formOpen() ? "收起新回合" : "布置新回合"}
             </button>

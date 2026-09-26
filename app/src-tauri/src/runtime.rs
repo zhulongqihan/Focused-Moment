@@ -60,9 +60,8 @@ use storage::{
 };
 use tauri::{Manager, WindowEvent};
 
-const APP_VERSION: &str = "2.13.1";
-const APP_MILESTONE: &str =
-    "v2.13.1 Archived Aurora Ocean and Botanical Library themes available in Settings";
+const APP_VERSION: &str = "2.13.2";
+const APP_MILESTONE: &str = "v2.13.2 Distinct Jimmy Butler art direction across basketball views";
 const APP_BACKUP_KIND: &str = "focused-moment-backup";
 const APP_BACKUP_FORMAT_VERSION: u64 = 3;
 const FLOATING_WORKSPACE_SYNC_EVENT: &str = "floating-workspace-sync";
