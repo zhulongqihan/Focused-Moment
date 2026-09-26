@@ -1,8 +1,9 @@
 import { For, Show } from "solid-js";
 import {
   ChartNoAxesCombined,
-  CircleDot,
+  ClipboardList,
   Clock3,
+  ArrowUpRight,
   LockKeyhole,
   LockKeyholeOpen,
   Maximize2,
@@ -10,6 +11,7 @@ import {
   Settings,
   SlidersHorizontal,
   SquareCheck,
+  TrainFront,
   X,
 } from "lucide-solid";
 import {
@@ -25,6 +27,12 @@ import {
   unlockFocusFloating,
 } from "./lib/window-controls";
 import CommandPalette from "./components/CommandPalette";
+import QuickCaptureDialog from "./components/QuickCaptureDialog";
+import ManualFocusRecordDialog from "./components/ManualFocusRecordDialog";
+import ContinuationNotePrompt from "./components/ContinuationNotePrompt";
+import FocusRecordEditDialog from "./components/FocusRecordEditDialog";
+import PortableBackupPanel from "./components/PortableBackupPanel";
+import FocusPlanControls from "./components/FocusPlanControls";
 import ThemeSurface from "./components/ThemeSurface";
 import {
   formatAnalyticsDate,
@@ -35,6 +43,7 @@ import {
   getToday,
 } from "./features/shared/date-utils";
 import { formatTodoDue, importanceLabel } from "./features/todos/derived";
+import { getThemeVisualId } from "./lib/themes";
 import {
   defaultFloatingOpacity,
   minFloatingOpacity,
@@ -52,6 +61,7 @@ import "./components/AuroraOceanViews.css";
 import "./components/BotanicalLibraryViews.css";
 import "./components/DailyFocusLine.css";
 import "./components/BrandMark.css";
+import "./styles/91-new-theme-shell-compat.css";
 
 function MainShell() {
   const {
@@ -84,12 +94,18 @@ function MainShell() {
     setTodoImportance,
     editingTodo,
     editingRecord,
+    recordEditDialogOpen,
     backups,
     backupLoadState,
     backupLoadError,
     selectedBackupFile,
     setSelectedBackupFile,
     lastBackupPath,
+    portableBackupPath,
+    setPortableBackupPath,
+    portableBackupPreview,
+    restorePortableAppPreferences,
+    setRestorePortableAppPreferences,
     commandPaletteOpen,
     commandSearch,
     setCommandSearch,
@@ -108,6 +124,9 @@ function MainShell() {
     setFloatingOpacityPanelOpen,
     selectedArchiveDate,
     setSelectedArchiveDate,
+    recordTaskFilterId,
+    recordTaskFilterTitle,
+    clearRecordTaskFilter,
     themeId,
     visualIntensity,
     motionIntensity,
@@ -123,6 +142,7 @@ function MainShell() {
     selectedBackup,
     recordGroups,
     archiveDays,
+    extendedArchiveDays,
     archivePath,
     selectedArchiveDay,
     selectedArchiveRecords,
@@ -152,6 +172,8 @@ function MainShell() {
     removeTodo,
     removeRecord,
     beginEditRecord,
+    beginDetailedRecordEdit,
+    patchEditingRecord,
     patchEditingRecordTitle,
     saveRecordEdit,
     cancelEditRecord,
@@ -160,7 +182,32 @@ function MainShell() {
     updateVisualIntensity,
     updateMotionIntensity,
     updateDensity,
-    saveVisualSettings,
+    autoMiniOnStart,
+    appPreferenceSaveError,
+    appPreferenceSaveBusy,
+    retryAppPreferencesSave,
+    flushAppPreferencesSave,
+    updateAutoMiniOnStart,
+    currentTodo,
+    todayPickTodos,
+    focusPlan,
+    setCurrentTodo,
+    toggleTodayPick,
+    startFocusForTodo,
+    saveContinuationNote,
+    createManualRecord,
+    continuationPrompt,
+    continuationSaveError,
+    dismissContinuationPrompt,
+    quickCaptureOpen,
+    quickCaptureTitle,
+    setQuickCaptureTitle,
+    openQuickCapture,
+    closeQuickCapture,
+    saveQuickCapture,
+    manualRecordOpen,
+    openManualRecord,
+    closeManualRecord,
     saveTimerPreferences,
     previewAlertSound,
     chooseCustomAlertSound,
@@ -169,6 +216,9 @@ function MainShell() {
     createBackup,
     openBackupFolder,
     restoreBackup,
+    previewPortableBackup,
+    exportPortableBackup,
+    importPortableBackup,
     clearAllData,
     changeView,
     startNextTodo,
@@ -178,7 +228,6 @@ function MainShell() {
     paletteCommands,
     updateFloatingOpacity,
     showFloatingTodos,
-    showFocusFloating,
     setCommandInput,
     setCommandTrigger,
     setFloatingWorkspaceElement,
@@ -342,7 +391,7 @@ function MainShell() {
     return (
       <aside
         class="floating-todo"
-        aria-label="桌面悬浮工作台"
+        aria-label="迷你工作台"
         ref={(element) => {
           setFloatingWorkspaceElement(element);
         }}
@@ -359,7 +408,7 @@ function MainShell() {
             }}
           >
             <span>Focused Moment</span>
-            <strong>悬浮工作台</strong>
+            <strong>迷你工作台</strong>
           </div>
           <div class="floating-todo__actions">
             <button
@@ -603,8 +652,11 @@ function MainShell() {
         "minimal-app--records": activeView() === "records",
         "minimal-app--settings": activeView() === "settings",
         "minimal-app--trail": activeView() === "today",
+        "minimal-app--metro-pulse": themeId() === "metro-pulse",
+        "minimal-app--clutch-court": themeId() === "clutch-court",
+        "minimal-app--new-theme": themeId() === "metro-pulse" || themeId() === "clutch-court",
       }}
-      data-theme={themeId()}
+      data-theme={getThemeVisualId(themeId())}
       data-density={density()}
       data-motion={getMotionIntensityMode(motionIntensity())}
       style={`--nv-visual-intensity: ${visualIntensity() / 100}; --nv-visual-opacity: ${0.55 + (visualIntensity() / 100) * 0.45}; --nv-motion-intensity: ${motionIntensity() / 100};`}
@@ -615,7 +667,19 @@ function MainShell() {
           <span class="app-brand__mark" />
           <strong>Focused Moment</strong>
         </div>
+        <Show when={themeId() === "metro-pulse" || themeId() === "clutch-court"}>
+          <div class="new-theme-bar-center">
+            <strong>{getToday()}　{new Intl.DateTimeFormat("zh-CN", { weekday: "short" }).format(new Date(getToday() + "T00:00:00"))}</strong>
+            <small>{themeId() === "metro-pulse" ? "把注意力，送往更好的自己。" : "ONE POSSESSION AT A TIME"}</small>
+          </div>
+        </Show>
         <div class="app-bar__actions">
+          <Show when={themeId() === "metro-pulse" || themeId() === "clutch-court"}>
+            <div class="new-theme-bar-meta">
+              <strong>{themeId() === "metro-pulse" ? "专注创造更好的日常" : "JIMMY BUTLER　·　WARRIORS"}</strong>
+              <span>{themeId() === "metro-pulse" ? "下一班：" + (nextTodo()?.scheduledTime || "待安排") + "　/　站台 03" : "CLUTCH MODE　/　HOME COURT"}</span>
+            </div>
+          </Show>
           <button
             type="button"
             class="command-trigger"
@@ -634,7 +698,7 @@ function MainShell() {
             disabled={busy()}
             onClick={() => void showFloatingTodos()}
           >
-            悬浮工作台
+            迷你工作台
           </button>
           <div
             class="window-controls"
@@ -688,7 +752,9 @@ function MainShell() {
             aria-current={activeView() === "today" ? "page" : undefined}
             onClick={() => changeView("today")}
           >
-            <CircleDot class="trail-nav__icon trail-nav__icon--today" size={23} strokeWidth={1.7} aria-hidden="true" />
+            <Show when={themeId() === "metro-pulse" && activeView() !== "today"} fallback={<TrainFront class="trail-nav__icon trail-nav__icon--today" size={40} strokeWidth={1.7} aria-hidden="true" />}>
+              <ClipboardList class="trail-nav__icon trail-nav__icon--today" size={23} strokeWidth={1.7} aria-hidden="true" />
+            </Show>
             <span class="minimal-nav__label">今日</span>
           </button>
           <button
@@ -728,6 +794,13 @@ function MainShell() {
             <Settings class="trail-nav__icon trail-nav__icon--settings" size={23} strokeWidth={1.7} aria-hidden="true" />
             <span class="minimal-nav__label">设置</span>
           </button>
+          <Show when={themeId() === "metro-pulse" || themeId() === "clutch-court"}>
+            <div classList={{ "new-theme-nav-note": true, "new-theme-nav-note--metro": themeId() === "metro-pulse", "new-theme-nav-note--court": themeId() === "clutch-court" }}>
+              <strong>{themeId() === "metro-pulse" ? "下一段旅程" : "NEXT POSSESSION"}</strong>
+              <span classList={{ "new-theme-nav-note--metro-copy": themeId() === "metro-pulse" }}>{themeId() === "metro-pulse" ? <><span class="new-theme-nav-note--metro-copy__lead">从专注出发。</span><small class="new-theme-nav-note--metro-copy__english">A MORE FOCUSED YOU<br />DEPARTS HERE.</small></> : "专注守住这一球，把每个回合打完整。"}</span>
+              <Show when={themeId() === "metro-pulse"}><ArrowUpRight size={40} strokeWidth={2.2} aria-hidden="true" /></Show>
+            </div>
+          </Show>
         </nav>
 
         <section
@@ -801,6 +874,14 @@ function MainShell() {
               </button>
             </div>
           </Show>
+          <Show when={activeView() === "records" && recordTaskFilterId() !== null}>
+            <div class="records-task-filter" role="status">
+              <span>正在回顾任务：<strong>{recordTaskFilterTitle()}</strong></span>
+              <button type="button" class="text-button" onClick={clearRecordTaskFilter}>
+                清除任务筛选
+              </button>
+            </div>
+          </Show>
           <ThemeSurface
             activeView={() => activeView()}
             themeId={() => themeId()}
@@ -813,6 +894,10 @@ function MainShell() {
               timerHasProgress,
               timerCanContinue,
               nextTodo,
+              currentTodo,
+              todayPickTodos,
+              todayPickIds: () => focusPlan().todayPickIds,
+              planTodos: () => pendingTodos().filter((item) => item.scheduledDate === getToday() || item.scheduledDate === ""),
               todayTodos,
               todayCompletedTodos,
               records: () => records(),
@@ -824,6 +909,10 @@ function MainShell() {
               onContinue: () => void startFocus(),
               onFinish: () => finishFocus(),
               onStartNext: () => void startNextTodo(),
+              onSetCurrentTodo: (id) => void setCurrentTodo(id),
+              onToggleTodayPick: (id) => void toggleTodayPick(id),
+              onStartTodo: (item) => void startFocusForTodo(item),
+              onQuickCapture: openQuickCapture,
               onOpenFocus: () => changeView("focus"),
               onOpenRecords: () => changeView("records"),
               onUseTodo: useTodoForFocus,
@@ -831,10 +920,13 @@ function MainShell() {
             }}
             focus={{
               timer: () => timer(),
+              currentStreakDays: () => analytics()?.currentStreakDays ?? 0,
               todaySessionCount: () => analytics()?.todaySessionCount ?? 0,
               timerPreferences: () => timerPreferences(),
               todos: () => todos(),
+              records: () => records(),
               pendingTodos,
+              formatTodoDue,
               ready,
               busy,
               timerHasProgress,
@@ -858,11 +950,12 @@ function MainShell() {
               onPause: () => void pauseFocus(),
               onFinish: () => void finishFocus(),
               onReset: () => void resetFocus(),
-              onShowFocusFloating: () => void showFocusFloating(),
+              onShowFocusFloating: () => void showFloatingTodos(),
               onOpenRecords: () => changeView("records"),
             }}
             todos={{
               todos: () => todos(),
+              records: () => records(),
               activeTodos,
               overdueTodos,
               completedTodos,
@@ -897,6 +990,7 @@ function MainShell() {
               analytics: () => analytics(),
               records: () => records(),
               archiveDays: () => archiveDays(),
+              extendedArchiveDays: () => extendedArchiveDays(),
               archivePath: () => archivePath(),
               selectedArchiveDate: () => selectedArchiveDate(),
               selectedArchiveDay: () => selectedArchiveDay(),
@@ -915,10 +1009,12 @@ function MainShell() {
               formatDurationMs,
               onSelectDate: setSelectedArchiveDate,
               onBeginEdit: beginEditRecord,
+              onBeginDetailedEdit: beginDetailedRecordEdit,
               onPatchEdit: patchEditingRecordTitle,
               onSaveEdit: () => void saveRecordEdit(),
               onCancelEdit: cancelEditRecord,
               onRemove: (id) => void removeRecord(id),
+              onCreateManualRecord: openManualRecord,
             }}
             settings={{
               timerPreferences: () => timerPreferences(),
@@ -939,7 +1035,20 @@ function MainShell() {
               onVisualIntensityChange: updateVisualIntensity,
               onMotionIntensityChange: updateMotionIntensity,
               onDensityChange: updateDensity,
-              onSaveVisualSettings: saveVisualSettings,
+              autoMiniOnStart,
+              appPreferenceSaveError,
+              appPreferenceSaveBusy,
+              portableBackupPath: () => portableBackupPath(),
+              portableBackupPreview: () => portableBackupPreview(),
+              restorePortableAppPreferences: () => restorePortableAppPreferences(),
+              onAutoMiniOnStartChange: updateAutoMiniOnStart,
+              onRetryAppPreferenceSave: retryAppPreferencesSave,
+              onPortableBackupPathChange: setPortableBackupPath,
+              onPreviewPortableBackup: previewPortableBackup,
+              onExportPortableBackup: exportPortableBackup,
+              onImportPortableBackup: importPortableBackup,
+              onRestorePortableAppPreferencesChange: setRestorePortableAppPreferences,
+              onSaveVisualSettings: flushAppPreferencesSave,
               onSaveTimerPreferences: saveTimerPreferences,
               onPreviewAlertSound: previewAlertSound,
               onChooseCustomAlertSound: chooseCustomAlertSound,
@@ -951,6 +1060,81 @@ function MainShell() {
               onRestoreBackup: restoreBackup,
               onClearAllData: clearAllData,
             }}
+          />
+
+          <Show when={activeView() === "settings" && !((themeId() === "metro-pulse") || (themeId() === "clutch-court"))}>
+            <section class="restored-settings-compatibility" aria-label="工作台与保存状态">
+              <label><input type="checkbox" checked={autoMiniOnStart()} onChange={(event) => updateAutoMiniOnStart(event.currentTarget.checked)} />开始专注时自动打开迷你工作台</label>
+              <Show when={appPreferenceSaveError()}>
+                <div role="alert"><span>{appPreferenceSaveError()}</span><button type="button" class="text-button" disabled={appPreferenceSaveBusy()} onClick={retryAppPreferencesSave}>重试保存</button></div>
+              </Show>
+            </section>
+            <PortableBackupPanel
+              path={portableBackupPath()}
+              preview={portableBackupPreview()}
+              restoreAppPreferences={restorePortableAppPreferences()}
+              busy={busy()}
+              onPathChange={setPortableBackupPath}
+              onPreview={previewPortableBackup}
+              onExport={exportPortableBackup}
+              onImport={importPortableBackup}
+              onRestoreAppPreferencesChange={setRestorePortableAppPreferences}
+            />
+          </Show>
+
+          <Show when={activeView() === "todos" && themeId() !== "metro-pulse" && themeId() !== "clutch-court"}>
+            <details class="restored-focus-plan">
+              <summary>当前事项和今日精选</summary>
+              <FocusPlanControls
+                planTodos={() => pendingTodos().filter((item) => item.scheduledDate === getToday() || item.scheduledDate === "")}
+                currentTodo={currentTodo}
+                todayPickIds={() => focusPlan().todayPickIds}
+                busy={busy}
+                timerHasProgress={timerHasProgress}
+                formatTodoDue={formatTodoDue}
+                onQuickCapture={openQuickCapture}
+                onSetCurrentTodo={(id) => void setCurrentTodo(id)}
+                onToggleTodayPick={(id) => void toggleTodayPick(id)}
+                onStartTodo={(item) => void startFocusForTodo(item)}
+              />
+            </details>
+          </Show>
+
+          <QuickCaptureDialog
+            open={quickCaptureOpen}
+            title={quickCaptureTitle}
+            busy={busy}
+            onTitleChange={setQuickCaptureTitle}
+            onSave={saveQuickCapture}
+            onClose={closeQuickCapture}
+          />
+          <ManualFocusRecordDialog
+            open={manualRecordOpen}
+            busy={busy}
+            todayDate={getToday()}
+            todos={() => todos()}
+            onSubmit={async (payload) => {
+              if (await createManualRecord(payload)) closeManualRecord();
+            }}
+            onClose={closeManualRecord}
+          />
+          <FocusRecordEditDialog
+            open={recordEditDialogOpen()}
+            draft={editingRecord()}
+            todos={todos()}
+            busy={busy()}
+            onChange={patchEditingRecord}
+            onSubmit={() => void saveRecordEdit()}
+            onClose={cancelEditRecord}
+          />
+          <ContinuationNotePrompt
+            prompt={continuationPrompt}
+            error={continuationSaveError}
+            busy={busy}
+            onSave={async (id, note) => {
+              if (await saveContinuationNote(id, note)) dismissContinuationPrompt();
+            }}
+            onSkip={dismissContinuationPrompt}
           />
 
           <Show when={message()}>

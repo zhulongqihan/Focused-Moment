@@ -1,6 +1,7 @@
 import type {
   AnalyticsSnapshot,
   BackupListItem,
+  BackupPreview,
   DailyInsight,
   FocusRecord,
   TimerPreferences,
@@ -25,6 +26,10 @@ export interface TodaySurfaceProps {
   timerHasProgress: Accessor<boolean>;
   timerCanContinue: Accessor<boolean>;
   nextTodo: Accessor<TodoItem | null>;
+  currentTodo: Accessor<TodoItem | null>;
+  todayPickTodos: Accessor<TodoItem[]>;
+  todayPickIds: Accessor<number[]>;
+  planTodos: Accessor<TodoItem[]>;
   todayTodos: Accessor<TodoItem[]>;
   todayCompletedTodos: Accessor<TodoItem[]>;
   records: Accessor<FocusRecord[]>;
@@ -36,6 +41,10 @@ export interface TodaySurfaceProps {
   onContinue: () => void;
   onFinish: () => void | Promise<void>;
   onStartNext: () => void;
+  onSetCurrentTodo: (id: number | null) => void | Promise<void>;
+  onToggleTodayPick: (id: number) => void | Promise<void>;
+  onStartTodo: (item: TodoItem) => void | Promise<void>;
+  onQuickCapture: () => void;
   onOpenFocus: () => void;
   onOpenRecords: () => void;
   onUseTodo: (item: TodoItem) => void;
@@ -44,10 +53,13 @@ export interface TodaySurfaceProps {
 
 export interface FocusSurfaceProps {
   timer: Accessor<TimerSnapshot>;
+  currentStreakDays: Accessor<number>;
   todaySessionCount: Accessor<number>;
   timerPreferences: Accessor<TimerPreferences>;
   todos: Accessor<TodoItem[]>;
+  records: Accessor<FocusRecord[]>;
   pendingTodos: Accessor<TodoItem[]>;
+  formatTodoDue: (item: TodoItem) => string;
   ready: Accessor<boolean>;
   busy: Accessor<boolean>;
   timerHasProgress: Accessor<boolean>;
@@ -85,6 +97,7 @@ export interface TodoEditState {
 
 export interface TodoSurfaceProps {
   todos: Accessor<TodoItem[]>;
+  records: Accessor<FocusRecord[]>;
   activeTodos: Accessor<TodoItem[]>;
   overdueTodos: Accessor<TodoItem[]>;
   completedTodos: Accessor<TodoItem[]>;
@@ -128,6 +141,7 @@ export interface RecordsSurfaceProps {
   analytics: Accessor<AnalyticsSnapshot | null>;
   records: Accessor<FocusRecord[]>;
   archiveDays: Accessor<ArchiveDayShape[]>;
+  extendedArchiveDays: Accessor<ArchiveDayShape[]>;
   archivePath: Accessor<string>;
   selectedArchiveDate: Accessor<string>;
   selectedArchiveDay: Accessor<ArchiveDayShape | null>;
@@ -146,10 +160,12 @@ export interface RecordsSurfaceProps {
   formatDurationMs: (value: number) => string;
   onSelectDate: (value: string) => void;
   onBeginEdit: (record: FocusRecord) => void;
+  onBeginDetailedEdit?: (record: FocusRecord) => void;
   onPatchEdit: (value: string) => void;
   onSaveEdit: () => void | Promise<void>;
   onCancelEdit: () => void;
   onRemove: (id: number) => void | Promise<void>;
+  onCreateManualRecord?: () => void | Promise<void>;
 }
 
 export interface SettingsSurfaceProps {
@@ -167,10 +183,24 @@ export interface SettingsSurfaceProps {
   visualIntensity: Accessor<number>;
   motionIntensity: Accessor<number>;
   density: Accessor<"roomy" | "compact">;
+  autoMiniOnStart: Accessor<boolean>;
+  appPreferenceSaveError: Accessor<string>;
+  appPreferenceSaveBusy: Accessor<boolean>;
+  portableBackupPath: Accessor<string>;
+  portableBackupPreview: Accessor<BackupPreview | null>;
+  restorePortableAppPreferences: Accessor<boolean>;
   onThemeSelect: (value: ThemeId) => void;
   onVisualIntensityChange: (value: number) => void;
   onMotionIntensityChange: (value: number) => void;
   onDensityChange: (value: "roomy" | "compact") => void;
+  onAutoMiniOnStartChange: (value: boolean) => void;
+  onRetryAppPreferenceSave: () => void;
+  onPortableBackupPathChange: (value: string) => void;
+  onPreviewPortableBackup: () => void | Promise<void>;
+  onExportPortableBackup: () => void | Promise<void>;
+  onImportPortableBackup: () => void | Promise<void>;
+  onRestorePortableAppPreferencesChange: (value: boolean) => void;
+  /** Compatibility action for the original theme settings; flushes native autosave. */
   onSaveVisualSettings: () => void;
   onSaveTimerPreferences: (patch: Partial<TimerPreferences>) => void | Promise<void>;
   onPreviewAlertSound: () => void;

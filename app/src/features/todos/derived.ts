@@ -27,6 +27,9 @@ export function sortTodos(items: TodoItem[]) {
 }
 
 export function formatTodoDue(item: TodoItem) {
+  if (!item.scheduledDate.trim()) {
+    return "未安排";
+  }
   return `${formatDueDate(item.scheduledDate)}${item.scheduledTime ? ` · ${item.scheduledTime}` : ""}`;
 }
 

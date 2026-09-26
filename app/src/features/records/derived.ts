@@ -38,16 +38,17 @@ export function groupRecordsByDate(items: FocusRecord[]): RecordGroupShape[] {
   return Array.from(groups.values());
 }
 
-export function getRecentTrendDays(items: AnalyticsSnapshot["dailyBreakdown"]) {
+export function getRecentTrendDays(items: AnalyticsSnapshot["dailyBreakdown"], dayCount = 7) {
   const today = parseLocalDate(getToday());
   if (!today) {
-    return items.slice(0, 7);
+    return items.slice(0, Math.max(1, Math.floor(dayCount)));
   }
 
   const byDate = new Map(items.map((day) => [day.date, day]));
   const days: AnalyticsSnapshot["dailyBreakdown"] = [];
 
-  for (let offset = 6; offset >= 0; offset -= 1) {
+  const normalizedDayCount = Math.max(1, Math.floor(dayCount));
+  for (let offset = normalizedDayCount - 1; offset >= 0; offset -= 1) {
     const date = new Date(today);
     date.setDate(date.getDate() - offset);
     const dateKey = formatLocalDateKey(date);

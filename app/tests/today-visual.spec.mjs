@@ -1,111 +1,213 @@
-import { execFileSync } from "node:child_process";
-import { writeFileSync } from "node:fs";
-
 import { expect, test } from "@playwright/test";
 
 import { testOutputPath } from "./helpers/test-output.mjs";
 
-const referenceDate = "2026-09-05";
-const baselineSha = process.env.NV04_BASELINE_SHA ?? execFileSync("git", ["rev-parse", "--short", "HEAD"], { encoding: "utf8" }).trim();
-
-const nightValleyPages = [
-  ["今日", ".trail-map", ".trail-page"],
-  ["计时", ".nv-focus-panel", ".nv-page"],
-  ["待办", ".nv-todo-board", ".nv-page"],
-  ["记录", ".nv-records-archive", ".nv-page"],
-  ["设置", ".nv-settings-layout", ".nv-page"],
+const today = "2026-09-05";
+const themes = [
+  ["night-valley", "夜谷"],
+  ["editorial-paper", "编辑纸页"],
+  ["graphite-console", "石墨控制台"],
+  ["metro-pulse", "今日班次"],
+  ["clutch-court", "今日赛场"],
 ];
 
-function pageButton(page, label) {
-  return page.locator(".minimal-nav > button").filter({ hasText: label });
+
+const themeLayouts = {
+  "night-valley": { prefix: "nv", today: ".trail-page", landmark: ".trail-map", secondary: ".trail-focus-panel", picker: ".nv-theme-card", preview: ".nv-settings-theme-lab", task: ".trail-node--current", pause: "暂停" },
+  "editorial-paper": { prefix: "ep", today: ".ep-today-page", landmark: ".ep-field-sheet", secondary: ".ep-next-card", picker: ".ep-theme-swatch", preview: ".ep-live-preview", task: ".ep-next-card .ep-paper-button--green", pause: "暂停" },
+  "graphite-console": { prefix: "gc", today: ".gc-today-page", landmark: ".gc-sequence-panel", secondary: ".gc-operation-panel", picker: ".gc-theme-card", preview: ".gc-settings-footer", task: ".gc-operation-card .gc-lime-button", pause: "暂停本段" },
+  "metro-pulse": { prefix: "mp", today: ".mp-today-page", landmark: ".mp-route-panel", secondary: ".mp-departure-card", picker: ".nt-theme-choice", preview: ".nt-live-preview", task: ".mp-departure-card .mp-orange-button", pause: "Ⅱ　暂停专注" },
+  "clutch-court": { prefix: "cc", today: ".cc-today-page", landmark: ".cc-home-court", secondary: ".cc-center-clock", picker: ".nt-theme-choice", preview: ".nt-live-preview", task: ".cc-center-clock .cc-lime-button", pause: "Ⅱ　暂停专注" },
+};
+
+function surfaceSelector(themeId, view) {
+  const layout = themeLayouts[themeId];
+  if (view === "today") return layout.today;
+  if ((themeId === "metro-pulse" || themeId === "clutch-court") && view === "settings") return ".nt-settings-page";
+  if (themeId === "night-valley" && view === "todos") return ".nv-todo-page";
+  return `.${layout.prefix}-${view}-page`;
 }
 
-async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一件事开始", recordCount = 7, includeTodo = true, todoTitles = ["明日规划"], todoDates = [], completedTodoTitles = [], completedTodoDates = [], dailyBreakdown = [], recordDates = [], recordTitlePrefix = "", analyticsPatch = {}, freezeClock = true, freshRecordSnapshots = false } = {}) {
-  if (freezeClock) {
-    await page.addInitScript(() => {
-      const NativeDate = Date;
-      class ReferenceDate extends NativeDate {
-        constructor(...args) {
-          super(...(args.length === 0 ? ["2026-09-05T12:00:00+08:00"] : args));
-        }
+async function selectTheme(page, themeId, themeName) {
+  await navButton(page, "设置").click();
+  const activeTheme = await page.locator(".minimal-app").getAttribute("data-theme");
+  await page.locator(themeLayouts[activeTheme].picker).filter({ hasText: themeName }).click();
+  await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", themeId);
+  await expect(page.locator(themeLayouts[themeId].picker).filter({ hasText: themeName })).toHaveAttribute("aria-pressed", "true");
+}
 
-        static now() {
-          return new NativeDate("2026-09-05T12:00:00+08:00").getTime();
-        }
+async function expectOriginalToday(page, themeId) {
+  const layout = themeLayouts[themeId];
+  await expect(page.locator(layout.today)).toBeVisible();
+  await expect(page.locator(layout.landmark)).toBeVisible();
+  await expect(page.locator(layout.secondary)).toBeVisible();
+  if (["night-valley", "editorial-paper", "graphite-console"].includes(themeId)) {
+    await expect(page.locator(`.daily-focus-line--${themeId}`)).toHaveCount(1);
+  }
+  await expect(page.locator(".unified-today-page, .continuity-board, .today-continuity-grid")).toHaveCount(0);
+  for (const [otherId, other] of Object.entries(themeLayouts)) {
+    if (otherId !== themeId) await expect(page.locator(other.today)).toHaveCount(0);
+  }
+}
+
+function navButton(page, label) {
+  return page.locator(".minimal-nav > button").filter({ hasText: label }).first();
+}
+
+async function expectTransparentCutout(image, width, height) {
+  await expect(image).toHaveJSProperty("naturalWidth", width);
+  await expect(image).toHaveJSProperty("naturalHeight", height);
+  const alphaSamples = await image.evaluate((element) => {
+    const canvas = document.createElement("canvas");
+    canvas.width = element.naturalWidth;
+    canvas.height = element.naturalHeight;
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Canvas 2D context unavailable");
+    context.drawImage(element, 0, 0);
+    return [
+      context.getImageData(0, 0, 1, 1).data[3],
+      context.getImageData(Math.floor(element.naturalWidth * 0.05), Math.floor(element.naturalHeight * 0.5), 1, 1).data[3],
+    ];
+  });
+  expect(alphaSamples).toEqual([0, 0]);
+}
+
+async function bootReferenceMock(page, {
+  themeId = "night-valley",
+  persistedThemeId = themeId,
+  includeTodo = true,
+  includeInbox = true,
+  includeOverdue = false,
+  includeFuture = false,
+  recordCount = 3,
+  currentTodoId,
+  todayPickIds = [101, 102, 103],
+  demoMode = false,
+  settingsDemo = false,
+} = {}) {
+  const fixtureToday = demoMode ? "2026-09-23" : today;
+  const fixtureCurrentTodoId = currentTodoId === undefined ? (demoMode ? 104 : 101) : currentTodoId;
+  await page.addInitScript(({ today: fixedToday }) => {
+    const NativeDate = Date;
+    class ReferenceDate extends NativeDate {
+      constructor(...args) {
+        super(...(args.length === 0 ? [fixedToday + "T12:00:00+08:00"] : args));
       }
 
-      window.Date = ReferenceDate;
-    });
-  }
+      static now() {
+        return new NativeDate(fixedToday + "T12:00:00+08:00").getTime();
+      }
+    }
 
-  await page.addInitScript(({ today, recordCount, includeTodo, todoTitles, todoDates, completedTodoTitles, completedTodoDates, dailyBreakdown, recordDates, recordTitlePrefix, analyticsPatch, freshRecordSnapshots }) => {
-    const focusRecordSeeds = [
-      ["晨间计划", "08:10"],
-      ["阅读行业报告", "09:35"],
-      ["整理研究资料", "11:00"],
-      ["完成产品复盘", "13:20"],
-      ["拆解交互细节", "15:05"],
-      ["写下发布清单", "17:15"],
-      ["收束今天的工作", "19:10"],
+    window.Date = ReferenceDate;
+  }, { today: fixtureToday });
+
+  await page.addInitScript(({ today, themeId, persistedThemeId, includeTodo, includeInbox, includeOverdue, includeFuture, recordCount, currentTodoId, todayPickIds, demoMode, settingsDemo }) => {
+    const selectedTheme = themeId;
+    localStorage.setItem("focused-moment.theme", persistedThemeId);
+    const todoSeeds = demoMode ? [
+      [101, "早间启动", today, true, "08:00"],
+      [102, "深度工作", today, true, "09:30"],
+      [103, "专注时段", today, true, "14:00"],
+      [104, "创作专注", today, false, "16:00"],
+      [105, "整理收尾", today, false, "19:00"],
+      [106, "阅读沉淀", today, false, "20:30"],
+    ] : [
+      [101, "整理研究资料", today, false, "09:00"],
+      [102, "写下发布清单", today, false, "10:00"],
+      [103, "回看上次停笔位置", "", false, ""],
     ];
-    const focusRecords = Array.from({ length: recordCount }, (_, index) => {
-      const [seedTitle, completedTime] = focusRecordSeeds[index % focusRecordSeeds.length];
-      const title = recordTitlePrefix ? `${recordTitlePrefix} ${index + 1}` : recordCount > focusRecordSeeds.length ? `${seedTitle} ${index + 1}` : seedTitle;
-      const completedDate = recordDates[index] ?? today;
+    if (includeOverdue) todoSeeds.push([107, "补齐昨日复盘", demoMode ? "2026-09-22" : "2026-09-04", false, "22:00"]);
+    if (includeFuture) todoSeeds.push([108, "准备下周选题", demoMode ? "2026-09-24" : "2026-09-06", false, "10:30"]);
+    let todos = todoSeeds
+      .filter(([id]) => demoMode || (includeTodo && id !== 103) || (includeInbox && id === 103))
+      .map(([id, title, scheduledDate, isCompleted, scheduledTime]) => ({
+        id,
+        title,
+        isCompleted: Boolean(isCompleted),
+        scheduledDate,
+        scheduledTime,
+        importanceKey: id === 101 || id === 104 ? "high" : id === 106 ? "low" : "medium",
+        continuationNote: id === 101 ? "从研究结论的第三段继续" : "",
+        continuationUpdatedAt: id === 101 ? `${today}T11:00:00+08:00` : null,
+      }));
+    const normalRecords = Array.from({ length: recordCount }, (_, index) => {
+      const id = index + 1;
       return {
-      id: index + 1,
-      title,
-      durationMs: 45 * 60 * 1000,
-      durationLabel: "00:45:00",
-      modeKey: "stopwatch",
-      modeLabel: "正向计时",
-      phaseLabel: "正向计时",
-      linkedTodoId: null,
-      linkedTodoTitle: title,
-      completedAt: `${completedDate}T${completedTime}:00`,
-      completedDate,
-      completedTime,
+        id,
+        title: index === 0 ? "整理研究资料" : `专注轮次 ${id}`,
+        durationMs: 45 * 60 * 1000,
+        durationLabel: "00:45:00",
+        modeKey: "stopwatch",
+        modeLabel: "正向计时",
+        phaseLabel: "正向计时",
+        linkedTodoId: 101,
+        linkedTodoTitle: "整理研究资料",
+        completedAt: `${today}T${String(9 + index).padStart(2, "0")}:00:00+08:00`,
+        completedDate: today,
+        completedTime: `${String(9 + index).padStart(2, "0")}:00`,
+        source: "timer",
+        timeBasis: "completion_day",
+        editedAt: null,
       };
     });
-
-    let todos = [
-      ...(includeTodo ? todoTitles : []).map((title, index) => ({
-        id: 101 + index,
-        title,
-        isCompleted: false,
-        scheduledDate: todoDates[index] ?? today,
-        scheduledTime: "21:00",
-        importanceKey: "medium",
-      })),
-      ...completedTodoTitles.map((title, index) => ({
-        id: 201 + index,
-        title,
-        isCompleted: true,
-        scheduledDate: completedTodoDates[index] ?? today,
-        scheduledTime: "18:00",
-        importanceKey: "low",
-      })),
+    const demoDays = [
+      ["2026-09-17", [40, 40, 40]],
+      ["2026-09-18", [45, 45, 45, 45]],
+      ["2026-09-19", []],
+      ["2026-09-20", [42, 42, 42, 42, 42]],
+      ["2026-09-21", [45, 45]],
+      ["2026-09-22", [18, 19, 19, 19]],
+      ["2026-09-23", [52, 68, 45]],
     ];
-
+    let nextDemoRecordId = 1;
+    const demoRecords = demoDays.flatMap(([date, durations]) => durations.map((minutes, index) => {
+      const id = nextDemoRecordId++;
+      const conceptDayStartMinutes = date === "2026-09-23" ? [8 * 60 + 10, 9 * 60 + 42, 14 * 60 + 6] : null;
+      const startMinutes = (conceptDayStartMinutes ?? [8 * 60 + 10, 9 * 60 + 58, 14 * 60 + 37, 16 * 60 + 10, 19 * 60 + 5])[index % (conceptDayStartMinutes?.length ?? 5)];
+      const endMinutes = startMinutes + minutes;
+      const hour = String(Math.floor(endMinutes / 60)).padStart(2, "0");
+      const minute = String(endMinutes % 60).padStart(2, "0");
+      const durationMs = minutes * 60 * 1000;
+      const durationLabel = `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}:00`;
+      return {
+        id,
+        title: date === today ? ["早间启动", "深度工作", "专注时段"][index] : `专注轮次 ${id}`,
+        durationMs,
+        durationLabel,
+        modeKey: "stopwatch",
+        modeLabel: "正向计时",
+        phaseLabel: "正向计时",
+        linkedTodoId: date === today ? [101, 102, 103][index] : null,
+        linkedTodoTitle: date === today ? ["早间启动", "深度工作", "专注时段"][index] : null,
+        completedAt: `${date}T${hour}:${minute}:00+08:00`,
+        completedDate: date,
+        completedTime: `${hour}:${minute}`,
+        source: "timer",
+        timeBasis: "completion_day",
+        editedAt: null,
+      };
+    }));
+    let focusRecords = demoMode ? demoRecords : normalRecords;
     let timer = {
-      modeKey: "countdown",
-      phaseKey: "countdown",
-      mode: "倒计时",
-      phaseLabel: "倒计时",
+      modeKey: "stopwatch",
+      phaseKey: "stopwatch",
+      mode: "正向计时",
+      phaseLabel: "正向计时",
       status: "待开始",
       isRunning: false,
-      elapsedMs: 0,
-      elapsedLabel: "00:45:00",
-      targetDurationMs: 45 * 60 * 1000,
-      remainingMs: 45 * 60 * 1000,
-      secondaryLabel: "本轮剩余时间",
+      elapsedMs: demoMode ? 45 * 60 * 1000 : 0,
+      elapsedLabel: demoMode ? "00:45:00" : "00:00:00",
+      targetDurationMs: null,
+      remainingMs: null,
+      secondaryLabel: "本轮已投入",
       canCompleteSession: false,
       hasUnsubmittedProgress: false,
-      activeTaskTitle: "",
-      linkedTodoId: null,
-      completeLinkedTodoOnFinish: false,
-      currentRound: 1,
-      completedFocusCount: 7,
+      activeTaskTitle: demoMode ? "创作专注" : "",
+      linkedTodoId: demoMode ? 104 : null,
+      completeLinkedTodoOnFinish: demoMode,
+      currentRound: demoMode ? 4 : 1,
+      completedFocusCount: demoMode ? 3 : recordCount,
       completedBreakCount: 0,
       recoveredFromLastSession: false,
       modeSwitchLocked: false,
@@ -115,9 +217,8 @@ async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一
       alertTitle: null,
       alertMessage: null,
     };
-
     const timerPreferences = {
-      pomodoroFocusMinutes: 45,
+      pomodoroFocusMinutes: demoMode ? 45 : 25,
       pomodoroBreakMinutes: 5,
       stopwatchReminderMinutes: 45,
       toastReminderEnabled: true,
@@ -125,28 +226,63 @@ async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一
       soundReminderEnabled: true,
       alertSoundKey: "soft_chime",
     };
-
+    let appPreferences = {
+      schemaVersion: 3,
+      themeId: persistedThemeId,
+      visualIntensity: settingsDemo ? 68 : 55,
+      motionIntensity: settingsDemo ? 42 : 45,
+      density: "roomy",
+      floatingOpacity: 92,
+      autoMiniOnStart: settingsDemo,
+      customAlertSoundName: "",
+      customAlertSoundData: null,
+    };
+    let focusPlan = {
+      currentTodoId: todos.some((item) => item.id === currentTodoId) ? currentTodoId : null,
+      todayPickIds: todayPickIds.filter((id) => todos.some((item) => item.id === id)).slice(0, 3),
+    };
+    const demoTotalMinutes = 840;
+    const todayDemoMinutes = 165;
+    const demoDurationLabel = (minutes) => `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}:00`;
+    const demoDailyBreakdown = demoDays.map(([date, durations]) => {
+      const durationMinutes = durations.reduce((sum, value) => sum + value, 0);
+      const linkedSessionCount = date === today ? durations.length : 0;
+      return {
+        date,
+        totalDurationMs: durationMinutes * 60 * 1000,
+        totalDurationLabel: demoDurationLabel(durationMinutes),
+        sessionCount: durations.length,
+        linkedSessionCount,
+        independentSessionCount: durations.length - linkedSessionCount,
+      };
+    });
+    const totalMinutes = demoMode ? demoTotalMinutes : recordCount * 45;
+    const totalLabel = `${String(Math.floor(totalMinutes / 60)).padStart(2, "0")}:${String(totalMinutes % 60).padStart(2, "0")}:00`;
     const analytics = {
-      totalFocusDurationMs: focusRecords.length * 45 * 60 * 1000,
-      totalFocusDurationLabel: "05:15:00",
-      sessionCount: focusRecords.length,
-      linkedSessionCount: 0,
-      independentSessionCount: focusRecords.length,
-      pendingTodoCount: includeTodo ? todoTitles.length : 0,
-      completedTodoCount: completedTodoTitles.length,
-      activeDays: 9,
-      averageDailyDurationLabel: "00:35:00",
-      todayFocusDurationLabel: "05:15:00",
-      todaySessionCount: focusRecords.length,
-      currentStreakDays: 9,
-      bestFocusDate: today,
-      bestFocusDurationLabel: "05:15:00",
-      dailyBreakdown,
-      ...analyticsPatch,
+      totalFocusDurationMs: totalMinutes * 60 * 1000,
+      totalFocusDurationLabel: totalLabel,
+      sessionCount: demoMode ? 21 : recordCount,
+      linkedSessionCount: demoMode ? 3 : recordCount,
+      independentSessionCount: demoMode ? 18 : 0,
+      pendingTodoCount: todos.filter((item) => !item.isCompleted).length,
+      completedTodoCount: demoMode ? 3 : 0,
+      activeDays: demoMode ? 6 : recordCount ? 1 : 0,
+      averageDailyDurationLabel: demoMode ? "00:40:00" : recordCount ? "00:45:00" : "00:00:00",
+      todayFocusDurationLabel: demoMode ? demoDurationLabel(todayDemoMinutes) : totalLabel,
+      todaySessionCount: demoMode ? 3 : recordCount,
+      currentStreakDays: demoMode ? 7 : recordCount ? 9 : 0,
+      bestFocusDate: demoMode ? today : recordCount ? today : null,
+      bestFocusDurationLabel: demoMode ? "02:45:00" : recordCount ? totalLabel : "00:00:00",
+      dailyBreakdown: demoMode ? demoDailyBreakdown : [],
     };
 
+    window.__startTimerCalls = 0;
+    window.__miniWorkspaceShown = 0;
+    window.__appPreferenceUpdateCalls = 0;
+    window.__lastAppPreferencesUpdate = null;
+    window.__appPreferenceUpdateHistory = [];
+    window.__timerPreferenceUpdateCalls = 0;
     window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
-    window.__focusRecordCalls = 0;
     window.__TAURI_INTERNALS__ = {
       metadata: {
         currentWindow: { label: "main" },
@@ -159,4120 +295,2238 @@ async function bootTodayReferenceMock(page, { expectedHeading = "今天，从一
       invoke: async (command, args = {}) => {
         switch (command) {
           case "plugin:event|listen":
-            return 1;
           case "plugin:event|unlisten":
-            return null;
+            return 1;
           case "get_timer_snapshot":
             return timer;
           case "get_timer_preferences":
             return timerPreferences;
           case "update_timer_preferences":
+            window.__timerPreferenceUpdateCalls += 1;
             Object.assign(timerPreferences, args.preferences ?? {});
-            return { ...timerPreferences };
+            return timerPreferences;
+          case "get_app_preferences":
+            return appPreferences;
+          case "update_app_preferences":
+            window.__appPreferenceUpdateCalls += 1;
+            window.__lastAppPreferencesUpdate = args.preferences ?? {};
+            window.__appPreferenceUpdateHistory.push(args.preferences ?? {});
+            appPreferences = { ...appPreferences, ...(args.preferences ?? {}) };
+            return appPreferences;
+          case "get_focus_plan":
+            return focusPlan;
+          case "update_focus_plan":
+            focusPlan = {
+              currentTodoId: args.currentTodoId ?? null,
+              todayPickIds: Array.from(new Set(args.todayPickIds ?? [])).slice(0, 3),
+            };
+            return focusPlan;
           case "get_todo_items":
             return todos;
+          case "create_todo_item":
+            todos = [...todos, {
+              id: Math.max(0, ...todos.map((item) => item.id)) + 1,
+              title: args.title,
+              isCompleted: false,
+              scheduledDate: args.scheduledDate ?? "",
+              scheduledTime: args.scheduledTime ?? "",
+              importanceKey: args.importanceKey ?? "medium",
+              continuationNote: "",
+              continuationUpdatedAt: null,
+            }];
+            return todos.slice();
+          case "update_todo_item":
+            todos = todos.map((item) => item.id === args.id ? {
+              ...item,
+              title: args.title,
+              scheduledDate: args.scheduledDate,
+              scheduledTime: args.scheduledTime,
+              importanceKey: args.importanceKey,
+            } : item);
+            return todos.slice();
+          case "delete_todo_item":
+            todos = todos.filter((item) => item.id !== args.id);
+            return todos.slice();
+          case "restore_todo_item":
+            todos = [...todos.filter((item) => item.id !== args.item.id), args.item];
+            return todos.slice();
           case "get_focus_records":
-            window.__focusRecordCalls += 1;
-            return freshRecordSnapshots ? focusRecords.map((record) => ({ ...record })) : focusRecords;
+            return focusRecords.slice();
+          case "create_manual_focus_record":
+            {
+              const durationMs = args.durationMinutes * 60_000;
+              const completedTime = args.completedTime || "12:00";
+              const linkedTodo = todos.find((item) => item.id === args.linkedTodoId) ?? null;
+              const minutes = Math.floor(args.durationMinutes);
+              const durationLabel = `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}:00`;
+              focusRecords = [...focusRecords, {
+                id: Math.max(0, ...focusRecords.map((record) => record.id)) + 1,
+                title: args.title,
+                durationMs,
+                durationLabel,
+                modeKey: "stopwatch",
+                modeLabel: "手动补录",
+                phaseLabel: "手动补录",
+                linkedTodoId: args.linkedTodoId ?? null,
+                linkedTodoTitle: linkedTodo?.title ?? null,
+                completedAt: `${args.completedDate}T${completedTime}:00+08:00`,
+                completedDate: args.completedDate,
+                completedTime,
+                source: "manual",
+                timeBasis: "completion_day",
+                editedAt: null,
+              }];
+            }
+            return focusRecords.slice();
+          case "update_focus_record_title":
+            focusRecords = focusRecords.map((record) => record.id === args.id ? { ...record, title: args.title, editedAt: `${today}T12:00:00+08:00` } : record);
+            return focusRecords.slice();
+          case "update_focus_record":
+            focusRecords = focusRecords.map((record) => record.id === args.id ? {
+              ...record,
+              title: args.title,
+              durationMs: args.durationMinutes * 60_000,
+              durationLabel: `${String(Math.floor(args.durationMinutes / 60)).padStart(2, "0")}:${String(args.durationMinutes % 60).padStart(2, "0")}:00`,
+              completedDate: args.completedDate,
+              completedTime: args.completedTime || "",
+              completedAt: `${args.completedDate}T${args.completedTime || "12:00"}:00+08:00`,
+              linkedTodoId: args.linkedTodoId ?? null,
+              linkedTodoTitle: todos.find((item) => item.id === args.linkedTodoId)?.title ?? null,
+              editedAt: `${today}T12:00:00+08:00`,
+            } : record);
+            return focusRecords.slice();
+          case "delete_focus_record":
+            focusRecords = focusRecords.filter((record) => record.id !== args.id);
+            return focusRecords.slice();
           case "get_analytics_snapshot":
-            return analytics;
+            return { ...analytics, dailyBreakdown: analytics.dailyBreakdown.map((day) => ({ ...day })) };
           case "list_app_backups":
-            return [];
-          case "set_countdown_minutes":
+            return [{
+              fileName: "focused-moment-backup-v3-20260923.json",
+              exportedAt: "2026-09-23T08:00:00",
+              appVersion: "2.12.1",
+              formatVersion: 3,
+              schemaVersion: 3,
+              migrationNeeded: false,
+              focusRecordCount: 21,
+              todoCount: 6,
+              hasRuntimeSession: false,
+            }];
+          case "update_timer_context":
+            timer = { ...timer, activeTaskTitle: args.title ?? "", linkedTodoId: args.linkedTodoId ?? null };
+            return timer;
+          case "switch_timer_mode":
             timer = {
               ...timer,
-              targetDurationMs: Number(args.minutes) * 60 * 1000,
-              remainingMs: Number(args.minutes) * 60 * 1000,
-              elapsedLabel: `00:${String(Number(args.minutes)).padStart(2, "0")}:00`,
+              modeKey: args.mode === "countdown" ? "countdown" : "stopwatch",
+              phaseKey: args.mode === "countdown" ? "countdown" : "stopwatch",
+              mode: args.mode === "countdown" ? "倒计时" : "正向计时",
+              phaseLabel: args.mode === "countdown" ? "专注倒计时" : "正向计时",
+              status: "待开始",
+              elapsedMs: 0,
+              elapsedLabel: "00:00:00",
+              targetDurationMs: args.mode === "countdown" ? timerPreferences.pomodoroFocusMinutes * 60_000 : null,
+              remainingMs: args.mode === "countdown" ? timerPreferences.pomodoroFocusMinutes * 60_000 : null,
+              hasUnsubmittedProgress: false,
+              canCompleteSession: false,
+            };
+            return timer;
+          case "set_countdown_minutes":
+            timer = { ...timer, targetDurationMs: args.minutes * 60_000, remainingMs: args.minutes * 60_000, status: "准备开始" };
+            return timer;
+          case "reset_timer":
+            timer = {
+              ...timer,
+              isRunning: false,
+              status: "待开始",
+              elapsedMs: 0,
+              elapsedLabel: "00:00:00",
+              remainingMs: timer.modeKey === "countdown" ? timer.targetDurationMs : null,
+              hasUnsubmittedProgress: false,
+              canCompleteSession: false,
             };
             return timer;
           case "start_timer":
-            timer = { ...timer, isRunning: true, hasUnsubmittedProgress: true, status: "倒计时中", canCompleteSession: true };
+            window.__startTimerCalls += 1;
+            {
+              const isCountdown = timer.modeKey === "countdown";
+              const remainingMs = isCountdown ? Math.max(0, (timer.remainingMs ?? timer.targetDurationMs ?? 0) - 60_000) : timer.remainingMs;
+              const ended = isCountdown && remainingMs === 0;
+              timer = { ...timer, isRunning: !ended, status: ended ? "倒计时结束" : "运行中", elapsedMs: timer.elapsedMs + 60_000, elapsedLabel: "00:01:00", remainingMs, hasUnsubmittedProgress: true, canCompleteSession: true };
+            }
             return timer;
           case "pause_timer":
             timer = { ...timer, isRunning: false, status: "已暂停" };
             return timer;
-          case "update_timer_context":
+          case "complete_focus_session":
+            {
+              const linkedTodo = todos.find((item) => item.id === timer.linkedTodoId) ?? null;
+              const durationMs = timer.elapsedMs;
+              const completedTime = "12:01";
+              const completedRecord = {
+                id: focusRecords.length + 1,
+                title: args.title,
+                durationMs,
+                durationLabel: "00:01:00",
+                modeKey: timer.modeKey,
+                modeLabel: timer.mode,
+                phaseLabel: timer.phaseLabel,
+                linkedTodoId: timer.linkedTodoId,
+                linkedTodoTitle: linkedTodo?.title ?? null,
+                completedAt: `${today}T${completedTime}:00+08:00`,
+                completedDate: today,
+                completedTime,
+                source: "timer",
+                timeBasis: "completion_day",
+                editedAt: null,
+              };
+              focusRecords.push(completedRecord);
+              const todayBreakdown = analytics.dailyBreakdown.find((day) => day.date === today);
+              if (todayBreakdown) {
+                todayBreakdown.totalDurationMs += durationMs;
+                todayBreakdown.sessionCount += 1;
+                todayBreakdown.totalDurationLabel = "02:46:00";
+              }
+              analytics.totalFocusDurationMs += durationMs;
+              analytics.totalFocusDurationLabel = "14:01:00";
+              analytics.todayFocusDurationLabel = "02:46:00";
+            }
+            if (timer.completeLinkedTodoOnFinish && timer.linkedTodoId !== null) {
+              todos = todos.map((item) => item.id === timer.linkedTodoId ? { ...item, isCompleted: true } : item);
+            }
+            analytics.todaySessionCount += 1;
+            analytics.sessionCount += 1;
+            analytics.completedTodoCount = todos.filter((item) => item.isCompleted).length;
             timer = {
               ...timer,
-              activeTaskTitle: args.title ?? "",
-              linkedTodoId: args.linkedTodoId ?? null,
-              completeLinkedTodoOnFinish: Boolean(args.completeLinkedTodoOnFinish),
+              isRunning: false,
+              status: "待开始",
+              elapsedMs: 0,
+              elapsedLabel: "00:00:00",
+              remainingMs: timer.modeKey === "countdown" ? timer.targetDurationMs : null,
+              hasUnsubmittedProgress: false,
+              canCompleteSession: false,
+              linkedTodoId: null,
+              activeTaskTitle: "",
+              currentRound: timer.currentRound + 1,
+              completedFocusCount: timer.completedFocusCount + 1,
             };
-            return timer;
-          case "reset_timer":
-            return timer;
+            return { records: focusRecords.slice(), todoItems: todos.slice(), timerSnapshot: { ...timer } };
+          case "show_floating_todos":
+            window.__miniWorkspaceShown += 1;
+            return null;
           case "toggle_todo_item":
             todos = todos.map((item) => item.id === args.id ? { ...item, isCompleted: !item.isCompleted } : item);
-            return todos;
+            return todos.slice();
           default:
             return null;
         }
       },
     };
-  }, { today: referenceDate, recordCount, includeTodo, todoTitles, todoDates, completedTodoTitles, completedTodoDates, dailyBreakdown, recordDates, recordTitlePrefix, analyticsPatch, freshRecordSnapshots });
+  }, { today: fixtureToday, themeId, persistedThemeId, includeTodo, includeInbox, includeOverdue, includeFuture, recordCount, currentTodoId: fixtureCurrentTodoId, todayPickIds, demoMode, settingsDemo });
 
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: expectedHeading })).toBeVisible();
+  await expect(page.locator(themeLayouts[themeId].today)).toBeVisible();
+  await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", themeId);
 }
 
-test("Today reference composition stays aligned at the concept viewport", async ({ page }) => {
+test("Night Valley restores the trail and real Today overview at desktop width", async ({ page }) => {
   await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page);
-
-  await expect(page.locator(".trail-node")).toHaveCount(8);
-  await expect(page.getByText(/今天已完成 7 段专注/)).toBeVisible();
-  await expect(page.getByText("连续 9 天", { exact: true })).toBeVisible();
+  await bootReferenceMock(page);
+  await expectOriginalToday(page, "night-valley");
+  await expect(page.locator(".trail-page__heading h1")).toHaveText("今日路径");
   await expect(page.getByRole("heading", { name: "今日概览", exact: true })).toBeVisible();
-  await expect(page.locator(".trail-page__clock")).toHaveText(/^\d{2}:\d{2}:\d{2}$/);
-  await expect(page.getByText("05:15:00", { exact: true })).toBeVisible();
-  await expect(page.getByText("0 / 1", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "查看计时", exact: true })).toHaveCount(0);
+  await expect(page.locator(".trail-node")).toHaveCount(5);
+  await expect(page.locator(".trail-node--done")).toHaveCount(3);
+  await expect(page.locator(".trail-node--current")).toContainText("整理研究资料");
+  await expect(page.locator(".trail-overview-lead strong")).toHaveText("02:15:00");
+  await expect(page.locator(".trail-overview-progress-heading strong")).toHaveText("0 / 2");
+  await expect(page.locator(".trail-streak")).toContainText("连续 9 天");
   await expect(page.locator(".trail-timer")).toHaveCount(0);
-  await expect(page.locator(".minimal-app--trail .command-trigger")).toBeHidden();
-  await page.screenshot({ path: testOutputPath("screenshots", "today-after.png"), animations: "disabled" });
+  await page.screenshot({ path: testOutputPath("screenshots", "restored-night-valley-desktop.png"), animations: "disabled" });
 });
 
-test("Every theme carries one stable daily focus line on Today", async ({ page }) => {
+test("All five themes restore distinct Today compositions without changing the first three", async ({ page }) => {
   test.setTimeout(90_000);
   await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page);
-
-  const themeHeadings = [
-    ["night-valley", "今天，从一件事开始"],
-    ["editorial-paper", "今日节奏"],
-    ["graphite-console", "TODAY / 节奏调度"],
-    ["aurora-ocean", "TIDE / 潮汐轨迹"],
-    ["botanical-library", "GROWTH / 今日生长"],
-  ];
-  const copyIds = [];
-  const brandGeometries = [];
-
-  for (const [theme, heading] of themeHeadings) {
-    await page.evaluate((selectedTheme) => {
-      localStorage.setItem("focused-moment.theme", selectedTheme);
-    }, theme);
-    await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
-    await expect(page.getByRole("heading", { name: heading })).toBeVisible();
-
-    const line = page.locator(".daily-focus-line--" + theme);
-    await expect(line).toHaveCount(1);
-    await expect(line).toHaveAttribute("data-copy-id", /^copy-/);
-    await expect(line.locator("blockquote")).toHaveText(/\S/);
-    copyIds.push(await line.getAttribute("data-copy-id"));
-    brandGeometries.push(await page.locator(".trail-nav__logo").evaluate((logo) => {
-      const ring = logo.querySelector(".trail-nav__logo-ring");
-      const dot = logo.querySelector(".trail-nav__logo-dot");
-      const outer = logo.getBoundingClientRect();
-      const inner = ring.getBoundingClientRect();
-      const point = dot.getBoundingClientRect();
-      const n = (value) => Number(value.toFixed(2));
-      return {
-        outer: `${n(outer.width)}x${n(outer.height)}`,
-        inner: `${n(inner.width)}x${n(inner.height)}`,
-        innerInset: `${n(inner.left - outer.left)}/${n(outer.right - inner.right)}`,
-        dotInset: `${n(point.left - outer.left)}/${n(outer.right - point.right)}/${n(point.top - outer.top)}/${n(outer.bottom - point.bottom)}`,
-        outerRadius: getComputedStyle(logo).borderRadius,
-        innerRadius: getComputedStyle(ring).borderRadius,
-      };
-    }));
-  }
-
-  expect(new Set(copyIds).size).toBe(1);
-  expect(new Set(brandGeometries.map((geometry) => JSON.stringify(geometry))).size).toBe(1);
-});
-
-test("Today fullscreen keeps the summary visible and uses a smooth winding route", async ({ page }) => {
-  await page.setViewportSize({ width: 2560, height: 1368 });
-  await bootTodayReferenceMock(page, { recordCount: 1, includeTodo: false });
-
-  await expect(page.locator(".trail-node")).toHaveCount(1);
-  await expect(page.getByText(/今天已完成 1 段专注/)).toBeVisible();
-
-  const footerBounds = await page.locator(".trail-map__footer").evaluate((element) => {
-    const rect = element.getBoundingClientRect();
-    return { top: rect.top, bottom: rect.bottom };
-  });
-  expect(footerBounds.top).toBeGreaterThanOrEqual(0);
-  expect(footerBounds.bottom).toBeLessThanOrEqual(1368);
-
-  const routePath = await page.locator(".trail-map__route-line").getAttribute("d");
-  expect(routePath).toBeTruthy();
-  expect(routePath).toMatch(/^M\s/);
-  expect(routePath).not.toMatch(/\bL\b/);
-  expect((routePath?.match(/\bC\b/g) ?? []).length).toBeGreaterThanOrEqual(12);
-  await expect(page.getByRole("heading", { name: "今日概览", exact: true })).toBeVisible();
-  await expect(page.locator(".trail-page__clock")).toHaveText(/^\d{2}:\d{2}:\d{2}$/);
-  await page.screenshot({ path: testOutputPath("screenshots", "today-fullscreen-refined.png"), animations: "disabled" });
-});
-
-test("Today keeps node information visible and keeps timing in the focus tab", async ({ page }) => {
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page);
-
-  await expect(page.locator(".trail-node__meta").first()).toContainText("晨间计划");
-  await expect(page.locator(".trail-node__meta").first()).toHaveCSS("visibility", "visible");
-  await expect(page.getByRole("heading", { name: "今日概览", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "查看计时", exact: true })).toHaveCount(0);
-  await page.getByRole("button", { name: "计时", exact: true }).click();
-  await expect(page.locator(".nv-focus-page")).toBeVisible();
-});
-
-test("Today route keeps the panel and path usable as the window narrows", async ({ page }) => {
-  test.setTimeout(60_000);
-  for (const [width, height, screenshotPath] of [
-    [1280, 900, "today-1280.png"],
-    [1024, 900, "today-1024.png"],
-  ]) {
-    await page.setViewportSize({ width, height });
-    await bootTodayReferenceMock(page);
-
-    const layout = await page.locator(".trail-map, .trail-focus-panel").evaluateAll((elements) =>
-      elements.map((element) => {
-        const rect = element.getBoundingClientRect();
-        return { className: element.className, x: rect.x, y: rect.y, right: rect.right, bottom: rect.bottom };
-      }),
-    );
-    const map = layout.find((item) => item.className === "trail-map");
-    const panel = layout.find((item) => item.className.includes("trail-focus-panel"));
-    expect(panel.right).toBeLessThanOrEqual(width);
-    expect(panel.x).toBeGreaterThanOrEqual(0);
-    if (width <= 1160) {
-      expect(panel.y).toBeLessThan(map.bottom);
-      expect(panel.bottom).toBeLessThanOrEqual(height);
-      await expect(page.locator(".trail-nav__brand")).toBeVisible();
-      await expect(page.locator(".trail-nav__icon").first()).toBeVisible();
-      await expect(page.getByRole("heading", { name: "今日概览", exact: true })).toBeVisible();
-    }
-    await page.screenshot({ path: testOutputPath("screenshots", screenshotPath), animations: "disabled" });
-  }
-});
-
-test("Night Valley pages expose the measured reference surfaces", async ({ page }) => {
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page);
-
-  const pages = [
-    ["计时", "night-valley-timer.png"],
-    ["待办", "night-valley-todo.png"],
-    ["记录", "night-valley-records.png"],
-    ["设置", "night-valley-settings.png"],
-  ];
-
-  for (const [label, screenshotName] of pages) {
-    await page.getByRole("button", { name: label === "待办" ? /^待办/ : label, exact: label !== "待办" }).click();
-    await expect(page.locator(".nv-page").first()).toBeVisible();
-    await page.screenshot({ path: testOutputPath("screenshots", screenshotName), animations: "disabled" });
-  }
-});
-
-test("Every theme keeps record day expansion stable during snapshot refresh", async ({ page }) => {
-  test.setTimeout(90_000);
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "night-valley");
-  });
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, {
-    recordCount: 4,
-    recordDates: [referenceDate, "2026-09-04", "2026-09-04", "2026-09-03"],
-    freshRecordSnapshots: true,
-  });
-
-  const themes = [
-    { id: "night-valley", historySelector: ".record-history" },
-    { id: "editorial-paper", historySelector: ".ep-full-history" },
-    { id: "graphite-console", historySelector: ".gc-history-index" },
-    { id: "aurora-ocean", historySelector: ".ao-history-index" },
-    { id: "botanical-library", historySelector: ".bl-history-index" },
-  ];
-
-  for (const [index, theme] of themes.entries()) {
-    if (index > 0) {
-      await page.addInitScript((themeId) => localStorage.setItem("focused-moment.theme", themeId), theme.id);
-      await page.evaluate((themeId) => localStorage.setItem("focused-moment.theme", themeId), theme.id);
-      await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
-    }
-    await pageButton(page, "记录").click();
-    const history = page.locator(theme.historySelector);
-    const target = history.locator("details").last();
-    const content = target.locator(":scope > div");
-    await expect(target).toBeVisible();
-    await expect(target).toHaveCount(1);
-
-    if (await target.evaluate((element) => element.open)) {
-      await target.locator("summary").click();
-      await expect(content).toBeHidden();
-    }
-
-    await target.locator("summary").click();
-    await expect(target).toHaveAttribute("open", "");
-    await expect(content).toBeVisible();
-    const callsBeforeRefresh = await page.evaluate(() => window.__focusRecordCalls);
-    await expect.poll(() => page.evaluate(() => window.__focusRecordCalls), { timeout: 3500 }).toBeGreaterThan(callsBeforeRefresh);
-    await expect(content).toBeVisible();
-  }
-});
-
-test("Every theme uses the enclosed brand mark with its point in the orbit gap", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "night-valley");
-  });
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page);
-
-  const themeIds = ["night-valley", "editorial-paper", "graphite-console", "aurora-ocean", "botanical-library"];
-  for (const [index, themeId] of themeIds.entries()) {
-    if (index > 0) {
-      await page.addInitScript((nextThemeId) => localStorage.setItem("focused-moment.theme", nextThemeId), themeId);
-      await page.evaluate((nextThemeId) => localStorage.setItem("focused-moment.theme", nextThemeId), themeId);
-      await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
-    }
-
-    const evidence = await page.locator(".trail-nav__logo").evaluate((logo) => {
-      const ring = logo.querySelector(".trail-nav__logo-ring");
-      const dot = logo.querySelector(".trail-nav__logo-dot");
-      if (!ring || !dot) return null;
-      const rect = (element) => {
-        const value = element.getBoundingClientRect();
-        return { left: value.left, right: value.right, top: value.top, bottom: value.bottom, width: value.width, height: value.height };
-      };
-      return { outer: rect(logo), inner: rect(ring), dot: rect(dot), ringBackground: getComputedStyle(ring).backgroundImage };
-    });
-
-    expect(evidence).not.toBeNull();
-    expect(evidence.outer.width).toBe(42);
-    expect(evidence.outer.height).toBe(42);
-    expect(evidence.inner.width).toBeLessThan(evidence.outer.width);
-    expect(evidence.inner.height).toBeLessThan(evidence.outer.height);
-    expect(evidence.inner.left).toBeGreaterThan(evidence.outer.left);
-    expect(evidence.inner.right).toBeLessThan(evidence.outer.right);
-    expect(evidence.inner.top).toBeGreaterThan(evidence.outer.top);
-    expect(evidence.inner.bottom).toBeLessThan(evidence.outer.bottom);
-    expect(evidence.dot.left).toBeGreaterThanOrEqual(evidence.outer.left);
-    expect(evidence.dot.right).toBeLessThanOrEqual(evidence.outer.right);
-    expect(evidence.dot.top).toBeGreaterThanOrEqual(evidence.outer.top);
-    expect(evidence.dot.bottom).toBeLessThanOrEqual(evidence.outer.bottom);
-    expect((evidence.dot.left + evidence.dot.right) / 2).toBeGreaterThan((evidence.inner.left + evidence.inner.right) / 2);
-    expect((evidence.dot.top + evidence.dot.bottom) / 2).toBeLessThan((evidence.inner.top + evidence.inner.bottom) / 2);
-    expect(evidence.ringBackground).toContain("conic-gradient");
-  }
-});
-
-test("REFINE-19 Editorial Paper keeps the sidebar mark and labels aligned across all five pages", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-
-  const states = [];
-  for (const label of ["今日", "计时", "待办", "记录", "设置"]) {
-    await pageButton(page, label).click();
-    states.push(await page.locator(".minimal-nav").evaluate((nav) => {
-      const logo = nav.querySelector(".trail-nav__logo");
-      const ring = nav.querySelector(".trail-nav__logo-ring");
-      const dot = nav.querySelector(".trail-nav__logo-dot");
-      const brand = nav.querySelector(".trail-nav__brand");
-      const rect = (element) => {
-        const box = element.getBoundingClientRect();
-        return { left: box.left, right: box.right, top: box.top, bottom: box.bottom, width: box.width, height: box.height };
-      };
-      const labels = [...nav.querySelectorAll(":scope > button")].map((button) => {
-        const labelElement = button.querySelector(".minimal-nav__label");
-        const buttonRect = button.getBoundingClientRect();
-        const labelRect = labelElement.getBoundingClientRect();
-        return {
-          buttonCenter: (buttonRect.left + buttonRect.right) / 2,
-          labelCenter: (labelRect.left + labelRect.right) / 2,
-          justifyContent: getComputedStyle(button).justifyContent,
-        };
-      });
-      return {
-        labels,
-        brandJustifyItems: getComputedStyle(brand).justifyItems,
-        outer: rect(logo),
-        inner: rect(ring),
-        dot: rect(dot),
-        outerBorder: getComputedStyle(logo).borderTopColor,
-        ringBackground: getComputedStyle(ring).backgroundImage,
-        dotBackground: getComputedStyle(dot).backgroundColor,
-      };
-    }));
-  }
-
-  expect(states.every((state) => state.labels.every((label) => Math.abs(label.buttonCenter - label.labelCenter) < 1))).toBe(true);
-  expect(states.every((state) => state.labels.every((label) => label.justifyContent === "center"))).toBe(true);
-  expect(new Set(states.map((state) => `${state.outer.width}x${state.outer.height}/${state.inner.width}x${state.inner.height}`)).size).toBe(1);
-  expect(states.every((state) => state.outer.width === 42 && state.outer.height === 42 && state.inner.left > state.outer.left && state.inner.right < state.outer.right && state.inner.top > state.outer.top && state.inner.bottom < state.outer.bottom)).toBe(true);
-  expect(states.every((state) => state.brandJustifyItems === "center" && state.outerBorder === "rgb(45, 77, 57)" && state.ringBackground.includes("conic-gradient") && state.dotBackground === "rgb(170, 76, 45)")).toBe(true);
-});
-
-test("Night Valley tabs share the live clock and hide the command trigger", async ({ page }) => {
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page);
-
-  for (const [label] of nightValleyPages) {
-    await pageButton(page, label).click();
-    await expect(page.locator('time[aria-label^="当前时间"]')).toHaveCount(1);
-    await expect(page.locator('time[aria-label^="当前时间"]')).toHaveText(/^\d{2}:\d{2}:\d{2}$/);
-    await expect(page.locator(".command-trigger")).toBeHidden();
-  }
-});
-
-test("Night Valley baseline records five-page geometry and environment metadata", async ({ page }) => {
-  const viewport = { width: 1487, height: 1058 };
-  const capturedAt = new Date().toISOString();
-  await page.setViewportSize(viewport);
-  await bootTodayReferenceMock(page);
-
-  const pages = {};
-  for (const [label, surfaceSelector, rootSelector] of nightValleyPages) {
-    await pageButton(page, label).click();
-    await expect(page.locator(rootSelector).first()).toBeVisible();
-    pages[label] = await page.evaluate(({ selector, root }) => {
-      const toRect = (element) => {
-        if (!element) return null;
-        const rect = element.getBoundingClientRect();
-        return {
-          x: Number(rect.x.toFixed(2)),
-          y: Number(rect.y.toFixed(2)),
-          width: Number(rect.width.toFixed(2)),
-          height: Number(rect.height.toFixed(2)),
-          right: Number(rect.right.toFixed(2)),
-          bottom: Number(rect.bottom.toFixed(2)),
-        };
-      };
-      const pageElement = document.querySelector(root);
-      const heading = pageElement?.querySelector("h1");
-      const bodyStyle = getComputedStyle(document.body);
-      const pageStyle = pageElement ? getComputedStyle(pageElement) : null;
-      return {
-        pageRect: toRect(pageElement),
-        surfaceRect: toRect(document.querySelector(selector)),
-        navigationRect: toRect(document.querySelector(".minimal-nav")),
-        headingRect: toRect(heading),
-        scrollWidth: document.documentElement.scrollWidth,
-        scrollHeight: document.documentElement.scrollHeight,
-        fontFamily: pageStyle?.fontFamily ?? bodyStyle.fontFamily,
-        headingFontFamily: heading ? getComputedStyle(heading).fontFamily : null,
-        documentFontStatus: document.fonts.status,
-      };
-    }, { selector: surfaceSelector, root: rootSelector });
-  }
-
-  const environment = await page.evaluate(() => ({
-    userAgent: navigator.userAgent,
-    platform: navigator.platform,
-    devicePixelRatio: window.devicePixelRatio,
-    innerWidth: window.innerWidth,
-    innerHeight: window.innerHeight,
-    documentFonts: Array.from(document.fonts).map((font) => ({ family: font.family, status: font.status })),
-  }));
-
-  writeFileSync(testOutputPath("qa", "NV-04", "geometry.json"), JSON.stringify({
-    taskId: "NV-04",
-    sha: baselineSha,
-    capturedAt,
-    fixture: {
-      referenceDate,
-      focusRecords: 7,
-      focusDuration: "00:45:00",
-      pendingTodos: 1,
-      transport: "Chromium + Tauri mock",
-    },
-    viewport,
-    environment,
-    pages,
-  }, null, 2));
-
-  expect(Object.keys(pages)).toHaveLength(5);
-  expect(Object.values(pages).every((snapshot) => snapshot.pageRect && snapshot.surfaceRect)).toBe(true);
-  expect(Object.values(pages).every((snapshot) => snapshot.scrollWidth <= viewport.width)).toBe(true);
-});
-
-test("Night Valley baseline checks native-size and desktop-scale proxies", async ({ browser }) => {
-  test.setTimeout(120_000);
-  const cases = [
-    { id: "default-window", width: 1440, height: 1024, deviceScaleFactor: 1, source: "Tauri default window" },
-    { id: "configured-minimum", width: 1120, height: 760, deviceScaleFactor: 1, source: "Tauri configured minimum" },
-    { id: "maximized-proxy", width: 1920, height: 1080, deviceScaleFactor: 1, source: "desktop maximized proxy" },
-    { id: "scale-125-proxy", width: 1440, height: 1024, deviceScaleFactor: 1.25, source: "125% DPR proxy" },
-    { id: "scale-150-proxy", width: 1440, height: 1024, deviceScaleFactor: 1.5, source: "150% DPR proxy" },
-    { id: "scale-200-proxy", width: 1440, height: 1024, deviceScaleFactor: 2, source: "200% DPR proxy" },
-  ];
-  const results = [];
-
-  for (const testCase of cases) {
-    const context = await browser.newContext({
-      viewport: { width: testCase.width, height: testCase.height },
-      deviceScaleFactor: testCase.deviceScaleFactor,
-    });
-    const page = await context.newPage();
-
-    try {
-      await bootTodayReferenceMock(page);
-      const pages = {};
-      for (const [label, surfaceSelector] of nightValleyPages) {
-        await pageButton(page, label).click();
-        const measurement = await page.evaluate((selector) => {
-          const element = document.querySelector(selector);
-          const rect = element?.getBoundingClientRect();
-          return {
-            scrollWidth: document.documentElement.scrollWidth,
-            right: rect ? Number(rect.right.toFixed(2)) : null,
-            left: rect ? Number(rect.left.toFixed(2)) : null,
-            devicePixelRatio: window.devicePixelRatio,
-          };
-        }, surfaceSelector);
-        expect(measurement.right).not.toBeNull();
-        expect(measurement.left).toBeGreaterThanOrEqual(0);
-        expect(measurement.right).toBeLessThanOrEqual(testCase.width);
-        expect(measurement.scrollWidth).toBeLessThanOrEqual(testCase.width);
-        pages[label] = measurement;
-      }
-      results.push({ ...testCase, pages });
-    } finally {
-      await context.close();
-    }
-  }
-
-  writeFileSync(testOutputPath("qa", "NV-04", "scale-matrix.json"), JSON.stringify({
-    taskId: "NV-04",
-    sha: baselineSha,
-    capturedAt: new Date().toISOString(),
-    fixture: { referenceDate, transport: "Chromium + Tauri mock" },
-    note: "DPR proxies are not a substitute for changing native Windows display scaling; current host registry records 150% (LogPixels=144).",
-    cases: results,
-  }, null, 2));
-
-  expect(results).toHaveLength(cases.length);
-});
-
-test("Night Valley records explain the natural seven-day range and averages", async ({ page }) => {
-  await bootTodayReferenceMock(page);
-  await page.getByRole("button", { name: "记录", exact: true }).click();
-
-  await expect(page.locator(".nv-records-chart__labels")).toContainText("最近 7 天");
-  await expect(page.locator(".nv-records-range")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "导出记录", exact: true })).toHaveCount(0);
-  await expect(page.locator(".nv-records-trend h2")).toHaveText("最近 7 天，平均每天 00:45:00。");
-  await expect(page.locator(".records-archive__stats")).toContainText("活跃日平均 00:35:00");
-
-  const archiveLayout = await page.locator(".records-archive__summary, .records-archive__timeline, .records-archive__stats, .records-archive__body").evaluateAll((elements) => elements.map((element) => {
-    const rect = element.getBoundingClientRect();
-    const style = getComputedStyle(element);
-    return {
-      width: rect.width,
-      height: rect.height,
-      opacity: style.opacity,
-      visibility: style.visibility,
-    };
-  }));
-  expect(archiveLayout).toHaveLength(4);
-  expect(archiveLayout.every((section) => section.width > 0 && section.height > 0 && section.opacity !== "0" && section.visibility !== "hidden")).toBe(true);
-});
-
-test("Night Valley keeps one shared circular brand mark across every page", async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 900 });
-  await bootTodayReferenceMock(page);
-
-  const brandStates = [];
-  for (const label of ["今日", "计时", "待办", "记录", "设置"]) {
-    await page.locator(".minimal-nav > button").filter({ hasText: label }).click();
-    brandStates.push(await page.locator(".trail-nav__brand").evaluate((brand) => {
-      const ring = brand.querySelector(".trail-nav__logo-ring");
-      const dot = brand.querySelector(".trail-nav__logo-dot");
-      const brandStyle = getComputedStyle(brand);
-      const logoRect = brand.querySelector(".trail-nav__logo").getBoundingClientRect();
-      const ringRect = ring.getBoundingClientRect();
-      const dotRect = dot.getBoundingClientRect();
-      const logoStyle = getComputedStyle(brand.querySelector(".trail-nav__logo"));
-      const ringStyle = getComputedStyle(ring);
-      return {
-        text: brand.textContent?.replace(/\s+/g, "").trim(),
-        brandGap: brandStyle.gap,
-        brandTextTransform: brandStyle.textTransform,
-        outerWidth: logoRect.width,
-        outerHeight: logoRect.height,
-        innerWidth: ringRect.width,
-        innerHeight: ringRect.height,
-        innerLeft: ringRect.left - logoRect.left,
-        innerRight: logoRect.right - ringRect.right,
-        innerTop: ringRect.top - logoRect.top,
-        innerBottom: logoRect.bottom - ringRect.bottom,
-        dotLeft: dotRect.left - logoRect.left,
-        dotRight: logoRect.right - dotRect.right,
-        dotTop: dotRect.top - logoRect.top,
-        dotBottom: logoRect.bottom - dotRect.bottom,
-        outerRadius: logoStyle.borderRadius,
-        innerRadius: ringStyle.borderRadius,
-        dotDisplay: getComputedStyle(dot).display,
-      };
-    }));
-  }
-
-  expect(new Set(brandStates.map((state) => state.text))).toEqual(new Set(["FocusedMoment"]));
-  expect(new Set(brandStates.map((state) => state.brandGap))).toEqual(new Set(["17px"]));
-  expect(new Set(brandStates.map((state) => state.brandTextTransform))).toEqual(new Set(["none"]));
-  expect(new Set(brandStates.map((state) => `${state.outerWidth}x${state.outerHeight}/${state.innerWidth}x${state.innerHeight}`)).size).toBe(1);
-  expect(new Set(brandStates.map((state) => `${state.innerLeft}/${state.innerRight}/${state.innerTop}/${state.innerBottom}`)).size).toBe(1);
-  expect(new Set(brandStates.map((state) => `${state.dotLeft}/${state.dotRight}/${state.dotTop}/${state.dotBottom}`)).size).toBe(1);
-  expect(brandStates.every((state) => state.outerWidth > state.innerWidth && state.outerHeight > state.innerHeight)).toBe(true);
-  expect(brandStates.every((state) => state.innerLeft > 0 && state.innerRight > 0 && state.innerTop > 0 && state.innerBottom > 0)).toBe(true);
-  expect(brandStates.every((state) => state.dotLeft >= 0 && state.dotRight >= 0 && state.dotTop >= 0 && state.dotBottom >= 0)).toBe(true);
-  expect(brandStates.every((state) => state.dotLeft < state.innerLeft + state.innerWidth && state.outerWidth - state.dotRight > state.innerLeft)).toBe(true);
-  expect(brandStates.every((state) => state.dotTop < state.innerTop + state.innerHeight && state.outerHeight - state.dotBottom > state.innerTop)).toBe(true);
-  expect(brandStates.every((state) => state.outerRadius === "50%" && state.innerRadius === "50%" && state.dotDisplay === "block")).toBe(true);
-});
-
-test("Night Valley uses one shared sidebar tab module across every page", async ({ page }) => {
-  await page.setViewportSize({ width: 1082, height: 720 });
-  await bootTodayReferenceMock(page);
-
-  const tabStates = [];
-  for (const label of ["今日", "计时", "待办", "记录", "设置"]) {
-    await page.locator(".minimal-nav > button").filter({ hasText: label }).click();
-    tabStates.push(await page.locator(".minimal-nav").evaluate((nav) => {
-      const navStyle = getComputedStyle(nav);
-      const buttons = [...nav.querySelectorAll(":scope > button")];
-      return {
-        width: navStyle.width,
-        activeIndex: buttons.findIndex((button) => button.classList.contains("active")),
-        buttons: buttons.map((button) => {
-          const style = getComputedStyle(button);
-          const icon = button.querySelector(".trail-nav__icon");
-          const label = button.querySelector(".minimal-nav__label");
-          const iconStyle = icon ? getComputedStyle(icon) : null;
-          const iconRect = icon?.getBoundingClientRect();
-          const labelRect = label?.getBoundingClientRect();
-          return {
-            borderRadius: style.borderRadius,
-            display: style.display,
-            justifyContent: style.justifyContent,
-            iconLabelGap: iconRect && labelRect ? labelRect.left - iconRect.right : null,
-            iconDisplay: iconStyle?.display,
-            iconWidth: iconStyle?.width,
-            iconHeight: iconStyle?.height,
-            backgroundImage: style.backgroundImage,
-          };
-        }),
-      };
-    }));
-  }
-
-  expect(new Set(tabStates.map((state) => state.width))).toEqual(new Set(["130px"]));
-  expect(tabStates.map((state) => state.activeIndex)).toEqual([0, 1, 2, 3, 4]);
-  expect(tabStates.every((state) => state.buttons.every((button) => button.display === "flex"))).toBe(true);
-  expect(tabStates.every((state) => state.buttons.every((button) => button.justifyContent === "flex-start"))).toBe(true);
-  expect(tabStates.every((state) => state.buttons.every((button) => Math.abs(button.iconLabelGap - 18) < 0.5))).toBe(true);
-  expect(tabStates.every((state) => state.buttons.every((button) => button.iconDisplay !== "none"))).toBe(true);
-  expect(tabStates.every((state) => state.buttons.every((button) => button.iconWidth === "22px" && button.iconHeight === "22px"))).toBe(true);
-  expect(tabStates.every((state) => state.buttons[state.activeIndex].borderRadius === "28px")).toBe(true);
-  expect(tabStates.every((state) => state.buttons[state.activeIndex].backgroundImage.includes("linear-gradient"))).toBe(true);
-});
-
-test("Timer workspace keeps orientation useful and removes decorative state chrome", async ({ page }) => {
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page);
-  await page.getByRole("button", { name: "计时", exact: true }).click();
-
-  await expect(page.locator(".nv-focus-brief")).toBeVisible();
-  await expect(page.locator(".nv-focus-panel")).toBeVisible();
-  await expect(page.locator(".nv-focus-route")).toHaveCount(0);
-  await expect(page.locator(".nv-focus-instrument")).toHaveCount(0);
-  await expect(page.locator(".nv-focus-footer")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "25 分钟", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "45 分钟", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "60 分钟", exact: true })).toBeVisible();
-  await expect(page.locator(".nv-focus-panel__status")).toContainText("未开始");
-});
-
-test("Theme registry exposes five implemented surfaces and no disabled preview", async ({ page }) => {
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page);
-
-  await page.getByRole("button", { name: "设置", exact: true }).click();
-
-  const themeCards = page.locator(".nv-theme-card");
-  await expect(themeCards).toHaveCount(5);
-  await expect(themeCards.filter({ hasText: "夜谷" })).toBeEnabled();
-  await expect(themeCards.filter({ hasText: "夜谷" })).toHaveAttribute("aria-pressed", "true");
-  await expect(themeCards.filter({ hasText: "编辑纸页" })).toBeEnabled();
-  await expect(themeCards.filter({ hasText: "石墨控制台" })).toBeEnabled();
-  await expect(themeCards.filter({ hasText: "极光海面" })).toBeEnabled();
-  await expect(themeCards.filter({ hasText: "植物书房" })).toBeEnabled();
-  await expect(themeCards.filter({ hasText: "尚未实现" })).toHaveCount(0);
-  await expect(themeCards.locator("img")).toHaveCount(5);
-
-  await themeCards.filter({ hasText: "编辑纸页" }).click({ force: true });
-  await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "editorial-paper");
-  await expect(page.locator(".ep-theme-swatch").filter({ hasText: "编辑纸页" })).toHaveAttribute("aria-pressed", "true");
-  await expect(page.locator(".ep-settings-page")).toBeVisible();
-  await expect.poll(() => page.evaluate(() => localStorage.getItem("focused-moment.theme"))).toBe("editorial-paper");
-  await page.reload();
-  await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "editorial-paper");
-  await expect(page.getByRole("heading", { name: "今日节奏" })).toBeVisible();
-});
-
-test("Graphite Console can be selected from settings and persists after reload", async ({ page }) => {
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page);
-
-  await page.getByRole("button", { name: "设置", exact: true }).click();
-  await page.locator(".nv-theme-card").filter({ hasText: "石墨控制台" }).click({ force: true });
-  await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "graphite-console");
-  await expect(page.locator(".gc-settings-page")).toBeVisible();
-  await expect(page.locator(".gc-settings-nav")).toHaveCount(0);
-  await expect(page.locator(".gc-setting-slider-list")).toHaveCount(0);
-  await expect(page.locator(".gc-settings-footer")).toContainText("AUTO-SAVED");
-
-  await page.reload();
-  await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "graphite-console");
-  await expect(page.getByRole("heading", { name: "TODAY / 节奏调度" })).toBeVisible();
-});
-
-test("Graphite Console restores native window controls and a drag surface", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "graphite-console");
-  });
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "TODAY / 节奏调度" });
-  await page.evaluate(() => {
-    const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
-    window.__gcWindowCommands = [];
-    window.__TAURI_INTERNALS__.invoke = async (command, args = {}) => {
-      if (["start_dragging_main_window", "minimize_main_window", "toggle_maximize_main_window", "close_main_window"].includes(command)) {
-        window.__gcWindowCommands.push(command);
-      }
-      return nativeInvoke(command, args);
-    };
-  });
-
-  const controls = page.locator(".window-controls");
-  const buttons = controls.locator(".window-control");
-  await expect(controls).toBeVisible();
-  await expect(buttons).toHaveCount(3);
-  for (const button of await buttons.all()) {
-    await expect(button).toBeVisible();
-  }
-  await page.locator(".app-bar .app-brand").click({ position: { x: 90, y: 20 } });
-  await expect.poll(() => page.evaluate(() => window.__gcWindowCommands.filter((command) => command === "start_dragging_main_window").length)).toBe(1);
-  await buttons.nth(0).click();
-  await buttons.nth(1).click();
-  await buttons.nth(2).click();
-  await expect.poll(() => page.evaluate(() => window.__gcWindowCommands)).toEqual([
-    "start_dragging_main_window",
-    "minimize_main_window",
-    "toggle_maximize_main_window",
-    "close_main_window",
-  ]);
-});
-
-test("feedback toasts keep their position and dismissal behavior across themes", async ({ page }) => {
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page);
-
-  const themes = [
-    ["night-valley", "夜谷", ".nv-theme-card"],
-    ["editorial-paper", "编辑纸页", ".ep-theme-swatch"],
-    ["graphite-console", "石墨控制台", ".gc-theme-card"],
-    ["aurora-ocean", "极光海面", ".ao-theme-bubble"],
-    ["botanical-library", "植物书房", ".bl-theme-book"],
-  ];
-
-  await pageButton(page, "设置").click();
-  for (const [index, [theme, label, selector]] of themes.entries()) {
-    await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", theme);
-    await page.locator(selector).filter({ hasText: label }).click({ force: true });
-    const toast = page.locator(".app-message");
-    await expect(toast).toBeVisible();
-    await expect(toast).toHaveCSS("position", "fixed");
-    const bounds = await toast.boundingBox();
-    expect(bounds?.x ?? 0).toBeGreaterThan(700);
-    expect(bounds?.y ?? 999).toBeLessThan(140);
-    await toast.click();
-    await expect(toast).toBeHidden();
-    const nextTheme = themes[index + 1];
-    if (nextTheme) {
-      await page.locator(selector).filter({ hasText: nextTheme[1] }).click({ force: true });
-      await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", nextTheme[0]);
-      await expect(page.locator(".app-message")).toBeVisible();
-      await page.locator(".app-message").click();
-    }
-  }
-});
-
-test("Aurora Ocean keeps full labels and removes the stray archive ellipse", async ({ page }) => {
-  const longTodoTitle = "北京市定向选调和优培计划｜仙林校区就业中心303现场核对与材料整理";
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "aurora-ocean");
-  });
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "TIDE / 潮汐轨迹", todoTitles: [longTodoTitle] });
-
-  const orbitNode = page.locator(".ao-orbit-node").first();
-  await expect(orbitNode).toHaveAttribute("title", longTodoTitle);
-  await expect(orbitNode).toHaveAttribute("aria-label", new RegExp(longTodoTitle));
-  const todayLayout = await page.locator(".ao-today-page").evaluate((element) => ({
-    overflow: getComputedStyle(element).overflow,
-    nodeWhiteSpace: getComputedStyle(element.querySelector(".ao-orbit-node strong")).whiteSpace,
-    documentScrollWidth: document.documentElement.scrollWidth,
-  }));
-  expect(todayLayout.overflow).toBe("visible");
-  expect(todayLayout.nodeWhiteSpace).toBe("normal");
-  expect(todayLayout.documentScrollWidth).toBeLessThanOrEqual(1487);
-
-  await pageButton(page, "记录").click();
-  const recordsLayout = await page.locator(".ao-records-page").evaluate((element) => ({
-    overflow: getComputedStyle(element).overflow,
-    ellipse: getComputedStyle(element, "::after").display,
-    titleWhiteSpace: getComputedStyle(element.querySelector(".ao-wave-row strong")).whiteSpace,
-    titleOverflowWrap: getComputedStyle(element.querySelector(".ao-wave-row strong")).overflowWrap,
-  }));
-  expect(recordsLayout.overflow).toBe("visible");
-  expect(recordsLayout.ellipse).toBe("none");
-  expect(recordsLayout.titleWhiteSpace).toBe("normal");
-  expect(recordsLayout.titleOverflowWrap).toBe("anywhere");
-});
-
-test("an invalid persisted theme keeps the Night Valley surface available", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "not-a-real-theme");
-  });
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page);
-
-  await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "night-valley");
-  await expect(page.locator(".theme-surface-unavailable")).toHaveCount(0);
-  await page.getByRole("button", { name: "设置", exact: true }).click();
-  await expect(page.locator(".nv-theme-card").filter({ hasText: "夜谷" })).toHaveAttribute("aria-pressed", "true");
-});
-
-test("Botanical Library persists as an implemented theme before rendering a page", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "botanical-library");
-  });
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "GROWTH / 今日生长" });
-
-  await expect(page.getByRole("heading", { name: "GROWTH / 今日生长" })).toBeVisible();
-  await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "botanical-library");
-  await expect(page.locator(".bl-today-page")).toBeVisible();
-  await expect(page.locator(".theme-surface-unavailable")).toHaveCount(0);
-});
-
-test("Graphite Console renders all five pages inside the control surface", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "graphite-console");
-  });
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "TODAY / 节奏调度" });
-  const pages = [
-    ["今日", ".gc-today-page", "today.png"],
-    ["计时", ".gc-focus-page", "focus.png"],
-    ["待办", ".gc-todos-page", "todos.png"],
-    ["记录", ".gc-records-page", "records.png"],
-    ["设置", ".gc-settings-page", "settings.png"],
-  ];
-  const geometry = {};
-  for (const [label, selector, screenshot] of pages) {
-    if (label !== "今日") {
-      await pageButton(page, label).click();
-    }
-    const surface = page.locator(selector);
-    await expect(surface).toBeVisible();
-    geometry[label] = await surface.evaluate((element) => {
-      const rect = element.getBoundingClientRect();
-      return { x: Number(rect.x.toFixed(2)), y: Number(rect.y.toFixed(2)), width: Number(rect.width.toFixed(2)), height: Number(rect.height.toFixed(2)), right: Number(rect.right.toFixed(2)) };
-    });
-    expect(geometry[label].width).toBeGreaterThan(600);
-    expect(geometry[label].right).toBeLessThanOrEqual(1487);
-    await page.screenshot({ path: testOutputPath("qa", "TH-03", screenshot), animations: "disabled", fullPage: true });
-  }
-  await pageButton(page, "今日").click();
-  await expect(page.locator(".gc-shortcut")).toHaveCount(0);
-  await pageButton(page, "计时").click();
-  await expect(page.locator(".gc-focus-bottom")).toHaveCount(0);
-  await pageButton(page, "记录").click();
-  await expect(page.locator(".gc-trend-panel .gc-panel__heading > span")).toHaveText("更长的路");
-  await expect(page.locator(".gc-trend-panel .gc-panel__heading > small")).toContainText("30-DAY TREND");
-  await pageButton(page, "设置").click();
-  await expect(page.locator(".gc-settings-nav")).toHaveCount(0);
-  await expect(page.locator(".gc-setting-slider-list")).toHaveCount(0);
-  await pageButton(page, "今日").click();
-  await expect(page.locator(".gc-sequence-row")).toHaveCount(7);
-  await expect(page.locator(".gc-sequence-row--empty")).toHaveCount(6);
-  await expect(page.locator(".gc-status-strip")).toContainText("STORE");
-  await expect(page.locator(".minimal-nav > button.active")).toHaveCSS("border-radius", "0px");
-
-  await pageButton(page, "待办").click();
-  await expect(page.locator(".gc-task-bays > .gc-task-bay")).toHaveCount(2);
-  const addTaskBox = await page.getByRole("button", { name: /ADD TASK/ }).boundingBox();
-  expect(addTaskBox?.width ?? Number.POSITIVE_INFINITY).toBeLessThan(220);
-  writeFileSync(testOutputPath("qa", "TH-03", "geometry.json"), JSON.stringify({ viewport: { width: 1487, height: 1058 }, pages: geometry }, null, 2));
-});
-
-test("Every theme keeps pending todos in date groups with only a done column", async ({ page }) => {
-  test.setTimeout(90_000);
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, {
-    expectedHeading: "今日节奏",
-    todoTitles: ["今天的第一件事", "明天的第二件事", "已过期的第三件事"],
-    todoDates: [referenceDate, "2026-09-06", "2026-09-04"],
-    completedTodoTitles: ["已经完成的事项"],
-    completedTodoDates: ["2026-09-04"],
-  });
-
-  const themes = [
-    { id: "night-valley", columnSelector: ".nv-todo-column", pendingSelector: ".nv-todo-column--start", doneSelector: ".nv-todo-column--done", dateSelector: ".nv-todo-date-group", legacySelector: ".nv-todo-column--focus", progressSelector: ".nv-todo-board__progress" },
-    { id: "editorial-paper", columnSelector: ".ep-todo-column", pendingSelector: ".ep-todo-column--pending", doneSelector: ".ep-todo-column--done", dateSelector: ".nv-todo-date-group", legacySelector: ".ep-todo-column--focus", progressSelector: ".ep-todo-footer" },
-    { id: "graphite-console", columnSelector: ".gc-task-bay", pendingSelector: ".gc-task-bay--queued", doneSelector: ".gc-task-bay--done", dateSelector: ".nv-todo-date-group", legacySelector: ".gc-task-bay--active", progressSelector: ".gc-completion-meter" },
-    { id: "aurora-ocean", columnSelector: ".ao-reef-zone", pendingSelector: ".ao-reef-zone--now", doneSelector: ".ao-reef-zone--arrived", dateSelector: ".nv-todo-date-group", legacySelector: ".ao-reef-zone--later", progressSelector: ".ao-todo-dock > div:first-child" },
-    { id: "botanical-library", columnSelector: ".bl-desk-column", pendingSelector: ".bl-desk-column--seed", doneSelector: ".bl-desk-column--harvest", dateSelector: ".nv-todo-date-group", legacySelector: ".bl-desk-column--sprout", progressSelector: ".bl-desk-ledger > div:first-child" },
-  ];
-
-  for (const theme of themes) {
-    await page.addInitScript((themeId) => localStorage.setItem("focused-moment.theme", themeId), theme.id);
-    await page.evaluate((themeId) => localStorage.setItem("focused-moment.theme", themeId), theme.id);
-    await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
-    await pageButton(page, "待办").click();
-    await expect(page.locator(theme.columnSelector)).toHaveCount(2);
-    await expect(page.locator(theme.pendingSelector)).toBeVisible();
-    await expect(page.locator(theme.doneSelector)).toBeVisible();
-    await expect(page.locator(theme.legacySelector)).toHaveCount(0);
-    await expect(page.locator(theme.pendingSelector).locator(theme.dateSelector)).toHaveCount(3);
-    await expect(page.locator(theme.pendingSelector).locator(`${theme.dateSelector}__toggle`)).toHaveCount(3);
-    await expect(page.locator(theme.progressSelector)).toContainText("0%");
-  }
-});
-
-test("Graphite Console keeps shared actions and page bounds usable at pressure widths", async ({ page }) => {
-  test.setTimeout(90_000);
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "graphite-console");
-  });
-
-  for (const [width, height] of [[1120, 760], [820, 720], [560, 720], [420, 720]]) {
-    await page.setViewportSize({ width, height });
-    await bootTodayReferenceMock(page, { expectedHeading: "TODAY / 节奏调度" });
-    const pages = [
-      ["今日", ".gc-today-page"],
-      ["计时", ".gc-focus-page"],
-      ["待办", ".gc-todos-page"],
-      ["记录", ".gc-records-page"],
-      ["设置", ".gc-settings-page"],
-    ];
-
-    for (const [label, selector] of pages) {
-      if (label !== "今日") {
-        await pageButton(page, label).click();
-      }
-      const surface = page.locator(selector);
-      await expect(surface).toBeVisible();
-      const bounds = await surface.evaluate((element) => {
-        const rect = element.getBoundingClientRect();
-        return { right: rect.right, width: rect.width, scrollWidth: document.documentElement.scrollWidth };
-      });
-      expect(bounds.right).toBeLessThanOrEqual(width + 1);
-      expect(bounds.scrollWidth).toBeLessThanOrEqual(width + 1);
-    }
-
-    await pageButton(page, "今日").click();
-    await page.getByRole("button", { name: /START \/ 开始专注/ }).click();
-    await expect(page.locator(".gc-focus-page")).toBeVisible();
-    await page.locator(".gc-focus-page").getByRole("button", { name: /开始专注/ }).click();
-    await expect(page.locator(".gc-focus-page")).toContainText("运行中");
-  }
-});
-
-test("Aurora Ocean renders all five pages inside the light field", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "aurora-ocean");
-  });
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "TIDE / 潮汐轨迹" });
-  const pages = [
-    ["今日", ".ao-today-page", "today.png"],
-    ["计时", ".ao-focus-page", "focus.png"],
-    ["待办", ".ao-todos-page", "todos.png"],
-    ["记录", ".ao-records-page", "records.png"],
-    ["设置", ".ao-settings-page", "settings.png"],
-  ];
-  const geometry = {};
-  for (const [label, selector, screenshot] of pages) {
-    if (label !== "今日") {
-      await pageButton(page, label).click();
-    }
-    const surface = page.locator(selector);
-    await expect(surface).toBeVisible();
-    if (label === "今日") await expect(page.locator(".ao-orbit-stage")).toBeVisible();
-    if (label === "计时") await expect(page.locator(".ao-fluid-timer")).toBeVisible();
-    if (label === "待办") await expect(page.locator(".ao-reef-board")).toBeVisible();
-    if (label === "记录") await expect(page.locator(".ao-archive-chart")).toBeVisible();
-    if (label === "设置") await expect(page.locator(".ao-settings-preview")).toBeVisible();
-    geometry[label] = await surface.evaluate((element) => {
-      const rect = element.getBoundingClientRect();
-      return { x: Number(rect.x.toFixed(2)), y: Number(rect.y.toFixed(2)), width: Number(rect.width.toFixed(2)), height: Number(rect.height.toFixed(2)), right: Number(rect.right.toFixed(2)) };
-    });
-    expect(geometry[label].width).toBeGreaterThan(600);
-    expect(geometry[label].right).toBeLessThanOrEqual(1487);
-    await page.screenshot({ path: testOutputPath("qa", "TH-04", screenshot), animations: "disabled", fullPage: true });
-  }
-  writeFileSync(testOutputPath("qa", "TH-04", "geometry.json"), JSON.stringify({ viewport: { width: 1487, height: 1058 }, pages: geometry }, null, 2));
-});
-
-test("Aurora Ocean keeps shared actions and page bounds usable at pressure widths", async ({ page }) => {
-  test.setTimeout(90_000);
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "aurora-ocean");
-  });
-
-  for (const [width, height] of [[1120, 760], [820, 720], [560, 720], [420, 720]]) {
-    await page.setViewportSize({ width, height });
-    await bootTodayReferenceMock(page, { expectedHeading: "TIDE / 潮汐轨迹" });
-    const pages = [
-      ["今日", ".ao-today-page"],
-      ["计时", ".ao-focus-page"],
-      ["待办", ".ao-todos-page"],
-      ["记录", ".ao-records-page"],
-      ["设置", ".ao-settings-page"],
-    ];
-
-    for (const [label, selector] of pages) {
-      if (label !== "今日") {
-        await pageButton(page, label).click();
-      }
-      const surface = page.locator(selector);
-      await expect(surface).toBeVisible();
-      const bounds = await surface.evaluate((element) => {
-        const rect = element.getBoundingClientRect();
-        return { right: rect.right, width: rect.width, scrollWidth: document.documentElement.scrollWidth };
-      });
-      expect(bounds.right).toBeLessThanOrEqual(width + 1);
-      expect(bounds.scrollWidth).toBeLessThanOrEqual(width + 1);
-    }
-
-    await pageButton(page, "今日").click();
-    await page.getByRole("button", { name: /START \/ 开始专注/ }).click();
-    await expect(page.locator(".ao-focus-page")).toBeVisible();
-    await page.locator(".ao-focus-page").getByRole("button", { name: /开始专注/ }).click();
-    await expect(page.locator(".ao-focus-page")).toContainText("运行中");
-  }
-});
-
-test("Botanical Library renders all five pages inside the reading room", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "botanical-library");
-  });
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "GROWTH / 今日生长" });
-  const pages = [
-    ["今日", ".bl-today-page", "today.png"],
-    ["计时", ".bl-focus-page", "focus.png"],
-    ["待办", ".bl-todos-page", "todos.png"],
-    ["记录", ".bl-records-page", "records.png"],
-    ["设置", ".bl-settings-page", "settings.png"],
-  ];
-  const geometry = {};
-  for (const [label, selector, screenshot] of pages) {
-    if (label !== "今日") {
-      await pageButton(page, label).click();
-    }
-    const surface = page.locator(selector);
-    await expect(surface).toBeVisible();
-    if (label === "今日") await expect(page.locator(".bl-library-stilllife")).toBeVisible();
-    if (label === "计时") await expect(page.locator(".bl-tree-dial")).toBeVisible();
-    if (label === "待办") await expect(page.locator(".bl-desk-board")).toBeVisible();
-    if (label === "记录") await expect(page.locator(".bl-growth-chart")).toBeVisible();
-    if (label === "设置") await expect(page.locator(".bl-preview-room")).toBeVisible();
-    geometry[label] = await surface.evaluate((element) => {
-      const rect = element.getBoundingClientRect();
-      return { x: Number(rect.x.toFixed(2)), y: Number(rect.y.toFixed(2)), width: Number(rect.width.toFixed(2)), height: Number(rect.height.toFixed(2)), right: Number(rect.right.toFixed(2)) };
-    });
-    expect(geometry[label].width).toBeGreaterThan(600);
-    expect(geometry[label].right).toBeLessThanOrEqual(1487);
-    await page.screenshot({ path: testOutputPath("qa", "TH-05", screenshot), animations: "disabled", fullPage: true });
-  }
-  writeFileSync(testOutputPath("qa", "TH-05", "geometry.json"), JSON.stringify({ viewport: { width: 1487, height: 1058 }, pages: geometry }, null, 2));
-});
-
-test("Botanical Library keeps shared actions and page bounds usable at pressure widths", async ({ page }) => {
-  test.setTimeout(90_000);
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "botanical-library");
-  });
-
-  for (const [width, height] of [[1120, 760], [820, 720], [560, 720], [420, 720]]) {
-    await page.setViewportSize({ width, height });
-    await bootTodayReferenceMock(page, { expectedHeading: "GROWTH / 今日生长" });
-    const pages = [
-      ["今日", ".bl-today-page"],
-      ["计时", ".bl-focus-page"],
-      ["待办", ".bl-todos-page"],
-      ["记录", ".bl-records-page"],
-      ["设置", ".bl-settings-page"],
-    ];
-
-    for (const [label, selector] of pages) {
-      if (label !== "今日") {
-        await pageButton(page, label).click();
-      }
-      const surface = page.locator(selector);
-      await expect(surface).toBeVisible();
-      const bounds = await surface.evaluate((element) => {
-        const rect = element.getBoundingClientRect();
-        return { right: rect.right, width: rect.width, scrollWidth: document.documentElement.scrollWidth };
-      });
-      expect(bounds.right).toBeLessThanOrEqual(width + 1);
-      expect(bounds.scrollWidth).toBeLessThanOrEqual(width + 1);
-    }
-
-    await pageButton(page, "今日").click();
-    await page.getByRole("button", { name: /START \/ 开始专注/ }).click();
-    await expect(page.locator(".bl-focus-page")).toBeVisible();
-    await page.locator(".bl-focus-page").getByRole("button", { name: /开始专注/ }).click();
-    await expect(page.locator(".bl-focus-page")).toContainText("运行中");
-  }
-});
-
-test("Editorial Paper renders all five pages inside the desktop surface", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-  const pages = [
-    ["今日", ".ep-today-page", "today.png"],
-    ["计时", ".ep-focus-page", "focus.png"],
-    ["待办", ".ep-todos-page", "todos.png"],
-    ["记录", ".ep-records-page", "records.png"],
-    ["设置", ".ep-settings-page", "settings.png"],
-  ];
-  const geometry = {};
-  for (const [label, selector, screenshot] of pages) {
-    if (label !== "今日") {
-      await pageButton(page, label).click();
-    }
-    const surface = page.locator(selector);
-    await expect(surface).toBeVisible();
-    geometry[label] = await surface.evaluate((element) => {
-      const rect = element.getBoundingClientRect();
-      const heading = element.querySelector("h1");
-      return {
-        width: Number(rect.width.toFixed(2)),
-        height: Number(rect.height.toFixed(2)),
-        right: Number(rect.right.toFixed(2)),
-        headingFontSize: heading ? getComputedStyle(heading).fontSize : "",
-      };
-    });
-    expect(geometry[label].width).toBeGreaterThan(600);
-    expect(geometry[label].right).toBeLessThanOrEqual(1487);
-    await page.screenshot({ path: testOutputPath("qa", "REFINE-19", screenshot), animations: "disabled", fullPage: true });
-  }
-  expect(new Set(Object.values(geometry).map((item) => item.headingFontSize)).size).toBe(1);
-  writeFileSync(testOutputPath("qa", "REFINE-19", "geometry.json"), JSON.stringify({ viewport: { width: 1487, height: 1058 }, pages: geometry }, null, 2));
-});
-
-test("Editorial Paper keeps the focus tab shell at the same desktop width", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-
-  const readShell = () => page.locator(".minimal-workspace").evaluate((element) => {
-    const rect = element.getBoundingClientRect();
-    return { left: rect.left, width: rect.width, right: rect.right };
-  });
-  const before = await readShell();
-  await pageButton(page, "计时").click();
-  const samples = await page.locator(".minimal-workspace").evaluate(async (element) => {
-    const values = [];
-    for (let index = 0; index < 8; index += 1) {
-      await new Promise((resolve) => requestAnimationFrame(resolve));
-      const rect = element.getBoundingClientRect();
-      values.push({ left: rect.left, width: rect.width, right: rect.right });
-    }
-    return values;
-  });
-  for (const sample of samples) {
-    expect(Math.abs(sample.left - before.left)).toBeLessThanOrEqual(1);
-    expect(Math.abs(sample.width - before.width)).toBeLessThanOrEqual(1);
-    expect(Math.abs(sample.right - before.right)).toBeLessThanOrEqual(1);
-  }
-});
-
-test("Editorial Paper keeps Today navigation colors, logo geometry, and plan date meaningful", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-
-  const navEvidence = await page.locator(".minimal-nav").evaluate((nav) => {
-    const buttons = Array.from(nav.querySelectorAll(":scope > button"));
-    return buttons.map((button) => {
-      const label = button.querySelector(".minimal-nav__label");
-      if (!label) return null;
-      const buttonStyle = getComputedStyle(button);
-      const labelStyle = getComputedStyle(label);
-      return {
-        active: button.classList.contains("active"),
-        buttonColor: buttonStyle.color,
-        labelColor: labelStyle.color,
-        labelMarginLeft: labelStyle.marginLeft,
-      };
-    }).filter(Boolean);
-  });
-
-  expect(navEvidence).toHaveLength(5);
-  for (const item of navEvidence) {
-    expect(item.labelColor).toBe(item.buttonColor);
-    expect(item.labelMarginLeft).toBe("0px");
-  }
-
-  const logoEvidence = await page.locator(".trail-nav__logo").evaluate((logo) => {
-    const ring = logo.querySelector(".trail-nav__logo-ring");
-    const dot = logo.querySelector(".trail-nav__logo-dot");
-    if (!ring || !dot) return null;
-    const logoRect = logo.getBoundingClientRect();
-    const ringRect = ring.getBoundingClientRect();
-    const dotRect = dot.getBoundingClientRect();
-    return {
-      outer: { left: logoRect.left, right: logoRect.right, top: logoRect.top, bottom: logoRect.bottom, width: logoRect.width, height: logoRect.height },
-      inner: { left: ringRect.left, right: ringRect.right, top: ringRect.top, bottom: ringRect.bottom, width: ringRect.width, height: ringRect.height },
-      dot: { left: dotRect.left, right: dotRect.right, top: dotRect.top, bottom: dotRect.bottom, width: dotRect.width, height: dotRect.height },
-      dotDisplay: getComputedStyle(dot).display,
-      outerRadius: getComputedStyle(logo).borderRadius,
-      innerRadius: getComputedStyle(ring).borderRadius,
-    };
-  });
-
-  expect(logoEvidence).not.toBeNull();
-  expect(logoEvidence.outer.width).toBeGreaterThan(logoEvidence.inner.width);
-  expect(logoEvidence.outer.height).toBeGreaterThan(logoEvidence.inner.height);
-  expect(logoEvidence.outerRadius).toBe("50%");
-  expect(logoEvidence.innerRadius).toBe("50%");
-  expect(logoEvidence.dotDisplay).toBe("block");
-  expect(logoEvidence.inner.left).toBeGreaterThan(logoEvidence.outer.left);
-  expect(logoEvidence.inner.right).toBeLessThan(logoEvidence.outer.right);
-  expect(logoEvidence.inner.top).toBeGreaterThan(logoEvidence.outer.top);
-  expect(logoEvidence.inner.bottom).toBeLessThan(logoEvidence.outer.bottom);
-  expect(logoEvidence.dot.left).toBeGreaterThanOrEqual(logoEvidence.outer.left);
-  expect(logoEvidence.dot.right).toBeLessThanOrEqual(logoEvidence.outer.right);
-  expect(logoEvidence.dot.top).toBeGreaterThanOrEqual(logoEvidence.outer.top);
-  expect(logoEvidence.dot.bottom).toBeLessThanOrEqual(logoEvidence.outer.bottom);
-  expect(logoEvidence.dot.left).toBeLessThan(logoEvidence.inner.right);
-  expect(logoEvidence.dot.right).toBeGreaterThan(logoEvidence.inner.left);
-  expect(logoEvidence.dot.top).toBeLessThan(logoEvidence.inner.bottom);
-  expect(logoEvidence.dot.bottom).toBeGreaterThan(logoEvidence.inner.top);
-  await expect(page.locator(".ep-kicker").first()).toHaveText("DAILY PLAN · 2026.09.05");
-  await expect(page.locator(".ep-kicker").first()).not.toContainText("0905");
-});
-
-test("REFINE-19 TODAY-01 keeps Editorial Paper long node text readable", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, {
-    expectedHeading: "今日节奏",
-    todoTitles: [
-      "这是一个用于复现今日节点信息被截断的超长任务名称需要完整显示给用户阅读并且不能因为单行省略而丢失后半段语义",
-      "第二条同样很长的任务标题用来确认多条节点在纸页中仍然保留完整语义信息即使窗口变窄也应该可以继续阅读",
-      "短任务",
-    ],
-    completedTodoTitles: ["已经完成但仍应保留在今日页中的长任务记录不能只显示一小段"],
-  });
-
-  const readEvidence = () => page.locator(".ep-field-row").evaluateAll((rows) => rows.map((row) => {
-    const title = row.querySelector(".ep-field-row__copy strong");
-    if (!title) return null;
-    const style = getComputedStyle(title);
-    return {
-      text: title.textContent,
-      clientWidth: title.clientWidth,
-      scrollWidth: title.scrollWidth,
-      overflow: style.overflow,
-      textOverflow: style.textOverflow,
-      whiteSpace: style.whiteSpace,
-    };
-  }));
-  const desktopEvidence = await readEvidence();
-  await page.setViewportSize({ width: 420, height: 720 });
-  const narrowEvidence = await readEvidence();
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-01-after-9ecaf59-420.png"), animations: "disabled", fullPage: true });
-  console.log(`TODAY-01 desktop evidence: ${JSON.stringify(desktopEvidence)}`);
-  console.log(`TODAY-01 narrow evidence: ${JSON.stringify(narrowEvidence)}`);
-  for (const item of [...desktopEvidence, ...narrowEvidence]) {
-    expect(item.scrollWidth).toBeLessThanOrEqual(item.clientWidth);
-    expect(item.whiteSpace).toBe("normal");
-  }
-});
-
-test("REFINE-19 TODAY-02 hides the visual command trigger but keeps Ctrl+K", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-  const commandTrigger = page.locator(".command-trigger");
-  await expect(commandTrigger).toBeHidden();
-  await page.keyboard.press("Control+K");
-  await expect(page.getByRole("dialog", { name: "你想做什么？" })).toBeVisible();
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-02-after-9ecaf59.png"), animations: "disabled", fullPage: true });
-  await page.keyboard.press("Escape");
-});
-
-test("REFINE-19 TODAY-03 keeps Editorial Paper Today whitespace bounded", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-
-  const viewports = [[1487, 1058], [1120, 760], [820, 720], [560, 720], [420, 720]];
-  const measurements = [];
-  for (const [index, [width, height]] of viewports.entries()) {
-    await page.setViewportSize({ width, height });
-    if (index > 0) {
-      await page.reload();
-      await expect(page.getByRole("heading", { name: "今日节奏" })).toBeVisible();
-    }
-    measurements.push(await page.locator(".ep-today-page").evaluate(() => {
-      const header = document.querySelector(".ep-today-header")?.getBoundingClientRect();
-      const grid = document.querySelector(".ep-today-grid")?.getBoundingClientRect();
-      const firstRow = document.querySelector(".ep-field-row")?.getBoundingClientRect();
-      return {
-        gap: Number((grid.top - header.bottom).toFixed(2)),
-        gridTop: Number(grid.top.toFixed(2)),
-        firstRowTop: Number(firstRow.top.toFixed(2)),
-        viewportWidth: window.innerWidth,
-        viewportHeight: window.innerHeight,
-        scrollWidth: document.documentElement.scrollWidth,
-      };
-    }));
-  }
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-03-pass-9ecaf59-420.png"), animations: "disabled", fullPage: true });
-  console.log(`TODAY-03 measurements: ${JSON.stringify(measurements)}`);
-  for (const measurement of measurements) {
-    expect(measurement.gap).toBeLessThanOrEqual(32);
-    expect(measurement.gridTop).toBeLessThan(measurement.viewportHeight);
-    expect(measurement.firstRowTop).toBeLessThan(measurement.viewportHeight);
-    expect(measurement.scrollWidth).toBeLessThanOrEqual(measurement.viewportWidth);
-  }
-});
-
-test("REFINE-19 TODAY-04 keeps timer work in the Editorial Paper focus page", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-  const timerStrip = page.locator(".ep-today-timer-strip");
-  await expect(timerStrip).toHaveCount(0);
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-04-after-9ecaf59.png"), animations: "disabled", fullPage: true });
-  await page.locator(".ep-next-card").getByRole("button", { name: /开始专注/ }).click();
-  await expect(page.locator(".ep-focus-page")).toBeVisible();
-  await expect(page.locator(".ep-focus-page").getByRole("button", { name: "开始专注", exact: true })).toBeVisible();
-  await page.locator(".ep-focus-page").getByRole("button", { name: "开始专注", exact: true }).click();
-  await expect(page.locator(".ep-clock-card")).toContainText("倒计时中");
-});
-
-test("REFINE-19 TODAY-05 keeps Editorial Paper Today summary within the viewport", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  await page.setViewportSize({ width: 2560, height: 1368 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-
-  const viewports = [[2560, 1368], [1707, 912], [1487, 1058]];
-  const measurements = [];
-  for (const [width, height] of viewports) {
-    await page.setViewportSize({ width, height });
-    await expect.poll(() => page.evaluate(() => `${window.innerWidth}x${window.innerHeight}`)).toBe(`${width}x${height}`);
-    const expectedGap = width >= 821 && height <= 1100 ? "14px" : "22px";
-    await expect.poll(() => page.locator(".ep-today-page").evaluate((element) => getComputedStyle(element).gap)).toBe(expectedGap);
-    measurements.push(await page.locator(".ep-today-page").evaluate(() => {
-      const read = (selector) => {
-        const element = document.querySelector(selector);
-        if (!element) return null;
-        const rect = element.getBoundingClientRect();
-        return { top: Number(rect.top.toFixed(2)), bottom: Number(rect.bottom.toFixed(2)), height: Number(rect.height.toFixed(2)) };
-      };
-      return {
-        viewport: { width: window.innerWidth, height: window.innerHeight },
-        documentScrollWidth: document.documentElement.scrollWidth,
-        sheetFooter: read(".ep-sheet-footer"),
-        header: read(".ep-today-header"),
-        grid: read(".ep-today-grid"),
-        fieldSheet: read(".ep-field-sheet"),
-        nextCard: read(".ep-next-card"),
-        facts: read(".ep-facts-row"),
-        factsActions: read(".ep-facts-row__actions"),
-      };
-    }));
-  }
-  await page.setViewportSize({ width: 1707, height: 912 });
-  await expect.poll(() => page.locator(".ep-today-page").evaluate((element) => getComputedStyle(element).gap)).toBe("14px");
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-05-after-9ecaf59-1707x912.png"), animations: "disabled" });
-  console.log(`TODAY-05 measurements: ${JSON.stringify(measurements)}`);
-  for (const item of measurements) {
-    expect(item.documentScrollWidth).toBeLessThanOrEqual(item.viewport.width);
-    for (const selector of ["sheetFooter", "facts", "factsActions", "nextCard"]) {
-      expect(item[selector].bottom).toBeLessThanOrEqual(item.viewport.height);
-    }
-  }
-});
-
-test("REFINE-19 TODAY-05 keeps the summary in document flow with long todo data", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  const longTodoTitles = Array.from({ length: 21 }, (_, index) => `活动${String(index + 1).padStart(2, "0")}｜10月${(index % 9) + 1}日 10:00-12:00｜仙林校区会议与材料准备`);
-  const completedTodoTitles = Array.from({ length: 5 }, (_, index) => `已完成事项${index + 1}｜跨页面长标题压力数据｜归档复盘`);
-  for (const [width, height] of [[1487, 1058], [420, 720]]) {
-    await page.setViewportSize({ width, height });
-    await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", todoTitles: longTodoTitles, completedTodoTitles });
-    const evidence = await page.locator(".ep-today-page").evaluate(() => {
-      const facts = document.querySelector(".ep-facts-row")?.getBoundingClientRect();
-      return {
-        viewport: { width: innerWidth, height: innerHeight },
-        documentScrollWidth: document.documentElement.scrollWidth,
-        documentScrollHeight: document.documentElement.scrollHeight,
-        facts: facts ? { top: facts.top, bottom: facts.bottom, height: facts.height } : null,
-        rows: document.querySelectorAll(".ep-field-row").length,
-      };
-    });
-    expect(evidence.rows).toBe(21);
-    expect(evidence.facts).not.toBeNull();
-    expect(evidence.documentScrollWidth).toBeLessThanOrEqual(width + 1);
-    expect(evidence.documentScrollHeight).toBeGreaterThan(height);
-    expect(evidence.facts.bottom).toBeLessThanOrEqual(evidence.documentScrollHeight);
-    if (width === 1487) {
-      await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-05-reaudit-data-1487.png"), animations: "disabled", fullPage: true });
+  await bootReferenceMock(page);
+  const focusLines = [];
+  for (const [themeId, themeName] of themes) {
+    await selectTheme(page, themeId, themeName);
+    await navButton(page, "今日").click();
+    await expectOriginalToday(page, themeId);
+    await expect(page.locator(themeLayouts[themeId].today)).toContainText("整理研究资料");
+    if (themeId === "metro-pulse") {
+      await expect(page.locator(".mp-departure-card")).toContainText("整理研究资料");
+    } else if (themeId === "clutch-court") {
+      await expect(page.locator(".cc-home-court")).toContainText("整理研究资料");
     } else {
-      await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-05-reaudit-data-420.png"), animations: "disabled", fullPage: true });
+      await expect(page.locator(themeLayouts[themeId].today)).toContainText("02:15:00");
+      const copyId = await page.locator(".daily-focus-line").getAttribute("data-copy-id");
+      expect(copyId).toBeTruthy();
+      focusLines.push(copyId);
+    }
+  }
+  expect(new Set(focusLines).size).toBe(1);
+});
+
+test("Restored Today empty states distinguish layout placeholders from real tasks and records", async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.setViewportSize({ width: 1024, height: 900 });
+  await bootReferenceMock(page, { includeTodo: false, includeInbox: false, recordCount: 0, currentTodoId: null, todayPickIds: [] });
+  for (const [themeId, themeName] of themes) {
+    await selectTheme(page, themeId, themeName);
+    await navButton(page, "今日").click();
+    const surface = page.locator(themeLayouts[themeId].today);
+    await expect(surface).toBeVisible();
+    await expect(surface).not.toContainText("整理研究资料");
+    await expect(surface).not.toContainText("专注轮次");
+    await expect(page.locator(".unified-today-page, .continuity-board, .virtual-record")).toHaveCount(0);
+    if (themeId === "metro-pulse") {
+      await expect(page.locator(".mp-route-stop--empty")).toHaveCount(6);
+      await expect(page.locator(".mp-departure-empty")).toContainText("添加第一班");
+      await expect(page.locator(".mp-departure-empty h2")).toHaveText("站台等待乘客");
+    } else if (themeId === "clutch-court") {
+      await expect(page.locator(".cc-round-marker.empty")).toHaveCount(5);
+      await expect(page.locator(".cc-center-clock")).toContainText("等待布置第一回合");
+      await expect(page.locator(".cc-scoreboard")).toContainText("00");
+    } else if (themeId === "night-valley") {
+      await expect(page.locator(".trail-node")).toHaveCount(1);
+      await expect(page.locator(".trail-node--done")).toHaveCount(0);
+      await expect(page.locator(".trail-node")).toContainText("今天的第一段");
+      await expect(page.locator(".trail-map__footer strong")).toHaveText("今天的第一段，从这里开始");
+      await expect(surface.getByText("今天还没有安排待办", { exact: true })).toBeVisible();
+    } else if (themeId === "editorial-paper") {
+      await expect(page.locator(".ep-field-row")).toHaveCount(0);
+      await expect(page.locator(".ep-next-card h2")).toHaveText("留白也有意义");
+    } else if (themeId === "graphite-console") {
+      // Original seven non-interactive empty slots are decoration, never fake tasks.
+      await expect(page.locator(".gc-sequence-row--empty")).toHaveCount(7);
+      await expect(page.locator("button.gc-sequence-row")).toHaveCount(0);
+      await expect(page.locator(".gc-operation-empty h2")).toHaveText("等待下一件事");
     }
   }
 });
 
-test("REFINE-19 TODAY-06 marks the Editorial Paper winding route as not applicable", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-  await expect(page.locator(".ep-today-page")).toBeVisible();
-  await expect(page.locator(".trail-map__route-line")).toHaveCount(0);
-  await expect(page.locator(".ep-field-list")).toBeVisible();
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-06-not-applicable-9ecaf59.png"), animations: "disabled", fullPage: true });
-});
-
-test("REFINE-19 TODAY-07 keeps the Editorial Paper bottom summary visible", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  await page.setViewportSize({ width: 1707, height: 912 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-  const summary = page.locator(".ep-facts-row");
-  await expect(summary).toBeVisible();
-  const bounds = await summary.evaluate((element) => {
-    const rect = element.getBoundingClientRect();
-    return { top: rect.top, bottom: rect.bottom, viewportHeight: window.innerHeight };
-  });
-  expect(bounds.top).toBeGreaterThanOrEqual(0);
-  expect(bounds.bottom).toBeLessThanOrEqual(bounds.viewportHeight);
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-07-pass-9ecaf59-1707x912.png"), animations: "disabled" });
-});
-
-test("REFINE-19 TODAY-08 marks the Editorial Paper hard route geometry as not applicable", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-  await expect(page.locator(".ep-today-page")).toBeVisible();
-  await expect(page.locator(".trail-map__route-line")).toHaveCount(0);
-  await expect(page.locator(".ep-field-row").first()).toBeVisible();
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-08-not-applicable-9ecaf59.png"), animations: "disabled", fullPage: true });
-});
-
-test("REFINE-19 TODAY-09 Editorial Paper Today exposes a live clock after the date", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-  const date = page.locator(".ep-date-time__date");
-  const clock = page.locator('time[aria-label^="当前时间"]');
-  await expect(date).toHaveCount(1);
-  await expect(clock).toHaveCount(1);
-  await expect(clock).toHaveText(/^\d{2}:\d{2}:\d{2}$/);
-  const fonts = await page.locator(".ep-date-time").evaluate((element) => ({
-    date: getComputedStyle(element.querySelector(".ep-date-time__date")).fontFamily,
-    clock: getComputedStyle(element.querySelector(".ep-date-time__clock")).fontFamily,
-  }));
-  expect(fonts.date).not.toBe(fonts.clock);
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-09-after-9ecaf59.png"), animations: "disabled", fullPage: true });
-});
-
-test("REFINE-19 TODAY-10 keeps real next-step value in the Editorial Paper side card", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-  const nextCard = page.locator(".ep-next-card");
-  await expect(nextCard).toContainText("明日规划");
-  await expect(nextCard.locator(".ep-next-card__duration strong")).toHaveText("45");
-  await expect(nextCard).toContainText("今天截止");
-  await expect(nextCard.getByRole("button", { name: /开始专注/ })).toHaveCount(1);
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-10-pass-9ecaf59.png"), animations: "disabled", fullPage: true });
-});
-
-test("REFINE-19 TODAY-11 records the undefined audit-plan item without inventing a UI issue", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-  await expect(page.locator(".ep-today-page")).toBeVisible();
-  await expect(page.locator(".ep-page-header h1")).toHaveText("今日节奏");
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-11-not-applicable-9ecaf59.png"), animations: "disabled", fullPage: true });
-});
-
-test("Editorial Paper keeps shared actions and page bounds usable at pressure widths", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-
-  for (const [width, height] of [[1120, 760], [820, 720], [560, 720], [420, 720]]) {
+test("Restored Today remains inside the viewport from desktop to narrow mobile", async ({ page }) => {
+  test.setTimeout(90_000);
+  for (const [width, height, name] of [[1487, 1058, "wide"], [1024, 900, "medium"], [560, 900, "narrow"]]) {
     await page.setViewportSize({ width, height });
-    await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-    const pages = [
-      ["今日", ".ep-today-page"],
-      ["计时", ".ep-focus-page"],
-      ["待办", ".ep-todos-page"],
-      ["记录", ".ep-records-page"],
-      ["设置", ".ep-settings-page"],
-    ];
-
-    for (const [label, selector] of pages) {
-      if (label !== "今日") {
-        await pageButton(page, label).click();
-      }
-      const surface = page.locator(selector);
-      await expect(surface).toBeVisible();
-      const bounds = await surface.evaluate((element) => {
-        const rect = element.getBoundingClientRect();
-        return { right: rect.right, width: rect.width, scrollWidth: document.documentElement.scrollWidth };
-      });
-      expect(bounds.right).toBeLessThanOrEqual(width + 1);
-      expect(bounds.scrollWidth).toBeLessThanOrEqual(width + 1);
+    await bootReferenceMock(page);
+    for (const selector of [".trail-page", ".trail-map__viewport"]) {
+      const rect = await page.locator(selector).boundingBox();
+      expect(rect).not.toBeNull();
+      expect(rect.x).toBeGreaterThanOrEqual(0);
+      expect(rect.x + rect.width).toBeLessThanOrEqual(width + 1);
     }
-
-    await pageButton(page, "今日").click();
-    await expect(page.locator(".ep-today-timer-strip")).toHaveCount(0);
-    await page.locator(".ep-next-card").getByRole("button", { name: /开始专注/ }).click();
-    await expect(page.locator(".ep-focus-page")).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width + 1);
+    await expect(page.locator(".trail-node")).toHaveCount(5);
+    await page.screenshot({ path: testOutputPath("screenshots", `restored-today-${name}.png`), animations: "disabled" });
   }
 });
 
-test("REFINE-19 TIMER-01 gives every Editorial Paper tab the same live date and clock", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  for (const [width, height] of [[1487, 1058], [420, 720]]) {
-    await page.setViewportSize({ width, height });
-    await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-    for (const [label, selector] of [
-      ["今日", ".ep-today-page"],
-      ["计时", ".ep-focus-page"],
-      ["待办", ".ep-todos-page"],
-      ["记录", ".ep-records-page"],
-      ["设置", ".ep-settings-page"],
-    ]) {
-      if (label !== "今日") {
-        await pageButton(page, label).click();
-      }
-      await expect(page.locator(selector)).toBeVisible();
-      const slug = label === "今日" ? "today" : label === "计时" ? "focus" : label === "待办" ? "todos" : label === "记录" ? "records" : "settings";
-      const date = page.locator(".ep-date-time__date");
-      const clock = page.locator('time[aria-label^="当前时间"]');
-      await expect(date).toHaveCount(1);
-      await expect(clock).toHaveCount(1);
-      await expect(clock).toHaveText(/^\d{2}:\d{2}:\d{2}$/);
-      await expect(page.locator(".ep-date-time")).toBeVisible();
-      const layout = await page.locator(".ep-date-time").evaluate((element) => {
-        const dateRect = element.querySelector(".ep-date-time__date").getBoundingClientRect();
-        const clockRect = element.querySelector(".ep-date-time__clock").getBoundingClientRect();
-        const navRect = document.querySelector(".minimal-nav").getBoundingClientRect();
-        return { dateRight: dateRect.right, clockLeft: clockRect.left, clockTop: clockRect.top, clockBottom: clockRect.bottom, navBottom: navRect.bottom, viewportWidth: innerWidth };
-      });
-      expect(layout.clockLeft).toBeGreaterThanOrEqual(layout.dateRight);
-      expect(layout.clockBottom).toBeLessThanOrEqual(height);
-      if (width <= 820) {
-        expect(layout.clockTop).toBeGreaterThanOrEqual(layout.navBottom);
-      }
-      const fonts = await page.locator(".ep-date-time").evaluate((element) => ({
-        date: getComputedStyle(element.querySelector(".ep-date-time__date")).fontFamily,
-        clock: getComputedStyle(element.querySelector(".ep-date-time__clock")).fontFamily,
-      }));
-      expect(fonts.date).not.toBe(fonts.clock);
-      await page.screenshot({ path: testOutputPath("qa", "REFINE-19", `TIMER-01-after-9ecaf59-${slug}-${width}.png`), animations: "disabled", fullPage: true });
-    }
-  }
-});
-
-test("REFINE-19 TIMER-02 keeps Editorial Paper timer hierarchy readable", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  for (const viewport of [
-    { width: 1487, height: 1058 },
-    { width: 420, height: 720 },
-  ]) {
-    await page.setViewportSize(viewport);
-    await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-    await pageButton(page, "计时").click();
-    await expect(page.locator(".ep-focus-page")).toBeVisible();
-    const metrics = await page.locator(".ep-focus-page").evaluate(() => {
-      const read = (selector) => {
-        const element = document.querySelector(selector);
-        const rect = element?.getBoundingClientRect();
-        return rect ? { width: Number(rect.width.toFixed(2)), height: Number(rect.height.toFixed(2)), top: Number(rect.top.toFixed(2)), bottom: Number(rect.bottom.toFixed(2)) } : null;
-      };
-      return {
-        focusLayout: read(".ep-focus-layout"),
-        clockCard: read(".ep-clock-card"),
-        ring: read(".ep-clock-card__ring"),
-        readout: read(".ep-clock-card__readout > strong"),
-        primaryAction: read(".ep-clock-card__actions .ep-primary-button"),
-        mode: read(".ep-clock-card__mode"),
-        inlineField: read(".ep-inline-field"),
-        readoutFontSize: getComputedStyle(document.querySelector(".ep-clock-card__readout > strong")).fontSize,
-      };
-    });
-    expect(metrics.ring).not.toBeNull();
-    expect(metrics.readout).not.toBeNull();
-    expect(metrics.primaryAction).not.toBeNull();
-    expect(metrics.mode).not.toBeNull();
-    expect(metrics.inlineField).not.toBeNull();
-    expect(metrics.ring.width).toBeLessThanOrEqual(Math.min(300.5, metrics.clockCard.width * 0.72 + 1));
-    expect(metrics.ring.width / metrics.clockCard.width).toBeLessThanOrEqual(0.72);
-    expect(Number.parseFloat(metrics.readoutFontSize)).toBeLessThanOrEqual(52);
-    expect(metrics.readout.bottom).toBeLessThan(metrics.mode.top);
-    expect(metrics.mode.bottom).toBeLessThan(metrics.inlineField.top);
-    expect(metrics.primaryAction.bottom).toBeLessThanOrEqual(metrics.clockCard.bottom);
-    await page.screenshot({ path: testOutputPath("qa", "REFINE-19", `TIMER-02-reaudit-pass-${viewport.width}.png`), animations: "disabled", fullPage: true });
-  }
-});
-
-test("REFINE-19 TIMER-03 keeps Editorial Paper lines semantic", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-  await pageButton(page, "计时").click();
-  await expect(page.locator(".ep-focus-page")).toBeVisible();
-  await expect(page.locator(".ep-clock-card__ring")).toBeVisible();
-  await expect(page.locator(".ep-focus-footer")).toBeVisible();
-  await expect(page.locator(".ep-clock-card__tick")).toHaveCount(4);
-  expect(await page.locator(".ep-focus-page .trail-map__route-line").count()).toBe(0);
-  expect(await page.locator(".ep-focus-page .nv-focus-route").count()).toBe(0);
-  expect(await page.locator(".ep-focus-page [data-route]").count()).toBe(0);
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TIMER-03-not-applicable-9ecaf59.png"), animations: "disabled", fullPage: true });
-});
-
-test("REFINE-19 TIMER-04 keeps Editorial Paper focus content in the full-screen safe area", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  await page.setViewportSize({ width: 2560, height: 1368 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-  await pageButton(page, "计时").click();
-  await expect(page.locator(".ep-focus-page")).toBeVisible();
-  const measurements = [];
-  for (const [width, height] of [[2560, 1368], [1707, 912], [1487, 1058], [420, 720]]) {
-    await page.setViewportSize({ width, height });
-    measurements.push(await page.locator(".ep-focus-page").evaluate(() => {
-      const read = (selector) => {
-        const element = document.querySelector(selector);
-        if (!element) return null;
-        const rect = element.getBoundingClientRect();
-        return { top: Number(rect.top.toFixed(2)), bottom: Number(rect.bottom.toFixed(2)), height: Number(rect.height.toFixed(2)) };
-      };
-      return {
-        viewport: { width: innerWidth, height: innerHeight },
-        documentScrollHeight: document.documentElement.scrollHeight,
-        page: read(".ep-focus-page"),
-        header: read(".ep-page-header"),
-        layout: read(".ep-focus-layout"),
-        clockCard: read(".ep-clock-card"),
-        leftNotes: read(".ep-note-stack--left"),
-        rightNotes: read(".ep-focus-notes"),
-        footer: read(".ep-focus-footer"),
-        readout: read(".ep-clock-card__readout"),
-        inlineField: read(".ep-inline-field"),
-        actions: read(".ep-clock-card__actions"),
-      };
-    }));
-  }
-  await page.setViewportSize({ width: 1707, height: 912 });
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TIMER-04-pass-9ecaf59-1707x912.png"), animations: "disabled" });
-  console.log(`TIMER-04 measurements: ${JSON.stringify(measurements)}`);
-  for (const item of measurements) {
-    expect(item.page).not.toBeNull();
-    expect(item.header).not.toBeNull();
-    expect(item.layout).not.toBeNull();
-    expect(item.clockCard).not.toBeNull();
-    expect(item.readout).not.toBeNull();
-    expect(item.inlineField).not.toBeNull();
-    expect(item.actions).not.toBeNull();
-    expect(item.footer).not.toBeNull();
-    expect(item.page.top).toBeGreaterThanOrEqual(0);
-    expect(item.documentScrollHeight).toBeGreaterThanOrEqual(item.page.bottom);
-    if (item.viewport.width >= 821) {
-      expect(item.page.bottom).toBeLessThanOrEqual(item.viewport.height);
-      for (const key of ["readout", "inlineField", "actions", "footer"]) {
-        expect(item[key].bottom).toBeLessThanOrEqual(item.viewport.height);
-      }
-    }
-  }
-});
-
-test("REFINE-19 TIMER-05 keeps Editorial Paper timer fields explicit", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-  await pageButton(page, "计时").click();
-  const focusPage = page.locator(".ep-focus-page");
-  await expect(focusPage).toBeVisible();
-  await expect(focusPage).toContainText("当前状态");
-  await expect(focusPage).toContainText("正向计时");
-  await expect(focusPage).toContainText("倒计时");
-  await expect(focusPage).toContainText("专注时长");
-  await expect(focusPage).toContainText("今日专注");
-  for (const label of ["开始专注", "完成并记录", "清空设置", "我想专注于…", "关联待办", "本轮完成后同时标记关联待办"]) {
-    await expect(focusPage).toContainText(label);
-  }
-  const noteFields = await focusPage.locator(".ep-note-paper label").evaluateAll((labels) => labels.map((label) => {
-    const rect = label.getBoundingClientRect();
-    return { top: rect.top, bottom: rect.bottom, height: rect.height };
-  }));
-  expect(noteFields).toHaveLength(3);
-  expect(noteFields[0].bottom).toBeLessThanOrEqual(noteFields[1].top);
-  expect(noteFields[1].bottom).toBeLessThanOrEqual(noteFields[2].top);
-  expect(await focusPage.locator(".ep-focus-notes").locator(".ep-note-paper").count()).toBe(1);
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TIMER-05-pass-9ecaf59.png"), animations: "disabled", fullPage: true });
-});
-
-test("REFINE-19 TIMER-06 hides the command trigger on every Editorial Paper tab", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-  for (const [label, selector, slug] of [
-    ["今日", ".ep-today-page", "today"],
-    ["计时", ".ep-focus-page", "focus"],
-    ["待办", ".ep-todos-page", "todos"],
-    ["记录", ".ep-records-page", "records"],
-    ["设置", ".ep-settings-page", "settings"],
-  ]) {
-    if (label !== "今日") await pageButton(page, label).click();
-    await expect(page.locator(selector)).toBeVisible();
-    await expect(page.locator(".command-trigger")).toBeHidden();
-    await page.screenshot({ path: testOutputPath("qa", "REFINE-19", `TIMER-06-after-9ecaf59-${slug}.png`), animations: "disabled", fullPage: true });
-  }
+test("Todos keeps inbox semantics and exposes the focus plan only after expanding its footer", async ({ page }) => {
+  await bootReferenceMock(page);
+  await navButton(page, "待办").click();
+  const disclosure = page.locator("details.restored-focus-plan");
+  await expect(disclosure).toHaveCount(1);
+  await expect(disclosure).not.toHaveAttribute("open");
+  await expect(page.locator(".focus-plan-controls")).toBeHidden();
+  await disclosure.locator("summary").click();
+  await expect(disclosure).toHaveAttribute("open", "");
+  await expect(page.locator(".focus-plan-controls")).toBeVisible();
+  const inbox = page.locator(".nv-todo-date-group").filter({ hasText: "收件箱 · 未安排" });
+  await expect(inbox).toContainText("回看上次停笔位置");
+  await expect(inbox).not.toContainText("已过期");
+  await expect(page.locator(".focus-plan-controls")).toContainText("回看上次停笔位置");
   await page.keyboard.press("Control+K");
-  await expect(page.getByRole("dialog", { name: "你想做什么？" })).toBeVisible();
-  await page.keyboard.press("Escape");
+  await page.getByRole("searchbox", { name: "搜索命令" }).fill("快速收进收件箱");
+  await page.getByRole("option", { name: "快速收进收件箱 记下一件事，不填日期也可以", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "先记下来，稍后再整理" })).toBeVisible();
+  await expect(navButton(page, "待办")).toHaveClass(/active/);
 });
 
-test("REFINE-19 TIMER-07 makes Editorial Paper focus fields drive the real timer flow", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
+test("Records keeps long-term statistics and real record source labels", async ({ page }) => {
+  await bootReferenceMock(page);
+  await navButton(page, "记录").click();
+  await expect(page.locator(".records-page")).toBeVisible();
+  await expect(page.getByText("累计专注", { exact: true })).toBeVisible();
+  await expect(page.getByText("今天留下", { exact: true })).toBeVisible();
+  await expect(page.getByText(/计时完成/).first()).toBeVisible();
+  await expect(page.getByText("连续 9 天", { exact: true })).toHaveCount(0);
+});
+
+test("Graphite records show a complete thirty-day trail and aligned rhythm log", async ({ page }) => {
   await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-  await page.evaluate(() => {
-    const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
-    window.__epTimerInvoke = [];
-    let syntheticSnapshot = null;
-    window.__TAURI_INTERNALS__.invoke = async (command, args = {}) => {
-      window.__epTimerInvoke.push(command);
-      if (command === "get_timer_snapshot" && syntheticSnapshot) {
-        return syntheticSnapshot;
-      }
-      const result = await nativeInvoke(command, args);
-      if (command === "start_timer" || command === "pause_timer") {
-        syntheticSnapshot = { ...result, elapsedMs: 1000, elapsedLabel: "00:00:01", canCompleteSession: true, hasUnsubmittedProgress: true };
-        return syntheticSnapshot;
-      }
-      if (command === "complete_focus_session") {
-        const current = syntheticSnapshot ?? await nativeInvoke("get_timer_snapshot");
-        const records = await nativeInvoke("get_focus_records");
-        const todoItems = await nativeInvoke("get_todo_items");
-        syntheticSnapshot = null;
-        return {
-          timerSnapshot: { ...current, status: "未开始", isRunning: false, elapsedMs: 0, elapsedLabel: "00:00:00", hasUnsubmittedProgress: false, activeTaskTitle: "", linkedTodoId: null, completeLinkedTodoOnFinish: false },
-          records,
-          todoItems,
-        };
-      }
-      return result;
-    };
-  });
-  await pageButton(page, "计时").click();
-  const focusPage = page.locator(".ep-focus-page");
-  const clockCard = page.locator(".ep-clock-card");
-  await expect(focusPage).toBeVisible();
+  await bootReferenceMock(page, { themeId: "graphite-console" });
+  await navButton(page, "记录").click();
 
-  await focusPage.locator('input[name="editorialSessionTitle"]').fill("整理审计证据");
-  await focusPage.locator('input[name="editorialCountdownMinutes"]').fill("60");
-  await expect(clockCard.locator(".ep-clock-card__readout > strong")).toHaveText("01:00:00");
-  await expect(clockCard).toContainText("设定 60 分钟");
-  await focusPage.getByRole("button", { name: "开始专注", exact: true }).click();
-  await expect(clockCard).toContainText("倒计时中");
-  await expect(clockCard.getByRole("button", { name: "暂停", exact: true })).toBeVisible();
-  await expect(clockCard.getByRole("button", { name: "完成并记录", exact: true })).toBeVisible();
-  await expect(focusPage.locator('input[name="editorialSessionTitle"]')).toBeDisabled();
-  await expect(focusPage.locator('input[name="editorialCountdownMinutes"]')).toBeDisabled();
+  const trend = page.locator(".gc-trend-panel");
+  await expect(trend.locator(".gc-trend-lines > button")).toHaveCount(30);
+  await expect(trend.locator(".gc-trend-footer")).toContainText("最近 30 天");
+  await expect(trend.locator(".gc-trend-footer")).toContainText("1 天有投入 · 共 02:15:00");
+  await expect(trend.getByRole("button", { name: /回到最近/ })).toBeVisible();
 
-  await clockCard.getByRole("button", { name: "暂停", exact: true }).click();
-  await expect(clockCard).toContainText("已暂停");
-  await expect(clockCard.getByRole("button", { name: "继续专注", exact: true })).toBeVisible();
-  await expect(clockCard.getByRole("button", { name: "重置本次专注", exact: true })).toBeEnabled();
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TIMER-07-after-9ecaf59.png"), animations: "disabled", fullPage: true });
-  await expect(clockCard.getByRole("button", { name: "完成并记录", exact: true })).toBeEnabled();
-  await clockCard.getByRole("button", { name: "完成并记录", exact: true }).click();
-  await expect(focusPage.locator(".ep-inline-confirmation")).toContainText("这一段已经收进记录");
-  const commands = await page.evaluate(() => window.__epTimerInvoke);
-  expect(commands).toEqual(expect.arrayContaining(["set_countdown_minutes", "update_timer_context", "start_timer", "pause_timer", "complete_focus_session"]));
-});
+  const log = page.locator(".gc-event-log");
+  await expect(log).toContainText("每行是一段已保存的专注");
+  await expect(log.locator(".gc-event-log__heading > span")).toHaveCount(6);
+  await expect(log.locator(".gc-event-log__heading")).toContainText("完成时间");
+  await expect(log.locator(".gc-event-log__heading")).toContainText("时长");
+  const firstEvent = log.locator(".gc-event-row").first();
+  await expect(firstEvent.locator(".gc-event-row__record")).toContainText("正向计时");
+  await expect(firstEvent.locator(".gc-event-row__status")).toHaveText("已保存");
+  await expect(firstEvent.locator(".gc-event-row__duration")).toContainText("00:45:00");
+  await expect(firstEvent.locator(".gc-event-row__source")).toHaveText("计时完成");
+  await expect(firstEvent).not.toContainText("OK");
+  await expect(firstEvent.locator(".gc-event-row__actions button")).toHaveCount(2);
 
-test("REFINE-19 TIMER-08 keeps long Editorial Paper focus-note text readable", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  const longTodoTitle = "整理一份很长的研究审计证据清单并确认每个字段都能被完整回看";
-  for (const [width, height] of [[1487, 1058], [420, 720]]) {
-    await page.setViewportSize({ width, height });
-    await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", todoTitles: [longTodoTitle] });
-    await pageButton(page, "计时").click();
-    const focusPage = page.locator(".ep-focus-page");
-    const notePaper = focusPage.locator(".ep-note-paper");
-    await expect(notePaper).toBeVisible();
-    await focusPage.locator('input[name="editorialSessionTitle"]').fill("这是一个很长的本轮专注主题用于核对右侧卡片文字换行是否会遮挡其他字段与操作");
-    await focusPage.locator('select[name="editorialLinkedTodo"]').selectOption("101");
-    await expect(notePaper.locator(".ep-note-paper__linked")).toContainText(longTodoTitle);
-    const bounds = await notePaper.evaluate((element) => {
-      const rect = element.getBoundingClientRect();
-      const textBlocks = [...element.querySelectorAll("label, .ep-note-paper__linked")].map((child) => {
-        const childRect = child.getBoundingClientRect();
-        return { left: childRect.left, right: childRect.right, top: childRect.top, bottom: childRect.bottom, scrollWidth: child.scrollWidth, clientWidth: child.clientWidth };
-      });
-      return { left: rect.left, right: rect.right, scrollWidth: element.scrollWidth, clientWidth: element.clientWidth, textBlocks, documentScrollWidth: document.documentElement.scrollWidth, viewportWidth: innerWidth };
-    });
-    expect(bounds.left).toBeGreaterThanOrEqual(0);
-    expect(bounds.right).toBeLessThanOrEqual(bounds.viewportWidth + 1);
-    expect(bounds.scrollWidth).toBeLessThanOrEqual(bounds.clientWidth + 1);
-    expect(bounds.textBlocks.every((block) => block.left >= 0 && block.right <= bounds.viewportWidth + 1 && block.scrollWidth <= block.clientWidth + 1)).toBe(true);
-    expect(bounds.documentScrollWidth).toBeLessThanOrEqual(bounds.viewportWidth + 1);
-    await page.evaluate(() => window.scrollTo(0, 0));
-    await page.screenshot({ path: testOutputPath("qa", "REFINE-19", `TIMER-08-pass-9ecaf59-${width}.png`), animations: "disabled", fullPage: true });
+  for (const width of [1024, 560]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(trend.locator(".gc-trend-lines > button")).toHaveCount(30);
+    const dimensions = await page.evaluate(() => ({
+      clientWidth: document.documentElement.clientWidth,
+      scrollWidth: document.documentElement.scrollWidth,
+    }));
+    expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth + 1);
   }
 });
 
-test("REFINE-19 TIMER-09 makes Editorial Paper reset explicit and usable", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-  await page.evaluate(() => {
-    const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
-    window.__TAURI_INTERNALS__.invoke = async (command, args = {}) => {
-      const result = await nativeInvoke(command, args);
-      if (command === "reset_timer") {
-        return { ...result, status: "未开始", isRunning: false, elapsedMs: 0, elapsedLabel: "00:45:00", targetDurationMs: 45 * 60 * 1000, remainingMs: 45 * 60 * 1000, hasUnsubmittedProgress: false, activeTaskTitle: "", linkedTodoId: null, completeLinkedTodoOnFinish: false };
-      }
-      return result;
-    };
-  });
-  await pageButton(page, "计时").click();
-  const focusPage = page.locator(".ep-focus-page");
-  const clockCard = page.locator(".ep-clock-card");
-  const clearSettings = clockCard.getByRole("button", { name: "清空设置", exact: true });
-  await expect(clearSettings).toBeEnabled();
-  await expect(clearSettings).toHaveAttribute("title", "清除当前标题、时长和待办选择");
-  await focusPage.locator('input[name="editorialSessionTitle"]').fill("临时专注主题");
-  await focusPage.locator('input[name="editorialCountdownMinutes"]').fill("60");
-  await clearSettings.click();
-  await expect(focusPage.locator('input[name="editorialSessionTitle"]')).toHaveValue("");
-  await expect(focusPage.locator('input[name="editorialCountdownMinutes"]')).toHaveValue("45");
-  await expect(clockCard.getByRole("button", { name: "清空设置", exact: true })).toBeEnabled();
-  await expect(page.locator(".app-message")).toContainText("本轮已重置，没有生成记录");
-
-  await focusPage.locator('input[name="editorialSessionTitle"]').fill("正式专注主题");
-  await clockCard.getByRole("button", { name: "开始专注", exact: true }).click();
-  await expect(clockCard.getByRole("button", { name: "重置本次专注", exact: true })).toBeEnabled();
-  await expect(clockCard.getByRole("button", { name: "重置本次专注", exact: true })).toHaveAttribute("title", "放弃当前计时并清除本次专注设置");
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TIMER-09-after-active-9ecaf59.png"), animations: "disabled", fullPage: true });
-  await clockCard.getByRole("button", { name: "重置本次专注", exact: true }).click();
-  await expect(clockCard.getByRole("button", { name: "清空设置", exact: true })).toBeEnabled();
-  await expect(focusPage.locator('input[name="editorialSessionTitle"]')).toHaveValue("");
-  await expect(focusPage.locator('input[name="editorialCountdownMinutes"]')).toHaveValue("45");
-  await expect(page.locator(".app-message")).toContainText("本轮已重置，没有生成记录");
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TIMER-09-after-clear-9ecaf59.png"), animations: "disabled", fullPage: true });
+test("Night Valley record dates expand and collapse through an explicit control", async ({ page }) => {
+  await bootReferenceMock(page);
+  await navButton(page, "记录").click();
+  const day = page.locator(".record-day").first();
+  const toggle = day.locator(".record-day__summary");
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  await expect(day.locator(".record-row")).toHaveCount(3);
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await expect(day.locator(".record-day__items")).toHaveCount(0);
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  await expect(day.locator(".record-row")).toHaveCount(3);
 });
 
-test("REFINE-19 TIMER-10 keeps keyboard actions global without a shortcut panel", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", includeTodo: false });
-  await pageButton(page, "计时").click();
-  await expect(page.locator(".ep-focus-footer")).not.toContainText("Ctrl");
-  await expect(page.locator(".ep-focus-page kbd")).toHaveCount(0);
-
-  await pageButton(page, "设置").click();
+test("Editorial Paper explains workspace motion and density with a live preview", async ({ page }) => {
+  await bootReferenceMock(page);
+  await navButton(page, "设置").click();
+  await selectTheme(page, "editorial-paper", "编辑纸页");
   const workspace = page.locator(".ep-settings-paper--workspace");
-  await expect(workspace).toBeVisible();
-  await expect(page.locator(".ep-settings-paper--shortcuts")).toHaveCount(0);
-  await expect(workspace.locator('input[type="range"]')).toHaveCount(2);
-
-  await page.keyboard.press("Control+Enter");
-  await expect(page.locator(".app-message")).toContainText("先写下一件要完成的事");
-  await page.keyboard.press("Control+Shift+E");
-  await expect(page.locator(".app-message")).toContainText("当前还没有可以保存的专注进度");
-  await page.keyboard.press("Control+K");
-  await expect(page.getByRole("dialog", { name: "你想做什么？" })).toBeVisible();
-  await page.keyboard.press("Escape");
-  await pageButton(page, "设置").click();
-  await expect(workspace).toBeVisible();
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TIMER-10-pass-9ecaf59.png"), animations: "disabled", fullPage: true });
-});
-
-test("REFINE-19 TIMER-11 keeps the Editorial Paper right note readable fullscreen", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  await page.setViewportSize({ width: 2560, height: 1368 });
-  const measurements = [];
-  for (const [width, height] of [[2560, 1368], [1707, 912], [1487, 1058]]) {
-    await page.setViewportSize({ width, height });
-    await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-    await pageButton(page, "计时").click();
-    const result = await page.locator(".ep-focus-notes").evaluate((notes) => {
-      const read = (selector) => [...notes.querySelectorAll(selector)].map((element) => {
-        const rect = element.getBoundingClientRect();
-        return { selector, left: Number(rect.left.toFixed(2)), right: Number(rect.right.toFixed(2)), top: Number(rect.top.toFixed(2)), bottom: Number(rect.bottom.toFixed(2)), width: Number(rect.width.toFixed(2)), height: Number(rect.height.toFixed(2)) };
-      });
-      const blocks = [
-        ...read(".ep-note-paper > .ep-section-label"),
-        ...read(".ep-note-paper > label"),
-        ...read(".ep-note-paper > .ep-note-paper__linked"),
-        ...read(".ep-mini-note"),
-      ];
-      const overlaps = [];
-      for (let index = 0; index < blocks.length; index += 1) {
-        for (let next = index + 1; next < blocks.length; next += 1) {
-          const a = blocks[index];
-          const b = blocks[next];
-          if (a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top) overlaps.push([index, next]);
-        }
-      }
-      const notesRect = notes.getBoundingClientRect();
-      return { viewport: { width: innerWidth, height: innerHeight }, notes: { left: notesRect.left, right: notesRect.right, top: notesRect.top, bottom: notesRect.bottom }, blocks, overlaps, documentScrollWidth: document.documentElement.scrollWidth };
-    });
-    measurements.push(result);
-    if (width === 1707) {
-      await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TIMER-11-pass-9ecaf59-1707x912.png"), animations: "disabled", fullPage: true });
-    }
-  }
-  console.log(`TIMER-11 measurements: ${JSON.stringify(measurements)}`);
-  for (const item of measurements) {
-    expect(item.notes.left).toBeGreaterThanOrEqual(0);
-    expect(item.notes.right).toBeLessThanOrEqual(item.viewport.width + 1);
-    expect(item.overlaps).toEqual([]);
-    expect(item.documentScrollWidth).toBeLessThanOrEqual(item.viewport.width + 1);
-    expect(item.blocks.every((block) => block.left >= 0 && block.right <= item.viewport.width + 1 && block.height > 0)).toBe(true);
-    if (item.viewport.width >= 821) expect(item.notes.bottom).toBeLessThanOrEqual(item.viewport.height);
-  }
-});
-
-test("REFINE-19 TIMER-12 keeps a 01:00:00 Editorial Paper readout away from stats", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  await page.setViewportSize({ width: 2560, height: 1368 });
-  const measurements = [];
-  for (const [width, height] of [[2560, 1368], [1707, 912], [420, 720]]) {
-    await page.setViewportSize({ width, height });
-    await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-    await pageButton(page, "计时").click();
-    const focusPage = page.locator(".ep-focus-page");
-    await focusPage.locator('input[name="editorialCountdownMinutes"]').fill("60");
-    await expect(focusPage.locator(".ep-clock-card__readout > strong")).toHaveText("01:00:00");
-    measurements.push(await focusPage.evaluate(() => {
-      const read = (selector) => {
-        const element = document.querySelector(selector);
-        if (!element) return null;
-        const rect = element.getBoundingClientRect();
-        return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height };
-      };
-      return {
-        viewport: { width: innerWidth, height: innerHeight },
-        ring: read(".ep-clock-card__ring"),
-        readout: read(".ep-clock-card__readout"),
-        mode: read(".ep-clock-card__mode"),
-        target: read(".ep-inline-field"),
-        actions: read(".ep-clock-card__actions"),
-        todayFocus: read(".ep-taped-note--sage"),
-        documentScrollWidth: document.documentElement.scrollWidth,
-      };
-    }));
-    if (width === 1707) {
-      await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TIMER-12-pass-9ecaf59-1707x912.png"), animations: "disabled", fullPage: true });
-    }
-  }
-  console.log(`TIMER-12 measurements: ${JSON.stringify(measurements)}`);
-  for (const item of measurements) {
-    for (const key of ["ring", "readout", "mode", "target", "actions", "todayFocus"]) expect(item[key]).not.toBeNull();
-    expect(item.readout.left).toBeGreaterThanOrEqual(item.ring.left);
-    expect(item.readout.right).toBeLessThanOrEqual(item.ring.right);
-    const blocks = [item.readout, item.mode, item.target, item.actions, item.todayFocus];
-    for (let index = 0; index < blocks.length; index += 1) {
-      for (let next = index + 1; next < blocks.length; next += 1) {
-        const a = blocks[index];
-        const b = blocks[next];
-        expect(a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top).toBe(false);
-      }
-    }
-    expect(item.documentScrollWidth).toBeLessThanOrEqual(item.viewport.width + 1);
-  }
-});
-
-test("REFINE-19 TIMER-13 keeps Editorial Paper status and mode copy separated", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  await page.setViewportSize({ width: 2560, height: 1368 });
-  const measurements = [];
-  for (const [width, height] of [[2560, 1368], [1707, 912], [420, 720]]) {
-    await page.setViewportSize({ width, height });
-    await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-    await pageButton(page, "计时").click();
-    const focusPage = page.locator(".ep-focus-page");
-    const minutesInput = focusPage.locator('input[name="editorialCountdownMinutes"]');
-    for (const [minutes, expectedReadout] of [[45, "00:45:00"], [60, "01:00:00"], [90, "01:30:00"]]) {
-      await minutesInput.fill(String(minutes));
-      await expect(focusPage.locator(".ep-clock-card__readout > strong")).toHaveText(expectedReadout);
-      await expect(focusPage.locator(".ep-clock-card__readout > small")).toHaveText(`设定 ${minutes} 分钟`);
-      measurements.push(await focusPage.evaluate(() => {
-        const read = (selector) => {
-          const element = document.querySelector(selector);
-          if (!element) return null;
-          const rect = element.getBoundingClientRect();
-          return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height };
-        };
-        return {
-          viewport: { width: innerWidth, height: innerHeight },
-          ring: read(".ep-clock-card__ring"),
-          status: read(".ep-clock-card__readout > span"),
-          readout: read(".ep-clock-card__readout > strong"),
-          modeCopy: read(".ep-clock-card__readout > small"),
-          modeSwitch: read(".ep-clock-card__mode"),
-          target: read(".ep-inline-field"),
-          actions: read(".ep-clock-card__actions"),
-        };
-      }));
-    }
-    if (width === 1707) {
-      await page.evaluate(() => window.scrollTo(0, 0));
-      await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TIMER-13-pass-9ecaf59-1707x912.png"), animations: "disabled", fullPage: true });
-    }
-  }
-  console.log(`TIMER-13 measurements: ${JSON.stringify(measurements)}`);
-  for (const item of measurements) {
-    for (const key of ["ring", "status", "readout", "modeCopy", "modeSwitch", "target", "actions"]) expect(item[key]).not.toBeNull();
-    expect(item.status.bottom).toBeLessThanOrEqual(item.readout.top);
-    expect(item.readout.bottom).toBeLessThanOrEqual(item.modeCopy.top);
-    expect(item.modeCopy.bottom).toBeLessThanOrEqual(item.ring.bottom);
-    expect(item.ring.right).toBeLessThanOrEqual(item.modeSwitch.right + 6);
-    expect(item.modeSwitch.bottom).toBeLessThan(item.target.top);
-    expect(item.target.bottom).toBeLessThan(item.actions.top);
-    expect(item.actions.right).toBeLessThanOrEqual(item.modeSwitch.right + 1);
-  }
-});
-
-test("REFINE-19 TIMER-14 keeps Editorial Paper focus safe at Windows high DPI", async ({ browser }) => {
-  const contexts = [
-    { width: 2560, height: 1368, requestedDpr: 1, slug: "physical-2560x1368-dpr1" },
-    { width: 1707, height: 912, requestedDpr: 1.5, slug: "css-1707x912-dpr1.5" },
-    { width: 1487, height: 1058, requestedDpr: 1, slug: "css-1487x1058-dpr1" },
-  ];
-  const measurements = [];
-  for (const item of contexts) {
-    const context = await browser.newContext({ viewport: { width: item.width, height: item.height }, deviceScaleFactor: item.requestedDpr });
-    const page = await context.newPage();
-    try {
-      await page.addInitScript(() => {
-        localStorage.setItem("focused-moment.theme", "editorial-paper");
-      });
-      await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-      await pageButton(page, "计时").click();
-      const measurement = await page.locator(".ep-focus-page").evaluate(() => {
-        const read = (selector) => {
-          const element = document.querySelector(selector);
-          if (!element) return null;
-          const rect = element.getBoundingClientRect();
-          return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
-        };
-        return {
-          viewport: { width: innerWidth, height: innerHeight },
-          dpr: devicePixelRatio,
-          documentScrollWidth: document.documentElement.scrollWidth,
-          page: read(".ep-focus-page"),
-          clock: read(".ep-clock-card"),
-          notes: read(".ep-focus-notes"),
-          footer: read(".ep-focus-footer"),
-        };
-      });
-      measurements.push({ ...item, ...measurement });
-      await page.evaluate(() => window.scrollTo(0, 0));
-      await page.screenshot({ path: testOutputPath("qa", "REFINE-19", `TIMER-14-pass-9ecaf59-${item.slug}.png`), animations: "disabled", fullPage: true });
-    } finally {
-      await context.close();
-    }
-  }
-  console.log(`TIMER-14 measurements: ${JSON.stringify(measurements)}`);
-  for (const item of measurements) {
-    expect(item.viewport.width).toBe(item.width);
-    expect(item.viewport.height).toBe(item.height);
-    expect(item.dpr).toBe(item.requestedDpr);
-    expect(item.documentScrollWidth).toBeLessThanOrEqual(item.viewport.width + 1);
-    for (const key of ["page", "clock", "notes", "footer"]) {
-      expect(item[key]).not.toBeNull();
-      expect(item[key].left).toBeGreaterThanOrEqual(0);
-      expect(item[key].right).toBeLessThanOrEqual(item.viewport.width + 1);
-      expect(item[key].bottom).toBeLessThanOrEqual(item.viewport.height);
-    }
-  }
-});
-
-test("REFINE-19 TIMER-15 uses the same daily session count on Today and Focus", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", recordCount: 1, completedTodoTitles: [] });
-  const today = page.locator(".ep-today-page");
-  await expect(today.locator(".ep-facts-row > div:nth-child(2) strong")).toHaveText("1");
-  await pageButton(page, "计时").click();
-  const focus = page.locator(".ep-focus-page");
-  await expect(focus.locator(".ep-taped-note--sage strong")).toHaveText("1 段完成");
-  await expect(focus.locator(".ep-taped-note--sage")).toContainText("今日专注");
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TIMER-15-after-9ecaf59.png"), animations: "disabled", fullPage: true });
-});
-
-test("REFINE-19 TIMER-16 restores the Editorial Paper floating entry after returning", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-  await page.evaluate(() => {
-    const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
-    window.__epFloatingCalls = 0;
-    window.__TAURI_INTERNALS__.invoke = async (command, args = {}) => {
-      if (command === "show_focus_floating") window.__epFloatingCalls += 1;
-      return nativeInvoke(command, args);
-    };
-  });
-  await pageButton(page, "计时").click();
-  const focusPage = page.locator(".ep-focus-page");
-  await focusPage.locator('input[name="editorialSessionTitle"]').fill("返回主界面后继续核对悬浮窗入口");
-  await focusPage.getByRole("button", { name: "开始专注", exact: true }).click();
-  await expect(focusPage).toContainText("倒计时中");
-
-  const floatingEntry = focusPage.getByRole("button", { name: "进入悬浮窗", exact: true });
-  await expect(floatingEntry).toBeVisible();
-  await expect(floatingEntry).toHaveAttribute("title", "隐藏主窗口，回到悬浮计时");
-  const callsBeforeReturn = await page.evaluate(() => window.__epFloatingCalls);
-  await floatingEntry.click();
-  await expect.poll(() => page.evaluate(() => window.__epFloatingCalls)).toBe(callsBeforeReturn + 1);
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TIMER-16-after-9ecaf59.png"), animations: "disabled", fullPage: true });
-});
-
-test("REFINE-19 TIMER-17 still opens the floating timer after Editorial Paper starts", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-  await page.evaluate(() => {
-    const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
-    window.__epFloatingCalls = 0;
-    window.__TAURI_INTERNALS__.invoke = async (command, args = {}) => {
-      if (command === "show_focus_floating") window.__epFloatingCalls += 1;
-      return nativeInvoke(command, args);
-    };
-  });
-  await pageButton(page, "计时").click();
-  const focusPage = page.locator(".ep-focus-page");
-  await focusPage.locator('input[name="editorialSessionTitle"]').fill("核对开始后的悬浮计时状态");
-  await focusPage.getByRole("button", { name: "开始专注", exact: true }).click();
-  await expect(focusPage).toContainText("倒计时中");
-  await expect.poll(() => page.evaluate(() => window.__epFloatingCalls)).toBe(1);
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TIMER-17-pass-9ecaf59.png"), animations: "disabled", fullPage: true });
-});
-
-test("REFINE-19 TIMER-18 delegates main-window hiding to the focus floating command", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-  await page.evaluate(() => {
-    const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
-    window.__epWindowCommands = [];
-    window.__TAURI_INTERNALS__.invoke = async (command, args = {}) => {
-      window.__epWindowCommands.push(command);
-      return nativeInvoke(command, args);
-    };
-  });
-  await pageButton(page, "计时").click();
-  const focusPage = page.locator(".ep-focus-page");
-  await focusPage.locator('input[name="editorialSessionTitle"]').fill("核对主窗口自动隐藏调用链");
-  await focusPage.getByRole("button", { name: "开始专注", exact: true }).click();
-  await expect(focusPage).toContainText("倒计时中");
-  await expect.poll(() => page.evaluate(() => window.__epWindowCommands.includes("show_focus_floating"))).toBe(true);
-  const commands = await page.evaluate(() => window.__epWindowCommands);
-  expect(commands.filter((command) => command === "show_focus_floating")).toHaveLength(1);
-  expect(commands).not.toContain("hide_main_window");
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TIMER-18-pass-9ecaf59.png"), animations: "disabled", fullPage: true });
-});
-
-test("REFINE-19 TIMER-19 keeps the floating entry visible and clickable in Editorial Paper focus states", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-  await page.evaluate(() => {
-    const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
-    window.__epFloatingCalls = 0;
-    window.__TAURI_INTERNALS__.invoke = async (command, args = {}) => {
-      if (command === "show_focus_floating") window.__epFloatingCalls += 1;
-      return nativeInvoke(command, args);
-    };
-  });
-  await pageButton(page, "计时").click();
-  const focusPage = page.locator(".ep-focus-page");
-  const clockCard = page.locator(".ep-clock-card");
-  await focusPage.locator('input[name="editorialSessionTitle"]').fill("核对悬浮窗入口首屏可达性");
-  await focusPage.getByRole("button", { name: "开始专注", exact: true }).click();
-  await expect(focusPage).toContainText("倒计时中");
-  const floatingEntry = focusPage.getByRole("button", { name: "进入悬浮窗", exact: true });
-  await expect(floatingEntry).toBeVisible();
-  const firstScreenBounds = await floatingEntry.evaluate((element) => {
-    const rect = element.getBoundingClientRect();
-    return { top: rect.top, bottom: rect.bottom, viewportHeight: innerHeight };
-  });
-  expect(firstScreenBounds.top).toBeGreaterThanOrEqual(0);
-  expect(firstScreenBounds.bottom).toBeLessThanOrEqual(firstScreenBounds.viewportHeight);
-  const callsAfterStart = await page.evaluate(() => window.__epFloatingCalls);
-  await floatingEntry.click();
-  await expect.poll(() => page.evaluate(() => window.__epFloatingCalls)).toBe(callsAfterStart + 1);
-
-  await clockCard.getByRole("button", { name: "暂停", exact: true }).click();
-  await expect(clockCard).toContainText("已暂停");
-  await expect(floatingEntry).toBeVisible();
-  await floatingEntry.click();
-  await expect.poll(() => page.evaluate(() => window.__epFloatingCalls)).toBe(callsAfterStart + 2);
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TIMER-19-pass-9ecaf59.png"), animations: "disabled", fullPage: true });
-});
-
-test("REFINE-19 TIMER-20 keeps Editorial Paper timer and interface state synchronized", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-  await page.evaluate(() => {
-    const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
-    let timerOverride = null;
-    window.__epTimerInvoke = [];
-    window.__TAURI_INTERNALS__.invoke = async (command, args = {}) => {
-      window.__epTimerInvoke.push(command);
-      if (command === "get_timer_snapshot" && timerOverride) return timerOverride;
-      const result = await nativeInvoke(command, args);
-      if (command === "set_countdown_minutes" || command === "update_timer_context") {
-        timerOverride = result;
-        return timerOverride;
-      }
-      if (command === "start_timer" || command === "pause_timer") {
-        timerOverride = { ...result, elapsedMs: 1000, elapsedLabel: "00:00:01", canCompleteSession: true, hasUnsubmittedProgress: true };
-        return timerOverride;
-      }
-      if (command === "complete_focus_session") {
-        const current = timerOverride ?? await nativeInvoke("get_timer_snapshot");
-        const records = await nativeInvoke("get_focus_records");
-        const todoItems = await nativeInvoke("get_todo_items");
-        timerOverride = { ...current, status: "未开始", isRunning: false, elapsedMs: 0, elapsedLabel: "00:00:00", hasUnsubmittedProgress: false, activeTaskTitle: "", linkedTodoId: null, completeLinkedTodoOnFinish: false, canCompleteSession: false };
-        return { timerSnapshot: timerOverride, records, todoItems };
-      }
-      if (command === "reset_timer") {
-        timerOverride = { ...result, status: "未开始", isRunning: false, elapsedMs: 0, elapsedLabel: "00:45:00", hasUnsubmittedProgress: false, activeTaskTitle: "", linkedTodoId: null, completeLinkedTodoOnFinish: false, canCompleteSession: false };
-        return timerOverride;
-      }
-      return result;
-    };
-  });
-  await pageButton(page, "计时").click();
-  const focusPage = page.locator(".ep-focus-page");
-  const clockCard = page.locator(".ep-clock-card");
-  const titleInput = focusPage.locator('input[name="editorialSessionTitle"]');
-  await titleInput.fill("逐步核对计时和界面状态");
-  await focusPage.getByRole("button", { name: "开始专注", exact: true }).click();
-  await expect(clockCard).toContainText("倒计时中");
-  await expect(clockCard.getByRole("button", { name: "暂停", exact: true })).toBeVisible();
-
-  await clockCard.getByRole("button", { name: "暂停", exact: true }).click();
-  await expect(clockCard).toContainText("已暂停");
-  await expect(clockCard.getByRole("button", { name: "继续专注", exact: true })).toBeVisible();
-
-  await clockCard.getByRole("button", { name: "继续专注", exact: true }).click();
-  await expect(clockCard).toContainText("倒计时中");
-  await expect(clockCard.getByRole("button", { name: "暂停", exact: true })).toBeVisible();
-
-  await pageButton(page, "今日").click();
-  await expect(page.locator(".ep-today-page")).toBeVisible();
-  await pageButton(page, "计时").click();
-  await expect(focusPage).toContainText("倒计时中");
-  await expect(titleInput).toBeDisabled();
-  await expect(titleInput).toHaveValue("逐步核对计时和界面状态");
-
-  await clockCard.getByRole("button", { name: "完成并记录", exact: true }).click();
-  await expect(focusPage.locator(".ep-inline-confirmation")).toContainText("这一段已经收进记录");
-  await expect(clockCard).toContainText("未开始");
-  await expect(clockCard.getByRole("button", { name: "开始专注", exact: true })).toBeVisible();
-  await expect(titleInput).toBeEnabled();
-  await expect(titleInput).toHaveValue("");
-  await expect(focusPage.locator(".ep-focus-floating-link")).toHaveCount(0);
-
-  await titleInput.fill("再次开始后测试重置");
-  await clockCard.getByRole("button", { name: "开始专注", exact: true }).click();
-  await expect(clockCard).toContainText("倒计时中");
-  await clockCard.getByRole("button", { name: "重置本次专注", exact: true }).click();
-  await expect(clockCard).toContainText("未开始");
-  await expect(titleInput).toHaveValue("");
-  await expect(clockCard.getByRole("button", { name: "开始专注", exact: true })).toBeVisible();
-  await expect(page.locator(".app-message")).toContainText("本轮已重置，没有生成记录");
-
-  const commands = await page.evaluate(() => window.__epTimerInvoke);
-  expect(commands).toEqual(expect.arrayContaining(["start_timer", "pause_timer", "complete_focus_session", "reset_timer"]));
-  await page.reload();
-  await expect(page.getByRole("heading", { name: "今日节奏" })).toBeVisible();
-  await pageButton(page, "计时").click();
-  await expect(page.locator(".ep-clock-card")).toContainText("待开始");
-  await expect(page.locator('input[name="editorialSessionTitle"]')).toHaveValue("");
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TIMER-20-pass-9ecaf59.png"), animations: "disabled", fullPage: true });
-});
-
-test("REFINE-19 TIMER-21 records when the Editorial Paper focus page has no matching records button", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-  await pageButton(page, "计时").click();
-  const focusPage = page.locator(".ep-focus-page");
-  await expect(focusPage).toBeVisible();
-  await expect(focusPage.getByRole("button", { name: "查看专注记录", exact: true })).toHaveCount(0);
-  await expect(focusPage).not.toContainText("查看专注记录");
-  await pageButton(page, "今日").click();
-  await expect(page.getByRole("button", { name: "回看记录", exact: true })).toBeVisible();
-  await pageButton(page, "计时").click();
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TIMER-21-not-applicable-9ecaf59.png"), animations: "disabled", fullPage: true });
-});
-
-test("REFINE-19 TODO-01 checks Editorial Paper todo columns for overlap, bounded whitespace, and clear states", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  const longTitles = [
-    "整理一份跨团队研究审计证据清单并确认每个字段都能被完整回看",
-    "完成下一版产品复盘并把关键决策和待验证假设写进记录",
-    "准备发布前的最后检查并逐项核对 Windows 构建与安装包",
-  ];
-  const completedTitles = [
-    "回顾昨天的专注记录并标记已经完成的关键事项",
-    "收束本周的研究资料并整理成可以复用的索引",
-  ];
-  for (const [width, height] of [[1487, 1058], [1120, 760], [820, 720]]) {
-    await page.setViewportSize({ width, height });
-    await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", todoTitles: longTitles, completedTodoTitles: completedTitles });
-    await pageButton(page, "待办").click();
-    const todoPage = page.locator(".ep-todos-page");
-    await expect(todoPage).toBeVisible();
-    const metrics = await todoPage.evaluate(() => {
-      const overlap = (a, b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
-      const columns = [...document.querySelectorAll(".ep-todo-column")].map((column) => {
-        const columnRect = column.getBoundingClientRect();
-        const list = column.querySelector(".ep-todo-column__list");
-        const listRect = list.getBoundingClientRect();
-        const content = [...column.querySelectorAll("header span, header h2, header strong, .ep-todo-row__copy strong, .ep-todo-row__copy small, .ep-todo-row__actions, .ep-empty, .ep-empty-card strong, .ep-empty-card small")].map((element) => {
-          const rect = element.getBoundingClientRect();
-          return { text: element.textContent?.trim() ?? "", left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height };
-        });
-        const overlaps = [];
-        for (let index = 0; index < content.length; index += 1) {
-          for (let next = index + 1; next < content.length; next += 1) {
-            if (overlap(content[index], content[next])) overlaps.push([index, next]);
-          }
-        }
-        return { className: column.className, column: { left: columnRect.left, right: columnRect.right, top: columnRect.top, bottom: columnRect.bottom }, list: { top: listRect.top, bottom: listRect.bottom, height: listRect.height, scrollHeight: list.scrollHeight }, rows: column.querySelectorAll(".ep-todo-row").length, content, overlaps };
-      });
-      return { viewport: { width: innerWidth, height: innerHeight }, documentScrollWidth: document.documentElement.scrollWidth, columns };
-    });
-    console.log(`TODO-01 ${width}x${height}: ${JSON.stringify(metrics)}`);
-    expect(metrics.documentScrollWidth).toBeLessThanOrEqual(width + 1);
-    expect(metrics.columns).toHaveLength(2);
-    for (const column of metrics.columns) {
-      expect(column.column.left).toBeGreaterThanOrEqual(0);
-      expect(column.column.right).toBeLessThanOrEqual(width + 1);
-      expect(column.overlaps).toEqual([]);
-      expect(column.content.every((item) => item.width >= 0 && item.height >= 0 && item.left >= 0 && item.right <= width + 1)).toBe(true);
-      expect(column.list.top).toBeGreaterThanOrEqual(column.column.top);
-      expect(column.column.bottom - column.list.bottom).toBeLessThanOrEqual(35);
-    }
-    await expect(todoPage.locator(".ep-todo-column--pending header")).toContainText("BY DATE");
-    await expect(todoPage.locator(".ep-todo-column--pending .nv-todo-date-group")).toHaveCount(1);
-    await expect(todoPage.locator(".ep-todo-column--pending .nv-todo-date-group__toggle")).toHaveAttribute("aria-expanded", "true");
-    await expect(todoPage.locator(".ep-todo-column--done header")).toContainText("已完成");
-  }
-  await page.evaluate(() => window.scrollTo(0, 0));
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODO-01-after-9ecaf59.png"), animations: "disabled", fullPage: true });
-});
-
-test("REFINE-19 TODO-02 keeps a long completed todo list visible and actionable", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  const completedTitles = Array.from({ length: 18 }, (_, index) => `已完成事项 ${String(index + 1).padStart(2, "0")}：整理一份可以长期回看的研究与发布证据清单`);
-  const restoredTitle = completedTitles[0];
-  const editedTitle = "已编辑的长完成事项：把恢复、编辑和删除动作留在同一张纸上";
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", todoTitles: ["待恢复的事项", "保留的待开始事项"], completedTodoTitles: completedTitles });
-  await page.evaluate(() => {
-    const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
-    let todoOverride = null;
-    window.__epTodoCommands = [];
-    window.__TAURI_INTERNALS__.invoke = async (command, args = {}) => {
-      window.__epTodoCommands.push(command);
-      if (command === "get_todo_items") {
-        todoOverride = todoOverride ?? await nativeInvoke(command, args);
-        return todoOverride;
-      }
-      if (command === "toggle_todo_item") {
-        todoOverride = await nativeInvoke(command, args);
-        return todoOverride;
-      }
-      if (command === "update_todo_item") {
-        todoOverride = (todoOverride ?? await nativeInvoke("get_todo_items")).map((item) => item.id === args.id ? { ...item, title: args.title, scheduledDate: args.scheduledDate, scheduledTime: args.scheduledTime, importanceKey: args.importanceKey } : item);
-        return todoOverride;
-      }
-      if (command === "delete_todo_item") {
-        todoOverride = (todoOverride ?? await nativeInvoke("get_todo_items")).filter((item) => item.id !== args.id);
-        return todoOverride;
-      }
-      return nativeInvoke(command, args);
-    };
-  });
-  await pageButton(page, "待办").click();
-  const todoPage = page.locator(".ep-todos-page");
-  const doneColumn = todoPage.locator(".ep-todo-column--done");
-  const pendingColumn = todoPage.locator(".ep-todo-column--pending");
-  await expect(doneColumn.locator(".ep-todo-row")).toHaveCount(completedTitles.length);
-  const lastRow = doneColumn.locator(".ep-todo-row").last();
-  await lastRow.scrollIntoViewIfNeeded();
-  await expect(lastRow.locator("strong")).toHaveAttribute("title", restoredTitle);
-
-  const firstRow = doneColumn.locator(".ep-todo-row").first();
-  await firstRow.getByRole("button", { name: "编辑", exact: true }).click();
-  await firstRow.locator('input[type="text"]').fill(editedTitle);
-  await firstRow.getByRole("button", { name: "保存", exact: true }).click();
-  await expect(doneColumn).toContainText(editedTitle);
-
-  await lastRow.locator(".ep-todo-check").click();
-  await expect(doneColumn.locator(".ep-todo-row")).toHaveCount(completedTitles.length - 1);
-  await expect(pendingColumn).toContainText(restoredTitle);
-
-  const desktopTextEvidence = await todoPage.locator(".ep-todo-row__copy strong").evaluateAll((elements) => elements.map((element) => {
-    const style = getComputedStyle(element);
-    return { text: element.textContent ?? "", clientWidth: element.clientWidth, scrollWidth: element.scrollWidth, overflow: style.overflow, textOverflow: style.textOverflow, whiteSpace: style.whiteSpace };
-  }));
-  expect(desktopTextEvidence.every((item) => item.scrollWidth <= item.clientWidth && item.whiteSpace === "normal" && item.overflow !== "hidden" && item.textOverflow === "clip")).toBe(true);
-
-  await doneColumn.locator(".ep-todo-row").first().getByRole("button", { name: "删除", exact: true }).click();
-  await expect(doneColumn.locator(".ep-todo-row")).toHaveCount(completedTitles.length - 2);
-  await expect(page.locator(".app-message")).toContainText("已删除");
-
-  const desktopMetrics = await todoPage.evaluate(() => ({
-    documentScrollWidth: document.documentElement.scrollWidth,
-    doneRows: document.querySelectorAll(".ep-todo-column--done .ep-todo-row").length,
-    doneScrollHeight: document.querySelector(".ep-todo-column--done .ep-todo-column__list").scrollHeight,
-  }));
-  expect(desktopMetrics.documentScrollWidth).toBeLessThanOrEqual(1488);
-  expect(desktopMetrics.doneRows).toBe(completedTitles.length - 2);
-  expect(desktopMetrics.doneScrollHeight).toBeGreaterThan(800);
-  await page.evaluate(() => window.scrollTo(0, 0));
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODO-02-reaudit-pass-1487.png"), animations: "disabled", fullPage: true });
-
-  for (const [width, height] of [[820, 720], [560, 720], [420, 720]]) {
-    await page.setViewportSize({ width, height });
-    await page.evaluate(() => window.scrollTo(0, 0));
-    const metrics = await todoPage.evaluate(() => {
-      const overlap = (a, b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
-      const rows = [...document.querySelectorAll(".ep-todo-row")].map((row) => {
-        const rowRect = row.getBoundingClientRect();
-        const blocks = [".ep-todo-check", ".ep-todo-row__copy", ".ep-todo-row__actions"].map((selector) => row.querySelector(selector)).filter(Boolean).map((element) => {
-          const rect = element.getBoundingClientRect();
-          return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height };
-        });
-        const overlaps = [];
-        for (let index = 0; index < blocks.length; index += 1) {
-          for (let next = index + 1; next < blocks.length; next += 1) if (overlap(blocks[index], blocks[next])) overlaps.push([index, next]);
-        }
-        return { left: rowRect.left, right: rowRect.right, blocks, overlaps };
-      });
-      return { documentScrollWidth: document.documentElement.scrollWidth, rows };
-    });
-    expect(metrics.documentScrollWidth).toBeLessThanOrEqual(width + 1);
-    expect(metrics.rows.every((row) => row.left >= 0 && row.right <= width + 1 && row.overlaps.length === 0 && row.blocks.every((block) => block.width >= 0 && block.height >= 0))).toBe(true);
-    const textEvidence = await todoPage.locator(".ep-todo-row__copy strong").evaluateAll((elements) => elements.map((element) => ({ clientWidth: element.clientWidth, scrollWidth: element.scrollWidth, whiteSpace: getComputedStyle(element).whiteSpace })));
-    expect(textEvidence.every((item) => item.scrollWidth <= item.clientWidth && item.whiteSpace === "normal")).toBe(true);
-    if (width === 420) await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODO-02-reaudit-pass-420.png"), animations: "disabled", fullPage: true });
-  }
-  const commands = await page.evaluate(() => window.__epTodoCommands);
-  expect(commands).toEqual(expect.arrayContaining(["update_todo_item", "toggle_todo_item", "delete_todo_item"]));
-});
-
-test("REFINE-19 TODO-03 keeps all three Editorial Paper window controls available", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-  await page.evaluate(() => {
-    const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
-    window.__epWindowCommands = [];
-    window.__TAURI_INTERNALS__.invoke = async (command, args = {}) => {
-      window.__epWindowCommands.push(command);
-      return nativeInvoke(command, args);
-    };
-  });
-  await pageButton(page, "待办").click();
-  const todoPage = page.locator(".ep-todos-page");
-  const controls = page.locator(".window-controls");
-  const buttons = controls.locator(".window-control");
-  await expect(todoPage).toBeVisible();
-  await expect(controls).toBeVisible();
-  await expect(buttons).toHaveCount(3);
-  const expectedControls = [
-    ["最小化窗口", "最小化", "minimize_main_window"],
-    ["最大化或还原窗口", "最大化 / 还原", "toggle_maximize_main_window"],
-    ["关闭窗口", "关闭窗口（隐藏到托盘）", "close_main_window"],
-  ];
-  for (let index = 0; index < expectedControls.length; index += 1) {
-    const [ariaLabel, title] = expectedControls[index];
-    const button = buttons.nth(index);
-    await expect(button).toBeVisible();
-    await expect(button).toHaveAttribute("aria-label", ariaLabel);
-    await expect(button).toHaveAttribute("title", title);
-    const bounds = await button.evaluate((element) => {
-      const rect = element.getBoundingClientRect();
-      return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, viewportWidth: innerWidth, viewportHeight: innerHeight };
-    });
-    expect(bounds.left).toBeGreaterThanOrEqual(0);
-    expect(bounds.right).toBeLessThanOrEqual(bounds.viewportWidth + 1);
-    expect(bounds.top).toBeGreaterThanOrEqual(0);
-    expect(bounds.bottom).toBeLessThanOrEqual(bounds.viewportHeight);
-  }
-  for (const [index, [, , command]] of expectedControls.entries()) {
-    await buttons.nth(index).click();
-    await expect.poll(() => page.evaluate((expectedCommand) => window.__epWindowCommands.filter((item) => item === expectedCommand).length, command)).toBe(1);
-  }
-  await page.evaluate(() => window.scrollTo(0, 0));
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODO-03-pass-1487-9ecaf59.png"), animations: "disabled", fullPage: true });
-
-  await page.setViewportSize({ width: 420, height: 720 });
-  await page.evaluate(() => window.scrollTo(0, 0));
-  await expect(buttons).toHaveCount(3);
-  const mobileBounds = await buttons.evaluateAll((elements) => elements.map((element) => {
-    const rect = element.getBoundingClientRect();
-    return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, viewportWidth: innerWidth, viewportHeight: innerHeight };
-  }));
-  expect(mobileBounds.every((bounds) => bounds.left >= 0 && bounds.right <= bounds.viewportWidth + 1 && bounds.top >= 0 && bounds.bottom <= bounds.viewportHeight)).toBe(true);
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODO-03-pass-420-9ecaf59.png"), animations: "disabled", fullPage: true });
-});
-
-test("REFINE-19 RECORDS-01 checks the Editorial Paper records first screen", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  const dailyBreakdown = [
-    ["2026-08-30", 30, "00:30:00"],
-    ["2026-08-31", 45, "00:45:00"],
-    ["2026-09-01", 60, "01:00:00"],
-    ["2026-09-02", 30, "00:30:00"],
-    ["2026-09-03", 45, "00:45:00"],
-    ["2026-09-04", 60, "01:00:00"],
-    ["2026-09-05", 45, "00:45:00"],
-  ].map(([date, minutes, totalDurationLabel]) => ({
-    date,
-    totalDurationMs: minutes * 60 * 1000,
-    totalDurationLabel,
-    sessionCount: 1,
-    linkedSessionCount: 0,
-    independentSessionCount: 1,
-  }));
-  for (const [width, height] of [[1487, 1058], [1120, 760]]) {
-    await page.setViewportSize({ width, height });
-    await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", recordCount: 3, dailyBreakdown });
-    await pageButton(page, "记录").click();
-    const recordsPage = page.locator(".ep-records-page");
-    await expect(recordsPage).toBeVisible();
-    await expect(recordsPage.locator(".ep-archive-chart .ep-chart-bar")).toHaveCount(7);
-    await expect(recordsPage.locator(".ep-archive-summary")).toBeVisible();
-    await expect(recordsPage.locator(".ep-record-entry")).toHaveCount(3);
-    const metrics = await recordsPage.evaluate(() => {
-      const read = (selector) => {
-        const element = document.querySelector(selector);
-        if (!element) return null;
-        const rect = element.getBoundingClientRect();
-        return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height };
-      };
-      const entries = [...document.querySelectorAll(".ep-record-entry")].map((entry) => {
-        const rect = entry.getBoundingClientRect();
-        return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, height: rect.height, title: entry.querySelector("strong")?.textContent ?? "" };
-      });
-      const header = read(".ep-records-header");
-      const archive = read(".ep-archive-paper");
-      const spread = read(".ep-records-spread");
-      const firstHeading = read(".ep-records-list .ep-section-heading");
-      return { viewport: { width: innerWidth, height: innerHeight }, documentScrollWidth: document.documentElement.scrollWidth, header, archive, spread, firstHeading, entries, scrollHeight: document.documentElement.scrollHeight };
-    });
-    console.log(`RECORDS-01 ${width}x${height}: ${JSON.stringify(metrics)}`);
-    expect(metrics.documentScrollWidth).toBeLessThanOrEqual(width + 1);
-    for (const block of [metrics.header, metrics.archive, metrics.spread, metrics.firstHeading]) {
-      expect(block).not.toBeNull();
-      expect(block.left).toBeGreaterThanOrEqual(0);
-      expect(block.right).toBeLessThanOrEqual(width + 1);
-    }
-    expect(metrics.entries.every((entry) => entry.left >= 0 && entry.right <= width + 1 && entry.height > 0)).toBe(true);
-    if (width === 1487) {
-      expect(metrics.header.bottom).toBeLessThanOrEqual(height);
-      expect(metrics.archive.bottom).toBeLessThanOrEqual(height);
-      expect(metrics.firstHeading.bottom).toBeLessThanOrEqual(height);
-      expect(metrics.entries[0].bottom).toBeLessThanOrEqual(height);
-      await page.evaluate(() => window.scrollTo(0, 0));
-      await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "RECORDS-01-before-9ecaf59-1487.png"), animations: "disabled", fullPage: true });
-    } else {
-      await recordsPage.locator(".ep-record-entry").first().scrollIntoViewIfNeeded();
-      await expect(recordsPage.locator(".ep-record-entry").first()).toBeVisible();
-    }
-  }
-});
-
-test("REFINE-19 RECORDS-02 keeps the Editorial Paper records hierarchy inside its theme boundary", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  const dailyBreakdown = [
-    ["2026-08-30", 30, "00:30:00"],
-    ["2026-08-31", 45, "00:45:00"],
-    ["2026-09-01", 60, "01:00:00"],
-    ["2026-09-02", 30, "00:30:00"],
-    ["2026-09-03", 45, "00:45:00"],
-    ["2026-09-04", 60, "01:00:00"],
-    ["2026-09-05", 45, "00:45:00"],
-  ].map(([date, minutes, totalDurationLabel]) => ({ date, totalDurationMs: minutes * 60 * 1000, totalDurationLabel, sessionCount: 1, linkedSessionCount: 0, independentSessionCount: 1 }));
-  for (const [width, height] of [[1487, 1058], [420, 720]]) {
-    await page.setViewportSize({ width, height });
-    await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", recordCount: 3, dailyBreakdown });
-    await pageButton(page, "记录").click();
-    const recordsPage = page.locator(".ep-records-page");
-    await expect(recordsPage).toBeVisible();
-    await expect(page.locator('.minimal-app[data-theme="editorial-paper"]')).toHaveCount(1);
-    for (const selector of [".trail-page", ".trail-map", ".nv-page", ".nv-focus-panel", ".nv-records-archive", ".nv-settings-layout"]) {
-      await expect(page.locator(selector)).toHaveCount(0);
-    }
-    const styleMetrics = await recordsPage.evaluate(() => {
-      const regions = [".ep-records-header", ".ep-archive-paper", ".ep-records-spread", ".ep-insight-paper", ".ep-full-history"].map((selector) => {
-        const element = document.querySelector(selector);
-        const rect = element.getBoundingClientRect();
-        const style = getComputedStyle(element);
-        return { selector, className: element.className, left: rect.left, right: rect.right, backgroundImage: style.backgroundImage, position: style.position, borderStyle: style.borderStyle };
-      });
-      return { documentScrollWidth: document.documentElement.scrollWidth, regions, rootClasses: document.querySelector(".minimal-app").className };
-    });
-    expect(styleMetrics.documentScrollWidth).toBeLessThanOrEqual(width + 1);
-    expect(styleMetrics.rootClasses).toContain("minimal-app--records");
-    expect(styleMetrics.rootClasses).not.toContain("minimal-app--trail");
-    expect(styleMetrics.regions.every((region) => region.left >= 0 && region.right <= width + 1 && !region.backgroundImage.includes("url(") && region.position !== "absolute")).toBe(true);
-    expect(styleMetrics.regions.find((region) => region.selector === ".ep-archive-paper").backgroundImage).toContain("linear-gradient");
-    if (width === 1487) {
-      await page.evaluate(() => window.scrollTo(0, 0));
-      await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "RECORDS-02-pass-1487-9ecaf59.png"), animations: "disabled", fullPage: true });
-    } else {
-      await page.evaluate(() => window.scrollTo(0, 0));
-      await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "RECORDS-02-pass-420-9ecaf59.png"), animations: "disabled", fullPage: true });
-    }
-  }
-});
-
-test("REFINE-19 RECORDS-03 keeps 28-day Editorial Paper history navigable", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  const recordDates = Array.from({ length: 28 }, (_, index) => new Date(Date.UTC(2026, 7, 9 + index)).toISOString().slice(0, 10));
-  recordDates.push("2026-09-05");
-  const dailyBreakdown = [
-    ["2026-08-30", 30, "00:30:00"],
-    ["2026-08-31", 45, "00:45:00"],
-    ["2026-09-01", 60, "01:00:00"],
-    ["2026-09-02", 30, "00:30:00"],
-    ["2026-09-03", 45, "00:45:00"],
-    ["2026-09-04", 60, "01:00:00"],
-    ["2026-09-05", 90, "01:30:00"],
-  ].map(([date, minutes, totalDurationLabel]) => ({ date, totalDurationMs: minutes * 60 * 1000, totalDurationLabel, sessionCount: 1, linkedSessionCount: 0, independentSessionCount: 1 }));
-  const longTitlePrefix = "这是一条很长的历史专注记录用于核对日期分组展开编辑删除和窄屏回看";
-  const editedTitle = "已编辑的历史专注记录：保持长文本在纸页内可回看";
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, {
-    expectedHeading: "今日节奏",
-    recordCount: recordDates.length,
-    recordDates,
-    recordTitlePrefix: longTitlePrefix,
-    dailyBreakdown,
-    analyticsPatch: { todayFocusDurationLabel: "01:30:00", todaySessionCount: 2, totalFocusDurationLabel: "21:45:00", totalFocusDurationMs: recordDates.length * 45 * 60 * 1000 },
-  });
-  await page.evaluate(() => {
-    const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
-    let recordsOverride = null;
-    window.__epRecordCommands = [];
-    window.__TAURI_INTERNALS__.invoke = async (command, args = {}) => {
-      window.__epRecordCommands.push(command);
-      if (command === "get_focus_records") {
-        recordsOverride = recordsOverride ?? await nativeInvoke(command, args);
-        return recordsOverride;
-      }
-      if (command === "update_focus_record_title") {
-        recordsOverride = (recordsOverride ?? await nativeInvoke("get_focus_records")).map((record) => record.id === args.id ? { ...record, title: args.title, linkedTodoTitle: args.title } : record);
-        return recordsOverride;
-      }
-      if (command === "delete_focus_record") {
-        recordsOverride = (recordsOverride ?? await nativeInvoke("get_focus_records")).filter((record) => record.id !== args.id);
-        return recordsOverride;
-      }
-      return nativeInvoke(command, args);
-    };
-  });
-  await pageButton(page, "记录").click();
-  const recordsPage = page.locator(".ep-records-page");
-  const history = recordsPage.locator(".ep-full-history");
-  await expect(history.locator("details")).toHaveCount(28);
-  const oldest = history.locator("details").first();
-  await oldest.locator("summary").click();
-  await expect(oldest.locator(":scope > div")).toBeVisible();
-  await expect(oldest).toContainText(`${longTitlePrefix} 1`);
-  await oldest.locator("summary").click();
-  await expect(oldest.locator(":scope > div")).toHaveCount(0);
-  await oldest.locator("summary").click();
-
-  const selectedEntries = recordsPage.locator(".ep-records-list .ep-record-entry");
-  await expect(selectedEntries).toHaveCount(2);
-  const desktopTitleEvidence = await selectedEntries.locator("strong").evaluateAll((elements) => elements.map((element) => {
-    const style = getComputedStyle(element);
-    return { text: element.textContent ?? "", clientWidth: element.clientWidth, scrollWidth: element.scrollWidth, overflow: style.overflow, textOverflow: style.textOverflow, whiteSpace: style.whiteSpace };
-  }));
-  expect(desktopTitleEvidence.every((item) => item.scrollWidth <= item.clientWidth && item.whiteSpace === "normal" && item.overflow !== "hidden" && item.textOverflow === "clip")).toBe(true);
-  await selectedEntries.first().getByRole("button", { name: "编辑", exact: true }).click();
-  await selectedEntries.first().locator('input[aria-label="记录名称"]').fill(editedTitle);
-  await selectedEntries.first().getByRole("button", { name: "保存", exact: true }).click();
-  await expect(selectedEntries.first().locator("strong")).toHaveAttribute("title", editedTitle);
-  await selectedEntries.last().getByRole("button", { name: "删除", exact: true }).click();
-  await expect(selectedEntries).toHaveCount(1);
-  await expect(page.locator(".app-message")).toContainText("已删除");
-
-  await oldest.locator("summary").click();
-  await expect(oldest.locator(":scope > div")).toBeVisible();
-  await history.locator("details").last().scrollIntoViewIfNeeded();
-  const desktopMetrics = await recordsPage.evaluate(() => ({ documentScrollWidth: document.documentElement.scrollWidth, documentScrollHeight: document.documentElement.scrollHeight, scrollY: window.scrollY, historyGroups: document.querySelectorAll(".ep-full-history details").length, oldestExpanded: document.querySelector(".ep-full-history details")?.open ?? false }));
-  expect(desktopMetrics.documentScrollWidth).toBeLessThanOrEqual(1488);
-  expect(desktopMetrics.documentScrollHeight).toBeGreaterThan(1058);
-  expect(desktopMetrics.scrollY).toBeGreaterThan(0);
-  expect(desktopMetrics.historyGroups).toBe(28);
-  expect(desktopMetrics.oldestExpanded).toBe(true);
-  await page.evaluate(() => window.scrollTo(0, 0));
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "RECORDS-03-reaudit-pass-1487.png"), animations: "disabled", fullPage: true });
-
-  await page.setViewportSize({ width: 420, height: 720 });
-  await page.evaluate(() => window.scrollTo(0, 0));
-  await expect(history.locator("details")).toHaveCount(28);
-  const mobileMetrics = await recordsPage.evaluate(() => ({ documentScrollWidth: document.documentElement.scrollWidth, oldestLeft: document.querySelector(".ep-full-history details")?.getBoundingClientRect().left ?? -1, oldestRight: document.querySelector(".ep-full-history details")?.getBoundingClientRect().right ?? -1 }));
-  expect(mobileMetrics.documentScrollWidth).toBeLessThanOrEqual(421);
-  expect(mobileMetrics.oldestLeft).toBeGreaterThanOrEqual(0);
-  expect(mobileMetrics.oldestRight).toBeLessThanOrEqual(421);
-  const mobileTitleEvidence = await recordsPage.locator(".ep-records-list .ep-record-entry strong").evaluateAll((elements) => elements.map((element) => ({ clientWidth: element.clientWidth, scrollWidth: element.scrollWidth, whiteSpace: getComputedStyle(element).whiteSpace })));
-  expect(mobileTitleEvidence.every((item) => item.scrollWidth <= item.clientWidth && item.whiteSpace === "normal")).toBe(true);
-  await oldest.scrollIntoViewIfNeeded();
-  await expect(oldest).toBeVisible();
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "RECORDS-03-reaudit-pass-420.png"), animations: "disabled", fullPage: true });
-  const commands = await page.evaluate(() => window.__epRecordCommands);
-  expect(commands).toEqual(expect.arrayContaining(["update_focus_record_title", "delete_focus_record"]));
-});
-
-test("REFINE-19 RECORDS-04 verifies Editorial Paper uses aligned natural-day bars", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  const dailyBreakdown = [
-    ["2026-08-30", 30, "00:30:00"],
-    ["2026-08-31", 45, "00:45:00"],
-    ["2026-09-01", 60, "01:00:00"],
-    ["2026-09-02", 30, "00:30:00"],
-    ["2026-09-03", 45, "00:45:00"],
-    ["2026-09-04", 60, "01:00:00"],
-    ["2026-09-05", 90, "01:30:00"],
-  ].map(([date, minutes, totalDurationLabel]) => ({ date, totalDurationMs: minutes * 60 * 1000, totalDurationLabel, sessionCount: 1, linkedSessionCount: 0, independentSessionCount: 1 }));
-  for (const [width, height] of [[1487, 1058], [420, 720]]) {
-    await page.setViewportSize({ width, height });
-    await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", recordCount: 7, dailyBreakdown });
-    await pageButton(page, "记录").click();
-    const recordsPage = page.locator(".ep-records-page");
-    const chart = recordsPage.locator(".ep-archive-chart");
-    await expect(chart).toBeVisible();
-    const metrics = await chart.evaluate((element) => {
-      const bars = [...element.querySelectorAll(".ep-chart-bar")].map((bar) => {
-        const column = bar.querySelector(".ep-chart-bar__column");
-        const label = bar.querySelector("strong");
-        const value = bar.querySelector(".ep-chart-bar__value");
-        const barRect = bar.getBoundingClientRect();
-        const columnRect = column.getBoundingClientRect();
-        const labelRect = label.getBoundingClientRect();
-        return {
-          barCenter: (barRect.left + barRect.right) / 2,
-          columnCenter: (columnRect.left + columnRect.right) / 2,
-          columnBottom: columnRect.bottom,
-          labelTop: labelRect.top,
-          value: value?.textContent ?? "",
-          date: label?.textContent ?? "",
-          barWidth: barRect.width,
-          columnWidth: columnRect.width,
-        };
-      });
-      return {
-        svgLikeNodes: element.querySelectorAll("svg, path, circle, polyline").length,
-        heading: element.querySelector(".ep-chart-heading span")?.textContent ?? "",
-        bars,
-        documentScrollWidth: document.documentElement.scrollWidth,
-      };
-    });
-    expect(metrics.svgLikeNodes).toBe(0);
-    expect(metrics.heading).toContain("近七日 / NATURAL DAYS");
-    expect(metrics.bars).toHaveLength(7);
-    expect(metrics.bars.map((bar) => bar.value)).toEqual(["00:30:00", "00:45:00", "01:00:00", "00:30:00", "00:45:00", "01:00:00", "01:30:00"]);
-    expect(metrics.bars.map((bar) => bar.date)).toEqual(["8/30周日", "8/31周一", "9/1周二", "9/2周三", "9/3周四", "9/4周五", "9/5周六"]);
-    expect(metrics.bars.every((bar) => Math.abs(bar.barCenter - bar.columnCenter) < 1 && bar.columnBottom <= bar.labelTop && bar.barWidth > 0 && bar.columnWidth > 0)).toBe(true);
-    expect(metrics.documentScrollWidth).toBeLessThanOrEqual(width + 1);
-    await page.evaluate(() => window.scrollTo(0, 0));
-    await page.screenshot({ path: testOutputPath("qa", "REFINE-19", `RECORDS-04-not-applicable-${width}-9ecaf59.png`), animations: "disabled", fullPage: true });
-  }
-});
-
-test("REFINE-19 RECORDS-05 keeps Editorial Paper history statistics non-duplicative", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  const dailyBreakdown = [
-    ["2026-08-30", 15, "00:15:00"],
-    ["2026-08-31", 30, "00:30:00"],
-    ["2026-09-01", 45, "00:45:00"],
-    ["2026-09-02", 60, "01:00:00"],
-    ["2026-09-03", 75, "01:15:00"],
-    ["2026-09-04", 90, "01:30:00"],
-    ["2026-09-05", 120, "02:00:00"],
-  ].map(([date, minutes, totalDurationLabel]) => ({ date, totalDurationMs: minutes * 60 * 1000, totalDurationLabel, sessionCount: 1, linkedSessionCount: 0, independentSessionCount: 1 }));
-  for (const [width, height] of [[1487, 1058], [420, 720]]) {
-    await page.setViewportSize({ width, height });
-    await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", recordCount: 7, dailyBreakdown });
-    await pageButton(page, "记录").click();
-    const recordsPage = page.locator(".ep-records-page");
-    const metrics = await recordsPage.evaluate(() => ({
-      archiveCharts: document.querySelectorAll(".ep-archive-chart").length,
-      barGroups: document.querySelectorAll(".ep-chart-bars").length,
-      distributionCandidates: document.querySelectorAll('[class*="distribution"], [data-chart="distribution"], [data-visualization="distribution"]').length,
-      chartLabel: document.querySelector(".ep-chart-heading span")?.textContent ?? "",
-      chartValues: [...document.querySelectorAll(".ep-chart-bar__value")].map((element) => element.textContent ?? ""),
-      chartDates: [...document.querySelectorAll(".ep-chart-bar strong")].map((element) => element.textContent ?? ""),
-      chartButtons: document.querySelectorAll(".ep-chart-bar").length,
-      historySections: document.querySelectorAll(".ep-full-history").length,
-      documentScrollWidth: document.documentElement.scrollWidth,
-    }));
-    expect(metrics.archiveCharts).toBe(1);
-    expect(metrics.barGroups).toBe(1);
-    expect(metrics.distributionCandidates).toBe(0);
-    expect(metrics.chartLabel).toBe("近七日 / NATURAL DAYS");
-    expect(metrics.chartValues).toEqual(["00:15:00", "00:30:00", "00:45:00", "01:00:00", "01:15:00", "01:30:00", "02:00:00"]);
-    expect(metrics.chartDates).toEqual(["8/30周日", "8/31周一", "9/1周二", "9/2周三", "9/3周四", "9/4周五", "9/5周六"]);
-    expect(metrics.chartButtons).toBe(7);
-    expect(metrics.historySections).toBe(1);
-    expect(metrics.documentScrollWidth).toBeLessThanOrEqual(width + 1);
-    await page.evaluate(() => window.scrollTo(0, 0));
-    await page.screenshot({ path: testOutputPath("qa", "REFINE-19", `RECORDS-05-not-applicable-${width}-9ecaf59.png`), animations: "disabled", fullPage: true });
-  }
-});
-
-test("REFINE-19 RECORDS-06 keeps all Editorial Paper records usable at scale", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  const recordCount = 205;
-  const recordDates = Array.from({ length: recordCount }, () => referenceDate);
-  const longTitlePrefix = "这是一条很长的全部记录用于核对加载更多编辑保存删除和窄屏回看";
-  const editedTitle = "已编辑的全部记录标题：仍然可以完整回看";
-  const dailyBreakdown = [
-    ["2026-08-30", 0, "00:00:00"],
-    ["2026-08-31", 0, "00:00:00"],
-    ["2026-09-01", 0, "00:00:00"],
-    ["2026-09-02", 0, "00:00:00"],
-    ["2026-09-03", 0, "00:00:00"],
-    ["2026-09-04", 0, "00:00:00"],
-    ["2026-09-05", recordCount * 45, "153:45:00"],
-  ].map(([date, minutes, totalDurationLabel]) => ({ date, totalDurationMs: minutes * 60 * 1000, totalDurationLabel, sessionCount: date === referenceDate ? recordCount : 0, linkedSessionCount: 0, independentSessionCount: date === referenceDate ? recordCount : 0 }));
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, {
-    expectedHeading: "今日节奏",
-    recordCount,
-    recordDates,
-    recordTitlePrefix: longTitlePrefix,
-    dailyBreakdown,
-    analyticsPatch: { todayFocusDurationLabel: "153:45:00", todaySessionCount: recordCount, totalFocusDurationLabel: "153:45:00", totalFocusDurationMs: recordCount * 45 * 60 * 1000 },
-  });
-  await page.evaluate(() => {
-    const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
-    let recordsOverride = null;
-    window.__epRecordCommands = [];
-    window.__TAURI_INTERNALS__.invoke = async (command, args = {}) => {
-      window.__epRecordCommands.push(command);
-      if (command === "get_focus_records") {
-        recordsOverride = recordsOverride ?? await nativeInvoke(command, args);
-        return recordsOverride;
-      }
-      if (command === "update_focus_record_title") {
-        recordsOverride = (recordsOverride ?? await nativeInvoke("get_focus_records")).map((record) => record.id === args.id ? { ...record, title: args.title, linkedTodoTitle: args.title } : record);
-        return recordsOverride;
-      }
-      if (command === "delete_focus_record") {
-        recordsOverride = (recordsOverride ?? await nativeInvoke("get_focus_records")).filter((record) => record.id !== args.id);
-        return recordsOverride;
-      }
-      return nativeInvoke(command, args);
-    };
-  });
-  await pageButton(page, "记录").click();
-  const recordsPage = page.locator(".ep-records-page");
-  const selectedEntries = recordsPage.locator(".ep-records-list .ep-record-entry");
-  const history = recordsPage.locator(".ep-full-history");
-  const historyDay = history.locator("details").first();
-  await expect(history.locator("details")).toHaveCount(1);
-  await expect(historyDay.locator("summary")).toContainText("205 轮");
-  await expect(selectedEntries).toHaveCount(200);
-  const loadMore = recordsPage.getByRole("button", { name: /继续展开记录/ });
-  await expect(loadMore).toContainText("200 / 205");
-  await loadMore.click();
-  await expect(selectedEntries).toHaveCount(205);
-  await expect(selectedEntries.last().locator("strong")).toHaveAttribute("title", `${longTitlePrefix} 205`);
-
-  await selectedEntries.first().getByRole("button", { name: "编辑", exact: true }).click();
-  await selectedEntries.first().locator('input[aria-label="记录名称"]').fill(editedTitle);
-  await selectedEntries.first().getByRole("button", { name: "保存", exact: true }).click();
-  await expect(selectedEntries.first().locator("strong")).toHaveAttribute("title", editedTitle);
-  await selectedEntries.last().getByRole("button", { name: "删除", exact: true }).click();
-  await expect(page.locator(".app-message")).toContainText("已删除");
-  await expect(historyDay.locator("summary")).toContainText("204 轮");
-
-  await historyDay.locator("summary").click();
-  await expect(historyDay.locator(":scope > div span")).toHaveCount(204);
-  await expect(historyDay.locator(":scope > div")).toContainText(editedTitle);
-  const historyList = history.locator(".ep-full-history__list");
-  await expect(historyList).toBeVisible();
-  await expect(historyDay.locator("summary")).toHaveAttribute("aria-expanded", "true");
-  const desktopMetrics = await recordsPage.evaluate(() => ({
-    documentScrollWidth: document.documentElement.scrollWidth,
-    documentScrollHeight: document.documentElement.scrollHeight,
-    historyTextCount: document.querySelectorAll(".ep-full-history details > div span").length,
-    selectedCount: document.querySelectorAll(".ep-records-list .ep-record-entry").length,
-    historyListClientHeight: document.querySelector(".ep-full-history__list")?.clientHeight ?? 0,
-    historyListScrollHeight: document.querySelector(".ep-full-history__list")?.scrollHeight ?? 0,
-    historyListOverflowY: document.querySelector(".ep-full-history__list") ? getComputedStyle(document.querySelector(".ep-full-history__list")).overflowY : "",
-  }));
-  expect(desktopMetrics.documentScrollWidth).toBeLessThanOrEqual(1488);
-  expect(desktopMetrics.documentScrollHeight).toBeGreaterThan(1058);
-  expect(desktopMetrics.historyTextCount).toBe(204);
-  expect(desktopMetrics.historyListClientHeight).toBeGreaterThan(0);
-  expect(desktopMetrics.historyListScrollHeight).toBeGreaterThan(desktopMetrics.historyListClientHeight);
-  expect(desktopMetrics.historyListOverflowY).toBe("auto");
-  await historyList.evaluate((element) => {
-    element.scrollTop = element.scrollHeight;
-  });
-  expect(await historyList.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
-  await history.screenshot({ path: testOutputPath("qa", "REFINE-19", "RECORDS-06-pass-1487-9ecaf59.png"), animations: "disabled" });
-
-  await page.setViewportSize({ width: 420, height: 720 });
-  const mobileMetrics = await recordsPage.evaluate(() => {
-    const list = document.querySelector(".ep-records-list");
-    const historyElement = document.querySelector(".ep-full-history");
-    const listRect = list.getBoundingClientRect();
-    const historyRect = historyElement.getBoundingClientRect();
-    return { documentScrollWidth: document.documentElement.scrollWidth, listRight: listRect.right, historyRight: historyRect.right, viewportWidth: innerWidth };
-  });
-  expect(mobileMetrics.documentScrollWidth).toBeLessThanOrEqual(421);
-  expect(mobileMetrics.listRight).toBeLessThanOrEqual(mobileMetrics.viewportWidth + 1);
-  expect(mobileMetrics.historyRight).toBeLessThanOrEqual(mobileMetrics.viewportWidth + 1);
-  await expect(historyDay.locator(":scope > div span")).toHaveCount(204);
-  await history.screenshot({ path: testOutputPath("qa", "REFINE-19", "RECORDS-06-pass-420-9ecaf59.png"), animations: "disabled" });
-  const commands = await page.evaluate(() => window.__epRecordCommands);
-  expect(commands).toEqual(expect.arrayContaining(["update_focus_record_title", "delete_focus_record"]));
-});
-
-test("REFINE-19 RECORDS-07 keeps all Editorial Paper window controls usable", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", recordCount: 3 });
-  await page.evaluate(() => {
-    const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
-    window.__epRecordsWindowCommands = [];
-    window.__TAURI_INTERNALS__.invoke = async (command, args = {}) => {
-      window.__epRecordsWindowCommands.push(command);
-      return nativeInvoke(command, args);
-    };
-  });
-  await pageButton(page, "记录").click();
-  const recordsPage = page.locator(".ep-records-page");
-  const controls = page.locator(".window-controls");
-  const buttons = controls.locator(".window-control");
-  await expect(recordsPage).toBeVisible();
-  await expect(controls).toBeVisible();
-  await expect(buttons).toHaveCount(3);
-  await expect(controls).not.toHaveAttribute("data-tauri-drag-region", "true");
-  const expectedControls = [
-    ["最小化窗口", "最小化", "minimize_main_window"],
-    ["最大化或还原窗口", "最大化 / 还原", "toggle_maximize_main_window"],
-    ["关闭窗口", "关闭窗口（隐藏到托盘）", "close_main_window"],
-  ];
-  for (let index = 0; index < expectedControls.length; index += 1) {
-    const [ariaLabel, title] = expectedControls[index];
-    const button = buttons.nth(index);
-    await expect(button).toBeVisible();
-    await expect(button).toHaveAttribute("aria-label", ariaLabel);
-    await expect(button).toHaveAttribute("title", title);
-    const bounds = await button.evaluate((element) => {
-      const rect = element.getBoundingClientRect();
-      return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, viewportWidth: innerWidth, viewportHeight: innerHeight };
-    });
-    expect(bounds.left).toBeGreaterThanOrEqual(0);
-    expect(bounds.right).toBeLessThanOrEqual(bounds.viewportWidth + 1);
-    expect(bounds.top).toBeGreaterThanOrEqual(0);
-    expect(bounds.bottom).toBeLessThanOrEqual(bounds.viewportHeight);
-  }
-  for (const [index, [, , command]] of expectedControls.entries()) {
-    await buttons.nth(index).click();
-    await expect.poll(() => page.evaluate((expectedCommand) => window.__epRecordsWindowCommands.filter((item) => item === expectedCommand).length, command)).toBe(1);
-  }
-  await page.evaluate(() => window.scrollTo(0, 0));
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "RECORDS-07-pass-1487-9ecaf59.png"), animations: "disabled", fullPage: true });
-
-  await page.setViewportSize({ width: 420, height: 720 });
-  await page.evaluate(() => window.scrollTo(0, 0));
-  const mobileBounds = await buttons.evaluateAll((elements) => elements.map((element) => {
-    const rect = element.getBoundingClientRect();
-    return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, viewportWidth: innerWidth, viewportHeight: innerHeight };
-  }));
-  expect(mobileBounds.every((bounds) => bounds.left >= 0 && bounds.right <= bounds.viewportWidth + 1 && bounds.top >= 0 && bounds.bottom <= bounds.viewportHeight)).toBe(true);
-  await expect(buttons).toHaveCount(3);
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "RECORDS-07-pass-420-9ecaf59.png"), animations: "disabled", fullPage: true });
-});
-
-test("REFINE-19 SETTINGS-01 keeps Editorial Paper settings copy and controls separated", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-  for (const [width, height] of [[1487, 1058], [420, 720]]) {
-    await page.setViewportSize({ width, height });
-    await pageButton(page, "设置").click();
-    const settingsPage = page.locator(".ep-settings-page");
-    await expect(settingsPage).toBeVisible();
-    const metrics = await settingsPage.evaluate(() => {
-      const rect = (element) => {
-        const box = element.getBoundingClientRect();
-        return { left: box.left, right: box.right, top: box.top, bottom: box.bottom, width: box.width, height: box.height };
-      };
-      const overlaps = (first, second) => first.left < second.right - 1 && first.right > second.left + 1 && first.top < second.bottom - 1 && first.bottom > second.top + 1;
-      const blockSelectors = [
-        ".ep-section-heading", ".ep-theme-swatches", ".ep-slider-row", ".ep-density-row", ".ep-live-preview",
-        ".ep-setting-list", ".ep-hand-note", ".ep-select-row", ".ep-sound-actions", ".ep-rhythm-grid",
-        ".ep-settings-paper--backup > p", ".ep-settings-actions", ".ep-error", ".ep-settings-footer",
-      ];
-      const blockMetrics = [...document.querySelectorAll(".ep-settings-paper")].flatMap((paper, paperIndex) => blockSelectors.map((selector) => {
-        const element = paper.querySelector(selector);
-        return element ? { paperIndex, selector, ...rect(element) } : null;
-      }).filter(Boolean));
-      const overlapPairs = [];
-      for (let index = 0; index < blockMetrics.length; index += 1) {
-        for (let next = index + 1; next < blockMetrics.length; next += 1) {
-          const first = blockMetrics[index];
-          const second = blockMetrics[next];
-          if (first.paperIndex === second.paperIndex && overlaps(first, second)) overlapPairs.push([first.selector, second.selector, first.paperIndex]);
-        }
-      }
-      const swatches = [...document.querySelectorAll(".ep-theme-swatch")].map((element) => ({ ...rect(element), label: element.textContent?.trim() ?? "" }));
-      const footerChildren = [...document.querySelectorAll(".ep-settings-footer > *")].map((element) => ({ ...rect(element), tag: element.tagName, text: element.textContent?.trim() ?? "" }));
-      return { documentScrollWidth: document.documentElement.scrollWidth, viewportWidth: innerWidth, blockMetrics, overlapPairs, swatches, footerChildren };
-    });
-    console.log(`SETTINGS-01 ${width}x${height}: ${JSON.stringify(metrics)}`);
-    expect(metrics.documentScrollWidth).toBeLessThanOrEqual(width + 1);
-    expect(metrics.overlapPairs).toEqual([]);
-    expect(metrics.swatches.every((swatch) => swatch.left >= 0 && swatch.right <= width + 1 && swatch.height > 0)).toBe(true);
-    expect(metrics.footerChildren.every((child) => child.left >= 0 && child.right <= width + 1 && child.height > 0)).toBe(true);
-    if (width === 1487) {
-      await page.evaluate(() => window.scrollTo(0, 0));
-      await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "SETTINGS-01-pass-1487-9ecaf59.png"), animations: "disabled", fullPage: true });
-    } else {
-      await page.evaluate(() => window.scrollTo(0, 0));
-      await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "SETTINGS-01-pass-420-9ecaf59.png"), animations: "disabled", fullPage: true });
-    }
-  }
-});
-
-test("REFINE-19 SETTINGS-02 exposes Editorial Paper appearance controls with visible effect", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-  for (const [width, height] of [[1487, 1058], [420, 720]]) {
-    await page.setViewportSize({ width, height });
-    await pageButton(page, "设置").click();
-    const settingsPage = page.locator(".ep-settings-page");
-    await expect(settingsPage).toBeVisible();
-    await expect(settingsPage.locator(".ep-slider-row")).toHaveCount(2);
-    await expect(settingsPage.locator(".ep-density-row")).toHaveCount(1);
-    await expect(settingsPage.locator(".ep-theme-swatch")).toHaveCount(5);
-    await expect(settingsPage.locator(".ep-live-preview")).toBeVisible();
-    const metrics = await settingsPage.evaluate(() => ({
-      rootDensity: document.querySelector(".minimal-app")?.getAttribute("data-density") ?? "",
-      rootMotion: document.querySelector(".minimal-app")?.getAttribute("data-motion") ?? "",
-      visualIntensityVariable: document.querySelector(".minimal-app")?.style.getPropertyValue("--nv-visual-intensity") ?? "",
-      documentScrollWidth: document.documentElement.scrollWidth,
-    }));
-    expect(metrics.rootDensity).toMatch(/^(roomy|compact)$/);
-    expect(metrics.rootMotion).toMatch(/^(off|subtle|full)$/);
-    expect(metrics.visualIntensityVariable).not.toBe("");
-    expect(metrics.documentScrollWidth).toBeLessThanOrEqual(width + 1);
-    await settingsPage.locator('input[aria-label="画面明暗"]').evaluate((input) => {
-      const range = input;
-      range.value = "88";
-      range.dispatchEvent(new Event("input", { bubbles: true }));
-    });
-    await expect(settingsPage.locator('input[aria-label="画面明暗"]')).toHaveValue("88");
-    await settingsPage.getByRole("button", { name: "紧凑", exact: true }).click();
-    await expect(page.locator(".minimal-app")).toHaveAttribute("data-density", "compact");
-    await page.evaluate(() => window.scrollTo(0, 0));
-    await page.screenshot({ path: testOutputPath("qa", "REFINE-19", `SETTINGS-02-after-${width}-9ecaf59.png`), animations: "disabled", fullPage: true });
-  }
-});
-
-test("REFINE-19 SETTINGS-03 keeps Editorial Paper sound choices and custom sound flow usable", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-  await page.evaluate(() => {
-    const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
-    window.__epSoundCommands = [];
-    window.__epSoundPreferences = null;
-    window.__epPreviewOscillators = 0;
-    class ReferenceAudioContext {
-      currentTime = 0;
-      destination = {};
-      createOscillator() {
-        window.__epPreviewOscillators += 1;
-        return { type: "sine", frequency: { value: 0 }, connect: () => {}, start: () => {}, stop: () => {} };
-      }
-      createGain() {
-        return { gain: { setValueAtTime: () => {}, exponentialRampToValueAtTime: () => {} }, connect: () => {} };
-      }
-      close() { return Promise.resolve(); }
-    }
-    Object.defineProperty(window, "AudioContext", { configurable: true, value: ReferenceAudioContext });
-    window.__TAURI_INTERNALS__.invoke = async (command, args = {}) => {
-      window.__epSoundCommands.push(command);
-      if (command === "update_timer_preferences") {
-        const current = window.__epSoundPreferences ?? await nativeInvoke("get_timer_preferences");
-        window.__epSoundPreferences = { ...current, ...(args.preferences ?? {}) };
-        return window.__epSoundPreferences;
-      }
-      return nativeInvoke(command, args);
-    };
-  });
-  await pageButton(page, "设置").click();
-  const settingsPage = page.locator(".ep-settings-page");
-  const soundSelect = settingsPage.locator('select[name="editorialAlertSound"]');
-  const soundOptions = soundSelect.locator("option");
-  await expect(soundOptions).toHaveCount(8);
-  await expect(soundOptions).toHaveText(["柔和铃音", "明亮三连", "沉稳脉冲", "木鱼单击", "玻璃回响", "晨光和弦", "老牧师原声", "自定义音效"]);
-  await expect(soundOptions.nth(7)).toHaveJSProperty("disabled", true);
-  await soundSelect.selectOption("bright_bell");
-  await expect(soundSelect).toHaveValue("bright_bell");
-  await expect.poll(() => page.evaluate(() => window.__epSoundCommands.filter((item) => item === "update_timer_preferences").length)).toBe(1);
-  await settingsPage.getByRole("button", { name: "试听", exact: true }).click();
-  await expect.poll(() => page.evaluate(() => window.__epPreviewOscillators)).toBeGreaterThan(0);
-
-  await settingsPage.locator('input[type="file"][aria-label="导入自定义音效"]').setInputFiles({ name: "paper-chime.wav", mimeType: "audio/wav", buffer: Buffer.from("RIFF0000WAVEfmt ") });
-  await expect(page.locator(".app-message")).toContainText("自定义音效已启用");
-  await expect(soundOptions.nth(7)).toHaveJSProperty("disabled", false);
-  await expect(soundSelect).toHaveValue("custom");
-  await expect(settingsPage.getByRole("button", { name: "移除自定义", exact: true })).toBeVisible();
-  await settingsPage.getByRole("button", { name: "移除自定义", exact: true }).click();
-  await expect(page.locator(".app-message")).toContainText("已恢复为柔和铃音");
-  await expect(soundSelect).toHaveValue("soft_chime");
-  await expect(settingsPage.getByRole("button", { name: "移除自定义", exact: true })).toHaveCount(0);
-
-  await page.evaluate(() => window.scrollTo(0, 0));
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "SETTINGS-03-pass-1487-9ecaf59.png"), animations: "disabled", fullPage: true });
-  await page.setViewportSize({ width: 420, height: 720 });
-  const mobileMetrics = await settingsPage.evaluate(() => ({
-    documentScrollWidth: document.documentElement.scrollWidth,
-    selectRight: document.querySelector('select[name="editorialAlertSound"]')?.getBoundingClientRect().right ?? -1,
-    actionsRight: document.querySelector(".ep-sound-actions")?.getBoundingClientRect().right ?? -1,
-  }));
-  expect(mobileMetrics.documentScrollWidth).toBeLessThanOrEqual(421);
-  expect(mobileMetrics.selectRight).toBeLessThanOrEqual(421);
-  expect(mobileMetrics.actionsRight).toBeLessThanOrEqual(421);
-  await page.evaluate(() => window.scrollTo(0, 0));
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "SETTINGS-03-pass-420-9ecaf59.png"), animations: "disabled", fullPage: true });
-  const commands = await page.evaluate(() => window.__epSoundCommands);
-  expect(commands.filter((command) => command === "update_timer_preferences").length).toBe(3);
-});
-
-test("REFINE-19 SETTINGS-04 replaces rhythm settings with useful workspace controls", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-  await pageButton(page, "设置").click();
-  const settingsPage = page.locator(".ep-settings-page");
-  const workspace = settingsPage.locator(".ep-settings-paper--workspace");
-  await expect(workspace).toBeVisible();
-  await expect(workspace).toContainText("工作台布局");
-  await expect(workspace).toContainText("画面明暗");
-  await expect(workspace).toContainText("动效程度");
-  await expect(workspace).toContainText("信息密度");
-  await expect(settingsPage.locator(".ep-shortcut-list")).toHaveCount(0);
-  await expect(settingsPage.locator(".ep-rhythm-grid")).toHaveCount(0);
-  await expect(settingsPage.locator(".ep-rhythm-preset")).toHaveCount(0);
-  await expect(workspace.locator('input[type="range"]')).toHaveCount(2);
-  await expect(workspace.getByRole("button", { name: "舒展", exact: true })).toBeVisible();
-  await expect(workspace.getByRole("button", { name: "紧凑", exact: true })).toBeVisible();
-  await workspace.locator('input[aria-label="动效程度"]').evaluate((input) => {
-    const range = input;
-    range.value = "12";
-    range.dispatchEvent(new Event("input", { bubbles: true }));
-  });
-  await expect(workspace.locator('input[aria-label="动效程度"]')).toHaveValue("12");
+  const preview = workspace.locator(".ep-workspace-preview");
+  await expect(workspace).toContainText("动效改变切换的存在感");
+  await expect(preview).toHaveAttribute("data-motion", "subtle");
+  await expect(preview).toContainText("轻盈");
+  await workspace.getByRole("slider", { name: "动效程度" }).fill("0");
+  await expect(preview).toHaveAttribute("data-motion", "off");
+  await expect(preview).toContainText("静息");
+  await workspace.getByRole("slider", { name: "动效程度" }).fill("80");
+  await expect(preview).toHaveAttribute("data-motion", "full");
+  await expect(preview).toContainText("流动");
   await workspace.getByRole("button", { name: "紧凑", exact: true }).click();
   await expect(page.locator(".minimal-app")).toHaveAttribute("data-density", "compact");
-
-  await page.evaluate(() => window.scrollTo(0, 0));
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "SETTINGS-04-pass-1487-9ecaf59.png"), animations: "disabled", fullPage: true });
-  await page.setViewportSize({ width: 420, height: 720 });
-  const mobileMetrics = await settingsPage.evaluate(() => ({
-    documentScrollWidth: document.documentElement.scrollWidth,
-    workspaceRight: document.querySelector(".ep-settings-paper--workspace")?.getBoundingClientRect().right ?? -1,
-  }));
-  expect(mobileMetrics.documentScrollWidth).toBeLessThanOrEqual(421);
-  expect(mobileMetrics.workspaceRight).toBeLessThanOrEqual(421);
-  await page.evaluate(() => window.scrollTo(0, 0));
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "SETTINGS-04-pass-420-9ecaf59.png"), animations: "disabled", fullPage: true });
+  await expect(preview).toHaveAttribute("data-density", "compact");
+  await expect(preview).toContainText("一屏可以看到更多信息");
 });
 
-test("REFINE-19 SETTINGS-05 keeps Editorial Paper theme preview purposeful", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-  for (const [width, height] of [[1487, 1058], [420, 720]]) {
-    await page.setViewportSize({ width, height });
-    await pageButton(page, "设置").click();
-    const settingsPage = page.locator(".ep-settings-page");
-    await expect(settingsPage).toBeVisible();
-    await expect(settingsPage.locator(".ep-theme-swatches")).toHaveCount(1);
-    await expect(settingsPage.locator(".ep-theme-swatch")).toHaveCount(5);
-    const preview = settingsPage.locator(".ep-live-preview");
-    await expect(preview).toBeVisible();
-    await expect(preview).toContainText("当前样式预览");
-    await expect(preview.locator(".ep-live-preview__paper")).toContainText("编辑纸页");
-    await expect(preview.locator(".ep-live-preview__paper")).toContainText("纸张、铅字与可读性的工作界面。");
-    const metrics = await settingsPage.evaluate(() => {
-      const previewPaper = document.querySelector(".ep-live-preview__paper");
-      const style = previewPaper ? getComputedStyle(previewPaper) : null;
-      return {
-        nightValleyNodes: document.querySelectorAll('[class^="nv-"], [class*=" nv-"]').length,
-        previewImages: document.querySelectorAll(".ep-live-preview img").length,
-        previewUrlBackgrounds: style?.backgroundImage.includes("url(") ?? false,
-        previewRole: document.querySelector(".ep-live-preview__paper")?.className ?? "",
-        documentScrollWidth: document.documentElement.scrollWidth,
-      };
-    });
-    expect(metrics.nightValleyNodes).toBe(0);
-    expect(metrics.previewImages).toBe(0);
-    expect(metrics.previewUrlBackgrounds).toBe(false);
-    expect(metrics.previewRole).toContain("ep-live-preview__paper--editorial-paper");
-    expect(metrics.documentScrollWidth).toBeLessThanOrEqual(width + 1);
-    await page.evaluate(() => window.scrollTo(0, 0));
-    await page.screenshot({ path: testOutputPath("qa", "REFINE-19", `SETTINGS-05-pass-${width}-9ecaf59.png`), animations: "disabled", fullPage: true });
-  }
-});
-
-test("REFINE-19 SETTINGS-06 makes Editorial Paper settings immediate and persistent", async ({ page }) => {
-  await page.addInitScript(() => {
-    if (sessionStorage.getItem("refine19-settings06-seeded") !== "1") {
-      localStorage.setItem("focused-moment.theme", "editorial-paper");
-      sessionStorage.setItem("refine19-settings06-seeded", "1");
-    }
-  });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-  await page.evaluate(() => {
-    const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
-    window.__epSettings06Commands = [];
-    window.__epSettings06FailNext = false;
-    window.__epSettings06Preferences = null;
-    window.__TAURI_INTERNALS__.invoke = async (command, args = {}) => {
-      window.__epSettings06Commands.push(command);
-      if (command === "get_timer_preferences") {
-        window.__epSettings06Preferences = window.__epSettings06Preferences ?? await nativeInvoke(command, args);
-        return window.__epSettings06Preferences;
-      }
-      if (command === "update_timer_preferences") {
-        if (window.__epSettings06FailNext) {
-          window.__epSettings06FailNext = false;
-          throw new Error("模拟保存失败");
-        }
-        const current = window.__epSettings06Preferences ?? await nativeInvoke("get_timer_preferences");
-        const next = { ...current, ...(args.preferences ?? {}) };
-        window.__epSettings06Preferences = next;
-        localStorage.setItem("refine19-settings06-preferences", JSON.stringify(next));
-        return next;
-      }
-      return nativeInvoke(command, args);
-    };
-  });
-  await pageButton(page, "设置").click();
-  let settingsPage = page.locator(".ep-settings-page");
-  await expect(settingsPage).toBeVisible();
-  await expect(settingsPage.getByRole("button", { name: "保存外观设置", exact: true })).toHaveCount(0);
-  await expect(settingsPage).toContainText("主题与提醒设置会立即保存。");
-  await expect(settingsPage).not.toContainText("更改将在下次打开应用时生效。");
-  await settingsPage.locator(".ep-theme-swatch").filter({ hasText: "编辑纸页" }).click();
-  await expect(page.locator(".app-message")).toContainText("设置会自动保留");
-  await expect.poll(() => page.evaluate(() => localStorage.getItem("focused-moment.theme"))).toBe("editorial-paper");
-
-  const behaviorToggle = settingsPage.locator('.ep-setting-list input[type="checkbox"]').first();
-  await behaviorToggle.uncheck();
-  await expect(behaviorToggle).not.toBeChecked();
-  await expect.poll(() => page.evaluate(() => window.__epSettings06Commands.filter((command) => command === "update_timer_preferences").length)).toBe(1);
-  const soundSelect = settingsPage.locator('select[name="editorialAlertSound"]');
-  await page.evaluate(() => { window.__epSettings06FailNext = true; });
-  await soundSelect.selectOption("deep_pulse");
-  await expect(page.locator(".app-message")).toContainText("模拟保存失败");
-  await expect(soundSelect).toHaveValue("soft_chime");
-  await soundSelect.selectOption("bright_bell");
-  await expect(soundSelect).toHaveValue("bright_bell");
-  await expect.poll(() => page.evaluate(() => window.__epSettings06Commands.filter((command) => command === "update_timer_preferences").length)).toBe(3);
-  const storedPreferences = await page.evaluate(() => JSON.parse(localStorage.getItem("refine19-settings06-preferences") ?? "{}"));
-  expect(storedPreferences.toastReminderEnabled).toBe(false);
-  expect(storedPreferences.alertSoundKey).toBe("bright_bell");
-
-  await page.addInitScript(() => {
-    const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
-    window.__TAURI_INTERNALS__.invoke = async (command, args = {}) => {
-      if (command === "get_timer_preferences") {
-        const stored = localStorage.getItem("refine19-settings06-preferences");
-        if (stored) return JSON.parse(stored);
-      }
-      return nativeInvoke(command, args);
-    };
-  });
-  await page.reload();
-  await expect(page.getByRole("heading", { name: "今日节奏" })).toBeVisible();
-  await pageButton(page, "设置").click();
-  settingsPage = page.locator(".ep-settings-page");
-  await expect(settingsPage.locator('select[name="editorialAlertSound"]')).toHaveValue("bright_bell");
-  await expect(settingsPage.locator('.ep-setting-list input[type="checkbox"]').first()).not.toBeChecked();
-  await expect(settingsPage.getByRole("button", { name: "保存外观设置", exact: true })).toHaveCount(0);
-  await expect(settingsPage).toContainText("主题与提醒设置会立即保存。");
-  await page.evaluate(() => window.scrollTo(0, 0));
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "SETTINGS-06-pass-1487-9ecaf59.png"), animations: "disabled", fullPage: true });
-
-  await page.setViewportSize({ width: 420, height: 720 });
-  const mobileMetrics = await settingsPage.evaluate(() => ({
-    documentScrollWidth: document.documentElement.scrollWidth,
-    footerRight: document.querySelector(".ep-settings-footer")?.getBoundingClientRect().right ?? -1,
-  }));
-  expect(mobileMetrics.documentScrollWidth).toBeLessThanOrEqual(421);
-  expect(mobileMetrics.footerRight).toBeLessThanOrEqual(421);
-  await page.evaluate(() => window.scrollTo(0, 0));
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "SETTINGS-06-pass-420-9ecaf59.png"), animations: "disabled", fullPage: true });
-});
-
-test("PERF-01 measures synthetic Editorial Paper history rendering", async ({ page }) => {
-  test.setTimeout(180_000);
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  await page.setViewportSize({ width: 1487, height: 1058 });
-
-  const results = [];
-  for (const recordCount of [1000, 10000]) {
-    await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", recordCount });
-    const switchStartedAt = await page.evaluate(() => performance.now());
-    await pageButton(page, "记录").click();
-    await expect(page.locator(".ep-records-page")).toBeVisible();
-    const switchFinishedAt = await page.evaluate(() => performance.now());
-    const frameStats = await page.evaluate(() => new Promise((resolve) => {
-      const startedAt = performance.now();
-      let frames = 0;
-      let longFrames = 0;
-      let previousAt = startedAt;
-      const sample = (now) => {
-        frames += 1;
-        if (now - previousAt > 20) longFrames += 1;
-        previousAt = now;
-        if (now - startedAt >= 1000) {
-          resolve({ durationMs: Number((now - startedAt).toFixed(1)), frames, longFrames, fps: Number((frames / ((now - startedAt) / 1000)).toFixed(1)) });
-          return;
-        }
-        requestAnimationFrame(sample);
-      };
-      requestAnimationFrame(sample);
-    }));
-    const pageStats = await page.evaluate(() => ({
-      domNodeCount: document.getElementsByTagName("*").length,
-      scrollHeight: document.documentElement.scrollHeight,
-      heapUsedBytes: performance.memory?.usedJSHeapSize ?? null,
-    }));
-    results.push({
-      recordCount,
-      recordsRouteSwitchMs: Number((switchFinishedAt - switchStartedAt).toFixed(1)),
-      frameStats,
-      pageStats,
-    });
-  }
-
-  writeFileSync(testOutputPath("qa", "PERF-01", "frontend-history.json"), JSON.stringify({
-    capturedAt: new Date().toISOString(),
-    viewport: { width: 1487, height: 1058 },
-    runtime: "Chromium + Tauri mock; synthetic records, not personal data",
-    results,
-  }, null, 2));
-  for (const result of results) {
-    expect(result.recordsRouteSwitchMs).toBeLessThan(10_000);
-    expect(result.frameStats.frames).toBeGreaterThan(0);
-  }
-});
-
-test("Night Valley settings use a clear layout and auto-save useful choices", async ({ page }) => {
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page);
-  await page.getByRole("button", { name: "设置", exact: true }).click();
-
-  await expect(page.locator(".nv-settings-subnav a")).toHaveCount(4);
-  await expect(page.locator(".nv-setting-sliders")).toHaveCount(0);
-  await expect(page.locator(".nv-density-choice")).toHaveCount(0);
-  await expect(page.locator("#nv-shortcuts")).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: "快捷键" })).toHaveCount(0);
-  await expect(page.locator(".nv-settings-theme-lab")).toContainText("主题观测站");
-  await expect(page.locator(".nv-sound-option")).toHaveCount(7);
-  const toggleMetrics = await page.locator(".nv-toggle-row label").evaluateAll((labels) => labels.map((label) => {
-    const input = label.querySelector("input");
-    const copy = label.querySelector("span");
-    const note = label.querySelector("small");
-    const rect = (element) => {
-      const box = element?.getBoundingClientRect();
-      return box ? { left: box.left, right: box.right, top: box.top, bottom: box.bottom, height: box.height } : null;
-    };
-    return { label: rect(label), input: rect(input), copy: rect(copy), note: rect(note), noteDisplay: note ? getComputedStyle(note).display : "" };
-  }));
-  expect(toggleMetrics.every((metric) => metric.noteDisplay === "block" && (metric.note?.height ?? 0) > 0)).toBe(true);
-  expect(toggleMetrics.every((metric) => (metric.input?.right ?? 0) <= (metric.label?.right ?? 0) && (metric.copy?.right ?? 0) <= (metric.label?.right ?? 0))).toBe(true);
-
-  await page.locator(".nv-theme-card").filter({ hasText: "编辑纸页" }).click({ force: true });
-  await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "editorial-paper");
-  await expect(page.locator(".app-message--success")).toContainText("自动保留");
-  await expect.poll(() => page.evaluate(() => window.localStorage.getItem("focused-moment.theme"))).toBe("editorial-paper");
-
-  await page.reload();
-  await expect(page.getByRole("heading", { name: "今日节奏" })).toBeVisible();
-  await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "editorial-paper");
-});
-
-test("Night Valley appearance settings explain when local saving fails", async ({ page }) => {
-  await page.addInitScript(() => {
-    Storage.prototype.setItem = () => {
-      throw new Error("quota exceeded");
-    };
-  });
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page);
-  await page.getByRole("button", { name: "设置", exact: true }).click();
-  await page.locator(".nv-theme-card").filter({ hasText: "夜谷" }).click({ force: true });
-
-  await expect(page.locator(".app-message--error")).toContainText("本地保存失败");
-  await expect(page.locator(".app-message--error")).toContainText("重启后不会保留");
-});
-
-test("Night Valley secondary widths keep each page inside the viewport", async ({ page }) => {
-  const pages = [
-    ["计时", ".nv-focus-panel"],
-    ["待办", ".nv-todo-focus-panel"],
-    ["记录", ".nv-records-archive"],
-    ["设置", ".nv-settings-preview"],
-  ];
-
-  for (const [width, height] of [[1280, 900], [1024, 900]]) {
-    await page.setViewportSize({ width, height });
-    await bootTodayReferenceMock(page);
-
-    for (const [label, surfaceSelector] of pages) {
-      await page.locator(".minimal-nav > button").filter({ hasText: label }).click();
-      const surface = page.locator(surfaceSelector);
-      await expect(surface).toBeVisible();
-      const layout = await surface.evaluate((element) => {
-        const rect = element.getBoundingClientRect();
-        return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
-      });
-      expect(layout.left).toBeGreaterThanOrEqual(0);
-      expect(layout.right).toBeLessThanOrEqual(width);
-      await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
-      await page.screenshot({ path: testOutputPath("screenshots", `night-valley-${label}-${width}.png`), animations: "disabled" });
-    }
-  }
-});
-
-test("Night Valley pressure widths preserve the first trail label and settings safety reachability", async ({ page }) => {
-  const pages = [
-    ["今日", ".trail-map"],
-    ["计时", ".nv-focus-panel"],
-    ["待办", ".nv-todo-focus-panel"],
-    ["记录", ".nv-records-archive"],
-    ["设置", ".nv-settings-preview"],
-  ];
-  const viewports = [
-    { width: 1120, height: 760 },
-    { width: 820, height: 720 },
-    { width: 560, height: 720 },
-  ];
-
-  await page.setViewportSize(viewports[0]);
-  await bootTodayReferenceMock(page);
-
-  for (const [index, viewport] of viewports.entries()) {
-    if (index > 0) {
-      await page.setViewportSize(viewport);
-      await page.reload();
-      await expect(page.getByRole("heading", { name: "今天，从一件事开始" })).toBeVisible();
-    }
-
-    const trailViewport = page.locator(".trail-map:visible .trail-map__viewport");
-    const trailLabel = await trailViewport.evaluate((viewportElement) => {
-      const meta = viewportElement.querySelector(".trail-node .trail-node__meta");
-      if (!meta) return null;
-      const metaRect = meta.getBoundingClientRect();
-      const viewportRect = viewportElement.getBoundingClientRect();
-      return { left: metaRect.left, right: metaRect.right, viewportLeft: viewportRect.left, viewportRight: viewportRect.right };
-    });
-    expect(trailLabel).not.toBeNull();
-    expect(trailLabel.left).toBeGreaterThanOrEqual(trailLabel.viewportLeft);
-    expect(trailLabel.right).toBeLessThanOrEqual(trailLabel.viewportRight);
-
-    for (const [label, surfaceSelector] of pages) {
-      await pageButton(page, label).click();
-      const surface = page.locator(surfaceSelector);
-      await expect(surface).toBeVisible();
-      const layout = await surface.evaluate((element) => {
-        const rect = element.getBoundingClientRect();
-        return { left: rect.left, right: rect.right };
-      });
-      expect(layout.left).toBeGreaterThanOrEqual(0);
-      expect(layout.right).toBeLessThanOrEqual(viewport.width);
-      await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
-    }
-  }
-
-  await page.setViewportSize(viewports[0]);
-  await page.reload();
-  await expect(page.getByRole("heading", { name: "今天，从一件事开始" })).toBeVisible();
-  await pageButton(page, "设置").click();
-  const backupLink = page.locator('.nv-settings-subnav a[href="#nv-backup"]');
-  const exportBackup = page.locator(".nv-settings-panel--backup").getByRole("button", { name: "导出备份" });
-  const clearData = page.locator(".nv-settings-panel--danger").getByRole("button", { name: "清空当前数据" });
-
-  await backupLink.click();
-  await expect.poll(() => page.evaluate(() => window.location.hash)).toBe("#nv-backup");
-  await expect(exportBackup).toBeInViewport();
-  await exportBackup.focus();
-  await expect(exportBackup).toBeFocused();
-
-  await clearData.scrollIntoViewIfNeeded();
-  await expect(clearData).toBeInViewport();
-  await clearData.focus();
-  await expect(clearData).toBeFocused();
-});
-
-test("Night Valley remains operable on a high-DPI desktop context", async ({ browser }) => {
-  const context = await browser.newContext({
-    viewport: { width: 1487, height: 1058 },
-    deviceScaleFactor: 2,
-  });
-  const page = await context.newPage();
-
-  try {
-    await bootTodayReferenceMock(page);
-    await page.getByRole("button", { name: "计时", exact: true }).click();
-    await expect(page.locator(".nv-focus-brief")).toBeVisible();
-    await expect(page.locator(".nv-focus-panel")).toBeVisible();
-    await expect(page.locator(".nv-focus-panel .timer-readout")).toBeVisible();
-    await expect(page.locator(".nv-focus-route")).toHaveCount(0);
-    await expect(page.locator(".nv-focus-footer")).toHaveCount(0);
-    await expect(page.locator(".command-trigger")).toBeHidden();
-    await expect.poll(() => page.evaluate(() => window.devicePixelRatio)).toBe(2);
-    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(1487);
-  } finally {
-    await context.close();
-  }
-});
-
-test("Night Valley timer fullscreen keeps the working workspace readable", async ({ page }) => {
-  const viewport = { width: 2560, height: 1368 };
-  await page.setViewportSize(viewport);
-  await bootTodayReferenceMock(page, { recordCount: 7 });
-  await page.getByRole("button", { name: "计时", exact: true }).click();
-
-  const bounds = await page.evaluate(() => {
-    const selectors = [".nv-focus-panel", ".nv-focus-brief"];
-    return Object.fromEntries(selectors.map((selector) => {
-      const rect = document.querySelector(selector)?.getBoundingClientRect();
-      return [selector, rect ? { top: rect.top, bottom: rect.bottom, right: rect.right } : null];
-    }));
-  });
-
-  await expect(page.locator(".nv-focus-panel .timer-readout")).toBeVisible();
-  await expect(page.locator(".nv-focus-brief")).toBeVisible();
-  await expect(page.locator(".nv-focus-footer")).toHaveCount(0);
-  await expect(page.locator(".nv-focus-route")).toHaveCount(0);
-  await expect(page.locator(".nv-page-heading__clock")).toHaveText(/^\d{2}:\d{2}:\d{2}$/);
-  expect(bounds[".nv-focus-panel"].bottom).toBeLessThanOrEqual(viewport.height);
-  expect(bounds[".nv-focus-panel"].right).toBeLessThanOrEqual(viewport.width);
-  expect(bounds[".nv-focus-brief"].bottom).toBeLessThanOrEqual(viewport.height);
-  expect(bounds[".nv-focus-brief"].right).toBeLessThanOrEqual(viewport.width);
-  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
-  await page.screenshot({ path: testOutputPath("screenshots", "night-valley-timer-fullscreen.png"), animations: "disabled" });
-});
-
-test("Night Valley timer centers the records link label across viewport sizes", async ({ page }) => {
-  await bootTodayReferenceMock(page, { recordCount: 7 });
-  await page.getByRole("button", { name: "计时", exact: true }).click();
-
-  for (const viewport of [
-    { width: 2560, height: 1368 },
-    { width: 1024, height: 768 },
-    { width: 540, height: 900 },
+test("legacy fourth and fifth theme preferences resolve to their new positional themes", async ({ page }) => {
+  for (const [themeId, persistedThemeId, themeName] of [
+    ["metro-pulse", "aurora-ocean", "今日班次"],
+    ["clutch-court", "botanical-library", "今日赛场"],
   ]) {
-    await page.setViewportSize(viewport);
-    const metrics = await page.evaluate(() => {
-      const button = document.querySelector(".nv-focus-records-link");
-      const label = button?.querySelector("span");
-      const icon = button?.querySelector("svg");
-      const read = (element) => {
-        const rect = element?.getBoundingClientRect();
-        return rect ? { left: rect.left, right: rect.right, center: rect.left + rect.width / 2 } : null;
-      };
-      const buttonRect = read(button);
-      const labelRect = read(label);
-      const iconRect = read(icon);
-      return buttonRect && labelRect && iconRect
-        ? {
-            button: buttonRect,
-            label: labelRect,
-            icon: iconRect,
-            labelOffset: Math.abs(labelRect.center - buttonRect.center),
-          }
-        : null;
-    });
-
-    expect(metrics).not.toBeNull();
-    expect(metrics.labelOffset, JSON.stringify({ viewport, metrics })).toBeLessThanOrEqual(1);
-    expect(metrics.icon.left).toBeGreaterThan(metrics.label.right);
-    expect(metrics.icon.right).toBeLessThanOrEqual(metrics.button.right - 10);
-    expect(metrics.button.right).toBeLessThanOrEqual(viewport.width);
+    await page.setViewportSize({ width: 1487, height: 1058 });
+    await bootReferenceMock(page, { themeId, persistedThemeId });
+    await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", themeId);
+    await navButton(page, "设置").click();
+    await expect(page.locator(".nt-theme-choice").filter({ hasText: themeName })).toHaveAttribute("aria-pressed", "true");
   }
 });
 
-test("Night Valley timer keeps a one-hour readout separate from session facts", async ({ page }) => {
-  const viewport = { width: 2560, height: 1368 };
-  await page.setViewportSize(viewport);
-  await bootTodayReferenceMock(page, { recordCount: 7 });
-  await page.getByRole("button", { name: "计时", exact: true }).click();
-  await page.getByRole("button", { name: "60 分钟", exact: true }).click();
-
-  const timer = page.locator(".nv-focus-panel__timer");
-  await expect(timer).toContainText("01:00:00");
-  const metrics = await page.evaluate(() => {
-    const read = (selector) => {
-      const element = document.querySelector(selector);
-      const rect = element?.getBoundingClientRect();
-      return rect ? { top: rect.top, bottom: rect.bottom, height: rect.height } : null;
-    };
-    return {
-      timer: read(".nv-focus-panel__timer"),
-      readout: read(".nv-focus-panel__timer > strong"),
-      session: read(".nv-focus-panel__session-data"),
-      status: read(".nv-focus-panel__status"),
-    };
-  });
-
-  expect(metrics.timer).not.toBeNull();
-  expect(metrics.readout).not.toBeNull();
-  expect(metrics.session).not.toBeNull();
-  expect(metrics.status).not.toBeNull();
-  expect(metrics.readout.bottom).toBeLessThanOrEqual(metrics.session.top - 8);
-  expect(metrics.session.bottom).toBeLessThanOrEqual(metrics.status.top - 8);
-  await page.screenshot({ path: testOutputPath("screenshots", "night-valley-timer-one-hour.png"), animations: "disabled" });
-});
-
-test("Night Valley timer survives a scaled fullscreen CSS viewport", async ({ page }) => {
-  // A 2560px physical fullscreen at 150% Windows scaling is about 1707 CSS px.
-  const viewport = { width: 1707, height: 912 };
-  await page.setViewportSize(viewport);
-  await bootTodayReferenceMock(page, { recordCount: 7 });
-  await page.getByRole("button", { name: "计时", exact: true }).click();
-  await page.getByRole("button", { name: "60 分钟", exact: true }).click();
-
-  const timer = page.locator(".nv-focus-panel__timer");
-  await expect(timer).toContainText("01:00:00");
-  const metrics = await page.evaluate(() => {
-    const read = (selector) => {
-      const element = document.querySelector(selector);
-      const rect = element?.getBoundingClientRect();
-      return rect ? { top: rect.top, bottom: rect.bottom, height: rect.height } : null;
-    };
-    return {
-      timer: read(".nv-focus-panel__timer"),
-      readout: read(".nv-focus-panel__timer > strong"),
-      session: read(".nv-focus-panel__session-data"),
-      status: read(".nv-focus-panel__status"),
-      panel: read(".nv-focus-panel"),
-      panelScroll: (() => {
-        const element = document.querySelector(".nv-focus-panel");
-        return element ? { clientHeight: element.clientHeight, scrollHeight: element.scrollHeight } : null;
-      })(),
-    };
-  });
-
-  expect(metrics.readout).not.toBeNull();
-  expect(metrics.session).not.toBeNull();
-  expect(metrics.status).not.toBeNull();
-  expect(metrics.panel).not.toBeNull();
-  expect(metrics.panelScroll).not.toBeNull();
-  expect(metrics.readout.bottom).toBeLessThanOrEqual(metrics.session.top - 8);
-  expect(metrics.session.bottom).toBeLessThanOrEqual(metrics.status.top - 8);
-  expect(metrics.panel.bottom).toBeLessThanOrEqual(viewport.height);
-  expect(metrics.panelScroll.scrollHeight).toBeLessThanOrEqual(metrics.panelScroll.clientHeight);
-  await page.screenshot({ path: testOutputPath("screenshots", "night-valley-timer-scaled-fullscreen.png"), animations: "disabled" });
-});
-
-test("REFINE-19 SHELL-01 keeps shared window controls usable on every Editorial Paper tab", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
+test("archived themes are tucked into Settings and remain switchable in both directions", async ({ page }) => {
   await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-  await page.evaluate(() => {
-    const nativeInvoke = window.__TAURI_INTERNALS__.invoke;
-    window.__epShellCommands = [];
-    window.__TAURI_INTERNALS__.invoke = async (command, args = {}) => {
-      window.__epShellCommands.push(command);
-      return nativeInvoke(command, args);
-    };
-  });
+  await bootReferenceMock(page);
+  await navButton(page, "设置").click();
 
-  const pages = [
-    ["今日", ".ep-today-page"],
-    ["计时", ".ep-focus-page"],
-    ["待办", ".ep-todos-page"],
-    ["记录", ".ep-records-page"],
-    ["设置", ".ep-settings-page"],
-  ];
-  const expectedControls = [
-    ["最小化窗口", "minimize_main_window"],
-    ["最大化或还原窗口", "toggle_maximize_main_window"],
-    ["关闭窗口", "close_main_window"],
-  ];
-  for (const [index, [label, selector]] of pages.entries()) {
-    if (index > 0) await pageButton(page, label).click();
-    await expect(page.locator(selector)).toBeVisible();
-    const controls = page.locator(".window-controls");
-    const buttons = controls.locator(".window-control");
-    await expect(buttons).toHaveCount(3);
-    await expect(controls).not.toHaveAttribute("data-tauri-drag-region", /.+/);
-    for (const [buttonIndex, [ariaLabel, command]] of expectedControls.entries()) {
-      const button = buttons.nth(buttonIndex);
-      await expect(button).toBeVisible();
-      await expect(button).toHaveAttribute("aria-label", ariaLabel);
-      await expect(button).not.toHaveAttribute("data-tauri-drag-region", /.+/);
-      await button.click();
-      await expect.poll(() => page.evaluate((expectedCommand) => window.__epShellCommands.filter((item) => item === expectedCommand).length, command)).toBe(index + 1);
-    }
+  await expect(page.locator(".nv-theme-card")).toHaveCount(5);
+  const shelf = page.locator(".legacy-theme-shelf");
+  const disclosure = shelf.locator("details");
+  await expect(shelf).toBeVisible();
+  await expect(disclosure).not.toHaveAttribute("open");
+  await expect(disclosure.getByRole("button")).toHaveCount(0);
+
+  await shelf.getByText("旧版主题", { exact: true }).click();
+  await expect(disclosure.getByRole("button")).toHaveCount(2);
+  await expect.poll(() => shelf.locator("img").evaluateAll((images) => images.filter((image) => image.complete && image.naturalWidth > 0).length)).toBe(2);
+  await page.screenshot({ path: test.info().outputPath("legacy-theme-shelf-expanded.png") });
+
+  await shelf.getByRole("button", { name: "切换到旧版主题：极光海面" }).click();
+  await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "aurora-ocean");
+  await expect(page.locator(".ao-settings-page")).toBeVisible();
+  await expect(page.locator(".ao-theme-bubble")).toHaveCount(5);
+  await expect(shelf.getByRole("button", { name: "切换到旧版主题：极光海面" })).toHaveAttribute("aria-pressed", "true");
+  await expect.poll(() => page.evaluate(() => window.__appPreferenceUpdateHistory.some(({ themeId }) => themeId === "legacy-aurora-ocean"))).toBe(true);
+
+  for (const label of ["今日", "计时", "待办", "记录", "设置"]) {
+    await navButton(page, label).click();
+    await expect(page.locator(".ao-page")).toHaveCount(1);
   }
-  const commands = await page.evaluate(() => window.__epShellCommands);
-  expect(commands.filter((command) => command === "minimize_main_window")).toHaveLength(5);
-  expect(commands.filter((command) => command === "toggle_maximize_main_window")).toHaveLength(5);
-  expect(commands.filter((command) => command === "close_main_window")).toHaveLength(5);
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "SHELL-01-pass-1487.png"), animations: "disabled", fullPage: true });
-});
 
-test("REFINE-19 SHELL-02 keeps a live date and clock synchronized across Editorial Paper tabs", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await page.addInitScript(() => {
-    const NativeDate = Date;
-    const startEpoch = NativeDate.parse("2026-09-05T12:00:00+08:00");
-    const startPerformance = performance.now();
-    class LiveReferenceDate extends NativeDate {
-      constructor(...args) {
-        super(...(args.length === 0 ? [startEpoch + (performance.now() - startPerformance)] : args));
-      }
+  await page.locator(".ao-theme-bubble").filter({ hasText: "今日班次" }).click();
+  await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "metro-pulse");
+  await expect(page.locator(".nt-theme-choice")).toHaveCount(5);
+  await expect.poll(() => page.evaluate(() => window.__appPreferenceUpdateHistory.some(({ themeId }) => themeId === "metro-pulse"))).toBe(true);
 
-      static now() {
-        return startEpoch + (performance.now() - startPerformance);
-      }
-    }
+  await shelf.getByText("旧版主题", { exact: true }).click();
+  await shelf.getByRole("button", { name: "切换到旧版主题：植物书房" }).click();
+  await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "botanical-library");
+  await expect(page.locator(".bl-settings-page")).toBeVisible();
+  await expect(page.locator(".bl-theme-book")).toHaveCount(5);
+  await expect(shelf.getByRole("button", { name: "切换到旧版主题：植物书房" })).toHaveAttribute("aria-pressed", "true");
+  await expect.poll(() => page.evaluate(() => window.__appPreferenceUpdateHistory.some(({ themeId }) => themeId === "legacy-botanical-library"))).toBe(true);
 
-    window.Date = LiveReferenceDate;
-  });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", freezeClock: false });
-  const pages = [
-    ["今日", ".ep-today-page"],
-    ["计时", ".ep-focus-page"],
-    ["待办", ".ep-todos-page"],
-    ["记录", ".ep-records-page"],
-    ["设置", ".ep-settings-page"],
-  ];
-  const readings = [];
-  for (const [index, [label, selector]] of pages.entries()) {
-    if (index > 0) await pageButton(page, label).click();
-    await expect(page.locator(selector)).toBeVisible();
-    const clock = page.locator('time[aria-label^="当前时间"]');
-    const date = page.locator(".ep-date-time__date");
-    await expect(clock).toHaveText(/^\d{2}:\d{2}:\d{2}$/);
-    const initialClock = await clock.textContent();
-    await expect.poll(() => clock.textContent(), { timeout: 3500 }).not.toBe(initialClock);
-    readings.push(await page.locator(".ep-date-time").evaluate((element) => ({
-      date: element.querySelector(".ep-date-time__date")?.textContent ?? "",
-      clock: element.querySelector(".ep-date-time__clock")?.textContent ?? "",
-      dateFont: getComputedStyle(element.querySelector(".ep-date-time__date")).fontFamily,
-      clockFont: getComputedStyle(element.querySelector(".ep-date-time__clock")).fontFamily,
-    })));
+  for (const label of ["今日", "计时", "待办", "记录", "设置"]) {
+    await navButton(page, label).click();
+    await expect(page.locator(".bl-page")).toHaveCount(1);
   }
-  expect(new Set(readings.map((item) => item.date)).size).toBe(1);
-  expect(readings.every((item) => /^\d{2}:\d{2}:\d{2}$/.test(item.clock))).toBe(true);
-  expect(new Set(readings.map((item) => item.dateFont)).size).toBe(1);
-  expect(new Set(readings.map((item) => item.clockFont)).size).toBe(1);
-  expect(readings.every((item) => item.dateFont !== item.clockFont)).toBe(true);
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "SHELL-02-pass-settings.png"), animations: "disabled", fullPage: true });
+
+  await page.locator(".bl-theme-book").filter({ hasText: "今日赛场" }).click();
+  await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "clutch-court");
+  await expect(page.locator(".nt-settings-page")).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.__appPreferenceUpdateHistory.some(({ themeId }) => themeId === "clutch-court"))).toBe(true);
 });
 
-test("REFINE-19 SHELL-03 hides the visual command entry without removing Ctrl+K", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
+test("archived theme settings shelf stays within medium and narrow viewports", async ({ page }) => {
   await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-  for (const [index, [label, selector]] of [
-    ["今日", ".ep-today-page"],
-    ["计时", ".ep-focus-page"],
-    ["待办", ".ep-todos-page"],
-    ["记录", ".ep-records-page"],
-    ["设置", ".ep-settings-page"],
-  ].entries()) {
-    if (index > 0) await pageButton(page, label).click();
-    await expect(page.locator(selector)).toBeVisible();
-    await expect(page.locator(".command-trigger")).toBeHidden();
-  }
-  await page.keyboard.press("Control+K");
-  await expect(page.getByRole("dialog", { name: "你想做什么？" })).toBeVisible();
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "SHELL-03-pass-settings.png"), animations: "disabled", fullPage: true });
-  await page.keyboard.press("Escape");
-});
+  await bootReferenceMock(page, { themeId: "metro-pulse" });
+  await navButton(page, "设置").click();
+  const shelf = page.locator(".legacy-theme-shelf");
+  await shelf.getByText("旧版主题", { exact: true }).click();
 
-test("REFINE-19 SHELL-04 keeps the Editorial Paper daily focus line visible and wrap-safe", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏" });
-  const line = page.getByRole("complementary", { name: "今日一句 · 页边手记" });
-  const quote = line.locator(".daily-focus-line__quote");
-  await expect(line).toBeVisible();
-  await expect(quote).not.toHaveText(/^“”$/);
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "SHELL-04-pass-1487.png"), animations: "disabled", fullPage: true });
-
-  for (const [width, height] of [[1487, 1058], [420, 720]]) {
+  for (const [width, height] of [[1024, 900], [560, 900]]) {
     await page.setViewportSize({ width, height });
-    const evidence = await line.evaluate((element) => {
-      const quote = element.querySelector(".daily-focus-line__quote");
-      if (!quote) return null;
-      quote.textContent = `“${"这是一段用于检验每日一句在编辑纸页中长文本换行和可见性的压力语料。".repeat(4)}”`;
-      const lineRect = element.getBoundingClientRect();
-      const quoteRect = quote.getBoundingClientRect();
-      return {
-        lineTop: lineRect.top,
-        lineBottom: lineRect.bottom,
-        quoteWidth: quoteRect.width,
-        quoteScrollWidth: quote.scrollWidth,
-        quoteClientWidth: quote.clientWidth,
-        quoteOverflowWrap: getComputedStyle(quote).overflowWrap,
-        documentScrollWidth: document.documentElement.scrollWidth,
-        documentScrollHeight: document.documentElement.scrollHeight,
-      };
-    });
-    expect(evidence).not.toBeNull();
-    expect(evidence.lineTop).toBeGreaterThanOrEqual(0);
-    expect(evidence.lineBottom).toBeLessThanOrEqual(evidence.documentScrollHeight);
-    expect(evidence.quoteScrollWidth).toBeLessThanOrEqual(evidence.quoteClientWidth);
-    expect(evidence.quoteOverflowWrap).toBe("anywhere");
-    expect(evidence.documentScrollWidth).toBeLessThanOrEqual(width + 1);
-  }
-});
-
-test("REFINE-19 adversarial current-data matrix keeps completed nodes, boundary widths, and history copy visible", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-
-  const currentLikeTodoTitles = Array.from({ length: 151 }, (_, index) => `南京大学就业场次 ${index + 1}｜2026-09-${String(15 + (index % 10)).padStart(2, "0")} 09:00｜紫金校区招聘场地与入口说明`);
-  const completedTitles = Array.from({ length: 5 }, (_, index) => `已完成事项 ${index + 1}：回看完整的节点信息与后续动作`);
-
-  for (const [width, height] of [[1487, 1058], [821, 720], [420, 720]]) {
-    await page.setViewportSize({ width, height });
-    await bootTodayReferenceMock(page, {
-      expectedHeading: "今日节奏",
-      todoTitles: currentLikeTodoTitles,
-      completedTodoTitles: completedTitles,
-    });
-
-    const today = page.locator(".ep-today-page");
-    const completedNodes = today.locator(".ep-completed-notes > span:not(.ep-section-label)");
-    if (width === 1487) {
-      await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-01-adversarial-completed-before.png"), animations: "disabled", fullPage: true });
-    }
-    await expect(completedNodes).toHaveCount(completedTitles.length);
-    expect(new Set(await completedNodes.allTextContents())).toEqual(new Set(completedTitles));
-    if (width === 1487) {
-      await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-01-adversarial-completed-after.png"), animations: "disabled", fullPage: true });
-    }
-
-    await pageButton(page, "待办").click();
-    const todos = page.locator(".ep-todos-page");
-    await expect(todos.locator(".ep-todo-row")).toHaveCount(currentLikeTodoTitles.length + completedTitles.length);
-    const todoEvidence = await todos.evaluate(() => {
-      const read = (element) => {
-        const rect = element.getBoundingClientRect();
-        return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, clientWidth: element.clientWidth, scrollWidth: element.scrollWidth };
-      };
-      return {
-        documentScrollWidth: document.documentElement.scrollWidth,
-        rows: [...document.querySelectorAll(".ep-todo-row")].map((row) => read(row)),
-        footer: [...document.querySelectorAll(".ep-todo-footer > *")].map(read),
-      };
-    });
-    expect(todoEvidence.documentScrollWidth).toBeLessThanOrEqual(width + 1);
-    expect(todoEvidence.rows.every((row) => row.left >= 0 && row.right <= width + 1)).toBe(true);
-    expect(todoEvidence.footer.every((item) => item.left >= 0 && item.right <= width + 1)).toBe(true);
-    await page.screenshot({ path: testOutputPath("qa", "REFINE-19", `adversarial-current-todos-${width}.png`), animations: "disabled", fullPage: true });
-  }
-
-  const unbrokenTitle = `RECORD-${"ABCDEFGHIJKLMNOPQRSTUVWXYZ".repeat(12)}`;
-  await page.setViewportSize({ width: 420, height: 720 });
-  await bootTodayReferenceMock(page, {
-    expectedHeading: "今日节奏",
-    recordCount: 3,
-    recordDates: [referenceDate, referenceDate, referenceDate],
-    recordTitlePrefix: unbrokenTitle,
-  });
-  await pageButton(page, "记录").click();
-  const records = page.locator(".ep-records-page");
-  const historyDay = records.locator(".ep-full-history details").first();
-  if (!(await historyDay.evaluate((element) => element.open))) {
-    await historyDay.locator("summary").click();
-  }
-  await expect(historyDay.locator(":scope > div")).toBeVisible();
-  const historyEvidence = await historyDay.locator(":scope > div").evaluate((element) => ({
-    documentScrollWidth: document.documentElement.scrollWidth,
-    items: [...element.querySelectorAll("span")].map((item) => {
-      const rect = item.getBoundingClientRect();
-      return { left: rect.left, right: rect.right, clientWidth: item.clientWidth, scrollWidth: item.scrollWidth };
-    }),
-  }));
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "adversarial-unbroken-history-before-420.png"), animations: "disabled", fullPage: true });
-  expect(historyEvidence.documentScrollWidth).toBeLessThanOrEqual(421);
-  expect(historyEvidence.items.every((item) => item.left >= 0 && item.right <= 421 && item.scrollWidth <= item.clientWidth)).toBe(true);
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "adversarial-unbroken-history-420.png"), animations: "disabled", fullPage: true });
-});
-
-test("REFINE-19 adversarial boundary matrix keeps every Editorial Paper surface inside the viewport", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-
-  const longTodoTitle = "南京大学就业场次｜2026-09-15 09:00｜紫金校区招聘场地与入口说明和现场核对";
-  for (const [width, height] of [[821, 720], [420, 720]]) {
-    await page.setViewportSize({ width, height });
-    await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", todoTitles: [longTodoTitle] });
-    for (const [index, [label, selector]] of [
-      ["今日", ".ep-today-page"],
-      ["计时", ".ep-focus-page"],
-      ["待办", ".ep-todos-page"],
-      ["记录", ".ep-records-page"],
-      ["设置", ".ep-settings-page"],
-    ].entries()) {
-      if (index > 0) await pageButton(page, label).click();
-      const surface = page.locator(selector);
-      await expect(surface).toBeVisible();
-      await page.screenshot({ path: testOutputPath("qa", "REFINE-19", `adversarial-boundary-${label}-${width}.png`), animations: "disabled", fullPage: true });
-      const evidence = await surface.evaluate((element) => {
-        const rect = element.getBoundingClientRect();
-        return {
-          documentScrollWidth: document.documentElement.scrollWidth,
-          surfaceRight: rect.right,
-          viewportWidth: innerWidth,
-        };
-      });
-      // The focus note keeps its intentional paper rotation; Chromium reports
-      // up to two antialiasing pixels beyond the viewport at the 821px edge.
-      expect(evidence.documentScrollWidth).toBeLessThanOrEqual(width + 3);
-      expect(evidence.surfaceRight).toBeLessThanOrEqual(width + 1);
-    }
-
-    await pageButton(page, "今日").click();
-    await page.locator(".ep-field-row").first().click();
-    const focus = page.locator(".ep-focus-page");
-    await expect(focus).toBeVisible();
-    await expect(focus.locator(".ep-note-paper__linked")).toContainText(longTodoTitle);
-    await focus.getByRole("button", { name: "开始专注", exact: true }).click();
-    await expect(focus).toContainText("倒计时中");
-    const focusEvidence = await focus.evaluate(() => {
-      const read = (selector) => [...document.querySelectorAll(selector)].map((element) => {
-        const rect = element.getBoundingClientRect();
-        return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, text: element.textContent?.trim() ?? "" };
-      });
-      return {
-        documentScrollWidth: document.documentElement.scrollWidth,
-        footer: read(".ep-focus-footer > *"),
-        linked: read(".ep-note-paper__linked"),
-      };
-    });
-    expect(focusEvidence.documentScrollWidth).toBeLessThanOrEqual(width + 3);
-    expect(focusEvidence.footer.every((item) => item.left >= 0 && item.right <= width + 1)).toBe(true);
-    expect(focusEvidence.linked.every((item) => item.left >= 0 && item.right <= width + 1)).toBe(true);
-    expect(focusEvidence.footer.some((item) => item.text.includes(longTodoTitle))).toBe(true);
-    await page.screenshot({ path: testOutputPath("qa", "REFINE-19", `adversarial-boundary-focus-${width}.png`), animations: "disabled", fullPage: true });
-  }
-});
-
-test("REFINE-19 adversarial next-page card keeps an unbroken user title visible", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
-  });
-  const unbrokenTitle = `TODO-${"ABCDEFGHIJKLMNOPQRSTUVWXYZ".repeat(12)}`;
-  await page.setViewportSize({ width: 420, height: 720 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", todoTitles: [unbrokenTitle] });
-  const card = page.locator(".ep-next-card");
-  const title = card.locator("h2");
-  const evidence = await title.evaluate((element) => {
-    const rect = element.getBoundingClientRect();
-    const style = getComputedStyle(element);
-    return {
-      text: element.textContent ?? "",
-      left: rect.left,
-      right: rect.right,
+    await shelf.scrollIntoViewIfNeeded();
+    const dimensions = await shelf.evaluate((element) => ({
       clientWidth: element.clientWidth,
       scrollWidth: element.scrollWidth,
-      overflow: style.overflow,
-      overflowWrap: style.overflowWrap,
-      documentScrollWidth: document.documentElement.scrollWidth,
-    };
-  });
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "adversarial-next-card-unbroken-before-420.png"), animations: "disabled", fullPage: true });
-  expect(evidence.text).toBe(unbrokenTitle);
-  expect(evidence.scrollWidth).toBeLessThanOrEqual(evidence.clientWidth);
-  expect(evidence.overflowWrap).toBe("anywhere");
-  expect(evidence.left).toBeGreaterThanOrEqual(0);
-  expect(evidence.right).toBeLessThanOrEqual(421);
-  expect(evidence.documentScrollWidth).toBeLessThanOrEqual(421);
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "adversarial-next-card-unbroken-420.png"), animations: "disabled", fullPage: true });
+    }));
+    expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth + 1);
+    await expect(shelf.getByText("旧版主题", { exact: true })).toBeVisible();
+    await expect(shelf.getByRole("button", { name: "切换到旧版主题：极光海面" })).toBeVisible();
+    await expect(shelf.getByRole("button", { name: "切换到旧版主题：植物书房" })).toBeVisible();
+  }
 });
 
-test("REFINE-19 TODAY-01 adversarial narrow view keeps todo importance visible", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("focused-moment.theme", "editorial-paper");
+test("Metro and Clutch seven-day records share chart coordinates and expand the selected date", async ({ page }) => {
+  test.setTimeout(60_000);
+  for (const [themeId, chartSelector, logSelector] of [
+    ["metro-pulse", ".mp-chart", ".mp-day-records"],
+    ["clutch-court", ".cc-chart", ".cc-game-log"],
+  ]) {
+    await page.setViewportSize({ width: 1487, height: 1058 });
+    await bootReferenceMock(page, { themeId, demoMode: true });
+    await navButton(page, "记录").click();
+    const chart = page.locator(chartSelector);
+    const svg = chart.locator("svg");
+    const path = chart.locator("svg .mp-chart__line, svg .cc-chart__line");
+    const points = await chart.locator(".mp-chart-point, .cc-chart-point").evaluateAll((buttons) => buttons.map((button) => Number.parseFloat(button.style.left)));
+    const dates = await chart.locator(".mp-chart__dates button, .cc-chart-dates button").evaluateAll((buttons) => buttons.map((button) => Number.parseFloat(button.style.left)));
+    const verticalPoints = await chart.locator(".mp-chart-point, .cc-chart-point").evaluateAll((buttons) => buttons.map((button) => Number.parseFloat(button.style.top)));
+    expect(points.length).toBe(7);
+    expect(dates).toEqual(points);
+    expect(points[0]).toBeCloseTo(7, 1);
+    expect(points.at(-1)).toBeCloseTo(93, 1);
+    expect(verticalPoints[2]).toBeCloseTo(100, 1);
+    await expect(svg).toHaveAttribute("viewBox", "0 0 100 100");
+    const chartWidth = (await svg.boundingBox()).width;
+    expect((await path.boundingBox()).width).toBeGreaterThan(chartWidth * 0.8);
+    if (themeId === "metro-pulse") {
+      await expect(chart.locator(".mp-chart-bar")).toHaveCount(7);
+      await expect(chart.locator("svg .mp-chart__area")).toHaveAttribute("d", /L \d+ 100 L \d+ 100 Z$/);
+    } else {
+      await expect(chart.locator(".cc-chart-bar, .cc-chart__area")).toHaveCount(0);
+    }
+    await expect(page.locator(logSelector)).toBeVisible();
+    await chart.locator(".mp-chart-point, .cc-chart-point").nth(2).click();
+    await expect(page.locator(logSelector)).toContainText("这一天没有专注记录");
+    await chart.locator(".mp-chart-point, .cc-chart-point").nth(6).click();
+    await expect(themeId === "metro-pulse" ? page.locator(".mp-record-selected") : page.locator(logSelector)).toContainText(themeId === "metro-pulse" ? "2小时45分钟" : "02:45:00");
+    if (themeId === "metro-pulse") {
+      await expect(page.locator(".mp-period-row")).toHaveCount(4);
+      await expect(page.locator(".mp-period-card")).toContainText("52m");
+      await expect(page.locator(".mp-day-records .mp-record-row time").first()).toHaveText("08:10 – 09:02");
+      await expect(page.locator(".mp-record-footer-actions button")).toHaveCount(3);
+      await expect(page.locator(".minimal-nav")).toBeInViewport();
+    }
+    const openedDate = page.locator(".mp-history-index details[open], .cc-history-index details[open]");
+    await expect(openedDate).toHaveCount(1);
+    const summary = openedDate.locator("summary");
+    await summary.click();
+    await expect(openedDate).toHaveCount(0);
+    const history = page.locator(themeId === "metro-pulse" ? ".mp-history-index" : ".cc-history-index");
+    await history.scrollIntoViewIfNeeded();
+    await expect(history).toBeInViewport({ ratio: 0.6 });
+    await expect(history).toContainText("完整历史");
+    const lastHistorySummary = history.locator("details summary").last();
+    await lastHistorySummary.scrollIntoViewIfNeeded();
+    await expect(lastHistorySummary).toBeInViewport();
+    const summaryBounds = await lastHistorySummary.boundingBox();
+    const navBounds = await page.locator(".minimal-nav").boundingBox();
+    expect(summaryBounds).not.toBeNull();
+    expect(navBounds).not.toBeNull();
+    const overlapsNavigation = summaryBounds.y < navBounds.y + navBounds.height && navBounds.y < summaryBounds.y + summaryBounds.height;
+    expect(overlapsNavigation).toBe(false);
+    for (const width of [1024, 560]) {
+      await page.setViewportSize({ width, height: 900 });
+      const dimensions = await page.evaluate(() => ({ client: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
+      expect(dimensions.scroll).toBeLessThanOrEqual(dimensions.client + 1);
+      await expect(chart.locator(".mp-chart-point, .cc-chart-point")).toHaveCount(7);
+    }
+  }
+});
+
+test("Metro and Clutch task lanes preserve today's schedule, upcoming work, and completed history", async ({ page }) => {
+  for (const [themeId, themeName, laneSelector, currentIndex, upcomingIndex, titles] of [
+    ["metro-pulse", "今日班次", ".mp-lane", 0, 1, ["创作专注", "整理收尾", "阅读沉淀", "早间启动", "深度工作", "专注时段"]],
+    ["clutch-court", "今日赛场", ".cc-lane", 0, 1, ["创作专注", "整理收尾", "阅读沉淀", "早间启动", "深度工作", "专注时段"]],
+  ]) {
+    await page.setViewportSize({ width: 1487, height: 1058 });
+    await bootReferenceMock(page, { themeId, demoMode: true });
+    await navButton(page, "待办").click();
+    const lanes = page.locator(laneSelector);
+    await expect(lanes).toHaveCount(3);
+    await expect(lanes.nth(currentIndex)).toContainText(titles[0]);
+    await expect(lanes.nth(upcomingIndex)).toContainText(titles[1]);
+    await expect(lanes.nth(upcomingIndex)).toContainText(titles[2]);
+    for (const completedTitle of titles.slice(3)) await expect(lanes.nth(2)).toContainText(completedTitle);
+    if (themeId === "metro-pulse") {
+      for (const todaysTitle of titles.slice(3)) await expect(lanes.nth(0)).toContainText(todaysTitle);
+      await expect(lanes.nth(0).locator(".mp-task-row")).toHaveCount(4);
+      const currentRow = lanes.nth(0).locator(".mp-task-row:not(.is-done)");
+      await currentRow.locator(".mp-task-actions button").first().focus();
+      await expect(currentRow.locator(".mp-task-actions")).toHaveCSS("opacity", "1");
+    }
+    await expect(lanes.nth(1)).toContainText("2");
+    await expect(lanes.nth(2)).toContainText("3");
+  }
+});
+
+test("Settings restores each theme's original picker and preview while persisting immediate changes", async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootReferenceMock(page);
+  for (const [themeId, themeName] of themes) {
+    await selectTheme(page, themeId, themeName);
+    const layout = themeLayouts[themeId];
+    const picker = page.locator(layout.picker);
+    await expect(picker).toHaveCount(5);
+    await expect(page.locator(".theme-picker__option")).toHaveCount(0);
+    for (const [, name] of themes) await expect(picker.filter({ hasText: name })).toBeEnabled();
+    await expect(picker.filter({ hasText: themeName })).toHaveAttribute("aria-pressed", "true");
+    if (themeId === "editorial-paper") {
+      await expect(picker.locator(".ep-theme-swatch__paper")).toHaveCount(5);
+      await expect(page.locator(".ep-live-preview__paper")).toContainText(themeName);
+    } else if (themeId === "graphite-console") {
+      await expect(picker.locator(".gc-theme-card__preview")).toHaveCount(5);
+      await expect(page.locator(".gc-settings-footer")).toContainText(themeName);
+    } else {
+      await expect(picker.locator("img")).toHaveCount(5);
+      await expect.poll(() => picker.locator("img").evaluateAll((images) => images.every((image) => image.complete && image.naturalWidth > 0))).toBe(true);
+    }
+    if (themeId === "metro-pulse" || themeId === "clutch-court") {
+      await expect(page.getByRole("button", { name: "保存书房布置", exact: true })).toHaveCount(0);
+      await expect(page.getByRole("button", { name: "保存光场设置", exact: true })).toHaveCount(0);
+      await expect(page.getByText("偏好自动保存", { exact: false }).first()).toBeVisible();
+      const preview = page.locator(".nt-live-preview");
+      const motion = page.getByRole("slider", { name: "动效程度" });
+      await motion.fill("0");
+      await expect(preview).toHaveAttribute("data-motion", "off");
+      await expect(preview).toContainText("关闭");
+      await motion.fill("80");
+      await expect(preview).toHaveAttribute("data-motion", "full");
+      await expect(preview).toContainText("完整");
+      await page.getByRole("button", { name: "紧凑", exact: true }).click();
+      await expect(preview).toHaveAttribute("data-density", "compact");
+      await expect(preview).toContainText("同屏显示更多。");
+    }
+    await expect(page.locator(layout.preview)).toBeVisible();
+    await expect.poll(() => page.evaluate(async () => (await window.__TAURI_INTERNALS__.invoke("get_app_preferences")).themeId)).toBe(themeId);
+  }
+  expect(await page.evaluate(() => window.__appPreferenceUpdateCalls)).toBeGreaterThanOrEqual(4);
+});
+
+test("Metro and Clutch settings expose portable backup actions at desktop, tablet, and phone widths", async ({ page }) => {
+  test.setTimeout(90_000);
+  for (const [themeId, name] of [["metro-pulse", "今日班次"], ["clutch-court", "今日赛场"]]) {
+    for (const width of [1487, 1024, 560]) {
+      await page.setViewportSize({ width, height: width === 1487 ? 1058 : 900 });
+      await bootReferenceMock(page, { themeId });
+      await navButton(page, "设置").click();
+      await page.locator(".nt-portable-backup-details summary").click();
+      const portableBackup = page.locator(".nt-portable-backup");
+      await portableBackup.scrollIntoViewIfNeeded();
+      await expect(portableBackup).toBeInViewport({ ratio: 0.55 });
+      await expect(portableBackup.getByText("浏览器备用选择", { exact: true })).toBeVisible();
+      await expect(page.getByRole("button", { name: "保存书房布置", exact: true })).toHaveCount(0);
+      await expect(page.locator(".minimal-nav > button")).toHaveCount(5);
+      const backupBounds = await portableBackup.boundingBox();
+      const navBounds = await page.locator(".minimal-nav").boundingBox();
+      expect(backupBounds).not.toBeNull();
+      expect(navBounds).not.toBeNull();
+      const overlapsNavigation = backupBounds.y < navBounds.y + navBounds.height && navBounds.y < backupBounds.y + backupBounds.height;
+      expect(overlapsNavigation).toBe(false);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width + 1);
+    }
+  }
+});
+
+test("Every restored Today task starts once without leaving Today or opening mini", async ({ browser }) => {
+  test.setTimeout(90_000);
+  for (const [themeId] of themes) {
+    const context = await browser.newContext({ viewport: { width: 1487, height: 1058 } });
+    const page = await context.newPage();
+    try {
+      await bootReferenceMock(page, { themeId });
+      await expectOriginalToday(page, themeId);
+      await page.locator(themeLayouts[themeId].task).click();
+      await expect.poll(() => page.evaluate(() => window.__startTimerCalls)).toBe(1);
+      await expect.poll(() => page.evaluate(async () => {
+        const timer = await window.__TAURI_INTERNALS__.invoke("get_timer_snapshot");
+        return { running: timer.isRunning, title: timer.activeTaskTitle, linkedTodoId: timer.linkedTodoId };
+      })).toEqual({ running: true, title: "整理研究资料", linkedTodoId: 101 });
+      await expectOriginalToday(page, themeId);
+      if (themeId === "metro-pulse") {
+        await expect(page.locator(".mp-departure-state")).toHaveText("进行中");
+        await expect(page.locator(".mp-focus-minute-board")).toHaveClass(/mp-focus-minute-board--live/);
+        await expect(page.locator(".mp-focus-minute-board__digits .mp-flip-digit")).toHaveCount(4);
+        await page.locator(".mp-departure-card .mp-orange-button").click();
+        await expect(page.locator(".mp-departure-state")).toHaveText("已暂停");
+        await expect(page.locator(".mp-departure-card .mp-orange-button")).toContainText("继续专注");
+        await page.locator(".mp-departure-card .mp-orange-button").click();
+        await expect(page.locator(".mp-departure-state")).toHaveText("进行中");
+      }
+      await expect(navButton(page, "今日")).toHaveClass(/active/);
+      await expect(page.locator(surfaceSelector(themeId, "focus"))).toHaveCount(0);
+      expect(await page.evaluate(() => window.__miniWorkspaceShown)).toBe(0);
+      const startCallsBeforeFocusNavigation = await page.evaluate(() => window.__startTimerCalls);
+      await navButton(page, "计时").click();
+      const focus = page.locator(surfaceSelector(themeId, "focus"));
+      await expect(focus).toBeVisible();
+      await expect(focus.getByRole("button", { name: themeLayouts[themeId].pause, exact: true })).toBeVisible();
+      await expect(navButton(page, "计时")).toHaveClass(/active/);
+      expect(await page.evaluate(() => window.__startTimerCalls)).toBe(startCallsBeforeFocusNavigation);
+      await navButton(page, "今日").click();
+      await expectOriginalToday(page, themeId);
+    } finally {
+      await context.close();
+    }
+  }
+});
+
+// This restoration scope intentionally does not import the 101-test legacy RC suite.
+for (const [themeId] of themes) {
+  for (const [view, label] of [["today", "今日"], ["focus", "计时"], ["todos", "待办"], ["records", "记录"], ["settings", "设置"]]) {
+    const widths = view === "today" || ["metro-pulse", "clutch-court"].includes(themeId) ? [1487, 1024, 560] : [1487];
+    for (const width of widths) {
+      test(`Restored UI screenshot ${themeId} ${view} ${width}`, async ({ page }) => {
+        const errors = [];
+        page.on("pageerror", (error) => errors.push(error.message));
+        await page.setViewportSize({ width, height: width === 1487 ? 1058 : 900 });
+        await bootReferenceMock(page, { themeId });
+        if (view !== "today") await navButton(page, label).click();
+        const surface = page.locator(surfaceSelector(themeId, view));
+        await expect(surface).toBeVisible();
+        await expect(navButton(page, label)).toHaveClass(/active/);
+        await expect(page.locator(".unified-today-page, .continuity-board")).toHaveCount(0);
+        await expect(page.locator(".minimal-nav > button")).toHaveCount(5);
+        await expect(page.locator(".window-control")).toHaveCount(3);
+        for (const control of await page.locator(".window-control").all()) {
+          await expect(control).toBeVisible();
+          await expect(control).toBeEnabled();
+        }
+        const rect = await surface.boundingBox();
+        expect(rect).not.toBeNull();
+        expect(rect.width).toBeGreaterThan(0);
+        expect(rect.x).toBeGreaterThanOrEqual(0);
+        expect(rect.x + rect.width).toBeLessThanOrEqual(width + 1);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width + 1);
+        if (view === "today") await expectOriginalToday(page, themeId);
+        if (view === "focus") {
+          const startLabel = themeId === "night-valley" ? "开始" : themeId === "metro-pulse" ? "▶　开始专注" : themeId === "clutch-court" ? "▶　开始专注" : "开始专注";
+          await expect(surface.getByRole("button", { name: startLabel, exact: true })).toBeVisible();
+        }
+        if (view === "todos") {
+          if (themeId === "night-valley") {
+            await expect(surface).toContainText("回看上次停笔位置");
+            const todayGroup = surface.locator(".nv-todo-date-group__toggle").filter({ hasText: "今天 · 9月5日" });
+            await expect(todayGroup).toHaveAttribute("aria-expanded", "false");
+            await todayGroup.click();
+            await expect(todayGroup).toHaveAttribute("aria-expanded", "true");
+            await expect(surface).toContainText("整理研究资料");
+            await expect(surface).toContainText("写下发布清单");
+          } else {
+            await expect(surface).toContainText("回看上次停笔位置");
+            if (themeId === "editorial-paper" || themeId === "graphite-console") {
+              const todayGroup = surface.locator(".nv-todo-date-group__toggle").filter({ hasText: "今天 · 9月5日" });
+              await expect(todayGroup).toHaveAttribute("aria-expanded", "false");
+              await todayGroup.click();
+              await expect(todayGroup).toHaveAttribute("aria-expanded", "true");
+            }
+            await expect(surface).toContainText("整理研究资料");
+            await expect(surface).toContainText("写下发布清单");
+          }
+        }
+        if (view === "records") await expect(surface).toContainText("02:15:00");
+        if (view === "settings") await expect(page.locator(themeLayouts[themeId].picker)).toHaveCount(5);
+        if (themeId === "metro-pulse" && view === "today" && width < 1487) {
+          const viewportHeight = page.viewportSize().height;
+          const navigation = page.locator(".minimal-nav");
+          const assertAboveNavigation = async (locator) => {
+            await locator.scrollIntoViewIfNeeded();
+            await expect(locator).toBeVisible();
+            const [surfaceBox, navigationBox] = await Promise.all([locator.boundingBox(), navigation.boundingBox()]);
+            expect(surfaceBox).not.toBeNull();
+            expect(surfaceBox.y).toBeGreaterThanOrEqual(0);
+            expect(surfaceBox.y + surfaceBox.height).toBeLessThanOrEqual(viewportHeight);
+            expect(surfaceBox.y + surfaceBox.height).toBeLessThanOrEqual(navigationBox.y + 1);
+          };
+          await assertAboveNavigation(page.locator(".mp-departure-card .mp-orange-button"));
+          await assertAboveNavigation(page.locator(".mp-stat-band"));
+          await page.locator(".mp-today-heading").scrollIntoViewIfNeeded();
+        }
+        if (themeId === "metro-pulse" && view === "focus" && width < 1487) {
+          const viewportHeight = page.viewportSize().height;
+          const navigation = page.locator(".minimal-nav");
+          const assertAboveNavigation = async (locator) => {
+            await locator.scrollIntoViewIfNeeded();
+            await expect(locator).toBeVisible();
+            const [controlBox, navigationBox] = await Promise.all([locator.boundingBox(), navigation.boundingBox()]);
+            expect(controlBox).not.toBeNull();
+            expect(controlBox.y).toBeGreaterThanOrEqual(0);
+            expect(controlBox.y + controlBox.height).toBeLessThanOrEqual(viewportHeight);
+            expect(controlBox.y + controlBox.height).toBeLessThanOrEqual(navigationBox.y + 1);
+          };
+          await assertAboveNavigation(page.locator(".mp-focus-actions .mp-orange-button"));
+          await assertAboveNavigation(page.locator(".mp-timer-settings__footer"));
+          await page.locator(".mp-focus-page > header").scrollIntoViewIfNeeded();
+        }
+        await page.screenshot({ path: testOutputPath("restored-ui", `${themeId}-${view}-${width}.png`), fullPage: true, animations: "disabled" });
+        expect(errors).toEqual([]);
+      });
+    }
+  }
+}
+
+const conceptScreens = [
+  ["MP-01", "metro-pulse", "today", "今日班次"],
+  ["MP-02", "metro-pulse", "focus", "班次计时"],
+  ["MP-03", "metro-pulse", "todos", "班次待办"],
+  ["MP-04", "metro-pulse", "records", "七日班次记录"],
+  ["MP-05", "metro-pulse", "settings", "站台控制"],
+  ["CC-01", "clutch-court", "today", "今日赛场"],
+  ["CC-02", "clutch-court", "focus", "赛场计时"],
+  ["CC-03", "clutch-court", "todos", "赛场战术板"],
+  ["CC-04", "clutch-court", "records", "七日 box score"],
+  ["CC-05", "clutch-court", "settings", "球馆更衣室"],
+];
+for (const [card, themeId, view, label] of conceptScreens) {
+  test(card + " concept comparison capture · " + label, async ({ page }) => {
+    const errors = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await page.setViewportSize({ width: 1487, height: 1058 });
+    await bootReferenceMock(page, { themeId, demoMode: true, settingsDemo: card === "MP-05" });
+    if (view !== "today") await navButton(page, view === "focus" ? "计时" : view === "todos" ? "待办" : view === "records" ? "记录" : "设置").click();
+    const surface = page.locator(surfaceSelector(themeId, view));
+    await expect(surface).toBeVisible();
+    await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", themeId);
+    await expect(page.locator(".minimal-nav > button")).toHaveCount(5);
+    if (card === "CC-04") {
+      await expect(page.locator(".cc-shot-chart .cc-panel-heading")).toContainText("七日投篮图");
+      await expect(page.locator(".cc-shot-chart .cc-panel-heading")).toContainText("每个点与日期使用同一坐标");
+      await expect(page.locator(".cc-day-stats")).toContainText("单段平均");
+      await expect(page.locator(".cc-day-stats")).toContainText("55m");
+      await expect(page.locator(".cc-period-column > strong")).toHaveText(["2h", "45m", "0m", "0m"]);
+      await expect(page.locator(".cc-record-footer-actions button")).toHaveCount(2);
+      const chartGeometry = await page.locator(".cc-chart").evaluate((chart) => {
+        const svg = chart.querySelector("svg");
+        const path = svg?.querySelector("path");
+        const points = [...chart.querySelectorAll(".cc-chart-point")];
+        const dates = [...chart.querySelectorAll(".cc-chart-dates button")];
+        const chartRect = chart.getBoundingClientRect();
+        const svgRect = svg.getBoundingClientRect();
+        const values = (path?.getAttribute("d")?.match(/-?(?:\d+\.?\d*|\.\d+)/g) ?? []).map(Number);
+        const endpoints = values.length >= 2
+          ? [[values[0], values[1]], ...Array.from({ length: (values.length - 2) / 6 }, (_, index) => [values[2 + index * 6 + 4], values[2 + index * 6 + 5]])]
+          : [];
+        return {
+          pointCount: points.length,
+          dateCount: dates.length,
+          endpoints,
+          coordinates: points.map((point, index) => {
+            const pointRect = point.getBoundingClientRect();
+            const dateRect = dates[index]?.getBoundingClientRect();
+            return {
+              pointX: pointRect.left + pointRect.width / 2,
+              pointY: pointRect.top + pointRect.height / 2,
+              dateX: dateRect ? dateRect.left + dateRect.width / 2 : null,
+              svgX: svgRect.left + endpoints[index]?.[0] / 100 * svgRect.width,
+              svgY: svgRect.top + endpoints[index]?.[1] / 100 * svgRect.height,
+              relativeX: Number.parseFloat(point.style.left),
+            };
+          }),
+          chartWidth: chartRect.width,
+        };
+      });
+      expect(chartGeometry.pointCount).toBe(7);
+      expect(chartGeometry.dateCount).toBe(7);
+      expect(chartGeometry.endpoints).toHaveLength(7);
+      expect(chartGeometry.coordinates[0].relativeX).toBeGreaterThanOrEqual(6.5);
+      expect(chartGeometry.coordinates[6].relativeX).toBeLessThanOrEqual(93.5);
+      for (const [index, coordinate] of chartGeometry.coordinates.entries()) {
+        expect(Math.abs(coordinate.pointX - coordinate.dateX), `point/date x offset for day ${index}: ${JSON.stringify(chartGeometry)}`).toBeLessThanOrEqual(1);
+        expect(Math.abs(coordinate.pointX - coordinate.svgX), `point/curve x offset for day ${index}: ${JSON.stringify(chartGeometry)}`).toBeLessThanOrEqual(1);
+        expect(Math.abs(coordinate.pointY - coordinate.svgY), `point/curve y offset for day ${index}: ${JSON.stringify(chartGeometry)}`).toBeLessThanOrEqual(1);
+      }
+    }
+    const shellMetrics = await page.evaluate(() => {
+      const pick = (selector) => {
+        const element = document.querySelector(selector);
+        if (!element) return null;
+        const rect = element.getBoundingClientRect();
+        const style = getComputedStyle(element);
+        return { selector, x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width), height: Math.round(rect.height), display: style.display, columns: style.gridTemplateColumns, rows: style.gridTemplateRows, position: style.position, background: style.backgroundImage };
+      };
+      return [".minimal-app", ".app-bar", ".minimal-workspace", ".minimal-nav", ".minimal-content", ".mp-page"].map(pick);
+    });
+    const workspace = shellMetrics.find((entry) => entry.selector === ".minimal-workspace");
+    const nav = shellMetrics.find((entry) => entry.selector === ".minimal-nav");
+    const content = shellMetrics.find((entry) => entry.selector === ".minimal-content");
+    expect(workspace.display).toBe("flex");
+    expect(nav.width).toBeGreaterThan(1400);
+    expect(nav.y).toBeGreaterThanOrEqual(52);
+    expect(nav.height).toBeGreaterThan(0);
+    if (view === "today") expect(nav.y + nav.height).toBeLessThanOrEqual(1058);
+    expect(content.width).toBeGreaterThan(1400);
+    if (themeId === "metro-pulse" && view === "today") {
+      await expect(page.locator(".app-brand__mark")).toBeVisible();
+      const departure = await page.locator(".mp-departure-card").boundingBox();
+      const departureLabel = await page.locator(".mp-departure-card__top > span:first-child").boundingBox();
+      const navBox = await page.locator(".minimal-nav").boundingBox();
+      const activeNav = await page.locator(".minimal-nav > button.active").boundingBox();
+      expect(departure.x).toBeGreaterThanOrEqual(950);
+      expect(departure.width).toBeGreaterThanOrEqual(520);
+      expect(departure.width).toBeLessThanOrEqual(540);
+      expect(departure.x + departure.width).toBeGreaterThanOrEqual(1480);
+      expect(departure.y).toBeGreaterThanOrEqual(40);
+      expect(departure.y).toBeLessThanOrEqual(50);
+      expect(departureLabel.y).toBeGreaterThanOrEqual(departure.y + 30);
+      expect(departureLabel.y).toBeLessThan(departure.y + 55);
+      expect(departure.y + departure.height).toBeLessThan(navBox.y);
+      expect(Math.abs(activeNav.height - navBox.height)).toBeLessThanOrEqual(1);
+    }
+    if (themeId === "metro-pulse" && view === "focus") {
+      await expect(page.locator(".app-brand")).toBeVisible();
+      await expect(page.locator(".new-theme-bar-center")).toContainText("2026-09-23");
+      await expect(page.locator(".mp-mode-tabs button").first()).toHaveAttribute("aria-pressed", "true");
+      await expect(page.locator(".mp-flip-board__top b")).toContainText("正向计时");
+      await expect(page.locator(".mp-flip-board__task")).toContainText("创作专注");
+      await expect(page.locator(".mp-timer-flip-card").first()).toHaveText("45");
+      await expect(page.locator(".mp-timer-flip-card").last()).toHaveText("00");
+      await expect(page.locator(".mp-timer-route__stops > span")).toHaveCount(6);
+      await expect(page.locator(".mp-timer-route__stops > span.is-done")).toHaveCount(3);
+      await expect(page.locator(".mp-timer-route__stops > span.is-current")).toHaveCount(1);
+      await expect(page.locator(".mp-linked-task-card")).toContainText("创作专注");
+      await expect(page.locator(".mp-countdown-display")).toContainText("45");
+      await expect(page.locator(".mp-check-field input")).toBeChecked();
+      const [flipBoardBox, timerSettingsBox] = await Promise.all([
+        page.locator(".mp-flip-board").boundingBox(),
+        page.locator(".mp-timer-settings").boundingBox(),
+      ]);
+      expect(Math.abs(flipBoardBox.height - 601)).toBeLessThanOrEqual(1);
+      expect(Math.abs(timerSettingsBox.height - 600)).toBeLessThanOrEqual(1);
+      await expect(page.locator(".minimal-nav > button:first-of-type .lucide-clipboard-list")).toBeVisible();
+      const activeNavStyle = await page.locator(".minimal-nav > button.active").evaluate((element) => getComputedStyle(element).backgroundColor);
+      const firstNavIcon = await page.locator(".minimal-nav > button:first-of-type .trail-nav__icon").boundingBox();
+      expect(activeNavStyle).toBe("rgba(0, 0, 0, 0)");
+      expect(firstNavIcon.width).toBeGreaterThanOrEqual(20);
+      expect(firstNavIcon.width).toBeLessThanOrEqual(22);
+      expect(nav.columns.startsWith("250px")).toBe(true);
+      await expect(page.locator(".mp-focus-actions .mp-link-button")).toHaveCSS("border-top-style", "solid");
+      expect(nav.y).toBeGreaterThanOrEqual(890);
+      expect(nav.y).toBeLessThanOrEqual(925);
+    }
+    if (themeId === "clutch-court" && view === "focus") {
+      await expect(page.locator(".cc-quarter-badge")).toContainText("第 4 回合");
+      await expect(page.locator(".cc-quarter-badge")).toContainText("准备开球");
+      await expect(page.locator(".cc-quarter-badge")).toHaveCSS("background-color", "rgb(11, 42, 99)");
+      const [portrait, center, tactics, timerActions] = await Promise.all([
+        page.locator(".cc-timer-layout > .cc-butler-card").boundingBox(),
+        page.locator(".cc-center-circle--timer").boundingBox(),
+        page.locator(".cc-tactics-board").boundingBox(),
+        page.locator(".cc-tactics-board .cc-timer-actions").boundingBox(),
+      ]);
+      expect(Math.abs(portrait.x - 40)).toBeLessThanOrEqual(3);
+      expect(Math.abs(portrait.width - 255)).toBeLessThanOrEqual(8);
+      expect(portrait.height).toBeGreaterThanOrEqual(585);
+      expect(Math.abs(tactics.x - 1122)).toBeLessThanOrEqual(8);
+      expect(Math.abs(tactics.width - 326)).toBeLessThanOrEqual(8);
+      expect(tactics.height).toBeGreaterThanOrEqual(585);
+      expect(Math.abs(await page.locator(".cc-quarter-badge").evaluate((element) => element.getBoundingClientRect().width) - 162)).toBeLessThanOrEqual(1);
+      expect(center.x).toBeGreaterThan(portrait.x + portrait.width);
+      expect(center.x + center.width).toBeLessThan(tactics.x);
+      expect(timerActions.y).toBeGreaterThan(tactics.y + 250);
+      expect(timerActions.y + timerActions.height).toBeLessThan(tactics.y + tactics.height - 80);
+      await expect(page.locator(".cc-center-circle--timer > em")).toHaveCount(0);
+      await expect(page.locator(".cc-possession-dots > i")).toHaveCount(4);
+      await expect(page.locator(".cc-timer-layout > .cc-court-dial > .cc-timer-actions")).toHaveCount(0);
+      await expect(page.locator(".cc-tactics-board .cc-timer-actions .cc-secondary-button")).toHaveCount(2);
+    }
+    if (themeId === "clutch-court" && view === "todos") {
+      const currentLane = page.locator(".cc-lane--current");
+      const warmupLane = page.locator(".cc-lane--warmup");
+      const madeLane = page.locator(".cc-lane--made");
+      await expect(currentLane.locator(".cc-task-row")).toHaveCount(1);
+      await expect(warmupLane.locator(".cc-task-row")).toHaveCount(2);
+      await expect(madeLane.locator(".cc-task-row")).toHaveCount(3);
+      await expect(currentLane.locator("header b")).toHaveText("1");
+      await expect(warmupLane.locator("header b")).toHaveText("2");
+      await expect(madeLane.locator("header b")).toHaveText("3");
+      await expect(currentLane.locator(".cc-task-row strong")).toHaveText("创作专注");
+      await expect(currentLane.locator(".cc-task-state")).toHaveText("进行中");
+      await expect(warmupLane.locator(".cc-task-row .cc-task-state")).toHaveText(["待开始", "待开始"]);
+      await expect(madeLane.locator(".cc-task-row .cc-task-state")).toHaveText(["已记录", "已记录", "已记录"]);
+      const titles = await page.locator(".cc-task-row strong").allTextContents();
+      expect(titles).toEqual(["创作专注", "整理收尾", "阅读沉淀", "早间启动", "深度工作", "专注时段"]);
+      expect(new Set(titles).size).toBe(6);
+      const metadata = await page.locator(".cc-task-row small").allTextContents();
+      expect(metadata).toEqual([
+        "今天截止 · 16:00 · 高优先",
+        "今天截止 · 19:00 · 普通",
+        "今天截止 · 20:30 · 低优先",
+        "今天截止 · 08:00 · 高优先",
+        "今天截止 · 09:30 · 普通",
+        "今天截止 · 14:00 · 普通",
+      ]);
+      expect(metadata.every((value) => !/\d{2}:\d{2}\s*[–-]\s*\d{2}:\d{2}/.test(value))).toBeTruthy();
+    }
+    if (themeId === "metro-pulse" && view === "todos") {
+      await expect(surface.getByRole("heading", { name: "把事项排上班次", exact: true })).toBeVisible();
+      await expect(surface.getByText("每一件重要的事，都有它的出发时间。", { exact: true })).toBeVisible();
+      await expect(surface.getByText("TODAY'S DEPARTURE BOARD　/　06 ROUTES", { exact: true })).toBeVisible();
+      await expect(page.locator(".mp-lane")).toHaveCount(3);
+      await expect(page.locator(".mp-lane--today > header span")).toHaveText("01 ACTIVE");
+      await expect(page.locator(".mp-lane--next > header span")).toHaveText("02 NEXT");
+      await expect(page.locator(".mp-lane--arrived > header span")).toHaveText("03 ARRIVED");
+      await expect(page.locator(".mp-lane--today .mp-task-row")).toHaveCount(4);
+      await expect(page.locator(".mp-lane--next .mp-task-row")).toHaveCount(2);
+      await expect(page.locator(".mp-lane--arrived .mp-task-row")).toHaveCount(3);
+      await expect(page.locator(".mp-lane--today .mp-task-status")).toHaveText(["已到站", "已到站", "已到站", "正在出发"]);
+      await expect(page.locator(".mp-lane--today .mp-task-copy small")).toHaveText(["08:00　·　重要", "09:30　·　普通", "14:00　·　普通", "16:00　·　重要"]);
+      await expect(page.locator(".mp-lane--arrived .mp-task-status")).toHaveText(["已完成", "已完成", "已完成"]);
+      const arrivedMetadata = page.locator(".mp-lane--arrived .mp-task-copy small");
+      await expect(arrivedMetadata).toHaveText(["记录于 09:02　·　专注 52 分", "记录于 10:50　·　专注 68 分", "记录于 14:51　·　专注 45 分"]);
+      await expect(page.locator(".mp-lane--next .mp-task-status")).toHaveText(["待开始", "待开始"]);
+      await expect(page.locator(".mp-lane--next .mp-task-copy small").last()).toHaveText("20:30　·　低压力");
+      await expect(page.locator(".mp-lane--arrived > footer")).toHaveText("已完成班次　3 / 6　·　完成率 50%");
+      await expect(page.locator(".mp-lane--today > footer")).toContainText("04");
+      await expect(page.locator(".mp-create-card")).toHaveCount(0);
+      await expect(surface.getByRole("button", { name: "新增班次", exact: true })).toBeVisible();
+      const laneBounds = await page.locator(".mp-lane").evaluateAll((elements) => elements.map((element) => {
+        const rect = element.getBoundingClientRect();
+        const header = element.querySelector(":scope > header").getBoundingClientRect();
+        const firstRow = element.querySelector(":scope > .mp-task-row")?.getBoundingClientRect();
+        return { x: rect.x, y: rect.y, width: rect.width, height: rect.height, dividerY: header.bottom, firstRowCenterY: firstRow ? firstRow.y + firstRow.height / 2 : null };
+      }));
+      const referenceLanes = [{ x: 43, width: 473 }, { x: 531, width: 417 }, { x: 963, width: 481 }];
+      expect(laneBounds.every((lane, index) => Math.abs(lane.x - referenceLanes[index].x) <= 2 && Math.abs(lane.y - 227) <= 2 && Math.abs(lane.width - referenceLanes[index].width) <= 2 && Math.abs(lane.height - 610) <= 1), JSON.stringify(laneBounds)).toBeTruthy();
+      expect(laneBounds.every((lane) => Math.abs(lane.dividerY - 284) <= 2 && Math.abs(lane.firstRowCenterY - 330) <= 3), JSON.stringify(laneBounds)).toBeTruthy();
+      await expect(page.locator(".minimal-nav > button.active")).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+
+      const editable = page.locator(".mp-lane--today .mp-task-row").nth(3);
+      await editable.hover();
+      await editable.getByRole("button", { name: "编辑", exact: true }).click();
+      await expect(editable.locator(".mp-task-edit input")).toHaveCount(3);
+      await expect(editable.locator(".mp-task-edit select")).toHaveCount(1);
+      await editable.getByRole("button", { name: "取消", exact: true }).click();
+      await expect(editable.locator(".mp-task-edit")).toHaveCount(0);
+
+      await surface.getByRole("button", { name: "新增班次", exact: true }).click();
+      await expect(page.locator('input[name="metroTodoTitle"]')).toBeVisible();
+      await expect(page.locator('input[name="metroTodoDate"]')).toBeVisible();
+      await expect(page.locator('input[name="metroTodoTime"]')).toBeVisible();
+      await expect(page.locator('select[name="metroTodoImportance"]')).toBeVisible();
+      await surface.getByRole("button", { name: "收起新增", exact: true }).click();
+      await page.mouse.move(800, 870);
+    }
+    if (themeId === "clutch-court" && view === "todos") {
+      await expect(surface.getByRole("heading", { name: "把待办排成回合", exact: true })).toBeVisible();
+      await expect(surface.getByRole("button", { name: "布置新回合", exact: true })).toBeVisible();
+      await expect(page.locator(".cc-create-play")).toHaveCount(0);
+      await expect(page.locator(".cc-lane")).toHaveCount(3);
+      await expect(page.locator(".cc-lane--warmup .cc-task-row")).toHaveCount(2);
+      await expect(page.locator(".cc-lane--current .cc-task-row")).toHaveCount(1);
+      await expect(page.locator(".cc-lane--made .cc-task-row")).toHaveCount(3);
+      await expect(page.locator(".cc-lane--current")).toContainText("创作专注");
+      await expect(page.locator(".cc-lane--current .cc-task-row:not(.complete) .cc-task-state")).toHaveText("进行中");
+      await expect(page.locator(".cc-lane--current > footer")).toContainText("今日完成 3 / 6");
+      await expect(page.locator(".cc-lane--warmup")).toContainText("整理收尾");
+      await expect(page.locator(".cc-lane--warmup")).toContainText("阅读沉淀");
+      await expect(page.locator(".cc-lane--warmup .cc-task-state")).toHaveText(["待开始", "待开始"]);
+      await expect(page.locator(".cc-lane--made .cc-task-state")).toHaveText(["已记录", "已记录", "已记录"]);
+      const lanes = await page.locator(".cc-lane").evaluateAll((elements) => elements.map((element) => {
+        const rect = element.getBoundingClientRect();
+        return { className: element.className, x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width), height: Math.round(rect.height) };
+      }));
+      const currentRowTops = await page.locator(".cc-lane--current .cc-task-row").evaluateAll((elements) => elements.map((element) => Math.round(element.getBoundingClientRect().y)));
+      expect(lanes.map((lane) => lane.y)).toEqual([lanes[0].y, lanes[0].y, lanes[0].y]);
+      expect(lanes.every((lane) => lane.height >= 620)).toBeTruthy();
+      expect(currentRowTops.slice(1).every((top, index) => top - currentRowTops[index] >= 70 && top - currentRowTops[index] <= 84)).toBeTruthy();
+      const currentLane = lanes.find((lane) => lane.className.includes("cc-lane--current"));
+      const warmupLane = lanes.find((lane) => lane.className.includes("cc-lane--warmup"));
+      const madeLane = lanes.find((lane) => lane.className.includes("cc-lane--made"));
+      const butler = await page.locator(".cc-todos-header-actions .cc-butler-card").boundingBox();
+      const [currentStatus, warmupStatus, addPlay] = await Promise.all([
+        page.locator(".cc-lane--current .cc-task-state").boundingBox(),
+        page.locator(".cc-lane--warmup .cc-task-state").first().boundingBox(),
+        page.locator(".cc-todos-header-actions > .cc-orange-button").boundingBox(),
+      ]);
+      expect(currentLane.x).toBeLessThan(50);
+      expect(currentLane.y).toBeGreaterThanOrEqual(210);
+      expect(currentLane.y).toBeLessThanOrEqual(225);
+      expect(currentLane.width).toBeGreaterThan(440);
+      expect(warmupLane.x).toBeGreaterThan(490);
+      expect(madeLane.x + madeLane.width).toBeGreaterThan(1430);
+      expect(Math.abs(currentLane.x - 41)).toBeLessThanOrEqual(5);
+      expect(Math.abs(currentLane.y - 216)).toBeLessThanOrEqual(5);
+      expect(Math.abs(currentLane.width - 458)).toBeLessThanOrEqual(10);
+      expect(Math.abs(warmupLane.x - 513)).toBeLessThanOrEqual(5);
+      expect(Math.abs(warmupLane.width - 483)).toBeLessThanOrEqual(10);
+      expect(Math.abs(madeLane.x - 1009)).toBeLessThanOrEqual(6);
+      expect(Math.abs(madeLane.width - 437)).toBeLessThanOrEqual(10);
+      expect(Math.abs(currentLane.height - 615)).toBeLessThanOrEqual(8);
+      expect(Math.abs(butler.x - 1122)).toBeLessThanOrEqual(6);
+      expect(Math.abs(butler.width - 162)).toBeLessThanOrEqual(1);
+      expect(Math.abs(addPlay.x - 1323)).toBeLessThanOrEqual(6);
+      expect(Math.abs(addPlay.width - 125)).toBeLessThanOrEqual(2);
+      await expect(page.locator(".cc-todos-header-actions > .cc-orange-button")).toHaveCSS("white-space", "nowrap");
+      expect(Math.abs(addPlay.height - 38)).toBeLessThanOrEqual(2);
+      expect(Math.abs(currentStatus.width - 58)).toBeLessThanOrEqual(2);
+      expect(Math.abs(warmupStatus.width - 50)).toBeLessThanOrEqual(4);
+      const butlerCard = page.locator(".cc-todos-header-actions .cc-butler-card--playbook");
+      await expect(butlerCard).toHaveAttribute("data-butler-style", "sideline-playbook");
+      await expect(butlerCard.locator("img")).toBeVisible();
+      await expect(butlerCard.locator("img")).toHaveAttribute("src", "/theme-assets/jimmy-butler-playbook-calling.png");
+      await expectTransparentCutout(butlerCard.locator("img"), 1024, 1536);
+      await expect(page.locator(".new-theme-bar-meta > strong")).toHaveText("JIMMY BUTLER　·　WARRIORS");
+      await expect(butlerCard.locator("div span")).toHaveText("JIMMY BUTLER　·　#10");
+      const compactButlerCopy = butlerCard.locator("div strong, div small");
+      await expect(compactButlerCopy).toHaveCount(2);
+      await expect(compactButlerCopy.nth(0)).toBeHidden();
+      await expect(compactButlerCopy.nth(1)).toBeHidden();
+      expect(butler.y).toBeGreaterThanOrEqual(120);
+      expect(butler.y).toBeLessThanOrEqual(140);
+    }
+    if (themeId === "clutch-court" && view === "today") {
+      await expect(page.locator(".cc-today-hero .cc-scoreboard--featured")).toBeVisible();
+      await expect(page.locator(".cc-scoreboard--featured > div:nth-child(2) > strong > b")).toHaveText("45:00");
+      await expect(page.locator(".cc-home-court .cc-center-clock > strong")).toHaveText("45:00");
+      await expect(page.locator(".cc-round-markers > .cc-round-marker")).toHaveCount(5);
+      await expect(page.locator(".cc-round-markers > .cc-round-marker.done")).toHaveCount(3);
+      await expect(page.locator(".cc-round-markers > .cc-round-marker.current")).toHaveCount(1);
+      await expect(page.locator(".cc-round-markers > .cc-round-marker:not(.done):not(.current)")).toHaveCount(1);
+      await expect(page.locator(".cc-round-markers > .cc-round-marker.current .cc-round-marker__copy > strong")).toHaveText("创作专注");
+      await expect(page.locator(".cc-round-markers > .cc-round-marker.current .cc-round-marker__copy > small")).toHaveText("16:00");
+      await expect(page.locator(".cc-round-markers > .cc-round-marker.current .cc-round-marker__copy > em")).toHaveText("当前回合");
+      await expect(page.locator(".cc-round-markers > .cc-round-marker.current .cc-round-marker__copy")).toContainText("当前回合");
+      await expect(page.locator(".cc-round-markers > .cc-round-marker .cc-round-marker__copy > strong")).toHaveText(["早间启动", "深度工作", "专注时段", "创作专注", "整理收尾"]);
+      await expect(page.locator(".cc-round-markers > .cc-round-marker .cc-round-marker__copy > small")).toHaveText(["08:00", "09:30", "14:00", "16:00", "19:00"]);
+      await expect(page.locator(".cc-round-markers > .cc-round-marker .cc-round-marker__copy > em")).toHaveText(["已完成", "已完成", "已完成", "当前回合", "待开始"]);
+      await expect(page.locator(".cc-shotclock-badge")).toContainText("THEME PLATE");
+      const butlerCard = page.locator(".cc-butler-card--today");
+      await expect(butlerCard).toHaveAttribute("data-butler-style", "court-poster");
+      await expect(butlerCard.locator("img")).toHaveAttribute("src", "/theme-assets/jimmy-butler-cutout.png");
+      await expect(butlerCard.locator("div strong")).toHaveText("CLUTCH MODE");
+      await expect(page.locator(".cc-round-markers > .cc-round-marker.done").first()).toHaveCSS("opacity", "1");
+      const hero = await page.locator(".cc-today-hero").boundingBox();
+      const court = await page.locator(".cc-home-court").boundingBox();
+      const player = await page.locator(".cc-butler-card--featured").boundingBox();
+      const clock = await page.locator(".cc-center-clock").boundingBox();
+      const navBox = await page.locator(".minimal-nav").boundingBox();
+      const navItemGeometry = await page.locator(".minimal-nav > button, .minimal-nav > .new-theme-nav-note").evaluateAll((elements) => elements.map((element) => {
+        const rect = element.getBoundingClientRect();
+        return { className: element.className, x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width), height: Math.round(rect.height) };
+      }));
+      const markerGeometry = await page.locator(".cc-round-markers > .cc-round-marker").evaluateAll((elements) => elements.map((element) => {
+        const rect = element.getBoundingClientRect();
+        const number = element.querySelector("i").getBoundingClientRect();
+        return { x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width), height: Math.round(rect.height), numberX: Math.round(number.x), numberY: Math.round(number.y), background: getComputedStyle(element).backgroundColor };
+      }));
+      const hoopGeometry = await page.locator(".cc-court-lines > .cc-left-hoop, .cc-court-lines > .cc-right-hoop").evaluateAll((elements) => elements.map((element) => {
+        const rect = element.getBoundingClientRect();
+        return { centerX: Math.round(rect.x + rect.width / 2), centerY: Math.round(rect.y + rect.height / 2) };
+      }));
+      const footerDisplay = await page.locator(".minimal-workspace").evaluate((element) => getComputedStyle(element, "::after").display);
+      expect(Math.abs(hero.height - 180)).toBeLessThanOrEqual(1);
+      expect(Math.abs(court.y - (hero.y + hero.height))).toBeLessThanOrEqual(1);
+      expect(Math.abs(court.height - 688)).toBeLessThanOrEqual(2);
+      expect(Math.abs(navBox.height - 130)).toBeLessThanOrEqual(1);
+      expect(Math.abs(navBox.y - (court.y + court.height))).toBeLessThanOrEqual(2);
+      const referenceNavX = [223, 404, 584, 765, 945];
+      expect(navItemGeometry.slice(0, 5).every((item, index) => Math.abs(item.x - referenceNavX[index]) <= 1 && Math.abs(item.y - (navBox.y + 27)) <= 1 && Math.abs(item.height - 58) <= 1), JSON.stringify(navItemGeometry)).toBeTruthy();
+      expect(footerDisplay).toBe("none");
+      expect(hoopGeometry[0].centerX).toBeGreaterThan(100);
+      expect(hoopGeometry[0].centerX).toBeLessThan(180);
+      expect(hoopGeometry[1].centerX).toBeGreaterThan(1180);
+      expect(hoopGeometry[1].centerX).toBeLessThan(1250);
+      const referenceMarkers = [{ x: 331, y: 297 }, { x: 810, y: 311 }, { x: 287, y: 656 }, { x: 840, y: 656 }, { x: 574, y: 756 }];
+      expect(markerGeometry.every((marker, index) => Math.abs(marker.numberX - referenceMarkers[index].x) <= 5 && Math.abs(marker.numberY - referenceMarkers[index].y) <= 6 && Math.abs(marker.width - 250) <= 1), JSON.stringify(markerGeometry)).toBeTruthy();
+      expect(Math.abs(clock.x - 462)).toBeLessThanOrEqual(3);
+      expect(Math.abs(clock.y - 388)).toBeLessThanOrEqual(8);
+      expect(Math.abs(clock.width - 380)).toBeLessThanOrEqual(2);
+      expect(Math.abs(clock.height - 380)).toBeLessThanOrEqual(2);
+      expect(player.y).toBeGreaterThanOrEqual(hero.y);
+      expect(player.y + player.height).toBeGreaterThan(court.y);
+      expect(Math.abs(clock.height - clock.width)).toBeLessThanOrEqual(1);
+    }
+    if (themeId === "clutch-court" && view === "focus") {
+      const scoreboard = await page.locator(".cc-focus-page > .cc-scoreboard").boundingBox();
+      const portrait = await page.locator(".cc-timer-layout > .cc-butler-card").boundingBox();
+      const dial = await page.locator(".cc-court-dial").boundingBox();
+      const tactics = await page.locator(".cc-tactics-board").boundingBox();
+      await expect(page.locator(".cc-center-circle--timer > strong")).toHaveText("45:00");
+      await expect(page.locator(".cc-center-circle--timer > .cc-lime-button")).toHaveText("▶　开始专注");
+      await expect(page.locator(".cc-timer-actions .cc-secondary-button")).toHaveCount(2);
+      await expect(page.locator(".cc-tactics-board input[name='clutchSessionTitle']")).toBeEnabled();
+      await expect(page.locator(".cc-tactics-board select[name='clutchLinkedTodo']")).toHaveValue("104");
+      expect(Math.abs(scoreboard.width - 500)).toBeLessThanOrEqual(1);
+      expect(Math.abs(portrait.width - 254)).toBeLessThanOrEqual(2);
+      expect(dial.width).toBeGreaterThan(680);
+      expect(tactics.width).toBeGreaterThanOrEqual(320);
+      expect(Math.abs(dial.height - 590)).toBeLessThanOrEqual(1);
+      expect(Math.abs(tactics.height - 590)).toBeLessThanOrEqual(1);
+      expect(portrait.y).toBeGreaterThanOrEqual(200);
+      expect(portrait.y).toBeLessThanOrEqual(230);
+      expect(Math.abs(tactics.y - portrait.y)).toBeLessThanOrEqual(1);
+      const butlerCard = page.locator(".cc-timer-layout > .cc-butler-card--timer");
+      await expect(butlerCard).toHaveAttribute("data-butler-style", "focus-portrait");
+      await expect(butlerCard.locator("img")).toHaveAttribute("src", "/theme-assets/jimmy-butler-focus-action.png");
+      await expectTransparentCutout(butlerCard.locator("img"), 1024, 1536);
+      await expect(page.locator(".new-theme-bar-meta > strong")).toHaveText("JIMMY BUTLER　·　WARRIORS");
+      await expect(butlerCard.locator("div span")).toHaveText("JIMMY BUTLER　·　#10");
+      await expect(butlerCard.locator("div strong")).toHaveText("CLUTCH MODE");
+      await expect(butlerCard.locator("div small")).toHaveText("关键时刻，专注打好眼前这一球。");
+    }
+    if (themeId === "clutch-court" && view === "records") {
+      await expect(page.locator(".cc-boxscore > div")).toHaveCount(4);
+      await expect(page.locator(".cc-records-overview-grid")).toBeVisible();
+      await expect(page.locator(".cc-day-boxscore .cc-day-stats > div")).toHaveCount(4);
+      await expect(page.locator(".cc-period-column")).toHaveCount(4);
+      await expect(page.locator(".cc-chart-point")).toHaveCount(7);
+      await expect(page.locator(".cc-chart-bar, .cc-chart__area")).toHaveCount(0);
+      await expect(page.locator(".cc-chart-dates > button")).toHaveCount(7);
+      await expect(page.locator(".cc-game-log .cc-log-row")).toHaveCount(3);
+      const series = await page.locator(".cc-chart").evaluate((chart) => {
+        const lefts = (selector) => Array.from(chart.querySelectorAll(selector), (element) => element.style.left);
+        const points = Array.from(chart.querySelectorAll(".cc-chart-point"), (element) => element.getBoundingClientRect());
+        const dates = Array.from(chart.querySelectorAll(".cc-chart-dates button"), (element) => element.getBoundingClientRect());
+        const box = chart.getBoundingClientRect();
+        const svgBox = chart.querySelector("svg").getBoundingClientRect();
+        const historyTop = chart.closest(".cc-records-page").querySelector(".cc-history-index").getBoundingClientRect().top;
+        const navTop = document.querySelector(".minimal-nav").getBoundingClientRect().top;
+        return {
+          pointLefts: lefts(".cc-chart-point"),
+          dateLefts: lefts(".cc-chart-dates button"),
+          pointDateCenters: points.map((point, index) => Math.abs((point.left + point.width / 2) - (dates[index].left + dates[index].width / 2))),
+          firstPoint: points[0].left + points[0].width / 2 - box.left,
+          lastPoint: points[points.length - 1].left + points[points.length - 1].width / 2 - box.left,
+          width: box.width,
+          chartHeight: box.height,
+          svgTop: svgBox.top - box.top,
+          svgHeight: svgBox.height,
+          historyTop,
+          navTop,
+          pathSegments: chart.querySelector(".cc-chart__line")?.getAttribute("d")?.match(/ C /g)?.length ?? 0,
+        };
+      });
+      expect(series.pointLefts.map(Number.parseFloat)).toHaveLength(7);
+      series.pointLefts.map(Number.parseFloat).forEach((value, index) => expect(value).toBeCloseTo(7 + (index * 86) / 6, 3));
+      expect(series.pointLefts).toEqual(series.dateLefts);
+      expect(series.pointDateCenters.every((distance) => distance <= 1)).toBeTruthy();
+      expect(series.firstPoint).toBeGreaterThan(0);
+      expect(series.lastPoint).toBeLessThan(series.width);
+      expect(series.svgTop).toBeCloseTo(0, 1);
+      expect(series.svgHeight).toBeCloseTo(series.chartHeight, 1);
+      expect(series.historyTop).toBeGreaterThanOrEqual(series.navTop);
+      expect(series.pathSegments).toBe(6);
+      await expect(page.locator(".cc-chart-point.active")).toHaveCount(1);
+      await expect(page.locator(".cc-day-boxscore")).toContainText("9/23");
+      await expect(page.locator(".cc-game-log")).toContainText("早间启动");
+      await expect(page.locator(".cc-period-column").nth(0)).toContainText("2h");
+      await expect(page.locator(".cc-period-column").nth(1)).toContainText("45m");
+      await expect(page.locator(".cc-period-column").nth(2)).toContainText("0m");
+      const upper = await page.locator(".cc-records-overview-grid").boundingBox();
+      const chart = await page.locator(".cc-shot-chart").boundingBox();
+      const daySummary = await page.locator(".cc-day-boxscore").boundingBox();
+      expect(Math.abs(chart.y - daySummary.y)).toBeLessThanOrEqual(1);
+      expect(Math.abs(chart.height - daySummary.height)).toBeLessThanOrEqual(1);
+      expect(upper.y).toBeGreaterThanOrEqual(285);
+      expect(upper.y).toBeLessThanOrEqual(310);
+    }
+    if (themeId === "clutch-court" && view === "settings") {
+      await page.getByRole("slider", { name: "画面明暗" }).fill("72");
+      await page.getByRole("slider", { name: "动效程度" }).fill("48");
+      await page.getByRole("checkbox", { name: /开始专注时自动打开迷你工作台/ }).check();
+      await expect(page.locator(".nt-settings-page--clutch .nt-theme-choice")).toHaveCount(5);
+      await expect(page.locator(".nt-settings-page--clutch .nt-settings-grid > .nt-settings-card")).toHaveCount(4);
+      await expect(page.locator(".nt-settings-page--clutch .nt-live-preview")).toContainText("JIMMY BUTLER");
+      await expect(page.locator(".nt-settings-page--clutch .nt-live-preview__label strong")).toHaveText("JIMMY BUTLER　/　#10");
+      const settingsPortrait = page.locator(".nt-settings-page--clutch .nt-jimmy-preview");
+      await expect(settingsPortrait).toHaveAttribute("src", "/theme-assets/jimmy-butler-settings-composed.png");
+      await expect(settingsPortrait).toHaveAttribute("alt", "Jimmy Butler 球星视觉预览");
+      await expectTransparentCutout(settingsPortrait, 1024, 1536);
+      await expect(page.getByRole("button", { name: "保存书房布置", exact: true })).toHaveCount(0);
+      await expect(page.getByRole("button", { name: "保存光场设置", exact: true })).toHaveCount(0);
+      await expect(page.locator(".nt-settings-page--clutch .nt-autosave")).toContainText("偏好自动保存");
+      if (card === "CC-05") {
+        const timerInputs = page.locator(".nt-clock-settings .nt-number-field input");
+        await expect(timerInputs).toHaveCount(3);
+        expect(await timerInputs.evaluateAll((inputs) => inputs.map((input) => input.value))).toEqual(["45", "45", "5"]);
+        await expect(page.locator(".nt-clock-settings > label strong")).toHaveText([
+          "正向计时提醒", "番茄专注时长", "番茄休息时长", "开始专注时自动打开迷你工作台",
+        ]);
+        await expect(page.locator(".nt-clock-settings")).not.toContainText("短休息");
+        await expect(page.locator(".nt-clock-settings")).not.toContainText("长休息");
+        await expect(page.locator(".nt-clock-settings .nt-check-row input")).toBeChecked();
+        await expect(page.locator(".nt-alert-settings .nt-check-row input[type=checkbox]")).toHaveCount(3);
+        await expect(page.locator(".nt-alert-settings .nt-check-row strong")).toHaveText(["应用内完成提醒", "桌面窗口提醒", "结束音效"]);
+        await expect(page.locator(".nt-alert-settings .nt-check-row input[type=checkbox]").nth(0)).toBeChecked();
+        await expect(page.locator(".nt-alert-settings .nt-check-row input[type=checkbox]").nth(1)).toBeChecked();
+        await expect(page.locator(".nt-alert-settings .nt-check-row input[type=checkbox]").nth(2)).toBeChecked();
+        await expect(page.locator(".nt-alert-settings .nt-select-row select")).toHaveValue("soft_chime");
+        await expect(page.locator(".nt-alert-settings .nt-audio-actions button")).toHaveText(["试听", "导入自定义"]);
+        await expect(page.locator(".nt-data-settings .nt-backup-select select")).toBeVisible();
+        await expect(page.locator(".nt-data-settings .nt-data-actions button")).toHaveText([
+          "导出备份", "导入并替换当前数据", "打开备份目录", "清空当前数据",
+        ]);
+        await expect(page.locator(".nt-portable-backup-details summary")).toContainText("完整 JSON 文件备份");
+        await expect(page.locator(".nt-settings-footer")).toContainText("无需手动保存");
+      }
+      const geometry = await page.evaluate(() => {
+        const rect = (selector) => {
+          const { x, y, width, height, right, bottom } = document.querySelector(selector).getBoundingClientRect();
+          return { x, y, width, height, right, bottom };
+        };
+        const root = document.querySelector(".nt-settings-page--clutch").getBoundingClientRect();
+        const grid = document.querySelector(".nt-settings-page--clutch .nt-settings-grid").getBoundingClientRect();
+        const preview = document.querySelector(".nt-settings-page--clutch .nt-live-preview").getBoundingClientRect();
+        return {
+          root: { x: root.x, y: root.y, width: root.width, height: root.height, right: root.right, bottom: root.bottom },
+          grid: { x: grid.x, y: grid.y, top: grid.top, width: grid.width, height: grid.height, right: grid.right, bottom: grid.bottom },
+          preview: { x: preview.x, y: preview.y, left: preview.left, top: preview.top, width: preview.width, height: preview.height, right: preview.right, bottom: preview.bottom },
+          identity: rect(".nt-identity-response"),
+          clock: rect(".nt-clock-settings"),
+          alerts: rect(".nt-alert-settings"),
+          data: rect(".nt-data-settings"),
+        };
+      });
+      for (const [key, expected] of Object.entries({
+        identity: { x: 40, y: 215, width: 519, height: 304 },
+        clock: { x: 570, y: 215, width: 480, height: 304 },
+        alerts: { x: 40, y: 530, width: 519, height: 304 },
+        data: { x: 570, y: 530, width: 480, height: 304 },
+      })) {
+        for (const [dimension, target] of Object.entries(expected)) {
+          expect(Math.abs(geometry[key][dimension] - target), `${key}.${dimension}: ${geometry[key][dimension]}`).toBeLessThanOrEqual(2);
+        }
+      }
+      expect(Math.abs(geometry.preview.width - 384)).toBeLessThanOrEqual(1);
+      expect(Math.abs(geometry.preview.height - 620)).toBeLessThanOrEqual(1);
+      expect(Math.abs(geometry.preview.top - geometry.grid.top)).toBeLessThanOrEqual(1);
+      expect(geometry.preview.left).toBeGreaterThan(geometry.grid.right);
+      expect(geometry.preview.right).toBeLessThanOrEqual(geometry.root.right + 1);
+    }
+    if (card === "MP-04") {
+      const chart = page.locator(".mp-chart");
+      const points = chart.locator(".mp-chart-point");
+      const dateLabels = chart.locator(".mp-chart__dates button");
+      await expect(points).toHaveCount(7);
+      await expect(chart.locator(".mp-chart-bar")).toHaveCount(7);
+      await expect(dateLabels).toHaveText(["17 四", "18 五", "19 六", "20 日", "21 一", "22 二", "23 三"]);
+      await expect(page.locator(".mp-date-range")).toContainText("09.17");
+      await expect(page.locator(".mp-date-range")).toContainText("09.23");
+      await expect(page.locator(".mp-record-summary")).toContainText("14.0 h");
+      await expect(page.locator(".mp-record-summary")).toContainText("6");
+      await expect(page.locator(".mp-record-selected")).toContainText("09月23日");
+      await expect(page.locator(".mp-day-records .mp-record-row")).toHaveCount(3);
+      await expect(page.locator(".mp-day-records .mp-record-row time")).toHaveText([
+        "08:10 – 09:02", "09:42 – 10:50", "14:06 – 14:51",
+      ]);
+      await expect(page.locator(".mp-period-row > strong")).toHaveText(["52m", "68m", "45m", "0m"]);
+      await expect(page.locator(".mp-chart-point.active")).toHaveCount(1);
+      await expect(page.locator(".mp-chart__dates button.active")).toHaveAttribute("aria-pressed", "true");
+
+      const geometry = await page.evaluate(() => {
+        const rect = (selector) => {
+          const { x, y, width, height } = document.querySelector(selector).getBoundingClientRect();
+          return { x, y, width, height };
+        };
+        const chart = document.querySelector(".mp-chart").getBoundingClientRect();
+        const pointRects = Array.from(document.querySelectorAll(".mp-chart-point"), (element) => element.getBoundingClientRect());
+        const labelRects = Array.from(document.querySelectorAll(".mp-chart__dates button"), (element) => element.getBoundingClientRect());
+        return {
+          week: rect(".mp-week-panel"), summary: rect(".mp-record-summary"),
+          records: rect(".mp-day-records"), periods: rect(".mp-period-card"),
+          chart: { width: chart.width },
+          aligned: pointRects.map((point, index) => Math.abs(point.x + point.width / 2 - labelRects[index].x - labelRects[index].width / 2)),
+          pointSpan: pointRects.at(-1).x + pointRects.at(-1).width / 2 - pointRects[0].x - pointRects[0].width / 2,
+          lineWidth: document.querySelector(".mp-chart__line").getBoundingClientRect().width,
+          activeTab: getComputedStyle(document.querySelector(".minimal-nav > button.active")).backgroundColor,
+        };
+      });
+      for (const [key, expected] of [["week", { x: 43, y: 225, width: 874, height: 370 }], ["summary", { x: 932, y: 225, width: 512, height: 370 }], ["records", { x: 43, y: 610, width: 874, height: 232 }], ["periods", { x: 932, y: 610, width: 512, height: 232 }]]) {
+        for (const dimension of Object.keys(expected)) expect(Math.abs(geometry[key][dimension] - expected[dimension]), `${key}.${dimension}: ${geometry[key][dimension]}`).toBeLessThanOrEqual(2);
+      }
+      expect(geometry.aligned.every((delta) => delta <= 1), JSON.stringify(geometry.aligned)).toBeTruthy();
+      expect(geometry.pointSpan).toBeGreaterThan(geometry.chart.width * 0.84);
+      expect(geometry.lineWidth).toBeGreaterThan(geometry.chart.width * 0.8);
+      expect(geometry.activeTab).toBe("rgba(0, 0, 0, 0)");
+    }
+    expect(await page.locator(".command-trigger").isVisible()).toBeTruthy();
+    expect(await page.locator(".window-controls").isVisible()).toBeTruthy();
+    if (themeId === "metro-pulse" && view === "today") expect(await page.locator(".minimal-nav > button:nth-of-type(2) .minimal-nav__label").evaluate((label) => getComputedStyle(label).color)).toBe("rgb(54, 90, 119)");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(1488);
+    if (card === "MP-05") {
+      await expect(page.locator(".nt-settings-page--metro .nt-settings-grid > .nt-settings-card")).toHaveCount(4);
+      await expect(page.locator(".nt-settings-page--metro .nt-theme-choice")).toHaveCount(5);
+      await expect(page.locator(".nt-theme-picker .nt-section-title > span")).toHaveText("THEME　/　01");
+      await expect(page.locator(".nt-clock-settings .nt-number-field input")).toHaveCount(3);
+      await expect(page.locator(".nt-clock-settings > label strong")).toHaveText([
+        "正向计时提醒", "番茄专注时长", "番茄休息时长", "自动打开迷你工作台",
+      ]);
+      expect(await page.locator(".nt-clock-settings .nt-number-field input").evaluateAll((inputs) => inputs.map((input) => input.value))).toEqual(["45", "45", "5"]);
+      await expect(page.locator(".nt-clock-settings .nt-check-row input")).toBeChecked();
+      await expect(page.locator(".nt-clock-settings")).not.toContainText("长休息");
+      await expect(page.getByRole("button", { name: "保存书房布置", exact: true })).toHaveCount(0);
+      await expect(page.locator(".nt-alert-settings .nt-check-row > input[type=checkbox]")).toHaveCount(3);
+      await expect(page.locator(".nt-alert-settings .nt-check-row strong")).toHaveText(["应用内完成提醒", "桌面窗口提醒", "结束音效"]);
+      await expect(page.locator(".nt-alert-settings .nt-select-row select")).toHaveValue("soft_chime");
+      await expect(page.locator(".nt-alert-settings .nt-audio-actions button")).toHaveText(["试听", "导入自定义"]);
+      await expect(page.getByRole("button", { name: "舒展", exact: true })).toHaveAttribute("aria-pressed", "true");
+      await expect(page.locator(".nt-live-preview")).toHaveAttribute("data-motion", "subtle");
+      await expect(page.locator(".nt-live-preview")).toHaveAttribute("data-density", "roomy");
+      await expect(page.locator(".nt-preview-sample__number")).toHaveText("04");
+      expect(await page.locator(".nt-visual-controls input[type=range]").evaluateAll((inputs) => inputs.map((input) => input.value))).toEqual(["68", "42"]);
+      expect(await page.locator(".nt-visual-controls input[type=range]").evaluateAll((inputs) => inputs.map((input) => input.style.getPropertyValue("--nt-range-progress")))).toEqual(["68%", "42%"]);
+      expect(await page.locator(".nt-visual-controls input[type=range]").evaluateAll((inputs) => inputs.map((input) => ({
+        height: getComputedStyle(input).height,
+        borderWidth: getComputedStyle(input).borderTopWidth,
+        backgroundColor: getComputedStyle(input).backgroundColor,
+      })))).toEqual([
+        { height: "16px", borderWidth: "0px", backgroundColor: "rgba(0, 0, 0, 0)" },
+        { height: "16px", borderWidth: "0px", backgroundColor: "rgba(0, 0, 0, 0)" },
+      ]);
+      const settingsGeometry = await page.evaluate(() => {
+        const rect = (selector) => {
+          const { x, y, width, height, bottom, right } = document.querySelector(selector).getBoundingClientRect();
+          return { x, y, width, height, bottom, right };
+        };
+        return {
+          identity: rect(".nt-identity-response"),
+          clock: rect(".nt-clock-settings"),
+          preview: rect(".nt-live-preview"),
+          density: rect(".nt-density-control"),
+          timerSwitch: rect(".nt-clock-settings .nt-check-row > input"),
+        };
+      });
+      expect(Math.abs(settingsGeometry.identity.x - 43)).toBeLessThanOrEqual(1);
+      expect(Math.abs(settingsGeometry.identity.y - 220)).toBeLessThanOrEqual(1);
+      expect(Math.abs(settingsGeometry.identity.width - 729)).toBeLessThanOrEqual(2);
+      expect(Math.abs(settingsGeometry.identity.height - 305)).toBeLessThanOrEqual(1);
+      expect(Math.abs(settingsGeometry.clock.x - 784)).toBeLessThanOrEqual(1);
+      expect(Math.abs(settingsGeometry.clock.y - 220)).toBeLessThanOrEqual(1);
+      expect(Math.abs(settingsGeometry.clock.height - 305)).toBeLessThanOrEqual(1);
+      expect(settingsGeometry.preview.bottom).toBeLessThan(settingsGeometry.density.y);
+      expect(settingsGeometry.density.bottom).toBeLessThanOrEqual(settingsGeometry.identity.bottom - 8);
+      expect(settingsGeometry.density.right).toBeLessThanOrEqual(settingsGeometry.identity.right - 12);
+      expect(Math.abs(settingsGeometry.timerSwitch.width - 36)).toBeLessThanOrEqual(1);
+      expect(Math.abs(settingsGeometry.timerSwitch.height - 20)).toBeLessThanOrEqual(1);
+    }
+    await page.screenshot({ path: testOutputPath("concept-comparison", card + "-" + themeId + "-" + view + ".png"), animations: "disabled" });
+    expect(errors).toEqual([]);
   });
-  await page.setViewportSize({ width: 420, height: 720 });
-  await bootTodayReferenceMock(page, { expectedHeading: "今日节奏", todoTitles: ["检查窄屏节点的优先级信息"] });
-  const row = page.locator(".ep-field-row").first();
-  const importance = row.locator(".ep-field-row__importance-mobile");
-  const evidence = await importance.evaluate((element) => ({
-    text: element.textContent ?? "",
-    display: getComputedStyle(element).display,
-    rect: (() => {
-      const box = element.getBoundingClientRect();
-      return { left: box.left, right: box.right, width: box.width, height: box.height };
-    })(),
+}
+
+test("MP-05 live preview reflects brightness, motion, density, and saved preferences", async ({ page }) => {
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootReferenceMock(page, { themeId: "metro-pulse", demoMode: true, settingsDemo: true });
+  await navButton(page, "设置").click();
+  const preview = page.locator(".nt-settings-page--metro .nt-live-preview");
+  const before = await preview.evaluate((element) => ({
+    visual: getComputedStyle(element).getPropertyValue("--nt-visual"),
+    padding: getComputedStyle(element).padding,
+    samplePadding: getComputedStyle(element.querySelector(".nt-preview-sample")).padding,
   }));
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-01-adversarial-importance-before-420.png"), animations: "disabled", fullPage: true });
-  expect(evidence.text).toBe(" · 中");
-  expect(evidence.display).not.toBe("none");
-  expect(evidence.rect.width).toBeGreaterThan(0);
-  expect(evidence.rect.height).toBeGreaterThan(0);
-  await page.screenshot({ path: testOutputPath("qa", "REFINE-19", "TODAY-01-adversarial-importance-420.png"), animations: "disabled", fullPage: true });
+
+  await page.getByRole("slider", { name: "画面明暗" }).fill("92");
+  await expect(page.getByRole("slider", { name: "画面明暗" })).toHaveCSS("--nt-range-progress", "92%");
+  const motion = page.getByRole("slider", { name: "动效程度" });
+  await motion.fill("0");
+  await expect(preview).toHaveAttribute("data-motion", "off");
+  await expect.poll(() => preview.locator(".nt-preview-sample > i").evaluate((dot) => getComputedStyle(dot).animationName)).toBe("none");
+  await motion.fill("80");
+  await expect(motion).toHaveCSS("--nt-range-progress", "80%");
+  await expect(preview).toHaveAttribute("data-motion", "full");
+  await expect.poll(() => preview.locator(".nt-preview-sample").evaluate((sample) => getComputedStyle(sample).transform)).not.toBe("none");
+  await page.getByRole("group", { name: "信息密度" }).getByRole("button", { name: "紧凑", exact: true }).click();
+  await expect(preview).toHaveAttribute("data-density", "compact");
+  const after = await preview.evaluate((element) => ({
+    visual: getComputedStyle(element).getPropertyValue("--nt-visual"),
+    padding: getComputedStyle(element).padding,
+    samplePadding: getComputedStyle(element.querySelector(".nt-preview-sample")).padding,
+  }));
+  expect(after.visual).not.toBe(before.visual);
+  expect(after.padding).not.toBe(before.padding);
+  expect(after.samplePadding).not.toBe(before.samplePadding);
+
+  const reminder = page.getByRole("spinbutton", { name: "正向计时提醒分钟数" });
+  await reminder.fill("60");
+  await expect(reminder).toHaveValue("60");
+  await page.getByRole("checkbox", { name: "自动打开迷你工作台" }).uncheck();
+  await expect(page.getByRole("checkbox", { name: "自动打开迷你工作台" })).not.toBeChecked();
+  await expect.poll(() => page.evaluate(() => window.__appPreferenceUpdateCalls)).toBeGreaterThan(0);
+  await expect(page.getByRole("button", { name: "保存书房布置", exact: true })).toHaveCount(0);
+  await page.screenshot({ path: testOutputPath("MP-05-settings", "MP-05-live-preview-interactions.png"), fullPage: true, animations: "disabled" });
+});
+
+test("MP-05 settings remain reachable without clipping at 1024 and 560 pixels", async ({ page }) => {
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootReferenceMock(page, { themeId: "metro-pulse", demoMode: true, settingsDemo: true });
+  await navButton(page, "设置").click();
+  const settings = page.locator(".nt-settings-page--metro");
+  for (const width of [1024, 560]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(settings).toBeVisible();
+    await expect(settings.locator(".nt-settings-grid > .nt-settings-card")).toHaveCount(4);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width + 1);
+    await settings.locator(".nt-density-control button").first().scrollIntoViewIfNeeded();
+    await expect(settings.locator(".nt-density-control button").first()).toBeVisible();
+    await expect(settings.locator(".nt-clock-settings .nt-number-field input").first()).toBeVisible();
+    await settings.locator(".nt-data-settings .nt-data-actions button").last().scrollIntoViewIfNeeded();
+    await expect(settings.locator(".nt-data-settings .nt-data-actions button").last()).toBeVisible();
+    await page.screenshot({ path: testOutputPath("MP-05-responsive", `MP-05-settings-${width}.png`), fullPage: true, animations: "disabled" });
+  }
+});
+
+test("MP-04 date selection, previous-week navigation, zero days, and return-to-recent stay synchronized", async ({ page }) => {
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootReferenceMock(page, { themeId: "metro-pulse", demoMode: true });
+  await navButton(page, "记录").click();
+  const points = page.locator(".mp-chart-point");
+  const labels = page.locator(".mp-chart__dates button");
+  const expectedCounts = [3, 4, 0, 5, 2, 4, 3];
+  for (let index = 0; index < expectedCounts.length; index += 1) {
+    await points.nth(index).click();
+    await expect(points.nth(index)).toHaveAttribute("aria-pressed", "true");
+    await expect(labels.nth(index)).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator(".mp-day-records .mp-record-row")).toHaveCount(expectedCounts[index]);
+    if (index === 2) {
+      await expect(page.locator(".mp-day-records .mp-empty")).toContainText("这一天没有专注记录");
+      await expect(page.locator(".mp-period-row > strong")).toHaveText(["0m", "0m", "0m", "0m"]);
+    }
+  }
+  await labels.nth(0).click();
+  await expect(points.nth(0)).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "上一周", exact: true }).click();
+  const range = page.locator(".mp-date-range > span");
+  await expect(range).toContainText("09.10");
+  await expect(range).toContainText("09.16");
+  await expect(page.locator(".mp-record-summary")).toContainText("0.0 h");
+  await expect(page.locator(".mp-record-summary")).toContainText("0 / 7");
+  await expect(page.locator(".mp-day-records .mp-empty")).toContainText("这一天没有专注记录");
+  await page.getByRole("button", { name: "下一周", exact: true }).click();
+  await expect(range).toContainText("09.17");
+  await expect(range).toContainText("09.23");
+  await page.getByRole("button", { name: "回到最近", exact: true }).click();
+  await expect(points.last()).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".mp-day-records .mp-record-row")).toHaveCount(3);
+});
+
+test("MP-04 record supplement, rename, detailed edit, delete, and selected-day history expansion work", async ({ page }) => {
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootReferenceMock(page, { themeId: "metro-pulse", demoMode: true });
+  await navButton(page, "记录").click();
+
+  let firstRecord = page.locator(".mp-day-records .mp-record-row").first();
+  await firstRecord.hover();
+  await firstRecord.getByRole("button", { name: "改名", exact: true }).click();
+  await page.getByRole("textbox", { name: "记录名称" }).fill("起班专注复盘");
+  await page.getByRole("textbox", { name: "记录名称" }).press("Enter");
+  await expect(firstRecord).toContainText("起班专注复盘");
+
+  await page.locator(".mp-record-footer-actions").getByRole("button", { name: "补录", exact: true }).click();
+  const manualDialog = page.getByRole("dialog", { name: "补录一段专注" });
+  await expect(manualDialog).toBeVisible();
+  await manualDialog.getByLabel("标题").fill("手动战术复盘");
+  await manualDialog.getByLabel("时长（分钟）").fill("32");
+  await manualDialog.getByLabel("完成日期").fill("2026-09-23");
+  await manualDialog.getByLabel("完成时间（可选）").fill("15:40");
+  await manualDialog.getByRole("button", { name: "补录记录", exact: true }).click();
+  await expect(manualDialog).toHaveCount(0);
+  let manualRecord = page.locator(".mp-day-records .mp-record-row").filter({ hasText: "手动战术复盘" });
+  await expect(manualRecord).toHaveCount(1);
+  await expect(page.locator(".mp-day-records .mp-record-row")).toHaveCount(4);
+
+  await manualRecord.hover();
+  await manualRecord.getByRole("button", { name: "详细编辑", exact: true }).click();
+  const editDialog = page.getByRole("dialog", { name: "编辑专注记录" });
+  await expect(editDialog).toBeVisible();
+  await editDialog.getByLabel("标题").fill("罚球训练记录");
+  await editDialog.getByLabel("时长（分钟）").fill("36");
+  await editDialog.getByRole("button", { name: "保存修改", exact: true }).click();
+  manualRecord = page.locator(".mp-day-records .mp-record-row").filter({ hasText: "罚球训练记录" });
+  await expect(manualRecord.locator(".mp-record-duration")).toContainText("36 分");
+  await manualRecord.hover();
+  await manualRecord.getByRole("button", { name: "删除", exact: true }).click();
+  await expect(page.locator(".mp-day-records .mp-record-row").filter({ hasText: "罚球训练记录" })).toHaveCount(0);
+  await expect(page.locator(".mp-day-records .mp-record-row")).toHaveCount(3);
+
+  await page.locator(".mp-record-footer-actions").getByRole("button", { name: /展开当日完整记录/ }).click();
+  const history = page.locator(".mp-history-index");
+  await expect(history).toBeInViewport();
+  const selectedDay = history.locator("details[open]");
+  await expect(selectedDay).toHaveCount(1);
+  await expect(selectedDay).toContainText("起班专注复盘");
+});
+
+test("MP-04 zero and dense histories remain accessible and load more than the initial page", async ({ page }) => {
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootReferenceMock(page, { themeId: "metro-pulse", includeTodo: false, includeInbox: false, recordCount: 0, currentTodoId: null, todayPickIds: [] });
+  await navButton(page, "记录").click();
+  await expect(page.locator(".mp-chart-point")).toHaveCount(7);
+  await expect(page.locator(".mp-chart-point.empty")).toHaveCount(7);
+  await expect(page.locator(".mp-record-summary")).toContainText("0.0 h");
+  await expect(page.locator(".mp-day-records .mp-empty")).toContainText("这一天没有专注记录");
+  await expect(page.locator(".mp-history-index .mp-empty")).toContainText("完整历史会显示在这里");
+
+  await bootReferenceMock(page, { themeId: "metro-pulse", recordCount: 65, includeTodo: false, includeInbox: false, currentTodoId: null, todayPickIds: [] });
+  await navButton(page, "记录").click();
+  await expect(page.locator(".mp-day-records .mp-record-row")).toHaveCount(40);
+  await page.locator(".mp-record-footer-actions").getByRole("button", { name: "加载更多", exact: true }).click();
+  await expect(page.locator(".mp-day-records .mp-record-row")).toHaveCount(65);
+  await page.locator(".mp-history-index").scrollIntoViewIfNeeded();
+  await expect(page.locator(".mp-history-index")).toBeInViewport();
+  await expect(page.locator(".mp-history-index details")).toHaveCount(1);
+  await page.screenshot({ path: testOutputPath("MP-04-dense-history", "MP-04-65-records-history.png"), animations: "disabled" });
+});
+
+test("MP-04 chart, date labels, records, and long history fit tablet and phone widths", async ({ page }) => {
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootReferenceMock(page, { themeId: "metro-pulse", demoMode: true });
+  await navButton(page, "记录").click();
+  for (const width of [1024, 560]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(page.locator(".mp-records-page")).toBeVisible();
+    const measurements = await page.evaluate(() => {
+      const chart = document.querySelector(".mp-chart").getBoundingClientRect();
+      const pageContent = document.querySelector(".mp-records-page").getBoundingClientRect();
+      return { client: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth,
+        chart: { left: chart.left, right: chart.right }, page: { left: pageContent.left, right: pageContent.right } };
+    });
+    expect(measurements.scroll).toBeLessThanOrEqual(measurements.client + 1);
+    expect(measurements.page.left).toBeGreaterThanOrEqual(-1);
+    expect(measurements.page.right).toBeLessThanOrEqual(width + 1);
+    expect(measurements.chart.left).toBeGreaterThanOrEqual(-1);
+    expect(measurements.chart.right).toBeLessThanOrEqual(width + 1);
+    await expect(page.locator(".mp-chart-point")).toHaveCount(7);
+    await expect(page.locator(".mp-chart__dates button")).toHaveCount(7);
+    await page.locator(".mp-chart-point").nth(2).click();
+    await expect(page.locator(".mp-day-records .mp-empty")).toContainText("这一天没有专注记录");
+    await page.getByRole("button", { name: "回到最近", exact: true }).click();
+    await page.locator(".mp-record-footer-actions").getByRole("button", { name: /展开当日完整记录/ }).click();
+    await expect(page.locator(".mp-history-index")).toBeInViewport();
+    await page.screenshot({ path: testOutputPath("MP-04-responsive", `MP-04-${width}.png`), fullPage: true, animations: "disabled" });
+  }
+});
+
+test("CC-05 locker room stays reachable at tablet and phone widths", async ({ page }) => {
+  test.setTimeout(60_000);
+  for (const width of [1024, 560]) {
+    await page.setViewportSize({ width, height: 900 });
+    await bootReferenceMock(page, { themeId: "clutch-court" });
+    await navButton(page, "设置").click();
+    await expect(page.locator(".nt-settings-page--clutch .nt-theme-choice")).toHaveCount(5);
+    const pageRoot = page.locator(".nt-settings-page--clutch");
+    const preview = page.locator(".nt-settings-page--clutch .nt-live-preview");
+    await preview.scrollIntoViewIfNeeded();
+    await expect(preview).toBeVisible();
+    await expect(page.locator(".nt-jimmy-preview")).toBeVisible();
+    await expect(page.getByRole("button", { name: "保存书房布置", exact: true })).toHaveCount(0);
+    const measurements = await page.evaluate(() => ({
+      viewportWidth: document.documentElement.clientWidth,
+      scrollWidth: document.documentElement.scrollWidth,
+      root: (() => { const rect = document.querySelector(".nt-settings-page--clutch").getBoundingClientRect(); return { left: rect.left, right: rect.right }; })(),
+      preview: (() => { const rect = document.querySelector(".nt-settings-page--clutch .nt-live-preview").getBoundingClientRect(); return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom }; })(),
+    }));
+    expect(measurements.scrollWidth).toBeLessThanOrEqual(measurements.viewportWidth + 1);
+    expect(measurements.root.left).toBeGreaterThanOrEqual(-1);
+    expect(measurements.root.right).toBeLessThanOrEqual(width + 1);
+    expect(measurements.preview.left).toBeGreaterThanOrEqual(-1);
+    expect(measurements.preview.right).toBeLessThanOrEqual(width + 1);
+    await page.screenshot({ path: testOutputPath("CC-05-responsive", `CC-05-${width}.png`), animations: "disabled" });
+  }
+});
+
+test("CC-05 settings auto-save and update the live home-court preview", async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootReferenceMock(page, { themeId: "clutch-court", demoMode: true, settingsDemo: true });
+  await navButton(page, "设置").click();
+
+  const settings = page.locator(".nt-settings-page--clutch");
+  const preview = settings.locator(".nt-live-preview");
+  const brightness = page.getByRole("slider", { name: "画面明暗" });
+  const motion = page.getByRole("slider", { name: "动效程度" });
+  const density = page.getByRole("group", { name: "信息密度" });
+  const appPreferenceUpdates = await page.evaluate(() => window.__appPreferenceUpdateCalls);
+  const timerPreferenceUpdates = await page.evaluate(() => window.__timerPreferenceUpdateCalls);
+  const initialVisual = await preview.evaluate((element) => getComputedStyle(element).getPropertyValue("--nt-visual"));
+  const initialPortraitTransform = await preview.locator(".nt-jimmy-preview").evaluate((element) => getComputedStyle(element).transform);
+
+  await brightness.fill("90");
+  await expect(brightness).toHaveCSS("--nt-range-progress", "90%");
+  await expect(preview.locator(".nt-live-preview__label p")).toContainText("场馆灯光 90%");
+  await expect.poll(() => preview.evaluate((element) => getComputedStyle(element).getPropertyValue("--nt-visual"))).not.toBe(initialVisual);
+
+  await motion.fill("0");
+  await expect(preview).toHaveAttribute("data-motion", "off");
+  await expect(preview.locator(".nt-live-preview__label p")).toContainText("关闭动效");
+  await motion.fill("80");
+  await expect(preview).toHaveAttribute("data-motion", "full");
+  await expect(preview.locator(".nt-live-preview__label p")).toContainText("完整动效");
+
+  await density.getByRole("button", { name: "紧凑", exact: true }).click();
+  await expect(preview).toHaveAttribute("data-density", "compact");
+  await expect(preview.locator(".nt-jimmy-preview")).not.toHaveCSS("transform", initialPortraitTransform);
+
+  const stopwatchReminder = page.getByRole("spinbutton", { name: "正向计时提醒分钟数" });
+  const focusDuration = page.getByRole("spinbutton", { name: "番茄专注时长分钟数" });
+  const breakDuration = page.getByRole("spinbutton", { name: "番茄休息时长分钟数" });
+  const saveTimerValue = async (field, value) => {
+    const callsBefore = await page.evaluate(() => window.__timerPreferenceUpdateCalls);
+    await field.fill(value);
+    await field.press("Tab");
+    await expect.poll(() => page.evaluate(() => window.__timerPreferenceUpdateCalls)).toBeGreaterThan(callsBefore);
+    await expect(field).toBeEnabled();
+    await expect(field).toHaveValue(value);
+  };
+  await saveTimerValue(stopwatchReminder, "60");
+  await saveTimerValue(focusDuration, "50");
+  await saveTimerValue(breakDuration, "8");
+  await expect(page.locator(".nt-clock-settings .nt-number-field input")).toHaveCount(3);
+
+  await page.getByRole("checkbox", { name: "应用内完成提醒" }).uncheck();
+  await page.getByRole("checkbox", { name: "开始专注时自动打开迷你工作台" }).uncheck();
+  await page.locator(".nt-alert-settings .nt-select-row select").selectOption("deep_pulse");
+  await expect(page.locator(".nt-alert-settings .nt-select-row select")).toHaveValue("deep_pulse");
+  await expect.poll(() => page.evaluate(() => window.__appPreferenceUpdateCalls)).toBeGreaterThan(appPreferenceUpdates);
+  await expect.poll(() => page.evaluate(() => window.__timerPreferenceUpdateCalls)).toBeGreaterThan(timerPreferenceUpdates);
+
+  await expect(page.getByRole("button", { name: "保存书房布置", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "保存光场设置", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "导出备份", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "导入并替换当前数据", exact: true })).toBeEnabled();
+  expect(errors).toEqual([]);
+  await page.screenshot({ path: testOutputPath("CC-05-settings", "CC-05-live-preview-interactions.png"), fullPage: true, animations: "disabled" });
+});
+
+test("CC-03 playbook task creation, editing, completion, restoration, and deletion", async ({ page }) => {
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootReferenceMock(page, { themeId: "clutch-court", demoMode: true });
+  await navButton(page, "待办").click();
+
+  await expect(page.locator(".cc-lane--current .cc-task-row")).toHaveCount(1);
+  await expect(page.locator(".cc-lane--warmup .cc-task-row")).toHaveCount(2);
+  await expect(page.locator(".cc-lane--made .cc-task-row")).toHaveCount(3);
+  const addButton = page.locator(".cc-todos-page > .cc-page-head").getByRole("button", { name: "布置新回合", exact: true });
+  await addButton.click();
+  const title = page.locator('input[name="clutchTodoTitle"]');
+  await expect(title).toBeVisible();
+  expect(await title.evaluate((element) => element.required)).toBeTruthy();
+  expect(await title.evaluate((element) => element.checkValidity())).toBeFalsy();
+  await title.fill("加练罚球");
+  await page.locator('input[name="clutchTodoDate"]').fill("2026-09-24");
+  await page.locator('input[name="clutchTodoTime"]').fill("21:15");
+  await page.locator('select[name="clutchTodoImportance"]').selectOption("high");
+  await page.getByRole("button", { name: "确认布置", exact: true }).click();
+
+  await expect(page.locator(".cc-create-play")).toHaveCount(0);
+  let created = page.locator(".cc-lane--warmup .cc-task-row").filter({ hasText: "加练罚球" });
+  await expect(created).toContainText("待开始");
+  await expect(created.locator("small")).toContainText("高");
+  await created.hover();
+  await created.getByRole("button", { name: "编辑", exact: true }).click();
+  const edit = page.locator(".cc-lane--warmup .cc-task-edit");
+  await edit.locator('input:not([type="date"]):not([type="time"])').fill("罚球收尾");
+  await edit.locator('input[type="date"]').fill("2026-09-25");
+  await edit.locator('input[type="time"]').fill("21:40");
+  await edit.locator("select").selectOption("low");
+  await edit.getByRole("button", { name: "保存", exact: true }).click();
+  created = page.locator(".cc-lane--warmup .cc-task-row").filter({ hasText: "罚球收尾" });
+  await expect(created.locator("strong")).toHaveText("罚球收尾");
+  await expect(created.locator("small")).toContainText("低");
+
+  await created.hover();
+  await created.getByRole("button", { name: "删除", exact: true }).click();
+  await expect(page.locator(".cc-lane--warmup .cc-task-row").filter({ hasText: "罚球收尾" })).toHaveCount(0);
+
+  const current = page.locator(".cc-lane--current .cc-task-row").filter({ hasText: "创作专注" });
+  await current.getByRole("button", { name: "完成 创作专注", exact: true }).click();
+  const completed = page.locator(".cc-lane--made .cc-task-row").filter({ hasText: "创作专注" });
+  await expect(completed).toHaveClass(/complete/);
+  await expect(page.locator(".cc-lane--current .cc-task-row")).toHaveCount(1);
+  await expect(page.locator(".cc-lane--current .cc-task-row strong")).toHaveText("整理收尾");
+  await expect(page.locator(".cc-lane--warmup .cc-task-row")).toHaveCount(1);
+  await expect(page.locator(".cc-lane--made .cc-task-row")).toHaveCount(4);
+  await completed.getByRole("button", { name: "恢复 创作专注", exact: true }).click();
+  await expect(page.locator(".cc-lane--current .cc-task-row")).toHaveCount(1);
+  await expect(page.locator(".cc-lane--current .cc-task-row strong")).toHaveText("创作专注");
+  await expect(page.locator(".cc-lane--warmup .cc-task-row")).toHaveCount(2);
+  await expect(page.locator(".cc-lane--made .cc-task-row")).toHaveCount(3);
+});
+
+test("CC-03 warmup preserves inbox, future, and overdue tasks without inventing made plays", async ({ page }) => {
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootReferenceMock(page, { themeId: "clutch-court", includeOverdue: true, includeFuture: true });
+  await navButton(page, "待办").click();
+  const warmup = page.locator(".cc-lane--warmup");
+  await expect(warmup.locator(".cc-task-row")).toHaveCount(4);
+  await expect(warmup.locator(".cc-task-row.overdue")).toContainText("补齐昨日复盘");
+  await expect(warmup.locator(".cc-task-row").filter({ hasText: "回看上次停笔位置" })).toContainText("未安排");
+  await expect(warmup.locator(".cc-task-row").filter({ hasText: "准备下周选题" })).toContainText("待开始");
+  await expect(page.locator(".cc-lane--made .cc-task-row")).toHaveCount(0);
+  await expect(page.locator(".cc-lane--made .cc-empty")).toContainText("完成事项后");
+});
+
+test("CC-03 empty playbook has explicit current and completed states", async ({ page }) => {
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootReferenceMock(page, { themeId: "clutch-court", includeTodo: false, includeInbox: false, recordCount: 0, currentTodoId: null, todayPickIds: [] });
+  await navButton(page, "待办").click();
+  await expect(page.locator(".cc-lane--warmup .cc-task-row")).toHaveCount(0);
+  await expect(page.locator(".cc-lane--current .cc-empty")).toContainText("今天还没有回合");
+  await expect(page.locator(".cc-lane--made .cc-empty")).toContainText("完成事项后");
+});
+
+test("CC-03 playbook controls fit tablet and phone widths", async ({ page }) => {
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootReferenceMock(page, { themeId: "clutch-court", demoMode: true });
+  await navButton(page, "待办").click();
+  for (const width of [1024, 560]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(page.locator(".cc-todos-page")).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+    const shellActions = await page.locator(".app-bar__actions").boundingBox();
+    const commandButton = await page.locator(".command-trigger").boundingBox();
+    expect(shellActions.x).toBeGreaterThanOrEqual(0);
+    expect(shellActions.x + shellActions.width).toBeLessThanOrEqual(width + 1);
+    expect(commandButton.x).toBeGreaterThanOrEqual(0);
+    expect(commandButton.x + commandButton.width).toBeLessThanOrEqual(width + 1);
+    if (width === 1024) await expect(page.locator(".command-trigger")).toHaveCSS("white-space", "nowrap");
+    const bounds = await page.locator(".cc-lane").evaluateAll((elements) => elements.map((element) => {
+      const rect = element.getBoundingClientRect();
+      return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
+    }));
+    expect(bounds.every((rect) => rect.left >= -1 && rect.right <= width + 1), JSON.stringify({ width, bounds })).toBeTruthy();
+    const add = page.locator(".cc-todos-page > .cc-page-head").getByRole("button", { name: "布置新回合", exact: true });
+    await add.click();
+    const controls = page.locator(".cc-create-play input, .cc-create-play select, .cc-create-play button");
+    await expect(controls).toHaveCount(5);
+    const fieldBounds = await controls.evaluateAll((elements) => elements.map((element) => {
+      const rect = element.getBoundingClientRect();
+      return { left: rect.left, right: rect.right, width: rect.width };
+    }));
+    expect(fieldBounds.every((rect) => rect.left >= -1 && rect.right <= width + 1 && rect.width > 0), JSON.stringify({ width, fieldBounds })).toBeTruthy();
+    await page.screenshot({ path: testOutputPath("CC-03-responsive", `CC-03-${width}.png`), animations: "disabled" });
+    await page.locator(".cc-todos-page > .cc-page-head").getByRole("button", { name: "收起新回合", exact: true }).click();
+  }
+});
+
+test("CC-04 selecting any day synchronizes chart, date summary, session map, and game log", async ({ page }) => {
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootReferenceMock(page, { themeId: "clutch-court", demoMode: true });
+  await navButton(page, "记录").click();
+  const points = page.locator(".cc-chart-point");
+  const zeroDay = points.nth(2);
+  await zeroDay.click();
+  await expect(zeroDay).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".cc-chart-point.active")).toHaveCount(1);
+  await expect(page.locator(".cc-chart-dates > button.active")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".cc-day-boxscore .cc-panel-heading")).toContainText("9/19");
+  await expect(page.locator(".cc-game-log .cc-panel-heading")).toContainText("9/19");
+  await expect(page.locator(".cc-day-stats")).toContainText("0 段");
+  await expect(page.locator(".cc-game-log .cc-log-row")).toHaveCount(0);
+  await expect(page.locator(".cc-game-log .cc-empty")).toContainText("这一天没有专注记录");
+  await expect(page.locator(".cc-period-column > strong")).toHaveText(["0m", "0m", "0m", "0m"]);
+  await page.getByRole("button", { name: "回到最近", exact: true }).click();
+  await expect(page.locator(".cc-chart-point.active")).toHaveCount(1);
+  await expect(points.last()).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".cc-day-boxscore .cc-panel-heading")).toContainText("9/23");
+  await expect(page.locator(".cc-game-log .cc-log-row")).toHaveCount(3);
+});
+
+test("CC-04 manual supplement, rename, detailed edit, delete, and day history expansion work", async ({ page }) => {
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootReferenceMock(page, { themeId: "clutch-court", demoMode: true });
+  await navButton(page, "记录").click();
+
+  let firstRecord = page.locator(".cc-game-log .cc-log-row").first();
+  await firstRecord.hover();
+  await firstRecord.getByRole("button", { name: "改名", exact: true }).click();
+  await page.getByRole("textbox", { name: "记录名称" }).fill("开场战术复盘");
+  await page.getByRole("textbox", { name: "记录名称" }).press("Enter");
+  await expect(firstRecord.locator("div > strong")).toHaveText("开场战术复盘");
+
+  await page.locator(".cc-record-footer-actions").getByRole("button", { name: "补录", exact: true }).click();
+  const manualDialog = page.getByRole("dialog", { name: "补录一段专注" });
+  await expect(manualDialog).toBeVisible();
+  await manualDialog.getByLabel("标题").fill("手动加练投篮");
+  await manualDialog.getByLabel("时长（分钟）").fill("32");
+  await manualDialog.getByLabel("完成日期").fill("2026-09-23");
+  await manualDialog.getByLabel("完成时间（可选）").fill("15:40");
+  await manualDialog.getByRole("button", { name: "补录记录", exact: true }).click();
+  await expect(manualDialog).toHaveCount(0);
+  let manualRecord = page.locator(".cc-game-log .cc-log-row").filter({ hasText: "手动加练投篮" });
+  await expect(manualRecord).toHaveCount(1);
+  await expect(page.locator(".cc-game-log .cc-log-row")).toHaveCount(4);
+
+  await manualRecord.hover();
+  await manualRecord.getByRole("button", { name: "详细编辑", exact: true }).click();
+  const editDialog = page.getByRole("dialog", { name: "编辑专注记录" });
+  await expect(editDialog).toBeVisible();
+  await editDialog.getByLabel("标题").fill("罚球记录");
+  await editDialog.getByLabel("时长（分钟）").fill("36");
+  await editDialog.getByRole("button", { name: "保存修改", exact: true }).click();
+  manualRecord = page.locator(".cc-game-log .cc-log-row").filter({ hasText: "罚球记录" });
+  await expect(manualRecord.locator("strong").last()).toHaveText("00:36:00");
+  await manualRecord.hover();
+  await manualRecord.getByRole("button", { name: "删除", exact: true }).click();
+  await expect(page.locator(".cc-game-log .cc-log-row").filter({ hasText: "罚球记录" })).toHaveCount(0);
+  await expect(page.locator(".cc-game-log .cc-log-row")).toHaveCount(3);
+
+  await page.locator(".cc-record-footer-actions").getByRole("button", { name: "按日展开完整历史" }).click();
+  const history = page.locator("#cc-history-index");
+  await expect(history).toBeInViewport();
+  const selectedDay = history.locator("details").filter({ has: page.getByText(/9\/23/) }).first();
+  await expect(selectedDay).toHaveAttribute("open", "");
+  await expect(selectedDay).toContainText("开场战术复盘");
+});
+
+test("CC-04 zero-history and dense-history states remain reachable", async ({ page }) => {
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootReferenceMock(page, { themeId: "clutch-court", includeTodo: false, includeInbox: false, recordCount: 0, currentTodoId: null, todayPickIds: [] });
+  await navButton(page, "记录").click();
+  await expect(page.locator(".cc-chart-point")).toHaveCount(7);
+  await expect(page.locator(".cc-chart-point.empty")).toHaveCount(7);
+  await expect(page.locator(".cc-day-boxscore")).toContainText("0 段");
+  await expect(page.locator(".cc-game-log .cc-empty")).toContainText("这一天没有专注记录");
+  await expect(page.locator(".cc-history-index .cc-empty")).toContainText("全部历史会显示在这里");
+
+  await bootReferenceMock(page, { themeId: "clutch-court", recordCount: 65, includeTodo: false, includeInbox: false, currentTodoId: null, todayPickIds: [] });
+  await navButton(page, "记录").click();
+  await expect(page.locator(".cc-game-log .cc-log-row")).toHaveCount(50);
+  await page.locator(".cc-record-footer-actions").getByRole("button", { name: /加载更多/ }).click();
+  await expect(page.locator(".cc-game-log .cc-log-row")).toHaveCount(65);
+  await page.locator("#cc-history-index").scrollIntoViewIfNeeded();
+  await expect(page.locator("#cc-history-index")).toBeInViewport();
+  await expect(page.locator(".cc-history-index details")).toHaveCount(1);
+  await page.screenshot({ path: testOutputPath("CC-04-dense-history", "CC-04-65-records-history.png"), animations: "disabled" });
+});
+
+test("CC-04 chart, summary, actions, and full history fit tablet and phone widths", async ({ page }) => {
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootReferenceMock(page, { themeId: "clutch-court", demoMode: true });
+  await navButton(page, "记录").click();
+  for (const width of [1024, 560]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(page.locator(".cc-records-page")).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+    const chartBounds = await page.locator(".cc-chart-point, .cc-chart-dates button").evaluateAll((elements) => elements.map((element) => {
+      const rect = element.getBoundingClientRect();
+      return { left: rect.left, right: rect.right };
+    }));
+    expect(chartBounds.every((rect) => rect.left >= -1 && rect.right <= width + 1), JSON.stringify({ width, chartBounds })).toBeTruthy();
+    await page.screenshot({ path: testOutputPath("CC-04-responsive", `CC-04-${width}-top.png`), animations: "disabled" });
+    await page.locator("#cc-history-index").scrollIntoViewIfNeeded();
+    await expect(page.locator("#cc-history-index")).toBeInViewport();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+    await page.screenshot({ path: testOutputPath("CC-04-responsive", `CC-04-${width}-history.png`), animations: "disabled" });
+  }
+});
+
+test("CC-01 home remains complete at tablet and phone widths", async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootReferenceMock(page, { themeId: "clutch-court", demoMode: true });
+
+  for (const width of [1024, 560]) {
+    await page.setViewportSize({ width, height: 900 });
+    const surface = page.locator(".cc-today-page");
+    await expect(surface).toBeVisible();
+    await expect(page.locator(".cc-round-markers > .cc-round-marker")).toHaveCount(5);
+    await expect(page.locator(".cc-home-court .cc-center-clock > strong")).toHaveText("45:00");
+    const layout = await page.evaluate(() => ({
+      viewportWidth: document.documentElement.clientWidth,
+      documentWidth: document.documentElement.scrollWidth,
+      markers: Array.from(document.querySelectorAll(".cc-round-markers > .cc-round-marker"), (element) => {
+        const rect = element.getBoundingClientRect();
+        return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
+      }),
+      markersContainer: (() => {
+        const element = document.querySelector(".cc-round-markers");
+        const rect = element.getBoundingClientRect();
+        const style = getComputedStyle(element);
+        return { left: rect.left, right: rect.right, width: rect.width, display: style.display, gridTemplateColumns: style.gridTemplateColumns, position: style.position, inset: style.inset };
+      })(),
+      court: (() => {
+        const element = document.querySelector(".cc-home-court");
+        const rect = element.getBoundingClientRect();
+        return { left: rect.left, right: rect.right, width: rect.width };
+      })(),
+      portraitLoaded: (() => {
+        const image = document.querySelector(".cc-butler-card--featured img");
+        return Boolean(image?.complete && image.naturalWidth > 0);
+      })(),
+    }));
+    expect(layout.documentWidth).toBeLessThanOrEqual(layout.viewportWidth);
+    expect(layout.markers.every((rect) => rect.left >= -1 && rect.right <= width + 1), JSON.stringify({ width, ...layout })).toBeTruthy();
+    expect(layout.portraitLoaded).toBeTruthy();
+    await page.locator(".cc-round-markers > .cc-round-marker").last().scrollIntoViewIfNeeded();
+    await expect(page.locator(".cc-round-markers > .cc-round-marker").last()).toBeInViewport();
+    await page.screenshot({ path: testOutputPath("responsive", `CC-01-${width}.png`), animations: "disabled" });
+  }
+  expect(errors).toEqual([]);
+});
+
+test("CC-01 empty court can open the playbook to add the first round", async ({ page }) => {
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootReferenceMock(page, { themeId: "clutch-court", includeTodo: false, includeInbox: false, recordCount: 0 });
+  await expect(page.locator(".cc-round-markers > .cc-round-marker.empty")).toHaveCount(5);
+  const addFirst = page.locator(".cc-center-clock .cc-lime-button");
+  await expect(addFirst).toHaveText("布置第一回合");
+  await expect(addFirst).toBeEnabled();
+  await addFirst.click();
+  await expect(page.locator(".cc-todos-page")).toBeVisible();
+});
+
+test("CC-01 court clock reflects running and paused focus states", async ({ page }) => {
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootReferenceMock(page, { themeId: "clutch-court", demoMode: true });
+  const clock = page.locator(".cc-home-court .cc-center-clock");
+  await page.locator(".cc-round-markers > .cc-round-marker.current").click();
+  await expect(clock.locator(".cc-clock-status")).toHaveText("比赛进行中");
+  await expect(clock.locator("button")).toContainText("暂停专注");
+  await expect(clock.locator("button")).toBeEnabled();
+  await page.screenshot({ path: testOutputPath("timer-states", "CC-01-running.png"), animations: "disabled" });
+
+  await clock.locator("button").click();
+  await expect(clock.locator(".cc-clock-status")).toHaveText("暂停");
+  await expect(clock.locator("button")).toContainText("继续专注");
+  await expect(page.locator(".cc-round-markers > .cc-round-marker.current")).toBeDisabled();
+  await page.screenshot({ path: testOutputPath("timer-states", "CC-01-paused.png"), animations: "disabled" });
+});
+
+test("CC-02 game clock exposes idle, running, paused, countdown-finished, and saved states", async ({ page }) => {
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootReferenceMock(page, { themeId: "clutch-court", demoMode: true });
+  await navButton(page, "计时").click();
+  const surface = page.locator(".cc-focus-page");
+  const primary = surface.locator(".cc-center-circle--timer > .cc-lime-button");
+  const status = surface.locator(".cc-quarter-badge");
+  await expect(primary).toHaveText("▶　开始专注");
+  await expect(surface.locator('select[name="clutchLinkedTodo"]')).toHaveValue("104");
+  await page.screenshot({ path: testOutputPath("CC-02-states", "idle.png"), animations: "disabled" });
+
+  await primary.click();
+  await expect(status).toContainText("比赛进行中");
+  await expect(surface.locator(".cc-center-circle--timer > strong")).toHaveText("1:00");
+  await expect(primary).toHaveText("Ⅱ　暂停专注");
+  await expect(surface.locator('[aria-label="计时模式"] button').first()).toBeDisabled();
+  await expect(surface.locator('[aria-label="计时模式"] button').last()).toBeDisabled();
+  await expect(surface.locator('input[name="clutchSessionTitle"]')).toBeDisabled();
+  await page.screenshot({ path: testOutputPath("CC-02-states", "running.png"), animations: "disabled" });
+
+  await primary.click();
+  await expect(status).toContainText("暂停");
+  await expect(primary).toHaveText("▶　继续专注");
+  await expect(surface.locator(".cc-timer-actions .cc-secondary-button").first()).toBeEnabled();
+  await page.screenshot({ path: testOutputPath("CC-02-states", "paused.png"), animations: "disabled" });
+
+  await surface.locator(".cc-timer-actions .cc-secondary-button").last().click();
+  await expect(status).toContainText("准备开球");
+  await expect(surface.locator(".cc-center-circle--timer > strong")).toHaveText("0:00");
+  await surface.locator('input[name="clutchSessionTitle"]').fill("最后一攻");
+  await surface.locator('[aria-label="计时模式"] button').nth(1).click();
+  await surface.locator('input[type="number"]').fill("1");
+  await primary.click();
+  await expect(status).toContainText("时间到 · 待保存");
+  await expect(primary).toHaveText("时间到 · 等待记录");
+  await expect(primary).toBeDisabled();
+  await expect(surface.locator(".cc-timer-actions .cc-secondary-button").first()).toBeEnabled();
+  await page.screenshot({ path: testOutputPath("CC-02-states", "countdown-ended-awaiting-save.png"), animations: "disabled" });
+
+  await surface.locator(".cc-timer-actions .cc-secondary-button").first().click();
+  await expect(surface.locator('.cc-confirm[role="status"]')).toHaveText("本回合已写入 box score。");
+  await expect(surface.locator(".cc-page-footer")).toContainText("今日完成 4 回合");
+  await surface.locator(".cc-tactics-actions button").click();
+  await expect(page.locator(".cc-records-page")).toBeVisible();
+  await expect(page.locator(".cc-records-page .cc-log-row")).toHaveCount(4);
+  await expect(page.locator(".cc-records-page .cc-log-row").last()).toContainText("最后一攻");
+});
+
+test("CC-02 timer controls stay reachable at tablet and phone widths", async ({ page }) => {
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootReferenceMock(page, { themeId: "clutch-court", demoMode: true });
+  await navButton(page, "计时").click();
+  for (const width of [1024, 560]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(page.locator(".cc-focus-page")).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+    await expect(page.locator(".cc-center-circle--timer > .cc-lime-button")).toBeVisible();
+    await expect(page.locator('input[name="clutchSessionTitle"]')).toBeVisible();
+    await expect(page.locator('select[name="clutchLinkedTodo"]')).toBeVisible();
+    await expect(page.locator(".cc-tactics-actions button")).toBeEnabled();
+    const player = page.locator(".cc-timer-layout > .cc-butler-card");
+    await expect(player).toBeVisible();
+    const portrait = await player.boundingBox();
+    const pageHead = await page.locator(".cc-focus-page > .cc-page-head").boundingBox();
+    expect(portrait.y, JSON.stringify({ width, portrait, pageHead })).toBeGreaterThanOrEqual(pageHead.y + pageHead.height - 1);
+    const primary = await page.locator(".cc-center-circle--timer > .cc-lime-button").boundingBox();
+    expect(primary.x).toBeGreaterThanOrEqual(0);
+    expect(primary.x + primary.width).toBeLessThanOrEqual(width);
+    await page.screenshot({ path: testOutputPath("CC-02-responsive", `CC-02-${width}.png`), animations: "disabled" });
+  }
+});
+
+test("MP-02 timer state captures · running paused continued and countdown awaiting save", async ({ page }) => {
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootReferenceMock(page, { themeId: "metro-pulse", demoMode: true });
+  await navButton(page, "计时").click();
+  const surface = page.locator(".mp-focus-page");
+  await surface.locator(".mp-mode-tabs button").nth(1).click();
+  const primary = surface.locator(".mp-focus-actions .mp-orange-button");
+  await expect(primary).toHaveText(/开始专注/);
+  await primary.click();
+  await expect(surface.locator(".mp-status-pill")).toContainText("进行中");
+  await expect(surface.locator(".mp-timer-flip-card").first()).toHaveText("44");
+  await page.screenshot({ path: testOutputPath("MP-02-states", "running.png"), animations: "disabled" });
+
+  await surface.getByRole("button", { name: /暂停专注/ }).click();
+  await expect(surface.locator(".mp-status-pill")).toContainText("已暂停");
+  await expect(surface.locator(".mp-mode-tabs button").nth(0)).toBeDisabled();
+  await expect(surface.locator(".mp-mode-tabs button").nth(1)).toBeDisabled();
+  await page.screenshot({ path: testOutputPath("MP-02-states", "paused.png"), animations: "disabled" });
+  await surface.getByRole("button", { name: /继续专注/ }).click();
+  await expect(surface.locator(".mp-status-pill")).toContainText("进行中");
+
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootReferenceMock(page, { themeId: "metro-pulse", demoMode: true });
+  await navButton(page, "计时").click();
+  const endedSurface = page.locator(".mp-focus-page");
+  await endedSurface.locator(".mp-mode-tabs button").nth(1).click();
+  await endedSurface.locator('input[name="metroCountdownMinutes"]').fill("1");
+  await endedSurface.locator(".mp-focus-actions .mp-orange-button").click();
+  await expect(endedSurface.locator(".mp-status-pill")).toContainText("待保存");
+  await expect(endedSurface.locator(".mp-focus-actions .mp-orange-button")).toHaveText(/本班已到站/);
+  await expect(endedSurface.locator(".mp-focus-actions .mp-orange-button")).toBeDisabled();
+  await expect(endedSurface.locator(".mp-focus-actions .mp-outline-button")).toBeEnabled();
+  await page.screenshot({ path: testOutputPath("MP-02-states", "countdown-ended-awaiting-save.png"), animations: "disabled" });
+});
+
+test("MP-03 lanes and new-shift form remain accessible at desktop, tablet, and phone widths", async ({ page }) => {
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootReferenceMock(page, { themeId: "metro-pulse", demoMode: true });
+  await navButton(page, "待办").click();
+
+  for (const [width, height] of [[1487, 1058], [1024, 900], [560, 900]]) {
+    await page.setViewportSize({ width, height });
+    await expect(page.locator(".mp-todos-page")).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+    for (const lane of await page.locator(".mp-lane").all()) {
+      await lane.locator(":scope > header").scrollIntoViewIfNeeded();
+      await expect(lane.locator(":scope > header")).toBeInViewport();
+    }
+
+    await page.locator(".mp-todos-page").getByRole("button", { name: "新增班次", exact: true }).click();
+    const controls = page.locator(".mp-create-card input, .mp-create-card select, .mp-create-card button");
+    await expect(controls).toHaveCount(5);
+    const fieldBounds = await controls.evaluateAll((elements) => elements.map((element) => {
+      const rect = element.getBoundingClientRect();
+      return { left: rect.left, right: rect.right, width: rect.width };
+    }));
+    expect(fieldBounds.every((rect) => rect.left >= -1 && rect.right <= width + 1 && rect.width > 0), JSON.stringify({ width, fieldBounds })).toBeTruthy();
+    await page.screenshot({ path: testOutputPath("MP-03-responsive", `MP-03-${width}-form.png`), animations: "disabled" });
+    await page.locator(".mp-todos-page").getByRole("button", { name: "收起新增", exact: true }).click();
+  }
+});
+
+test("MP-03 edit, completion, add, and start actions update the connected task data", async ({ page }) => {
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootReferenceMock(page, { themeId: "metro-pulse", includeOverdue: true, includeFuture: true });
+  await navButton(page, "待办").click();
+
+  const todayRow = page.locator(".mp-lane--today .mp-task-row").first();
+  await expect(page.locator(".mp-lane--next .mp-task-row")).toHaveCount(4);
+  await expect(page.locator(".mp-lane--next .mp-task-status")).toHaveText(["已过期", "未安排", "待开始", "待开始"]);
+  await todayRow.hover();
+  await todayRow.getByRole("button", { name: "编辑", exact: true }).click();
+  const edit = todayRow.locator(".mp-task-edit");
+  await edit.locator('input[type="text"], input:not([type])').first().fill("整理研究资料·修订");
+  await edit.locator('input[type="date"]').fill("2026-09-05");
+  await edit.locator('input[type="time"]').fill("09:25");
+  await edit.locator("select").selectOption("low");
+  await edit.getByRole("button", { name: "保存", exact: true }).click();
+  await expect(todayRow.locator(".mp-task-copy strong")).toHaveText("整理研究资料·修订");
+  await expect(todayRow.locator(".mp-task-copy small")).toHaveText("09:25　·　低压力");
+  await todayRow.getByRole("button", { name: "完成“整理研究资料·修订”", exact: true }).click();
+  await expect(page.locator(".mp-lane--arrived .mp-task-row").filter({ hasText: "整理研究资料·修订" })).toHaveCount(1);
+
+  await page.locator(".mp-todos-page").getByRole("button", { name: "新增班次", exact: true }).click();
+  await page.locator('input[name="metroTodoTitle"]').fill("准备下午复盘");
+  await page.locator('input[name="metroTodoDate"]').fill("2026-09-05");
+  await page.locator('input[name="metroTodoTime"]').fill("13:20");
+  await page.locator('select[name="metroTodoImportance"]').selectOption("high");
+  await page.locator(".mp-create-card").getByRole("button", { name: "确认排班", exact: true }).click();
+  await expect(page.locator(".mp-lane--next .mp-task-row").filter({ hasText: "准备下午复盘" })).toHaveCount(1);
+
+  const newRow = page.locator(".mp-lane--next .mp-task-row").filter({ hasText: "准备下午复盘" });
+  await newRow.hover();
+  await newRow.getByRole("button", { name: "开始专注", exact: true }).click();
+  await expect(page.locator(".mp-focus-page")).toBeVisible();
+  await expect(page.locator('input[name="metroSessionTitle"]')).toHaveValue("准备下午复盘");
+  await expect(page.locator('select[name="metroLinkedTodo"] option:checked')).toHaveText("准备下午复盘");
+});
+
+test("Clutch Court uses a distinct Jimmy Butler image on Today, timer, playbook, and settings", async ({ page }) => {
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootReferenceMock(page);
+  await selectTheme(page, "clutch-court", "今日赛场");
+
+  const images = [];
+  const settingsPortrait = page.locator(".nt-settings-page--clutch .nt-jimmy-preview");
+  await expect(settingsPortrait).toBeVisible();
+  images.push(await settingsPortrait.getAttribute("src"));
+
+  await navButton(page, "今日").click();
+  images.push(await page.locator(".cc-butler-card--today img").getAttribute("src"));
+  await navButton(page, "计时").click();
+  images.push(await page.locator(".cc-butler-card--timer img").getAttribute("src"));
+  await navButton(page, "待办").click();
+  images.push(await page.locator(".cc-butler-card--playbook img").getAttribute("src"));
+
+  expect(images).toEqual([
+    "/theme-assets/jimmy-butler-settings-composed.png",
+    "/theme-assets/jimmy-butler-cutout.png",
+    "/theme-assets/jimmy-butler-focus-action.png",
+    "/theme-assets/jimmy-butler-playbook-calling.png",
+  ]);
+  expect(new Set(images).size).toBe(4);
 });

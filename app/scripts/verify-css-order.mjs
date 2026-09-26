@@ -3,8 +3,9 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
-const sourceCssSha256 = "106295093E3CD47F7FBFE6EFAA8855273A51C5E2A86F04F166C170058CD058B7";
-const sourceCssLength = 426055;
+// Original theme CSS restored from ec8ed25, plus scoped compatibility controls.
+const sourceCssSha256 = "B1F2DFB4B66DA0B98ED74A78D5AAC6CA5D110E92049B72C8D4F003A518B969B0";
+const sourceCssLength = 446137;
 const modules = [
   ["00-foundation.css", 1, 900],
   ["10-trail-reference.css", 901, 3175],
@@ -14,6 +15,7 @@ const modules = [
   ["50-trail-polish.css", 6069, 7260],
   ["60-focus-todos-records.css", 7261, 10000],
   ["70-settings-feedback.css", 10001, 11166],
+  ["80-continuity-workflow.css", 11167, 13000],
 ];
 
 function normalize(value) {
@@ -27,7 +29,7 @@ function fail(message) {
 
 const indexPath = resolve(root, "src/styles/index.css");
 const index = normalize(readFileSync(indexPath, "utf8"));
-const expectedImports = modules.map(([file]) => `@import "./${file}";`).join("\n");
+const expectedImports = [...modules.map(([file]) => `@import "./${file}";`), '@import "./90-new-themes.css";'].join("\n");
 if (!index.includes(expectedImports)) {
   fail("src/styles/index.css does not preserve the declared module order");
 }
@@ -44,7 +46,7 @@ if (canonical.length !== sourceCssLength || digest !== sourceCssSha256) {
   fail(`ordered stream changed (length ${canonical.length}, sha256 ${digest})`);
 }
 
-for (const [file] of modules) {
+for (const [file] of [...modules, ["90-new-themes.css"]]) {
   const contents = normalize(readFileSync(resolve(root, "src/styles", file), "utf8"));
   for (const [, asset] of contents.matchAll(/url\("(\.\.?\/assets\/[^"#]+)"\)/g)) {
     const assetPath = resolve(root, "src/styles", file, "..", asset);
