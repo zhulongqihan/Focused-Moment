@@ -48,7 +48,7 @@ function ButlerCard(props: { variant: ButlerCardVariant }) {
     ? "/theme-assets/jimmy-butler-cutout.png"
     : focus()
       ? "/theme-assets/jimmy-butler-focus-action.png"
-      : "/theme-assets/jimmy-butler-playbook-sideline.png";
+      : "/theme-assets/jimmy-butler-playbook-calling.png";
   const label = () => today()
     ? "Jimmy Butler 赛场海报"
     : focus()

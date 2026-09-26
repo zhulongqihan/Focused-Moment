@@ -38,7 +38,7 @@ function ThemeSettingsBody(props: ThemeSettingsProps) {
         <div class="nt-live-preview" data-motion={props.motionIntensity() === 0 ? "off" : props.motionIntensity() < 50 ? "subtle" : "full"} data-density={props.density()} style={{ "--nt-visual": String(0.35 + props.visualIntensity() / 155), "--nt-motion": Math.max(120, 900 - props.motionIntensity() * 7) + "ms" }}>
           <div class="nt-live-preview__label">
             <span>{clutch() ? "LIVE HOME-COURT PREVIEW" : "LIVE PREVIEW　/　即时预览"}</span>
-            <strong>{clutch() ? "JIMMY BUTLER　/　#22" : `${selectedTheme().name}　·　${motion().label}`}</strong>
+            <strong>{clutch() ? "JIMMY BUTLER　/　#10" : `${selectedTheme().name}　·　${motion().label}`}</strong>
             <Show when={clutch()}><p>{selectedTheme().name}主场　·　场馆灯光 {props.visualIntensity()}%　·　{motion().label}动效。{densityText(props.density())}</p></Show>
           </div>
           <Show when={!clutch()}>
@@ -46,7 +46,7 @@ function ThemeSettingsBody(props: ThemeSettingsProps) {
             <div class="nt-preview-list"><span>今日专注　02:45</span><span>已完成　03 项</span><span>下一步　准备开始</span></div>
             <p>{densityText(props.density())} {motion().detail}</p>
           </Show>
-          <Show when={clutch()}><img class="nt-jimmy-preview" src="/theme-assets/jimmy-butler-portrait.png" alt="Jimmy Butler 球星视觉预览" /></Show>
+          <Show when={clutch()}><img class="nt-jimmy-preview" src="/theme-assets/jimmy-butler-settings-composed.png" alt="Jimmy Butler 球星视觉预览" /></Show>
         </div>
       </section></section>
       <section class="nt-settings-card nt-clock-settings"><div class="nt-section-title"><div><span>TIMER SETTINGS　/　02</span><h2>{clutch() ? "比赛时钟" : "班次参数"}</h2></div><span class="nt-number-mark">02</span></div>

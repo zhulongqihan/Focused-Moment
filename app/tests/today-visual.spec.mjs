@@ -1413,8 +1413,8 @@ for (const [card, themeId, view, label] of conceptScreens) {
       const butlerCard = page.locator(".cc-todos-header-actions .cc-butler-card--playbook");
       await expect(butlerCard).toHaveAttribute("data-butler-style", "sideline-playbook");
       await expect(butlerCard.locator("img")).toBeVisible();
-      await expect(butlerCard.locator("img")).toHaveAttribute("src", "/theme-assets/jimmy-butler-playbook-sideline.png");
-      await expectTransparentCutout(butlerCard.locator("img"), 1254, 1254);
+      await expect(butlerCard.locator("img")).toHaveAttribute("src", "/theme-assets/jimmy-butler-playbook-calling.png");
+      await expectTransparentCutout(butlerCard.locator("img"), 1024, 1536);
       await expect(page.locator(".new-theme-bar-meta > strong")).toHaveText("JIMMY BUTLER　·　WARRIORS");
       await expect(butlerCard.locator("div span")).toHaveText("JIMMY BUTLER　·　#10");
       const compactButlerCopy = butlerCard.locator("div strong, div small");
@@ -1577,7 +1577,11 @@ for (const [card, themeId, view, label] of conceptScreens) {
       await expect(page.locator(".nt-settings-page--clutch .nt-theme-choice")).toHaveCount(5);
       await expect(page.locator(".nt-settings-page--clutch .nt-settings-grid > .nt-settings-card")).toHaveCount(4);
       await expect(page.locator(".nt-settings-page--clutch .nt-live-preview")).toContainText("JIMMY BUTLER");
-      await expect(page.locator(".nt-settings-page--clutch .nt-jimmy-preview")).toHaveAttribute("alt", "Jimmy Butler 球星视觉预览");
+      await expect(page.locator(".nt-settings-page--clutch .nt-live-preview__label strong")).toHaveText("JIMMY BUTLER　/　#10");
+      const settingsPortrait = page.locator(".nt-settings-page--clutch .nt-jimmy-preview");
+      await expect(settingsPortrait).toHaveAttribute("src", "/theme-assets/jimmy-butler-settings-composed.png");
+      await expect(settingsPortrait).toHaveAttribute("alt", "Jimmy Butler 球星视觉预览");
+      await expectTransparentCutout(settingsPortrait, 1024, 1536);
       await expect(page.getByRole("button", { name: "保存书房布置", exact: true })).toHaveCount(0);
       await expect(page.getByRole("button", { name: "保存光场设置", exact: true })).toHaveCount(0);
       await expect(page.locator(".nt-settings-page--clutch .nt-autosave")).toContainText("偏好自动保存");
@@ -2499,4 +2503,30 @@ test("MP-03 edit, completion, add, and start actions update the connected task d
   await expect(page.locator(".mp-focus-page")).toBeVisible();
   await expect(page.locator('input[name="metroSessionTitle"]')).toHaveValue("准备下午复盘");
   await expect(page.locator('select[name="metroLinkedTodo"] option:checked')).toHaveText("准备下午复盘");
+});
+
+test("Clutch Court uses a distinct Jimmy Butler image on Today, timer, playbook, and settings", async ({ page }) => {
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootReferenceMock(page);
+  await selectTheme(page, "clutch-court", "今日赛场");
+
+  const images = [];
+  const settingsPortrait = page.locator(".nt-settings-page--clutch .nt-jimmy-preview");
+  await expect(settingsPortrait).toBeVisible();
+  images.push(await settingsPortrait.getAttribute("src"));
+
+  await navButton(page, "今日").click();
+  images.push(await page.locator(".cc-butler-card--today img").getAttribute("src"));
+  await navButton(page, "计时").click();
+  images.push(await page.locator(".cc-butler-card--timer img").getAttribute("src"));
+  await navButton(page, "待办").click();
+  images.push(await page.locator(".cc-butler-card--playbook img").getAttribute("src"));
+
+  expect(images).toEqual([
+    "/theme-assets/jimmy-butler-settings-composed.png",
+    "/theme-assets/jimmy-butler-cutout.png",
+    "/theme-assets/jimmy-butler-focus-action.png",
+    "/theme-assets/jimmy-butler-playbook-calling.png",
+  ]);
+  expect(new Set(images).size).toBe(4);
 });
