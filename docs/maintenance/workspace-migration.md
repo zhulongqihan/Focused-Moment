@@ -184,3 +184,13 @@
 - 应用提交 `8fb5e67e8883b3ed7e0e8aa64453d9deb3819682` 已推送到 `origin/codex/focused-moment-continuity`。根 EXE 为 Release 2.13.5，43,741,696 bytes，SHA-256 `A84C09BDE80A900B41D40B43443549C9A2E1CD62DA2218B840A86089131B8F14`；build ID `local-20260926-141653-0a52e15a68`，183 项输入指纹且 `relevantBuildInputDirty=false`。旧入口 SHA-256 `5B7E9B565C3357699020A4BD44B41BDEEAA539EDAB5AD3851B30887A58D65641` 保存在同 build ID 的 `archive/executables/local/` 恢复副本中。
 - Windows 原生隔离冒烟 `windows-native-20260926-141850-67b81e35a3` 通过；仅验证启动可见性、隔离数据/WebView2 路径和合成旧数据迁移，不代表人工计时/托盘/浮窗等交互覆盖。未创建安装包、tag、GitHub Release 或上传资产。
 - `PROJECT_PLAN.md` 未改动，哈希保持 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`；原有 `div` 和四份 `docs/context_summary_20260924_*.md` 均未暂存、提交或推送。
+
+## 2026-10-04 v2.13.6 Clutch Court 篮球主题流程审阅与修复
+
+- 按用户要求整体审阅「今日赛场」首页、计时、待办、记录、设置五页。篮球表达现作为视觉/导航隐喻，不冒充真实比赛模型：24 SEC 仅为首页静态主题铭牌；45 分钟仍显示真实专注倒计时/状态；统计只取实际待办、专注记录与连续天数；不伪造节次、比分或命中率。
+- 审阅中修复五类问题：设置/移动操作字样偏小；后台轮询旧偏好可覆盖待保存/失败的即时设置；相同记录刷新会重建完整历史 DOM 并打断展开/交互；七日图缺少时长范围提示；倒计时演示 fixture 与实际设置字段曾不一致。已补足对应回归断言，保持原有记录/计时数据格式。
+- 全量 Playwright 浏览器 mock 测试 `159/159` 通过，run `clutch-v2136-audit-final-20261004-04-inv-mutrcykl-40224-67a85147-9b77-4026-af9f-7c502a1aa7ac`；五页固定画布、响应式和流程状态截图已逐页目视检查。不得将此 mock 结果表述为原生交互证据。
+- `pnpm verify` 通过，Rust 单测 `39/39`；`pnpm build` 通过（2089 modules）。`pnpm native:windows` 单独通过，run `windows-native-20261004-195802-662010ca61`，范围限原生可见启动、数据/WebView2 隔离与合成旧数据迁移。
+- Release EXE：根目录 `Focused Moment.exe`，2.13.6，46,015,488 bytes，SHA-256 `0D0C4B31ED83C980624C8AD5B9713CC5D7451D865DF84A256CB2CB6FEC257C34`；build ID `local-20261004-195659-9ffda0e844`；provenance 位于 `artifacts/builds/local/local-20261004-195659-9ffda0e844/`，184 项输入、`relevantBuildInputDirty=false`。前一入口恢复副本位于 `archive/executables/local/local-20261004-195659-9ffda0e844/Focused Moment.exe`，前版哈希 `A84C09BDE80A900B41D40B43443549C9A2E1CD62DA2218B840A86089131B8F14`。
+- 应用修复提交 `0069314a50656eecf77a1dbe7eee90f18020beda`；正式说明为 `docs/v2.13.6/RELEASE_NOTES.md`。仍需完成本次文档提交、推送与最终远端核对；不创建 tag、GitHub Release、安装包或上传资产。
+- `PROJECT_PLAN.md` 按保护要求保持字节/哈希不变：`E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`。`div` 与四份 `docs/context_summary_20260924_*.md` 保持未暂存/未提交；构建 manifest 也将这些非构建输入显示为未提交来源状态。
