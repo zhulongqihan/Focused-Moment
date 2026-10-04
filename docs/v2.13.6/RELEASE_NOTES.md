@@ -29,4 +29,5 @@
 - `pnpm build` 通过（Vite 2089 modules）。存在既有约 900KB 前端 JS chunk 提示，未影响构建或此主题验收。
 - 根目录 Release EXE：`Focused Moment.exe`，v2.13.6，46,015,488 bytes，SHA-256 `0D0C4B31ED83C980624C8AD5B9713CC5D7451D865DF84A256CB2CB6FEC257C34`。build ID `local-20261004-195659-9ffda0e844`；provenance/journal 在 `artifacts/builds/local/local-20261004-195659-9ffda0e844/`，记录 184 项输入指纹，`relevantBuildInputDirty=false`，来源提交 `0069314a50656eecf77a1dbe7eee90f18020beda`。旧根入口 SHA-256 `A84C09BDE80A900B41D40B43443549C9A2E1CD62DA2218B840A86089131B8F14` 已保存在对应 `archive/executables/local/` 恢复副本。
 - `pnpm native:windows` 单独通过：`windows-native-20261004-195802-662010ca61`。确认根 EXE 与隔离 QA 副本哈希一致、原生窗口可见、隔离数据/WebView2 目录及合成旧数据迁移正常。该冒烟不代表计时按钮、托盘、浮窗、备份 UI、音效和通知已完成人工原生交互验收。
-- 不创建 tag、GitHub Release、安装包或上传资产。
+- 应用提交 `0069314a50656eecf77a1dbe7eee90f18020beda` 与交付说明提交 `33ff8f8` 已快进推送至 `origin/codex/focused-moment-continuity`；不创建 tag 或 GitHub Release。
+- 未创建安装包或上传资产。
