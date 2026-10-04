@@ -670,7 +670,7 @@ function MainShell() {
         <Show when={themeId() === "metro-pulse" || themeId() === "clutch-court"}>
           <div class="new-theme-bar-center">
             <strong>{getToday()}　{new Intl.DateTimeFormat("zh-CN", { weekday: "short" }).format(new Date(getToday() + "T00:00:00"))}</strong>
-            <small>{themeId() === "metro-pulse" ? "把注意力，送往更好的自己。" : "ONE POSSESSION AT A TIME"}</small>
+            <small>{themeId() === "metro-pulse" ? "把注意力，送往更好的自己。" : "ONE FOCUS SESSION AT A TIME"}</small>
           </div>
         </Show>
         <div class="app-bar__actions">
@@ -796,8 +796,8 @@ function MainShell() {
           </button>
           <Show when={themeId() === "metro-pulse" || themeId() === "clutch-court"}>
             <div classList={{ "new-theme-nav-note": true, "new-theme-nav-note--metro": themeId() === "metro-pulse", "new-theme-nav-note--court": themeId() === "clutch-court" }}>
-              <strong>{themeId() === "metro-pulse" ? "下一段旅程" : "NEXT POSSESSION"}</strong>
-              <span classList={{ "new-theme-nav-note--metro-copy": themeId() === "metro-pulse" }}>{themeId() === "metro-pulse" ? <><span class="new-theme-nav-note--metro-copy__lead">从专注出发。</span><small class="new-theme-nav-note--metro-copy__english">A MORE FOCUSED YOU<br />DEPARTS HERE.</small></> : "专注守住这一球，把每个回合打完整。"}</span>
+              <strong>{themeId() === "metro-pulse" ? "下一段旅程" : "NEXT PLAY"}</strong>
+              <span classList={{ "new-theme-nav-note--metro-copy": themeId() === "metro-pulse" }}>{themeId() === "metro-pulse" ? <><span class="new-theme-nav-note--metro-copy__lead">从专注出发。</span><small class="new-theme-nav-note--metro-copy__english">A MORE FOCUSED YOU<br />DEPARTS HERE.</small></> : "从当前待办开始，一次专注一项。"}</span>
               <Show when={themeId() === "metro-pulse"}><ArrowUpRight size={40} strokeWidth={2.2} aria-hidden="true" /></Show>
             </div>
           </Show>
@@ -809,6 +809,7 @@ function MainShell() {
             "minimal-content--records": activeView() === "records",
           }}
           aria-busy={busy() || loadState() === "loading"}
+          inert={loadState() === "loading"}
         >
           <Show when={alertIsVisible()}>
             <div class="timer-alert timer-alert--global" role="alert">
@@ -975,7 +976,7 @@ function MainShell() {
               onTodoDueDateChange: setTodoDueDate,
               onTodoDueTimeChange: setTodoDueTime,
               onTodoImportanceChange: setTodoImportance,
-              onAddTodo: () => void addTodo(),
+              onAddTodo: addTodo,
               onToggle: (id) => void toggleTodo(id),
               onBeginEdit: beginEditTodo,
               onUseForFocus: useTodoForFocus,

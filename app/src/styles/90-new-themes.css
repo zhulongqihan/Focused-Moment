@@ -508,11 +508,11 @@
 .nt-density-control [role=group] { display: flex; flex-shrink: 0; gap: 3px; }
 .nt-density-control button { min-height: 30px; padding: 0 9px; border: 1px solid #c4d4e0; background: #fff; color: #496980; font-size: 9px; }
 .nt-density-control button.selected { border-color: #0754bd; background: #e8f2fb; color: #0754bd; font-weight: 700; }
-.nt-live-preview { padding: 11px; border: 1px solid #bed0de; background: color-mix(in srgb, #e8f1f8 calc(var(--nt-visual) * 100%), white); transition: background-color var(--nt-motion), padding var(--nt-motion); }
+.nt-live-preview { padding: 11px; border: 1px solid #bed0de; background: color-mix(in srgb, #e8f1f8 calc(var(--nt-visual) * 100%), white); transition: background-color var(--nt-motion); }
 .nt-live-preview[data-density=compact] { padding: 6px; }
 .nt-live-preview__label { display: flex; justify-content: space-between; gap: 8px; color: #70879a; font: 8px "Cascadia Mono",Consolas,monospace; }
 .nt-live-preview__label strong { color: #245276; }
-.nt-preview-sample { position: relative; display: flex; align-items: center; gap: 12px; margin: 9px 0; padding: 12px; border-left: 4px solid #e95a34; background: #fff; box-shadow: 0 3px 10px #12334a12; transition: transform var(--nt-motion), padding var(--nt-motion); }
+.nt-preview-sample { position: relative; display: flex; align-items: center; gap: 12px; margin: 9px 0; padding: 12px; border: 1px solid #e95a34; background: #fff; box-shadow: 0 3px 10px #12334a12; transition: transform var(--nt-motion); }
 .nt-live-preview[data-density=compact] .nt-preview-sample { padding: 7px; }
 .nt-preview-sample__number { display: grid; width: 42px; height: 42px; flex: 0 0 42px; place-items: center; border-radius: 50%; background: #0b4f9b; color: #fff; font: 700 15px "Cascadia Mono",Consolas,monospace; }
 .nt-preview-sample > div { display: grid; gap: 3px; }
@@ -604,7 +604,7 @@
 .cc-home-court { position: relative; min-height: 600px; overflow: hidden; border: 8px solid #fff9ee; outline: 1px solid #a57d4a; background: repeating-linear-gradient(90deg,#c79a66 0,#c79a66 28px,#c0925e 29px,#c0925e 31px); box-shadow: inset 0 0 45px #77491d47, 0 5px 18px #60452324; }
 .cc-home-court::before { position: absolute; inset: 0; background: linear-gradient(90deg,#ffffff0a 0 49.8%,#78451e29 50%,#ffffff0a 50.2%), linear-gradient(#ffffff1d,#7b4b1e12); content: ""; }
 .cc-court-lines { position: absolute; inset: 13px; border: 2px solid #fff6e8d9; pointer-events: none; }
-.cc-halfway { position: absolute; top: 0; bottom: 0; left: 50%; border-left: 2px solid #fff6e8d9; }
+.cc-halfway { position: absolute; top: 0; bottom: 0; left: 50%; border-left: 2px solid #fff6e8d9; } /* impeccable-disable-line side-tab: literal center line of the basketball court */
 .cc-center-circle { position: absolute; top: 50%; left: 50%; width: 180px; height: 180px; transform: translate(-50%,-50%); border: 2px solid #fff6e8d9; border-radius: 50%; }
 .cc-left-key, .cc-right-key { position: absolute; top: 50%; width: 142px; height: 205px; transform: translateY(-50%); border: 2px solid #fff6e8d9; }
 .cc-left-key { left: 0; border-left: 0; }
@@ -616,7 +616,7 @@
 .cc-three-left { left: -98px; border-left: 0; border-radius: 0 50% 50% 0; }
 .cc-three-right { right: -98px; border-right: 0; border-radius: 50% 0 0 50%; }
 .cc-basketball-art { position: absolute; bottom: 5%; left: 6%; width: 76px; aspect-ratio: 1; border: 3px solid #402519; border-radius: 50%; background: radial-gradient(ellipse at 27% 22%,#ffc46a 0 7%,transparent 34%), linear-gradient(90deg,transparent 46%,#402519 47% 50%,transparent 51%), linear-gradient(0deg,transparent 46%,#402519 47% 50%,transparent 51%), linear-gradient(135deg,transparent 46%,#402519 47% 50%,transparent 51%), #df7026; box-shadow: 0 5px 10px #39210f60; }
-.cc-court-title { position: absolute; z-index: 2; top: 26px; left: 29px; max-width: 390px; padding: 11px 14px; border-left: 4px solid #c94a2b; background: #fffaf1e8; box-shadow: 0 3px 12px #523b2320; }
+.cc-court-title { position: absolute; z-index: 2; top: 26px; left: 29px; max-width: 390px; padding: 11px 14px; border: 1px solid #c94a2b; background: #fffaf1e8; box-shadow: 0 3px 12px #523b2320; }
 .cc-court-title > span, .cc-eyebrow, .cc-chalk-label { color: #6e624f; font: 700 9px "Cascadia Mono",Consolas,monospace; letter-spacing: .12em; }
 .cc-court-title h1 { margin: 5px 0; color: #102d5e; font-size: 26px; }
 .cc-court-title p { margin: 0; color: #675d52; font-size: 10px; }
@@ -706,10 +706,10 @@
 .cc-lane--current > header { border-color: #c74b2d; }
 .cc-lane--made > header { border-color: #347853; }
 .cc-lane > footer { margin-top: auto; padding-top: 10px; color: #8b7b65; font-size: 8px; line-height: 1.5; }
-.cc-task-row { display: grid; grid-template-columns: 29px 20px minmax(0,1fr); align-items: center; gap: 7px; min-width: 0; padding: 9px 0; border-bottom: 1px solid #eee4d4; }
+.cc-task-row { display: grid; grid-template-columns: 29px 44px minmax(0,1fr); align-items: center; gap: 7px; min-width: 0; padding: 9px 0; border-bottom: 1px solid #eee4d4; }
 .cc-jersey { display: grid; width: 27px; height: 31px; place-items: center; border: 1px solid #234d79; border-radius: 5px 5px 9px 9px; background: #16477f; color: #fff; font: 700 9px "Cascadia Mono",Consolas,monospace; }
 .cc-task-row.complete .cc-jersey { border-color: #39805a; background: #39805a; }
-.cc-task-check { padding: 0; cursor: pointer; }
+.cc-task-check { min-width: 40px; min-height: 25px; padding: 0 4px; border: 1px solid #b9c8d5; border-radius: 3px; background: #f5f8fb; color: #244b74; font-size: 8px !important; font-weight: 700; cursor: pointer; }
 .cc-task-check:focus-visible { outline: 2px solid #f0ca45; outline-offset: 3px; }
 .cc-task-row > div:not(.cc-task-edit) { display: grid; min-width: 0; gap: 4px; }
 .cc-task-row > div strong { overflow: hidden; color: #314a60; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
@@ -758,7 +758,7 @@
 .cc-period-row i { height: 7px; overflow: hidden; background: #ece1cf; }
 .cc-period-row b { display: block; height: 100%; background: #315d96; }
 .cc-period-row strong { color: #254d7b; font: 8px "Cascadia Mono",Consolas,monospace; text-align: right; }
-.cc-court-signature { display: grid; gap: 5px; margin-top: 14px; padding: 10px; border-left: 3px solid #c7492a; background: #f4ead8; }
+.cc-court-signature { display: grid; gap: 5px; margin-top: 14px; padding: 10px; border: 1px solid #c7492a; background: #f4ead8; }
 .cc-court-signature span, .cc-court-signature small { color: #7a6c56; font: 8px "Cascadia Mono",Consolas,monospace; }
 .cc-court-signature strong { color: #214773; font-size: 13px; }
 .cc-history-index { margin-top: 12px; }

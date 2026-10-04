@@ -262,7 +262,7 @@
   background-image: linear-gradient(#f9f5ed 0 3px, transparent 3px);
   background-color: #082251;
   color: #e7edf5;
-  content: "FULL COURT PRESS　·　FOCUS IS A CHOICE　→　CLUTCH TIME" !important;
+  content: "HOME COURT　·　FIND YOUR RHYTHM　→　FOCUS AT YOUR PACE" !important;
 }
 .minimal-app.minimal-app--new-theme.minimal-app--metro-pulse .minimal-workspace { background-image: linear-gradient(115deg, #f8fbfd 0 61%, #e7eff4 61% 100%); }
 .minimal-app.minimal-app--new-theme.minimal-app--metro-pulse .minimal-workspace::after {
@@ -528,7 +528,7 @@
   .minimal-app.minimal-app--new-theme .minimal-nav__label::after { font-size: 7px; }
 }
 
-/* CC-01: let the court, live possession clock, and Butler visual own the
+/* CC-01: let the court, live focus timer, and Butler visual own the
    full home surface; the shared bottom rail remains the only navigation. */
 .minimal-app.minimal-app--new-theme.minimal-app--clutch-court .minimal-content,
 .minimal-app.minimal-app--new-theme.minimal-app--clutch-court .minimal-content--records {
@@ -711,6 +711,176 @@
     overflow-y: auto !important;
     overscroll-behavior: contain;
   }
+}
+
+/* Clutch Court review fixes: keep the full task sequence out of the live clock,
+   let the illustrated court become a real scrollable task list on phones, and
+   allow the backup panel to grow instead of clipping its actions. */
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-court-stage {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  pointer-events: none;
+}
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-court-stage > .cc-center-clock { pointer-events: auto; }
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-round-markers { z-index: 2; }
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-butler-card--featured { pointer-events: none; }
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-court-title,
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-court-notes,
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-play-arrows { display: none !important; }
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers .cc-round-marker {
+  width: 230px;
+  min-height: 68px;
+  grid-template-columns: 46px minmax(0,1fr);
+  gap: 8px;
+  padding: 6px;
+  border: 1px solid #ffffffd9;
+  border-radius: 4px;
+  background: #fff9eef0;
+  box-shadow: 0 3px 9px #39220e40;
+  box-sizing: border-box;
+}
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers .cc-round-marker i { width: 42px; height: 42px; border-width: 3px; font-size: 18px; }
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers .cc-round-marker__copy strong { font-size: 12px; white-space: normal; }
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers .cc-round-marker__copy small { font-size: 10px; }
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers .cc-round-marker__copy em { padding: 2px 6px; font-size: 8px; }
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers > .cc-round-marker:nth-child(2) { top: 47%; }
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers > .cc-round-marker:nth-child(4) { top: 63%; }
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-todos-page) .cc-task-row { grid-template-columns: 29px 44px minmax(0,1fr); }
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-todos-page) .cc-task-check { justify-self: start; }
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-todos-page) .cc-create-error { grid-column: 1/-1; margin: 0; color: #a63828; font-size: 10px; }
+
+.nt-settings-page--clutch .nt-settings-grid { grid-template-rows: auto auto; align-items: start; }
+.nt-settings-page--clutch .nt-settings-grid > .nt-settings-card { height: auto; min-height: 304px; }
+.nt-settings-page--clutch .nt-data-settings > p { position: static; margin: 0 0 8px; line-height: 1.5; }
+.nt-settings-page--clutch .nt-data-settings .nt-backup-select > span,
+.nt-settings-page--clutch .nt-data-settings .nt-backup-select ~ small:not(.nt-backup-path) { display: block; }
+
+@media (min-width: 701px) and (max-width: 800px) {
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers .cc-round-marker { width: 150px; grid-template-columns: 32px minmax(0,1fr); }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-round-markers .cc-round-marker i { width: 30px; height: 30px; font-size: 13px; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-center-clock { width: min(300px,44vw,62vh); height: min(300px,44vw,62vh); }
+}
+
+@media (min-width: 701px) and (max-width: 1200px) {
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers .cc-round-marker:nth-child(2) { top: 34%; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers .cc-round-marker:nth-child(4) { top: 51%; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers .cc-round-marker:nth-child(6) { top: 68%; bottom: auto; }
+}
+
+@media (max-width: 1200px) {
+  /* The plate is decorative, while the nearby markers are real work items.
+     Drop the plate at compact widths instead of letting it compete with them. */
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court .cc-shotclock-badge { display: none !important; }
+}
+
+@media (min-width: 701px) and (max-width: 900px) {
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court .minimal-nav {
+    grid-template-columns: repeat(5,minmax(0,1fr)) !important;
+  }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court .minimal-nav .new-theme-nav-note { display: none !important; }
+}
+
+@media (max-width: 700px) {
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court .minimal-nav {
+    grid-template-columns: repeat(5,minmax(0,1fr)) !important;
+  }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court .minimal-nav > button {
+    min-width: 0 !important;
+    padding-right: 2px;
+    padding-left: 2px;
+  }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-court-notes,
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-play-arrows { display: none !important; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court {
+    display: block;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    padding: 8px;
+    border-width: 4px;
+    box-sizing: border-box;
+  }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-court-stage {
+    position: relative;
+    inset: auto;
+    height: 370px;
+    min-height: 370px;
+    overflow: hidden;
+  }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-center-clock {
+    top: 53%;
+    left: 50%;
+    width: min(258px,72vw);
+    height: auto;
+    min-height: 0;
+    aspect-ratio: 1;
+    padding: 12px;
+    box-sizing: border-box;
+    border-width: 4px;
+  }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-center-clock > span:first-child { font-size: 9px; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-center-clock > strong { margin: 6px 0 4px; font-size: 27px; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-center-clock > small { max-width: 180px; font-size: 9px; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-clock-status { margin: 3px 0 5px; font-size: 9px; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-center-clock > .cc-lime-button { min-height: 32px; padding: 0 8px; font-size: 9px; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers {
+    position: relative;
+    inset: auto !important;
+    display: grid;
+    grid-template-columns: repeat(2,minmax(0,1fr));
+    gap: 8px;
+    width: auto;
+    height: auto;
+    margin: 12px 0 3px;
+    padding: 0 2px;
+    transform: none;
+    pointer-events: auto;
+  }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers .cc-round-marker {
+    position: relative;
+    inset: auto !important;
+    width: 100%;
+    min-height: 65px;
+    grid-template-columns: 30px minmax(0,1fr);
+    gap: 6px;
+    padding: 6px;
+    box-sizing: border-box;
+  }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-round-markers .cc-round-marker i { width: 28px; height: 28px; font-size: 10px; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-round-markers .cc-round-marker__copy { gap: 3px; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-round-markers .cc-round-marker__copy strong {
+    display: -webkit-box;
+    overflow: hidden;
+    font-size: 9px;
+    line-height: 1.25;
+    white-space: normal;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-round-markers .cc-round-marker__copy small { font-size: 8px; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-round-markers .cc-round-marker__copy em { padding: 2px 5px; font-size: 7px; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-shotclock-badge { top: 10px; right: 8px; gap: 4px; padding: 5px; font-size: 17px; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-shotclock-badge small { font-size: 5px; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-basketball-art { width: 48px; }
+  .nt-settings-page--clutch .nt-settings-grid { grid-template-columns: minmax(0,1fr); grid-template-rows: auto; }
+  .nt-settings-page--clutch .nt-settings-grid > .nt-settings-card { height: auto; min-height: 0; }
+}
+
+@media (min-width: 701px) and (max-width: 1200px) {
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers > .cc-round-marker {
+    width: 188px;
+    min-height: 58px;
+    grid-template-columns: 38px minmax(0,1fr);
+    padding: 5px;
+  }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers .cc-round-marker i { width: 34px; height: 34px; font-size: 15px; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-center-clock { left: 50%; }
+}
+
+@media (min-width: 701px) and (max-width: 800px) {
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers > .cc-round-marker { width: 150px; grid-template-columns: 32px minmax(0,1fr); }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-center-clock { top: 50%; left: 50%; width: 270px; height: 270px; }
 }
 
 /* Preserve usable shell controls at tablet widths without wrapping command text. */
@@ -1136,12 +1306,12 @@
 }
 .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers > button.cc-round-marker { pointer-events: auto; }
 .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-round-markers .cc-round-marker.empty { pointer-events: none; }
-.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers .cc-round-marker:nth-child(1) { top: 7.5%; left: 22%; }
-.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers .cc-round-marker:nth-child(2) { top: 9.5%; left: 54.5%; }
-.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers .cc-round-marker:nth-child(3) { bottom: 27%; left: 19%; }
-.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers .cc-round-marker:nth-child(4) { bottom: 27%; left: 56.5%; }
-.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers .cc-round-marker:nth-child(5) { bottom: 12.2%; left: 38.5%; }
-.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers .cc-round-marker:nth-child(6) { top: 43%; left: 2%; }
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers .cc-round-marker:nth-child(1) { top: 8%; left: 2%; }
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers .cc-round-marker:nth-child(2) { top: 8%; right: 2%; left: auto; }
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers .cc-round-marker:nth-child(3) { top: 43%; left: 2%; }
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers .cc-round-marker:nth-child(4) { top: 43%; right: 2%; left: auto; }
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers .cc-round-marker:nth-child(5) { bottom: 8%; left: 2%; }
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers .cc-round-marker:nth-child(6) { right: 2%; bottom: 8%; left: auto; }
 .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-round-markers .cc-round-marker i {
   width: 68px;
   height: 68px;
@@ -1206,10 +1376,10 @@
   .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers .cc-round-marker { width: 188px; min-height: 56px; grid-template-columns: 38px minmax(0,1fr); padding: 5px; }
   .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers .cc-round-marker:nth-child(1) { top: 8%; left: 2%; }
   .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers .cc-round-marker:nth-child(2) { top: 8%; left: auto; right: 2%; }
-  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers .cc-round-marker:nth-child(3) { bottom: 24%; left: 2%; }
-  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers .cc-round-marker:nth-child(4) { bottom: 24%; left: auto; right: 2%; }
-  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers .cc-round-marker:nth-child(5) { bottom: 4%; left: 28%; }
-  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers .cc-round-marker:nth-child(6) { top: 43%; left: 2%; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers .cc-round-marker:nth-child(3) { top: 43%; left: 2%; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers .cc-round-marker:nth-child(4) { top: 43%; left: auto; right: 2%; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers .cc-round-marker:nth-child(5) { bottom: 8%; left: 2%; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers .cc-round-marker:nth-child(6) { right: 2%; bottom: 8%; left: auto; }
 }
 @media (max-width: 700px) {
   .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-today-hero {
@@ -1289,7 +1459,7 @@
 .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-focus-page) .cc-focus-page > .cc-scoreboard--featured > div:nth-child(2) > strong > b { color: #f6d528; font-size: 20px; }
 .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-focus-page) .cc-focus-page > .cc-scoreboard--featured > div > small { font-size: 8px; }
 .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-focus-page) .cc-focus-page > .cc-page-head { margin: 0 0 8px; }
-.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-focus-page) .cc-quarter-badge {
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-focus-page) .cc-session-badge {
   display: inline-flex;
   width: 162px;
   max-width: 100%;
@@ -1361,19 +1531,6 @@
   font-size: 15px;
   box-shadow: 0 4px 0 #8e6907;
 }
-.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-focus-page) .cc-possession-dots {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  margin-top: 9px;
-}
-.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-focus-page) .cc-possession-dots i {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: #a7c6ed;
-}
-.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-focus-page) .cc-possession-dots i.active { background: #f6d528; }
 .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-focus-page) .cc-tactics-board {
   min-height: 590px;
   align-content: start;
@@ -2153,7 +2310,7 @@
   }
 }
 
-/* CC-01: let the court and its five featured possession markers carry the home screen;
+/* CC-01: let the court and its featured task markers carry the home screen;
    the navigation is the sideline, so the generic shell footer is omitted here. */
 @media (min-width: 1201px) {
   .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .minimal-workspace::after {
@@ -2239,7 +2396,7 @@
     stroke-width: 2.5;
     stroke-dasharray: 8 7;
     stroke-linecap: round;
-    marker-end: url(#cc-possession-arrow);
+    marker-end: url(#cc-play-arrow);
   }
   .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-play-arrows marker path {
     fill: none;
@@ -2277,5 +2434,300 @@
   .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-round-markers .cc-round-marker__copy em {
     padding: 1px 4px;
     font-size: 6px;
+  }
+}
+
+/* Final Clutch Court review overrides. Keep this block last so legacy theme
+   selectors cannot put real tasks back under the clock or clip them on mobile. */
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-court-stage {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  pointer-events: none;
+}
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-court-stage > .cc-center-clock { pointer-events: auto; }
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-butler-card--featured { pointer-events: none; }
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-court-title,
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-court-notes,
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-play-arrows { display: none !important; }
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-round-markers { z-index: 2; }
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers > .cc-round-marker {
+  width: 230px;
+  min-height: 68px;
+  grid-template-columns: 46px minmax(0,1fr);
+  gap: 8px;
+  padding: 6px;
+  border: 1px solid #ffffffd9;
+  border-radius: 4px;
+  background: #fff9eef0;
+  box-shadow: 0 3px 9px #39220e40;
+  box-sizing: border-box;
+}
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers > .cc-round-marker i { width: 42px; height: 42px; border-width: 3px; font-size: 18px; }
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers .cc-round-marker__copy strong { font-size: 12px; white-space: normal; }
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers .cc-round-marker__copy small { font-size: 10px; }
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers .cc-round-marker__copy em { padding: 2px 6px; font-size: 8px; }
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers > .cc-round-marker:nth-child(1) { top: 8%; left: 2%; }
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers > .cc-round-marker:nth-child(2) { top: 47%; right: 2%; left: auto; }
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers > .cc-round-marker:nth-child(3) { top: 43%; left: 2%; }
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers > .cc-round-marker:nth-child(4) { top: 63%; right: 2%; left: auto; }
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers > .cc-round-marker:nth-child(5) { bottom: 4%; left: 2%; }
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers > .cc-round-marker:nth-child(6) { right: 2%; bottom: 8%; left: auto; }
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-round-markers > .cc-round-marker:disabled { opacity: 1 !important; }
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers > .cc-round-marker.done i { border-color: #317a58; background: #317a58; color: #fff; }
+
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-todos-page) .cc-task-row { grid-template-columns: 29px 44px minmax(0,1fr); }
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-todos-page) .cc-task-check { justify-self: start; }
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-todos-page) .cc-create-error { grid-column: 1/-1; margin: 0; color: #a63828; font-size: 10px; }
+
+.nt-settings-page--clutch .nt-settings-grid { grid-template-rows: auto auto; align-items: start; }
+.nt-settings-page--clutch .nt-settings-grid > .nt-settings-card { height: auto; min-height: 304px; }
+.nt-settings-page--clutch .nt-data-settings > p { position: static; margin: 0 0 8px; line-height: 1.5; }
+.nt-settings-page--clutch .nt-data-settings .nt-backup-select > span,
+.nt-settings-page--clutch .nt-data-settings .nt-backup-select ~ small:not(.nt-backup-path) { display: block; }
+
+@media (min-width: 701px) and (max-width: 1200px) {
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers > .cc-round-marker { width: 188px; min-height: 58px; grid-template-columns: 38px minmax(0,1fr); padding: 5px; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers > .cc-round-marker i { width: 34px; height: 34px; font-size: 15px; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-center-clock { left: 50%; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers > .cc-round-marker:nth-child(2) { top: 34%; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers > .cc-round-marker:nth-child(4) { top: 51%; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers > .cc-round-marker:nth-child(6) { top: 68%; bottom: auto; }
+  .nt-settings-page--clutch .nt-settings-grid { grid-template-rows: auto auto; }
+  .nt-settings-page--clutch .nt-settings-grid > .nt-settings-card { height: auto; min-height: 304px; }
+}
+
+@media (min-width: 701px) and (max-width: 900px) {
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court .minimal-nav { grid-template-columns: repeat(5,minmax(0,1fr)) !important; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court .minimal-nav .new-theme-nav-note { display: none !important; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court .app-bar__actions { gap: 3px !important; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court .command-trigger { min-height: 30px !important; padding: 0 4px !important; font-size: 8px !important; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court .command-trigger kbd { display: none !important; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court .window-controls { gap: 2px !important; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court .window-control { width: 25px !important; height: 25px !important; }
+}
+
+@media (min-width: 701px) and (max-width: 800px) {
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers > .cc-round-marker { width: 150px; grid-template-columns: 32px minmax(0,1fr); }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-center-clock { top: 50%; left: 50%; width: 270px; height: 270px; }
+}
+
+@media (max-width: 700px) {
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court .minimal-nav { grid-template-columns: repeat(5,minmax(0,1fr)) !important; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court .minimal-nav > button { min-width: 0 !important; padding-right: 2px; padding-left: 2px; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court { display: block; height: auto !important; min-height: 0 !important; overflow: visible !important; padding: 8px; border-width: 4px; box-sizing: border-box; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-court-stage { position: relative; inset: auto; height: 370px; min-height: 370px; overflow: hidden; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-center-clock { top: 53%; left: 50%; width: min(258px,72vw); height: auto; min-height: 0; aspect-ratio: 1; padding: 12px; box-sizing: border-box; border-width: 4px; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-center-clock > span:first-child { font-size: 8px; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-center-clock > strong { margin: 6px 0 4px; font-size: 27px; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-center-clock > small { max-width: 180px; font-size: 9px; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-clock-status { margin: 3px 0 5px; font-size: 8px; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-center-clock > .cc-lime-button { min-height: 32px; padding: 0 8px; font-size: 9px; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers { position: relative; inset: auto !important; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; width: auto; height: auto; margin: 12px 0 3px; padding: 0 2px; transform: none; pointer-events: auto; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers > .cc-round-marker { position: relative; inset: auto !important; width: 100%; min-height: 65px; grid-template-columns: 30px minmax(0,1fr); gap: 6px; padding: 6px; box-sizing: border-box; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-round-markers .cc-round-marker i { width: 28px; height: 28px; font-size: 10px; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-round-markers .cc-round-marker__copy { gap: 3px; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-round-markers .cc-round-marker__copy strong { display: -webkit-box; overflow: hidden; font-size: 10px; line-height: 1.25; white-space: normal; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-round-markers .cc-round-marker__copy small { font-size: 9px; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-round-markers .cc-round-marker__copy em { padding: 2px 5px; font-size: 9px; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-court-stage .cc-shotclock-badge { top: 10px; right: 8px; gap: 4px; padding: 5px; font-size: 17px; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-basketball-art { width: 48px; }
+  .nt-settings-page--clutch .nt-settings-grid { grid-template-columns: minmax(0,1fr); grid-template-rows: auto; }
+  .nt-settings-page--clutch .nt-settings-grid > .nt-settings-card { height: auto; min-height: 0; }
+}
+
+/* Final task-row tracks: identity, readable task copy, state, then actions. */
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-todos-page) .cc-task-row {
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  align-items: start;
+  column-gap: 10px;
+  row-gap: 5px;
+  min-width: 0;
+}
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-todos-page) .cc-task-leading {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+}
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-todos-page) .cc-task-row > div:not(.cc-task-edit):not(.cc-task-actions):not(.cc-task-leading) {
+  grid-column: 2;
+  grid-row: 1;
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-todos-page) .cc-task-row > div:not(.cc-task-edit):not(.cc-task-actions):not(.cc-task-leading) strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-todos-page) .cc-task-state {
+  grid-column: 3;
+  grid-row: 1;
+  align-self: start;
+  justify-self: end;
+}
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-todos-page) .cc-task-row > div:not(.cc-task-edit).cc-task-actions {
+  position: static;
+  grid-column: 2 / 4;
+  grid-row: 2;
+  justify-self: start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0;
+  background: transparent;
+  opacity: 1;
+  pointer-events: auto;
+  transform: none;
+}
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-todos-page) .cc-task-edit {
+  grid-column: 2 / -1;
+  grid-row: 1 / span 2;
+  min-width: 0;
+}
+
+@media (min-width: 1201px) {
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers > .cc-round-marker:nth-child(2),
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers > .cc-round-marker:nth-child(4),
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-court > .cc-round-markers > .cc-round-marker:nth-child(6) {
+    right: 31%;
+    width: 160px;
+    min-height: 64px;
+    grid-template-columns: 34px minmax(0, 1fr);
+    gap: 6px;
+    padding: 4px;
+  }
+}
+
+@media (max-width: 700px) {
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-todos-page) .cc-task-row {
+    grid-template-columns: 38px minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
+    column-gap: 8px;
+  }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-todos-page) .cc-task-leading {
+    grid-column: 1;
+    grid-row: 1 / span 3;
+  }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-todos-page) .cc-task-row > div:not(.cc-task-edit):not(.cc-task-actions):not(.cc-task-leading) {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-todos-page) .cc-task-state {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: start;
+  }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-todos-page) .cc-task-row > div:not(.cc-task-edit).cc-task-actions {
+    grid-column: 2;
+    grid-row: 3;
+  }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-todos-page) .cc-task-edit {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+  }
+}
+
+/* Settings remain dense, but labels and live explanations stay readable. */
+.nt-settings-page--clutch .nt-section-title > div > span { font-size: 9px; }
+.nt-settings-page--clutch .nt-theme-choice strong { overflow: hidden; font-size: 10px; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
+.nt-settings-page--clutch .nt-theme-choice small { display: none; }
+.nt-settings-page--clutch .nt-slider-control > span,
+.nt-settings-page--clutch .nt-slider-control > span b { font-size: 10px; }
+.nt-settings-page--clutch .nt-slider-control small,
+.nt-settings-page--clutch .nt-density-control small,
+.nt-settings-page--clutch .nt-toggle-row small,
+.nt-settings-page--clutch .nt-check-row small,
+.nt-settings-page--clutch .nt-data-settings > p,
+.nt-settings-page--clutch .nt-data-settings > small { color: #5d4b35; font-size: 9px; line-height: 1.4; }
+.nt-settings-page--clutch .nt-density-control > div:first-child,
+.nt-settings-page--clutch .nt-toggle-row strong,
+.nt-settings-page--clutch .nt-check-row strong { font-size: 10px; }
+.nt-settings-page--clutch .nt-live-preview__label p { color: #f1f4f8; font-size: 9px; line-height: 1.45; }
+.nt-settings-page--clutch .nt-backup-select > span { font-size: 9px; }
+.nt-settings-page--clutch .nt-backup-path { overflow-wrap: anywhere; }
+
+/* Phone court: fit the full live clock and all six real plays above the fixed
+   navigation rail; the previous 370px stage let its second row slide behind it. */
+@media (max-width: 430px) {
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-court-stage { height: 270px !important; min-height: 270px !important; }
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-center-clock { top: 52%; width: min(220px, 70vw) !important; }
+}
+
+/* The new shell already brands the masthead; never repeat the retired rail logo. */
+.minimal-app.minimal-app--new-theme .minimal-nav > .trail-nav__brand { display: none !important; }
+
+/* Basketball palette readability: use court-side ink for warm wood surfaces. */
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court .nt-settings-head > p {
+  color: #3b2a19;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court .nt-settings-head { margin-bottom: 13px; }
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court .nt-section-title > div > span { font-size: 10px; }
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court .nt-slider-control small,
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court .nt-density-control small,
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court .nt-toggle-row small,
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court .nt-check-row small { font-size: 10px; line-height: 1.45; }
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court .nt-autosave { font-size: 10px; }
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court .cc-eyebrow { color: #49341f; font-size: 10px; }
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-manifest small { font-size: 9px; }
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-hero-note strong,
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-home-hero-note span { font-size: 10px; }
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court .cc-tactics-board > small:last-child { color: #584b37; font-size: 10px; }
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court .cc-lane > footer { color: #5b4d39; font-size: 9px; }
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court .cc-empty { color: #6d5b43; }
+
+/* Keep explanatory copy and live focus state readable on the court theme. */
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court .nt-section-title > div > span,
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court .nt-theme-choice strong,
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court .nt-slider-control > span,
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court .nt-slider-control > span b,
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court .nt-slider-control small,
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court .nt-density-control > div:first-child,
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court .nt-density-control small,
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court .nt-toggle-row strong,
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court .nt-toggle-row small,
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court .nt-check-row strong,
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court .nt-check-row small,
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court .nt-data-settings > p,
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court .nt-data-settings > small,
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court .nt-autosave,
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court .nt-live-preview__label p,
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court .nt-backup-select > span,
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court .cc-tactics-board > small:last-child,
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court .cc-lane > footer,
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court .cc-empty {
+  font-size: 12px;
+}
+
+.minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-records-page) .cc-shot-chart > .cc-panel-heading > span:last-child {
+  font-size: 12px;
+}
+
+@media (max-width: 700px) {
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-scoreboard--featured > div > span,
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-scoreboard--featured > div:nth-child(2) > strong > span,
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-scoreboard--featured > div > small,
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-butler-card--featured span,
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-butler-card--featured strong {
+    font-size: 12px;
+  }
+
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-center-clock > span:first-child,
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-center-clock > small,
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-clock-status,
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-center-clock > .cc-lime-button,
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-round-markers .cc-round-marker__copy strong,
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-round-markers .cc-round-marker__copy small,
+  .minimal-app.minimal-app--new-theme.minimal-app--clutch-court:has(.cc-today-page) .cc-round-markers .cc-round-marker__copy em {
+    font-size: 12px;
   }
 }

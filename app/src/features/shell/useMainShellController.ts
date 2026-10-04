@@ -74,6 +74,31 @@ import { sortTodos } from "../todos/derived";
 import type { PaletteCommand } from "../../components/CommandPalette";
 import { getTheme, implementedThemeId, normalizeThemeId, type ThemeId } from "../../lib/themes";
 
+const focusRecordFields = [
+  "id",
+  "title",
+  "durationMs",
+  "durationLabel",
+  "modeKey",
+  "modeLabel",
+  "phaseLabel",
+  "linkedTodoId",
+  "linkedTodoTitle",
+  "completedAt",
+  "completedDate",
+  "completedTime",
+  "source",
+  "timeBasis",
+  "editedAt",
+] as const satisfies readonly (keyof FocusRecord)[];
+
+function focusRecordListsEqual(previous: FocusRecord[], next: FocusRecord[]) {
+  return previous.length === next.length && previous.every((record, index) => {
+    const candidate = next[index];
+    return focusRecordFields.every((field) => record[field] === candidate[field]);
+  });
+}
+
 type AppView = "today" | "focus" | "todos" | "records" | "settings";
 type TimerMode = "stopwatch" | "countdown";
 type LoadState = "loading" | "ready" | "error";
@@ -307,7 +332,9 @@ export function useMainShellController() {
   const [timer, setTimer] = createSignal<TimerSnapshot>(emptyTimerSnapshot);
   const [savedConfirmation, setSavedConfirmation] = createSignal(false);
   const [todos, setTodos] = createSignal<TodoItem[]>([]);
-  const [records, setRecords] = createSignal<FocusRecord[]>([]);
+  // The shell refreshes once per second. Keep unchanged history rows stable so
+  // a background read does not detach open/scrolling archive controls.
+  const [records, setRecords] = createSignal<FocusRecord[]>([], { equals: focusRecordListsEqual });
   const [analytics, setAnalytics] = createSignal<AnalyticsSnapshot | null>(null);
   const [sessionTitle, setSessionTitle] = createSignal("");
   const [sessionTitleDirty, setSessionTitleDirty] = createSignal(false);
@@ -774,17 +801,19 @@ export function useMainShellController() {
     setAnalytics(next.analytics);
     setTimerPreferences(next.timerPreferences);
     setFocusPlan(next.focusPlan);
-    applyAppPreferences({
-      schemaVersion: next.appPreferencesView.schemaVersion,
-      themeId: next.appPreferencesView.themeId,
-      visualIntensity: next.appPreferencesView.visualIntensity,
-      motionIntensity: next.appPreferencesView.motionIntensity,
-      density: next.appPreferencesView.density,
-      floatingOpacity: next.appPreferencesView.floatingOpacity,
-      autoMiniOnStart: next.appPreferencesView.autoMiniOnStart,
-      customAlertSoundName: next.appPreferencesView.customAlertSoundName,
-      customAlertSoundData: customAlertSoundData(),
-    });
+    if (pendingAppPreferenceSnapshot === null && !appPreferenceSaveBusy() && !failedAppPreferenceSnapshot()) {
+      applyAppPreferences({
+        schemaVersion: next.appPreferencesView.schemaVersion,
+        themeId: next.appPreferencesView.themeId,
+        visualIntensity: next.appPreferencesView.visualIntensity,
+        motionIntensity: next.appPreferencesView.motionIntensity,
+        density: next.appPreferencesView.density,
+        floatingOpacity: next.appPreferencesView.floatingOpacity,
+        autoMiniOnStart: next.appPreferencesView.autoMiniOnStart,
+        customAlertSoundName: next.appPreferencesView.customAlertSoundName,
+        customAlertSoundData: customAlertSoundData(),
+      });
+    }
   }
 
   function alertIsVisible() {
@@ -821,6 +850,7 @@ export function useMainShellController() {
   async function refresh(force = false) {
     const requestVersion = ++refreshVersion;
     const timerRequestVersion = ++timerRefreshVersion;
+    const appPreferencesVersionAtReadStart = appPreferenceSaveVersion;
     const [nextTimer, nextTodos, nextRecords, nextAnalytics, nextPreferences, nextAppPreferences, nextFocusPlan] = await Promise.all([
       getTimerSnapshot(),
       getTodoItems(),
@@ -849,8 +879,26 @@ export function useMainShellController() {
     if (nextPreferences) {
       setTimerPreferences(nextPreferences);
     }
-    const resolvedAppPreferences = await migrateLegacyAppPreferences(nextAppPreferences);
-    applyAppPreferences(resolvedAppPreferences);
+    let resolvedAppPreferences = currentAppPreferences();
+    if (
+      appPreferencesVersionAtReadStart === appPreferenceSaveVersion &&
+      pendingAppPreferenceSnapshot === null &&
+      !appPreferenceSaveBusy() &&
+      !failedAppPreferenceSnapshot()
+    ) {
+      const migratedAppPreferences = await migrateLegacyAppPreferences(nextAppPreferences);
+      if (
+        appPreferencesVersionAtReadStart === appPreferenceSaveVersion &&
+        pendingAppPreferenceSnapshot === null &&
+        !appPreferenceSaveBusy() &&
+        !failedAppPreferenceSnapshot()
+      ) {
+        resolvedAppPreferences = migratedAppPreferences;
+        applyAppPreferences(resolvedAppPreferences);
+      } else {
+        resolvedAppPreferences = currentAppPreferences();
+      }
+    }
     setFocusPlan(nextFocusPlan);
     if (currentWindowLabel === "main") {
       void emit<AppStateSyncPayload>(appStateSyncEvent, {
@@ -1031,12 +1079,13 @@ export function useMainShellController() {
     }, "正在保存…");
   }
 
-  async function addTodo() {
+  async function addTodo(): Promise<boolean> {
     const title = todoTitle().trim();
     if (!title) {
       showMessage("请填写待办事项。", "error");
-      return;
+      return false;
     }
+    let added = false;
     await run(async () => {
       setTodos(
         await createTodoItem({
@@ -1049,8 +1098,10 @@ export function useMainShellController() {
       setTodoTitle("");
       setTodoDueTime("");
       setTodoImportance("medium");
+      added = true;
       showMessage("待办已添加。", "success");
     }, "正在添加…");
+    return added;
   }
 
   function beginEditTodo(item: TodoItem) {

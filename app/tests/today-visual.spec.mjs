@@ -83,7 +83,9 @@ async function bootReferenceMock(page, {
   currentTodoId,
   todayPickIds = [101, 102, 103],
   demoMode = false,
+  countdownPreview = false,
   settingsDemo = false,
+  demoTimeOverrides = {},
 } = {}) {
   const fixtureToday = demoMode ? "2026-09-23" : today;
   const fixtureCurrentTodoId = currentTodoId === undefined ? (demoMode ? 104 : 101) : currentTodoId;
@@ -102,7 +104,7 @@ async function bootReferenceMock(page, {
     window.Date = ReferenceDate;
   }, { today: fixtureToday });
 
-  await page.addInitScript(({ today, themeId, persistedThemeId, includeTodo, includeInbox, includeOverdue, includeFuture, recordCount, currentTodoId, todayPickIds, demoMode, settingsDemo }) => {
+  await page.addInitScript(({ today, themeId, persistedThemeId, includeTodo, includeInbox, includeOverdue, includeFuture, recordCount, currentTodoId, todayPickIds, demoMode, countdownPreview, settingsDemo, demoTimeOverrides }) => {
     const selectedTheme = themeId;
     localStorage.setItem("focused-moment.theme", persistedThemeId);
     const todoSeeds = demoMode ? [
@@ -170,6 +172,7 @@ async function bootReferenceMock(page, {
       const minute = String(endMinutes % 60).padStart(2, "0");
       const durationMs = minutes * 60 * 1000;
       const durationLabel = `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}:00`;
+      const completedTime = demoTimeOverrides[String(id)] ?? `${hour}:${minute}`;
       return {
         id,
         title: date === today ? ["早间启动", "深度工作", "专注时段"][index] : `专注轮次 ${id}`,
@@ -180,27 +183,28 @@ async function bootReferenceMock(page, {
         phaseLabel: "正向计时",
         linkedTodoId: date === today ? [101, 102, 103][index] : null,
         linkedTodoTitle: date === today ? ["早间启动", "深度工作", "专注时段"][index] : null,
-        completedAt: `${date}T${hour}:${minute}:00+08:00`,
+        completedAt: `${date}T${completedTime}:00+08:00`,
         completedDate: date,
-        completedTime: `${hour}:${minute}`,
+        completedTime,
         source: "timer",
         timeBasis: "completion_day",
         editedAt: null,
       };
     }));
     let focusRecords = demoMode ? demoRecords : normalRecords;
+    window.__focusRecordCalls = 0;
     let timer = {
-      modeKey: "stopwatch",
-      phaseKey: "stopwatch",
-      mode: "正向计时",
-      phaseLabel: "正向计时",
+      modeKey: countdownPreview ? "countdown" : "stopwatch",
+      phaseKey: countdownPreview ? "countdown" : "stopwatch",
+      mode: countdownPreview ? "倒计时" : "正向计时",
+      phaseLabel: countdownPreview ? "倒计时" : "正向计时",
       status: "待开始",
       isRunning: false,
-      elapsedMs: demoMode ? 45 * 60 * 1000 : 0,
-      elapsedLabel: demoMode ? "00:45:00" : "00:00:00",
-      targetDurationMs: null,
-      remainingMs: null,
-      secondaryLabel: "本轮已投入",
+      elapsedMs: 0,
+      elapsedLabel: "00:00:00",
+      targetDurationMs: countdownPreview ? 45 * 60 * 1000 : null,
+      remainingMs: countdownPreview ? 45 * 60 * 1000 : null,
+      secondaryLabel: countdownPreview ? "剩余时间" : "本轮已投入",
       canCompleteSession: false,
       hasUnsubmittedProgress: false,
       activeTaskTitle: demoMode ? "创作专注" : "",
@@ -324,6 +328,10 @@ async function bootReferenceMock(page, {
           case "get_todo_items":
             return todos;
           case "create_todo_item":
+            if (window.__failCreateTodoOnce) {
+              window.__failCreateTodoOnce = false;
+              throw new Error("simulated todo persistence failure");
+            }
             todos = [...todos, {
               id: Math.max(0, ...todos.map((item) => item.id)) + 1,
               title: args.title,
@@ -351,6 +359,7 @@ async function bootReferenceMock(page, {
             todos = [...todos.filter((item) => item.id !== args.item.id), args.item];
             return todos.slice();
           case "get_focus_records":
+            window.__focusRecordCalls += 1;
             return focusRecords.slice();
           case "create_manual_focus_record":
             {
@@ -523,7 +532,7 @@ async function bootReferenceMock(page, {
         }
       },
     };
-  }, { today: fixtureToday, themeId, persistedThemeId, includeTodo, includeInbox, includeOverdue, includeFuture, recordCount, currentTodoId: fixtureCurrentTodoId, todayPickIds, demoMode, settingsDemo });
+    }, { today: fixtureToday, themeId, persistedThemeId, includeTodo, includeInbox, includeOverdue, includeFuture, recordCount, currentTodoId: fixtureCurrentTodoId, todayPickIds, demoMode, countdownPreview, settingsDemo, demoTimeOverrides });
 
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
@@ -588,8 +597,10 @@ test("Restored Today empty states distinguish layout placeholders from real task
       await expect(page.locator(".mp-departure-empty")).toContainText("添加第一班");
       await expect(page.locator(".mp-departure-empty h2")).toHaveText("站台等待乘客");
     } else if (themeId === "clutch-court") {
-      await expect(page.locator(".cc-round-marker.empty")).toHaveCount(5);
-      await expect(page.locator(".cc-center-clock")).toContainText("等待布置第一回合");
+      // Empty slots must not impersonate real plays or unfinished tasks.
+      await expect(page.locator(".cc-round-marker")).toHaveCount(0);
+      await expect(page.locator(".cc-center-clock")).toContainText("先写下今天的第一项任务");
+      await expect(page.locator(".cc-center-clock .cc-lime-button")).toHaveText("新增待办");
       await expect(page.locator(".cc-scoreboard")).toContainText("00");
     } else if (themeId === "night-valley") {
       await expect(page.locator(".trail-node")).toHaveCount(1);
@@ -845,6 +856,9 @@ test("Metro and Clutch seven-day records share chart coordinates and expand the 
       await expect(chart.locator(".cc-chart-bar, .cc-chart__area")).toHaveCount(0);
     }
     await expect(page.locator(logSelector)).toBeVisible();
+    if (themeId === "clutch-court") {
+      await expect(page.locator(".cc-shot-chart .cc-panel-heading")).toContainText("纵向为每日时长　·　0 至 3h 30m");
+    }
     await chart.locator(".mp-chart-point, .cc-chart-point").nth(2).click();
     await expect(page.locator(logSelector)).toContainText("这一天没有专注记录");
     await chart.locator(".mp-chart-point, .cc-chart-point").nth(6).click();
@@ -866,6 +880,10 @@ test("Metro and Clutch seven-day records share chart coordinates and expand the 
     await expect(history).toBeInViewport({ ratio: 0.6 });
     await expect(history).toContainText("完整历史");
     const lastHistorySummary = history.locator("details summary").last();
+    const recordsCallsBeforeRefresh = await page.evaluate(() => window.__focusRecordCalls);
+    await lastHistorySummary.evaluate((node) => node.setAttribute("data-history-node-probe", "stable"));
+    await expect.poll(() => page.evaluate(() => window.__focusRecordCalls)).toBeGreaterThan(recordsCallsBeforeRefresh);
+    await expect(history.locator('[data-history-node-probe="stable"]')).toHaveCount(1);
     await lastHistorySummary.scrollIntoViewIfNeeded();
     await expect(lastHistorySummary).toBeInViewport();
     const summaryBounds = await lastHistorySummary.boundingBox();
@@ -945,7 +963,7 @@ test("Settings restores each theme's original picker and preview while persistin
       await expect(preview).toContainText("完整");
       await page.getByRole("button", { name: "紧凑", exact: true }).click();
       await expect(preview).toHaveAttribute("data-density", "compact");
-      await expect(preview).toContainText("同屏显示更多。");
+      await expect(preview).toContainText("同屏显示更多待办与记录。");
     }
     await expect(page.locator(layout.preview)).toBeVisible();
     await expect.poll(() => page.evaluate(async () => (await window.__TAURI_INTERNALS__.invoke("get_app_preferences")).themeId)).toBe(themeId);
@@ -967,12 +985,16 @@ test("Metro and Clutch settings expose portable backup actions at desktop, table
       await expect(portableBackup.getByText("浏览器备用选择", { exact: true })).toBeVisible();
       await expect(page.getByRole("button", { name: "保存书房布置", exact: true })).toHaveCount(0);
       await expect(page.locator(".minimal-nav > button")).toHaveCount(5);
-      const backupBounds = await portableBackup.boundingBox();
       const navBounds = await page.locator(".minimal-nav").boundingBox();
-      expect(backupBounds).not.toBeNull();
       expect(navBounds).not.toBeNull();
-      const overlapsNavigation = backupBounds.y < navBounds.y + navBounds.height && navBounds.y < backupBounds.y + backupBounds.height;
-      expect(overlapsNavigation).toBe(false);
+      const pathActions = portableBackup.locator(".portable-backup-panel__path");
+      await pathActions.scrollIntoViewIfNeeded();
+      await expect(pathActions).toBeInViewport({ ratio: 0.9 });
+      const actionBounds = await pathActions.boundingBox();
+      expect(actionBounds).not.toBeNull();
+      const overlapPixels = Math.max(0, Math.min(actionBounds.y + actionBounds.height, navBounds.y + navBounds.height) - Math.max(actionBounds.y, navBounds.y));
+      await page.screenshot({ path: testOutputPath("portable-backup", `${themeId}-${width}.png`), animations: "disabled" });
+      expect(overlapPixels, JSON.stringify({ themeId, width, actionBounds, navBounds })).toBeLessThanOrEqual(1);
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width + 1);
     }
   }
@@ -1132,15 +1154,68 @@ for (const [card, themeId, view, label] of conceptScreens) {
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
     await page.setViewportSize({ width: 1487, height: 1058 });
-    await bootReferenceMock(page, { themeId, demoMode: true, settingsDemo: card === "MP-05" });
+    await bootReferenceMock(page, { themeId, demoMode: true, countdownPreview: themeId === "metro-pulse" || themeId === "clutch-court", settingsDemo: card === "MP-05" });
     if (view !== "today") await navButton(page, view === "focus" ? "计时" : view === "todos" ? "待办" : view === "records" ? "记录" : "设置").click();
     const surface = page.locator(surfaceSelector(themeId, view));
     await expect(surface).toBeVisible();
     await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", themeId);
     await expect(page.locator(".minimal-nav > button")).toHaveCount(5);
+    if (card === "CC-01") {
+      await expect(page.getByRole("heading", { name: "今日赛场", level: 1 })).toBeVisible();
+      await expect(page.locator(".cc-shotclock-badge")).toBeVisible();
+      await expect(page.locator(".new-theme-bar-center > small")).toHaveText("ONE FOCUS SESSION AT A TIME");
+      await expect(page.locator(".new-theme-nav-note > strong")).toHaveText("NEXT PLAY");
+      await expect(page.locator(".new-theme-nav-note > span")).toHaveText("从当前待办开始，一次专注一项。");
+      await expect(page.getByText(/ONE POSSESSION|NEXT POSSESSION|赢下半场|打完整每个回合/i)).toHaveCount(0);
+      await expect(page.locator(".cc-home-hero-note strong")).toHaveText("FOCUS AT YOUR PACE");
+      await expect(page.locator(".cc-home-hero-note span")).toHaveText("专注推进眼前这一项。");
+      await expect(page.locator(".cc-center-clock > span:first-child")).toHaveText("专注计时　/　剩余时间");
+      await expect(page.locator(".cc-clock-status")).toHaveText("准备开始专注");
+      await expect(page.locator(".cc-center-clock > strong")).toHaveText("45:00");
+      const courtClearance = await page.evaluate(() => {
+        const portrait = document.querySelector(".cc-butler-card--featured").getBoundingClientRect();
+        return Array.from(document.querySelectorAll(".cc-round-markers > .cc-round-marker"), (marker) => {
+          const rect = marker.getBoundingClientRect();
+          return {
+            label: marker.getAttribute("aria-label"),
+            marker: { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom },
+            portrait: { left: portrait.left, right: portrait.right, top: portrait.top, bottom: portrait.bottom },
+            rightCss: getComputedStyle(marker).right,
+            intersects: rect.left < portrait.right && rect.right > portrait.left && rect.top < portrait.bottom && rect.bottom > portrait.top,
+          };
+        });
+      });
+      expect(courtClearance.some((item) => item.intersects), JSON.stringify(courtClearance)).toBeFalsy();
+    }
+    if (card === "CC-02") {
+      await expect(page.locator(".cc-mode-switch button").nth(0)).toHaveAttribute("aria-pressed", "false");
+      await expect(page.locator(".cc-mode-switch button").nth(1)).toHaveAttribute("aria-pressed", "true");
+      await expect(page.locator(".cc-scoreboard--featured > div:nth-child(2) > span")).toHaveText("专注段　/　剩余时间");
+      await expect(page.locator(".cc-center-circle--timer > span:first-child")).toHaveText("FOCUS CLOCK　/　倒计时");
+      await expect(page.locator(".cc-center-circle--timer > strong")).toHaveText("45:00");
+      await expect(page.locator('input[type="number"]')).toHaveValue("45");
+      const courtFooter = await page.locator(".minimal-workspace").evaluate((element) => getComputedStyle(element, "::after").content);
+      expect(courtFooter).toContain("FIND YOUR RHYTHM");
+      expect(courtFooter).not.toMatch(/FULL COURT PRESS|CLUTCH TIME/i);
+    }
+    if (card === "CC-03") {
+      const taskCopy = await page.locator(".cc-task-row").evaluateAll((rows) => rows.map((row) => {
+        const title = row.querySelector(":scope > div:not(.cc-task-edit):not(.cc-task-actions) strong");
+        const state = row.querySelector(":scope > .cc-task-state");
+        const leading = row.querySelector(":scope > .cc-task-leading");
+        const titleRect = title.getBoundingClientRect();
+        const stateRect = state.getBoundingClientRect();
+        const leadingRect = leading.getBoundingClientRect();
+        const rowStyle = getComputedStyle(row);
+        const leadingStyle = getComputedStyle(leading);
+        return { text: title.textContent, display: rowStyle.display, grid: rowStyle.gridTemplateColumns, leadingColumn: leadingStyle.gridColumn, leadingDisplay: leadingStyle.display, rowLeft: row.getBoundingClientRect().left, rowWidth: row.getBoundingClientRect().width, width: titleRect.width, scrollWidth: title.scrollWidth, titleLeft: titleRect.left, titleRight: titleRect.right, leadingLeft: leadingRect.left, leadingRight: leadingRect.right, stateLeft: stateRect.left };
+      }));
+      expect(taskCopy.length).toBeGreaterThan(0);
+      expect(taskCopy.every((item) => item.width >= 120 && item.scrollWidth <= item.width + 1 && item.leadingRight <= item.titleLeft + 1 && item.titleRight <= item.stateLeft + 1), JSON.stringify(taskCopy)).toBeTruthy();
+    }
     if (card === "CC-04") {
-      await expect(page.locator(".cc-shot-chart .cc-panel-heading")).toContainText("七日投篮图");
-      await expect(page.locator(".cc-shot-chart .cc-panel-heading")).toContainText("每个点与日期使用同一坐标");
+      await expect(page.locator(".cc-shot-chart .cc-panel-heading")).toContainText("七日专注趋势");
+      await expect(page.locator(".cc-shot-chart .cc-panel-heading")).toContainText("纵向为每日时长　·　0 至 3h 30m");
       await expect(page.locator(".cc-day-stats")).toContainText("单段平均");
       await expect(page.locator(".cc-day-stats")).toContainText("55m");
       await expect(page.locator(".cc-period-column > strong")).toHaveText(["2h", "45m", "0m", "0m"]);
@@ -1225,8 +1300,8 @@ for (const [card, themeId, view, label] of conceptScreens) {
     if (themeId === "metro-pulse" && view === "focus") {
       await expect(page.locator(".app-brand")).toBeVisible();
       await expect(page.locator(".new-theme-bar-center")).toContainText("2026-09-23");
-      await expect(page.locator(".mp-mode-tabs button").first()).toHaveAttribute("aria-pressed", "true");
-      await expect(page.locator(".mp-flip-board__top b")).toContainText("正向计时");
+      await expect(page.locator(".mp-mode-tabs button").nth(1)).toHaveAttribute("aria-pressed", "true");
+      await expect(page.locator(".mp-flip-board__top b")).toContainText("倒计时");
       await expect(page.locator(".mp-flip-board__task")).toContainText("创作专注");
       await expect(page.locator(".mp-timer-flip-card").first()).toHaveText("45");
       await expect(page.locator(".mp-timer-flip-card").last()).toHaveText("00");
@@ -1234,7 +1309,7 @@ for (const [card, themeId, view, label] of conceptScreens) {
       await expect(page.locator(".mp-timer-route__stops > span.is-done")).toHaveCount(3);
       await expect(page.locator(".mp-timer-route__stops > span.is-current")).toHaveCount(1);
       await expect(page.locator(".mp-linked-task-card")).toContainText("创作专注");
-      await expect(page.locator(".mp-countdown-display")).toContainText("45");
+      await expect(page.locator(".mp-countdown-display input")).toHaveValue("45");
       await expect(page.locator(".mp-check-field input")).toBeChecked();
       const [flipBoardBox, timerSettingsBox] = await Promise.all([
         page.locator(".mp-flip-board").boundingBox(),
@@ -1254,9 +1329,9 @@ for (const [card, themeId, view, label] of conceptScreens) {
       expect(nav.y).toBeLessThanOrEqual(925);
     }
     if (themeId === "clutch-court" && view === "focus") {
-      await expect(page.locator(".cc-quarter-badge")).toContainText("第 4 回合");
-      await expect(page.locator(".cc-quarter-badge")).toContainText("准备开球");
-      await expect(page.locator(".cc-quarter-badge")).toHaveCSS("background-color", "rgb(11, 42, 99)");
+      await expect(page.locator(".cc-session-badge")).toContainText("第 4 段专注");
+      await expect(page.locator(".cc-session-badge")).toContainText("准备开始专注");
+      await expect(page.locator(".cc-session-badge")).toHaveCSS("background-color", "rgb(11, 42, 99)");
       const [portrait, center, tactics, timerActions] = await Promise.all([
         page.locator(".cc-timer-layout > .cc-butler-card").boundingBox(),
         page.locator(".cc-center-circle--timer").boundingBox(),
@@ -1269,13 +1344,16 @@ for (const [card, themeId, view, label] of conceptScreens) {
       expect(Math.abs(tactics.x - 1122)).toBeLessThanOrEqual(8);
       expect(Math.abs(tactics.width - 326)).toBeLessThanOrEqual(8);
       expect(tactics.height).toBeGreaterThanOrEqual(585);
-      expect(Math.abs(await page.locator(".cc-quarter-badge").evaluate((element) => element.getBoundingClientRect().width) - 162)).toBeLessThanOrEqual(1);
+      const sessionBadge = await page.locator(".cc-session-badge").boundingBox();
+      const focusHeader = await page.locator(".cc-focus-page > .cc-page-head").boundingBox();
+      expect(sessionBadge.x).toBeGreaterThanOrEqual(focusHeader.x);
+      expect(sessionBadge.x + sessionBadge.width).toBeLessThanOrEqual(focusHeader.x + focusHeader.width + 1);
       expect(center.x).toBeGreaterThan(portrait.x + portrait.width);
       expect(center.x + center.width).toBeLessThan(tactics.x);
       expect(timerActions.y).toBeGreaterThan(tactics.y + 250);
       expect(timerActions.y + timerActions.height).toBeLessThan(tactics.y + tactics.height - 80);
       await expect(page.locator(".cc-center-circle--timer > em")).toHaveCount(0);
-      await expect(page.locator(".cc-possession-dots > i")).toHaveCount(4);
+      await expect(page.locator(".cc-timer-layout .cc-shotclock-badge")).toHaveCount(0);
       await expect(page.locator(".cc-timer-layout > .cc-court-dial > .cc-timer-actions")).toHaveCount(0);
       await expect(page.locator(".cc-tactics-board .cc-timer-actions .cc-secondary-button")).toHaveCount(2);
     }
@@ -1290,9 +1368,9 @@ for (const [card, themeId, view, label] of conceptScreens) {
       await expect(warmupLane.locator("header b")).toHaveText("2");
       await expect(madeLane.locator("header b")).toHaveText("3");
       await expect(currentLane.locator(".cc-task-row strong")).toHaveText("创作专注");
-      await expect(currentLane.locator(".cc-task-state")).toHaveText("进行中");
+      await expect(currentLane.locator(".cc-task-state")).toHaveText("待开始");
       await expect(warmupLane.locator(".cc-task-row .cc-task-state")).toHaveText(["待开始", "待开始"]);
-      await expect(madeLane.locator(".cc-task-row .cc-task-state")).toHaveText(["已记录", "已记录", "已记录"]);
+      await expect(madeLane.locator(".cc-task-row .cc-task-state")).toHaveText(["已完成", "已完成", "已完成"]);
       const titles = await page.locator(".cc-task-row strong").allTextContents();
       expect(titles).toEqual(["创作专注", "整理收尾", "阅读沉淀", "早间启动", "深度工作", "专注时段"]);
       expect(new Set(titles).size).toBe(6);
@@ -1357,20 +1435,20 @@ for (const [card, themeId, view, label] of conceptScreens) {
       await page.mouse.move(800, 870);
     }
     if (themeId === "clutch-court" && view === "todos") {
-      await expect(surface.getByRole("heading", { name: "把待办排成回合", exact: true })).toBeVisible();
-      await expect(surface.getByRole("button", { name: "布置新回合", exact: true })).toBeVisible();
+      await expect(surface.getByRole("heading", { name: "把待办排进战术板", exact: true })).toBeVisible();
+      await expect(surface.getByRole("button", { name: "新增待办", exact: true })).toBeVisible();
       await expect(page.locator(".cc-create-play")).toHaveCount(0);
       await expect(page.locator(".cc-lane")).toHaveCount(3);
       await expect(page.locator(".cc-lane--warmup .cc-task-row")).toHaveCount(2);
       await expect(page.locator(".cc-lane--current .cc-task-row")).toHaveCount(1);
       await expect(page.locator(".cc-lane--made .cc-task-row")).toHaveCount(3);
       await expect(page.locator(".cc-lane--current")).toContainText("创作专注");
-      await expect(page.locator(".cc-lane--current .cc-task-row:not(.complete) .cc-task-state")).toHaveText("进行中");
+      await expect(page.locator(".cc-lane--current .cc-task-row:not(.complete) .cc-task-state")).toHaveText("待开始");
       await expect(page.locator(".cc-lane--current > footer")).toContainText("今日完成 3 / 6");
       await expect(page.locator(".cc-lane--warmup")).toContainText("整理收尾");
       await expect(page.locator(".cc-lane--warmup")).toContainText("阅读沉淀");
       await expect(page.locator(".cc-lane--warmup .cc-task-state")).toHaveText(["待开始", "待开始"]);
-      await expect(page.locator(".cc-lane--made .cc-task-state")).toHaveText(["已记录", "已记录", "已记录"]);
+      await expect(page.locator(".cc-lane--made .cc-task-state")).toHaveText(["已完成", "已完成", "已完成"]);
       const lanes = await page.locator(".cc-lane").evaluateAll((elements) => elements.map((element) => {
         const rect = element.getBoundingClientRect();
         return { className: element.className, x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width), height: Math.round(rect.height) };
@@ -1428,21 +1506,21 @@ for (const [card, themeId, view, label] of conceptScreens) {
       await expect(page.locator(".cc-today-hero .cc-scoreboard--featured")).toBeVisible();
       await expect(page.locator(".cc-scoreboard--featured > div:nth-child(2) > strong > b")).toHaveText("45:00");
       await expect(page.locator(".cc-home-court .cc-center-clock > strong")).toHaveText("45:00");
-      await expect(page.locator(".cc-round-markers > .cc-round-marker")).toHaveCount(5);
+      await expect(page.locator(".cc-round-markers > .cc-round-marker")).toHaveCount(6);
       await expect(page.locator(".cc-round-markers > .cc-round-marker.done")).toHaveCount(3);
       await expect(page.locator(".cc-round-markers > .cc-round-marker.current")).toHaveCount(1);
-      await expect(page.locator(".cc-round-markers > .cc-round-marker:not(.done):not(.current)")).toHaveCount(1);
+      await expect(page.locator(".cc-round-markers > .cc-round-marker:not(.done):not(.current)")).toHaveCount(2);
       await expect(page.locator(".cc-round-markers > .cc-round-marker.current .cc-round-marker__copy > strong")).toHaveText("创作专注");
       await expect(page.locator(".cc-round-markers > .cc-round-marker.current .cc-round-marker__copy > small")).toHaveText("16:00");
-      await expect(page.locator(".cc-round-markers > .cc-round-marker.current .cc-round-marker__copy > em")).toHaveText("当前回合");
-      await expect(page.locator(".cc-round-markers > .cc-round-marker.current .cc-round-marker__copy")).toContainText("当前回合");
-      await expect(page.locator(".cc-round-markers > .cc-round-marker .cc-round-marker__copy > strong")).toHaveText(["早间启动", "深度工作", "专注时段", "创作专注", "整理收尾"]);
-      await expect(page.locator(".cc-round-markers > .cc-round-marker .cc-round-marker__copy > small")).toHaveText(["08:00", "09:30", "14:00", "16:00", "19:00"]);
-      await expect(page.locator(".cc-round-markers > .cc-round-marker .cc-round-marker__copy > em")).toHaveText(["已完成", "已完成", "已完成", "当前回合", "待开始"]);
+      await expect(page.locator(".cc-round-markers > .cc-round-marker.current .cc-round-marker__copy > em")).toHaveText("下一项");
+      await expect(page.locator(".cc-round-markers > .cc-round-marker.current .cc-round-marker__copy")).toContainText("下一项");
+      await expect(page.locator(".cc-round-markers > .cc-round-marker .cc-round-marker__copy > strong")).toHaveText(["早间启动", "深度工作", "专注时段", "创作专注", "整理收尾", "阅读沉淀"]);
+      await expect(page.locator(".cc-round-markers > .cc-round-marker .cc-round-marker__copy > small")).toHaveText(["08:00", "09:30", "14:00", "16:00", "19:00", "20:30"]);
+      await expect(page.locator(".cc-round-markers > .cc-round-marker .cc-round-marker__copy > em")).toHaveText(["已完成", "已完成", "已完成", "下一项", "待开始", "待开始"]);
       await expect(page.locator(".cc-shotclock-badge")).toContainText("THEME PLATE");
       const butlerCard = page.locator(".cc-butler-card--today");
       await expect(butlerCard).toHaveAttribute("data-butler-style", "court-poster");
-      await expect(butlerCard.locator("img")).toHaveAttribute("src", "/theme-assets/jimmy-butler-cutout.png");
+      await expect(butlerCard.locator("img")).toHaveAttribute("src", "/theme-assets/jimmy-butler-home-warriors10.png");
       await expect(butlerCard.locator("div strong")).toHaveText("CLUTCH MODE");
       await expect(page.locator(".cc-round-markers > .cc-round-marker.done").first()).toHaveCSS("opacity", "1");
       const hero = await page.locator(".cc-today-hero").boundingBox();
@@ -1476,8 +1554,9 @@ for (const [card, themeId, view, label] of conceptScreens) {
       expect(hoopGeometry[0].centerX).toBeLessThan(180);
       expect(hoopGeometry[1].centerX).toBeGreaterThan(1180);
       expect(hoopGeometry[1].centerX).toBeLessThan(1250);
-      const referenceMarkers = [{ x: 331, y: 297 }, { x: 810, y: 311 }, { x: 287, y: 656 }, { x: 840, y: 656 }, { x: 574, y: 756 }];
-      expect(markerGeometry.every((marker, index) => Math.abs(marker.numberX - referenceMarkers[index].x) <= 5 && Math.abs(marker.numberY - referenceMarkers[index].y) <= 6 && Math.abs(marker.width - 250) <= 1), JSON.stringify(markerGeometry)).toBeTruthy();
+      expect(markerGeometry).toHaveLength(6);
+      expect(markerGeometry.every((marker) => marker.x >= court.x - 1 && marker.x + marker.width <= court.x + court.width + 1 && marker.y >= court.y - 1 && marker.y + marker.height <= court.y + court.height + 1), JSON.stringify({ court, markerGeometry })).toBeTruthy();
+      expect(markerGeometry.every((marker) => marker.x + marker.width <= clock.x || marker.x >= clock.x + clock.width || marker.y + marker.height <= clock.y || marker.y >= clock.y + clock.height), JSON.stringify({ clock, markerGeometry })).toBeTruthy();
       expect(Math.abs(clock.x - 462)).toBeLessThanOrEqual(3);
       expect(Math.abs(clock.y - 388)).toBeLessThanOrEqual(8);
       expect(Math.abs(clock.width - 380)).toBeLessThanOrEqual(2);
@@ -1508,11 +1587,13 @@ for (const [card, themeId, view, label] of conceptScreens) {
       const butlerCard = page.locator(".cc-timer-layout > .cc-butler-card--timer");
       await expect(butlerCard).toHaveAttribute("data-butler-style", "focus-portrait");
       await expect(butlerCard.locator("img")).toHaveAttribute("src", "/theme-assets/jimmy-butler-focus-action.png");
+      await butlerCard.locator("img").evaluate((image) => image.decode());
       await expectTransparentCutout(butlerCard.locator("img"), 1024, 1536);
+      await expect(page.locator(".cc-timer-layout")).not.toContainText("24 SEC");
       await expect(page.locator(".new-theme-bar-meta > strong")).toHaveText("JIMMY BUTLER　·　WARRIORS");
       await expect(butlerCard.locator("div span")).toHaveText("JIMMY BUTLER　·　#10");
       await expect(butlerCard.locator("div strong")).toHaveText("CLUTCH MODE");
-      await expect(butlerCard.locator("div small")).toHaveText("关键时刻，专注打好眼前这一球。");
+      await expect(butlerCard.locator("div small")).toHaveText("关键时刻，专注打好眼前这一段。");
     }
     if (themeId === "clutch-court" && view === "records") {
       await expect(page.locator(".cc-boxscore > div")).toHaveCount(4);
@@ -1617,10 +1698,12 @@ for (const [card, themeId, view, label] of conceptScreens) {
         const root = document.querySelector(".nt-settings-page--clutch").getBoundingClientRect();
         const grid = document.querySelector(".nt-settings-page--clutch .nt-settings-grid").getBoundingClientRect();
         const preview = document.querySelector(".nt-settings-page--clutch .nt-live-preview").getBoundingClientRect();
+        const nav = document.querySelector(".minimal-nav").getBoundingClientRect();
         return {
           root: { x: root.x, y: root.y, width: root.width, height: root.height, right: root.right, bottom: root.bottom },
           grid: { x: grid.x, y: grid.y, top: grid.top, width: grid.width, height: grid.height, right: grid.right, bottom: grid.bottom },
           preview: { x: preview.x, y: preview.y, left: preview.left, top: preview.top, width: preview.width, height: preview.height, right: preview.right, bottom: preview.bottom },
+          nav: { top: nav.top, bottom: nav.bottom },
           identity: rect(".nt-identity-response"),
           clock: rect(".nt-clock-settings"),
           alerts: rect(".nt-alert-settings"),
@@ -1628,15 +1711,20 @@ for (const [card, themeId, view, label] of conceptScreens) {
         };
       });
       for (const [key, expected] of Object.entries({
-        identity: { x: 40, y: 215, width: 519, height: 304 },
-        clock: { x: 570, y: 215, width: 480, height: 304 },
-        alerts: { x: 40, y: 530, width: 519, height: 304 },
-        data: { x: 570, y: 530, width: 480, height: 304 },
+        identity: { x: 40, y: 215, width: 519 },
+        clock: { x: 570, y: 215, width: 480 },
+        alerts: { x: 40, width: 519 },
+        data: { x: 570, width: 480 },
       })) {
         for (const [dimension, target] of Object.entries(expected)) {
           expect(Math.abs(geometry[key][dimension] - target), `${key}.${dimension}: ${geometry[key][dimension]}`).toBeLessThanOrEqual(2);
         }
       }
+      expect(geometry.identity.height).toBeGreaterThanOrEqual(304);
+      expect(geometry.clock.height).toBeGreaterThanOrEqual(304);
+      expect(Math.abs(geometry.alerts.y - Math.max(geometry.identity.bottom, geometry.clock.bottom) - 11)).toBeLessThanOrEqual(2);
+      expect(Math.abs(geometry.data.y - geometry.alerts.y)).toBeLessThanOrEqual(2);
+      expect(geometry.grid.bottom).toBeLessThanOrEqual(geometry.nav.top);
       expect(Math.abs(geometry.preview.width - 384)).toBeLessThanOrEqual(1);
       expect(Math.abs(geometry.preview.height - 620)).toBeLessThanOrEqual(1);
       expect(Math.abs(geometry.preview.top - geometry.grid.top)).toBeLessThanOrEqual(1);
@@ -1959,6 +2047,28 @@ test("CC-05 locker room stays reachable at tablet and phone widths", async ({ pa
     await expect(preview).toBeVisible();
     await expect(page.locator(".nt-jimmy-preview")).toBeVisible();
     await expect(page.getByRole("button", { name: "保存书房布置", exact: true })).toHaveCount(0);
+    await expect(page.locator(".nt-data-settings > .nt-section-title h2")).toHaveText("本地数据与备份");
+    await expect(page.getByText(/录像/)).toHaveCount(0);
+    const headerContrast = await page.evaluate(() => {
+      const rgb = (value) => value.match(/[\d.]+/g).slice(0, 3).map(Number);
+      const luminance = (value) => value.map((channel) => {
+        const c = channel / 255;
+        return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+      }).reduce((sum, channel, index) => sum + channel * [0.2126, 0.7152, 0.0722][index], 0);
+      const text = getComputedStyle(document.querySelector(".nt-settings-head > p"));
+      const background = getComputedStyle(document.querySelector(".minimal-content"));
+      const a = luminance(rgb(text.color));
+      const b = luminance(rgb(background.backgroundColor));
+      return { ratio: (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05), fontSize: Number.parseFloat(text.fontSize) };
+    });
+    expect(headerContrast.ratio, JSON.stringify(headerContrast)).toBeGreaterThanOrEqual(4.5);
+    expect(headerContrast.fontSize).toBeGreaterThanOrEqual(12);
+    const helperFontSize = await page.locator(".nt-settings-page--clutch .nt-slider-control small").first().evaluate((element) => Number.parseFloat(getComputedStyle(element).fontSize));
+    expect(helperFontSize).toBeGreaterThanOrEqual(12);
+    const clearButton = page.locator(".nt-data-settings .nt-data-actions button").last();
+    await clearButton.scrollIntoViewIfNeeded();
+    await expect(clearButton).toBeVisible();
+    await expect(page.locator(".nt-data-settings .nt-portable-backup-details summary")).toBeVisible();
     const measurements = await page.evaluate(() => ({
       viewportWidth: document.documentElement.clientWidth,
       scrollWidth: document.documentElement.scrollWidth,
@@ -1986,6 +2096,7 @@ test("CC-05 settings auto-save and update the live home-court preview", async ({
   const brightness = page.getByRole("slider", { name: "画面明暗" });
   const motion = page.getByRole("slider", { name: "动效程度" });
   const density = page.getByRole("group", { name: "信息密度" });
+  await expect(settings.locator(".nt-density-control")).toContainText("舒展：卡片和行间距更宽松");
   const appPreferenceUpdates = await page.evaluate(() => window.__appPreferenceUpdateCalls);
   const timerPreferenceUpdates = await page.evaluate(() => window.__timerPreferenceUpdateCalls);
   const initialVisual = await preview.evaluate((element) => getComputedStyle(element).getPropertyValue("--nt-visual"));
@@ -2005,6 +2116,7 @@ test("CC-05 settings auto-save and update the live home-court preview", async ({
 
   await density.getByRole("button", { name: "紧凑", exact: true }).click();
   await expect(preview).toHaveAttribute("data-density", "compact");
+  await expect(settings.locator(".nt-density-control")).toContainText("紧凑：同屏显示更多待办与记录");
   await expect(preview.locator(".nt-jimmy-preview")).not.toHaveCSS("transform", initialPortraitTransform);
 
   const stopwatchReminder = page.getByRole("spinbutton", { name: "正向计时提醒分钟数" });
@@ -2046,7 +2158,7 @@ test("CC-03 playbook task creation, editing, completion, restoration, and deleti
   await expect(page.locator(".cc-lane--current .cc-task-row")).toHaveCount(1);
   await expect(page.locator(".cc-lane--warmup .cc-task-row")).toHaveCount(2);
   await expect(page.locator(".cc-lane--made .cc-task-row")).toHaveCount(3);
-  const addButton = page.locator(".cc-todos-page > .cc-page-head").getByRole("button", { name: "布置新回合", exact: true });
+  const addButton = page.locator(".cc-todos-page > .cc-page-head").getByRole("button", { name: "新增待办", exact: true });
   await addButton.click();
   const title = page.locator('input[name="clutchTodoTitle"]');
   await expect(title).toBeVisible();
@@ -2056,7 +2168,7 @@ test("CC-03 playbook task creation, editing, completion, restoration, and deleti
   await page.locator('input[name="clutchTodoDate"]').fill("2026-09-24");
   await page.locator('input[name="clutchTodoTime"]').fill("21:15");
   await page.locator('select[name="clutchTodoImportance"]').selectOption("high");
-  await page.getByRole("button", { name: "确认布置", exact: true }).click();
+  await page.getByRole("button", { name: "保存待办", exact: true }).click();
 
   await expect(page.locator(".cc-create-play")).toHaveCount(0);
   let created = page.locator(".cc-lane--warmup .cc-task-row").filter({ hasText: "加练罚球" });
@@ -2103,7 +2215,7 @@ test("CC-03 warmup preserves inbox, future, and overdue tasks without inventing 
   await expect(warmup.locator(".cc-task-row").filter({ hasText: "回看上次停笔位置" })).toContainText("未安排");
   await expect(warmup.locator(".cc-task-row").filter({ hasText: "准备下周选题" })).toContainText("待开始");
   await expect(page.locator(".cc-lane--made .cc-task-row")).toHaveCount(0);
-  await expect(page.locator(".cc-lane--made .cc-empty")).toContainText("完成事项后");
+  await expect(page.locator(".cc-lane--made .cc-empty")).toContainText("完成待办后");
 });
 
 test("CC-03 empty playbook has explicit current and completed states", async ({ page }) => {
@@ -2111,8 +2223,9 @@ test("CC-03 empty playbook has explicit current and completed states", async ({ 
   await bootReferenceMock(page, { themeId: "clutch-court", includeTodo: false, includeInbox: false, recordCount: 0, currentTodoId: null, todayPickIds: [] });
   await navButton(page, "待办").click();
   await expect(page.locator(".cc-lane--warmup .cc-task-row")).toHaveCount(0);
-  await expect(page.locator(".cc-lane--current .cc-empty")).toContainText("今天还没有回合");
-  await expect(page.locator(".cc-lane--made .cc-empty")).toContainText("完成事项后");
+  await expect(page.locator(".cc-lane--current .cc-empty")).toContainText("当前没有待办");
+  await expect(page.locator(".cc-create-play")).toBeVisible();
+  await expect(page.locator(".cc-lane--made .cc-empty")).toContainText("完成待办后");
 });
 
 test("CC-03 playbook controls fit tablet and phone widths", async ({ page }) => {
@@ -2135,7 +2248,7 @@ test("CC-03 playbook controls fit tablet and phone widths", async ({ page }) => 
       return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
     }));
     expect(bounds.every((rect) => rect.left >= -1 && rect.right <= width + 1), JSON.stringify({ width, bounds })).toBeTruthy();
-    const add = page.locator(".cc-todos-page > .cc-page-head").getByRole("button", { name: "布置新回合", exact: true });
+    const add = page.locator(".cc-todos-page > .cc-page-head").getByRole("button", { name: "新增待办", exact: true });
     await add.click();
     const controls = page.locator(".cc-create-play input, .cc-create-play select, .cc-create-play button");
     await expect(controls).toHaveCount(5);
@@ -2145,7 +2258,7 @@ test("CC-03 playbook controls fit tablet and phone widths", async ({ page }) => 
     }));
     expect(fieldBounds.every((rect) => rect.left >= -1 && rect.right <= width + 1 && rect.width > 0), JSON.stringify({ width, fieldBounds })).toBeTruthy();
     await page.screenshot({ path: testOutputPath("CC-03-responsive", `CC-03-${width}.png`), animations: "disabled" });
-    await page.locator(".cc-todos-page > .cc-page-head").getByRole("button", { name: "收起新回合", exact: true }).click();
+    await page.locator(".cc-todos-page > .cc-page-head").getByRole("button", { name: "收起新增待办", exact: true }).click();
   }
 });
 
@@ -2170,6 +2283,17 @@ test("CC-04 selecting any day synchronizes chart, date summary, session map, and
   await expect(points.last()).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator(".cc-day-boxscore .cc-panel-heading")).toContainText("9/23");
   await expect(page.locator(".cc-game-log .cc-log-row")).toHaveCount(3);
+});
+
+test("CC-04 night distribution includes after-midnight completion times", async ({ page }) => {
+  await page.setViewportSize({ width: 1487, height: 1058 });
+  await bootReferenceMock(page, {
+    themeId: "clutch-court",
+    demoMode: true,
+    demoTimeOverrides: { "19": "04:30", "20": "22:00", "21": "13:15" },
+  });
+  await navButton(page, "记录").click();
+  await expect(page.locator(".cc-period-column > strong")).toHaveText(["0m", "45m", "0m", "2h"]);
 });
 
 test("CC-04 manual supplement, rename, detailed edit, delete, and day history expansion work", async ({ page }) => {
@@ -2265,14 +2389,29 @@ test("CC-01 home remains complete at tablet and phone widths", async ({ page }) 
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootReferenceMock(page, { themeId: "clutch-court", demoMode: true });
+  await bootReferenceMock(page, { themeId: "clutch-court", demoMode: true, countdownPreview: true });
 
-  for (const width of [1024, 560]) {
-    await page.setViewportSize({ width, height: 900 });
+  for (const [width, height] of [[1024, 900], [800, 900], [560, 900], [390, 844]]) {
+    await page.setViewportSize({ width, height });
+    await page.locator(".cc-today-page").evaluate((element) => {
+      for (let node = element; node; node = node.parentElement) node.scrollTop = 0;
+      window.scrollTo(0, 0);
+    });
     const surface = page.locator(".cc-today-page");
     await expect(surface).toBeVisible();
-    await expect(page.locator(".cc-round-markers > .cc-round-marker")).toHaveCount(5);
+    await expect(page.locator(".cc-round-markers > .cc-round-marker")).toHaveCount(6);
     await expect(page.locator(".cc-home-court .cc-center-clock > strong")).toHaveText("45:00");
+    if (width <= 700) {
+      const operationalTextSizes = await page.evaluate(() => [
+        ".cc-scoreboard--featured > div > span",
+        ".cc-scoreboard--featured > div > small",
+        ".cc-center-clock > span:first-child",
+        ".cc-center-clock > small",
+        ".cc-clock-status",
+        ".cc-center-clock > .cc-lime-button",
+      ].map((selector) => Number.parseFloat(getComputedStyle(document.querySelector(selector)).fontSize)));
+      expect(operationalTextSizes.every((size) => size >= 12), JSON.stringify({ width, operationalTextSizes })).toBeTruthy();
+    }
     const layout = await page.evaluate(() => ({
       viewportWidth: document.documentElement.clientWidth,
       documentWidth: document.documentElement.scrollWidth,
@@ -2280,6 +2419,15 @@ test("CC-01 home remains complete at tablet and phone widths", async ({ page }) 
         const rect = element.getBoundingClientRect();
         return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
       }),
+      clock: (() => { const rect = document.querySelector(".cc-center-clock").getBoundingClientRect(); return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom }; })(),
+      navButtons: Array.from(document.querySelectorAll(".minimal-nav > button"), (element) => ({ width: element.clientWidth, scrollWidth: element.scrollWidth })),
+      nav: (() => { const rect = document.querySelector(".minimal-nav").getBoundingClientRect(); return { top: rect.top, bottom: rect.bottom }; })(),
+      retiredNavBrandDisplay: getComputedStyle(document.querySelector(".minimal-nav > .trail-nav__brand")).display,
+      overflowingElements: Array.from(document.querySelectorAll("body *"), (element) => {
+        const rect = element.getBoundingClientRect();
+        const style = getComputedStyle(element);
+        return { tag: element.tagName, className: typeof element.className === "string" ? element.className : "", left: Math.round(rect.left), right: Math.round(rect.right), display: style.display };
+      }).filter((element) => element.display !== "none" && element.right > document.documentElement.clientWidth + 1).slice(0, 12),
       markersContainer: (() => {
         const element = document.querySelector(".cc-round-markers");
         const rect = element.getBoundingClientRect();
@@ -2291,17 +2439,33 @@ test("CC-01 home remains complete at tablet and phone widths", async ({ page }) 
         const rect = element.getBoundingClientRect();
         return { left: rect.left, right: rect.right, width: rect.width };
       })(),
+      appBrand: (() => {
+        const rect = document.querySelector(".app-brand").getBoundingClientRect();
+        const appBar = document.querySelector(".app-bar").getBoundingClientRect();
+        return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, appBarTop: appBar.top, appBarBottom: appBar.bottom };
+      })(),
       portraitLoaded: (() => {
         const image = document.querySelector(".cc-butler-card--featured img");
         return Boolean(image?.complete && image.naturalWidth > 0);
       })(),
     }));
-    expect(layout.documentWidth).toBeLessThanOrEqual(layout.viewportWidth);
+    expect(layout.documentWidth, JSON.stringify(layout)).toBeLessThanOrEqual(layout.viewportWidth);
+    expect(layout.appBrand.left).toBeGreaterThanOrEqual(-1);
+    expect(layout.appBrand.right).toBeLessThanOrEqual(width + 1);
+    expect(layout.appBrand.top).toBeGreaterThanOrEqual(layout.appBrand.appBarTop - 1);
+    expect(layout.appBrand.bottom).toBeLessThanOrEqual(layout.appBrand.appBarBottom + 1);
+    expect(layout.retiredNavBrandDisplay).toBe("none");
     expect(layout.markers.every((rect) => rect.left >= -1 && rect.right <= width + 1), JSON.stringify({ width, ...layout })).toBeTruthy();
+    expect(layout.markers.every((rect) => rect.right <= layout.clock.left || rect.left >= layout.clock.right || rect.bottom <= layout.clock.top || rect.top >= layout.clock.bottom), JSON.stringify({ width, ...layout })).toBeTruthy();
+    if (width <= 390) {
+      expect(layout.navButtons.every((button) => button.scrollWidth <= button.width + 1), JSON.stringify({ width, navButtons: layout.navButtons })).toBeTruthy();
+      expect(layout.markers.every((rect) => rect.bottom <= layout.nav.top + 1), JSON.stringify({ width, markers: layout.markers, nav: layout.nav })).toBeTruthy();
+    }
     expect(layout.portraitLoaded).toBeTruthy();
+    if (width <= 1200) await expect(page.locator(".cc-shotclock-badge")).toBeHidden();
+    await page.screenshot({ path: testOutputPath("responsive", `CC-01-${width}.png`), animations: "disabled" });
     await page.locator(".cc-round-markers > .cc-round-marker").last().scrollIntoViewIfNeeded();
     await expect(page.locator(".cc-round-markers > .cc-round-marker").last()).toBeInViewport();
-    await page.screenshot({ path: testOutputPath("responsive", `CC-01-${width}.png`), animations: "disabled" });
   }
   expect(errors).toEqual([]);
 });
@@ -2309,12 +2473,27 @@ test("CC-01 home remains complete at tablet and phone widths", async ({ page }) 
 test("CC-01 empty court can open the playbook to add the first round", async ({ page }) => {
   await page.setViewportSize({ width: 1487, height: 1058 });
   await bootReferenceMock(page, { themeId: "clutch-court", includeTodo: false, includeInbox: false, recordCount: 0 });
-  await expect(page.locator(".cc-round-markers > .cc-round-marker.empty")).toHaveCount(5);
+  await expect(page.locator(".cc-round-markers > .cc-round-marker")).toHaveCount(0);
   const addFirst = page.locator(".cc-center-clock .cc-lime-button");
-  await expect(addFirst).toHaveText("布置第一回合");
+  await expect(addFirst).toHaveText("新增待办");
   await expect(addFirst).toBeEnabled();
   await addFirst.click();
   await expect(page.locator(".cc-todos-page")).toBeVisible();
+  await expect(page.locator(".cc-create-play")).toBeVisible();
+  const title = page.locator('input[name="clutchTodoTitle"]');
+  await title.fill("   ");
+  await page.getByRole("button", { name: "保存待办", exact: true }).click();
+  await expect(page.locator(".cc-create-error")).toContainText("请先填写待办名称");
+  await expect(title).toHaveValue("   ");
+  await title.fill("完成第一项计划");
+  await page.evaluate(() => { window.__failCreateTodoOnce = true; });
+  await page.getByRole("button", { name: "保存待办", exact: true }).click();
+  await expect(page.locator(".cc-create-error")).toContainText("保存未成功");
+  await expect(page.locator(".cc-create-play")).toBeVisible();
+  await expect(title).toHaveValue("完成第一项计划");
+  await page.getByRole("button", { name: "保存待办", exact: true }).click();
+  await expect(page.locator(".cc-create-play")).toHaveCount(0);
+  await expect(page.locator(".cc-lane--current .cc-task-row")).toContainText("完成第一项计划");
 });
 
 test("CC-01 court clock reflects running and paused focus states", async ({ page }) => {
@@ -2322,13 +2501,13 @@ test("CC-01 court clock reflects running and paused focus states", async ({ page
   await bootReferenceMock(page, { themeId: "clutch-court", demoMode: true });
   const clock = page.locator(".cc-home-court .cc-center-clock");
   await page.locator(".cc-round-markers > .cc-round-marker.current").click();
-  await expect(clock.locator(".cc-clock-status")).toHaveText("比赛进行中");
+  await expect(clock.locator(".cc-clock-status")).toHaveText("专注进行中");
   await expect(clock.locator("button")).toContainText("暂停专注");
   await expect(clock.locator("button")).toBeEnabled();
   await page.screenshot({ path: testOutputPath("timer-states", "CC-01-running.png"), animations: "disabled" });
 
   await clock.locator("button").click();
-  await expect(clock.locator(".cc-clock-status")).toHaveText("暂停");
+  await expect(clock.locator(".cc-clock-status")).toHaveText("已暂停");
   await expect(clock.locator("button")).toContainText("继续专注");
   await expect(page.locator(".cc-round-markers > .cc-round-marker.current")).toBeDisabled();
   await page.screenshot({ path: testOutputPath("timer-states", "CC-01-paused.png"), animations: "disabled" });
@@ -2340,13 +2519,14 @@ test("CC-02 game clock exposes idle, running, paused, countdown-finished, and sa
   await navButton(page, "计时").click();
   const surface = page.locator(".cc-focus-page");
   const primary = surface.locator(".cc-center-circle--timer > .cc-lime-button");
-  const status = surface.locator(".cc-quarter-badge");
+  const status = surface.locator(".cc-session-badge");
   await expect(primary).toHaveText("▶　开始专注");
+  await expect(surface.locator(".cc-scoreboard--featured > div:nth-child(2) > span")).toHaveText("专注段　/　实际用时");
   await expect(surface.locator('select[name="clutchLinkedTodo"]')).toHaveValue("104");
   await page.screenshot({ path: testOutputPath("CC-02-states", "idle.png"), animations: "disabled" });
 
   await primary.click();
-  await expect(status).toContainText("比赛进行中");
+  await expect(status).toContainText("专注进行中");
   await expect(surface.locator(".cc-center-circle--timer > strong")).toHaveText("1:00");
   await expect(primary).toHaveText("Ⅱ　暂停专注");
   await expect(surface.locator('[aria-label="计时模式"] button').first()).toBeDisabled();
@@ -2355,36 +2535,40 @@ test("CC-02 game clock exposes idle, running, paused, countdown-finished, and sa
   await page.screenshot({ path: testOutputPath("CC-02-states", "running.png"), animations: "disabled" });
 
   await primary.click();
-  await expect(status).toContainText("暂停");
+  await expect(status).toContainText("已暂停");
   await expect(primary).toHaveText("▶　继续专注");
   await expect(surface.locator(".cc-timer-actions .cc-secondary-button").first()).toBeEnabled();
   await page.screenshot({ path: testOutputPath("CC-02-states", "paused.png"), animations: "disabled" });
 
   await surface.locator(".cc-timer-actions .cc-secondary-button").last().click();
-  await expect(status).toContainText("准备开球");
+  await expect(status).toContainText("准备开始专注");
   await expect(surface.locator(".cc-center-circle--timer > strong")).toHaveText("0:00");
   await surface.locator('input[name="clutchSessionTitle"]').fill("最后一攻");
   await surface.locator('[aria-label="计时模式"] button').nth(1).click();
+  await expect(surface.locator(".cc-scoreboard--featured > div:nth-child(2) > span")).toHaveText("专注段　/　剩余时间");
   await surface.locator('input[type="number"]').fill("1");
   await primary.click();
-  await expect(status).toContainText("时间到 · 待保存");
+  await expect(status).toContainText("计时结束 · 待记录");
   await expect(primary).toHaveText("时间到 · 等待记录");
   await expect(primary).toBeDisabled();
   await expect(surface.locator(".cc-timer-actions .cc-secondary-button").first()).toBeEnabled();
   await page.screenshot({ path: testOutputPath("CC-02-states", "countdown-ended-awaiting-save.png"), animations: "disabled" });
 
   await surface.locator(".cc-timer-actions .cc-secondary-button").first().click();
-  await expect(surface.locator('.cc-confirm[role="status"]')).toHaveText("本回合已写入 box score。");
-  await expect(surface.locator(".cc-page-footer")).toContainText("今日完成 4 回合");
+  await expect(surface.locator('.cc-confirm[role="status"]')).toHaveText("专注记录已保存。");
+  await expect(surface.locator(".cc-page-footer")).toContainText("今日已记录 4 段专注");
   await surface.locator(".cc-tactics-actions button").click();
   await expect(page.locator(".cc-records-page")).toBeVisible();
   await expect(page.locator(".cc-records-page .cc-log-row")).toHaveCount(4);
   await expect(page.locator(".cc-records-page .cc-log-row").last()).toContainText("最后一攻");
+  await navButton(page, "今日").click();
+  await expect(page.locator(".cc-home-court .cc-center-clock > span:first-child")).toHaveText("专注计时　/　剩余时间");
+  await expect(page.locator(".cc-scoreboard--featured > div:nth-child(2) > span")).toHaveText("专注段　/　剩余时间");
 });
 
 test("CC-02 timer controls stay reachable at tablet and phone widths", async ({ page }) => {
   await page.setViewportSize({ width: 1487, height: 1058 });
-  await bootReferenceMock(page, { themeId: "clutch-court", demoMode: true });
+  await bootReferenceMock(page, { themeId: "clutch-court", demoMode: true, countdownPreview: true });
   await navButton(page, "计时").click();
   for (const width of [1024, 560]) {
     await page.setViewportSize({ width, height: 900 });
@@ -2524,7 +2708,7 @@ test("Clutch Court uses a distinct Jimmy Butler image on Today, timer, playbook,
 
   expect(images).toEqual([
     "/theme-assets/jimmy-butler-settings-composed.png",
-    "/theme-assets/jimmy-butler-cutout.png",
+    "/theme-assets/jimmy-butler-home-warriors10.png",
     "/theme-assets/jimmy-butler-focus-action.png",
     "/theme-assets/jimmy-butler-playbook-calling.png",
   ]);

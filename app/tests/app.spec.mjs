@@ -44,8 +44,8 @@ async function startRestoredCurrentTodo(page) {
   await expect(page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: /^待办/ })).toHaveClass(/active/);
 }
 
-async function bootWithTauriMock(page, { includeOverdue = false, includeRecords = false, windowLabel = "main", pausedFocus = false, completedCountdown = false, initialLoadError = false, autoMiniOnStart = false, todayRecordCount = includeRecords ? 1 : 0, todayTodoCount = 1, futureTodoCount = 0, completedTodoCount = 0, historyDayCount = 0, freshTodoSnapshots = false, freshRecordSnapshots = false } = {}) {
-  await page.addInitScript(({ today, includeOverdue, includeRecords, windowLabel, pausedFocus, completedCountdown, initialLoadError, autoMiniOnStart, todayRecordCount, todayTodoCount, futureTodoCount, completedTodoCount, historyDayCount, freshTodoSnapshots, freshRecordSnapshots }) => {
+async function bootWithTauriMock(page, { includeOverdue = false, includeRecords = false, windowLabel = "main", pausedFocus = false, completedCountdown = false, initialLoadError = false, autoMiniOnStart = false, delayAppPreferences = false, todayRecordCount = includeRecords ? 1 : 0, todayTodoCount = 1, futureTodoCount = 0, completedTodoCount = 0, historyDayCount = 0, freshTodoSnapshots = false, freshRecordSnapshots = false } = {}) {
+  await page.addInitScript(({ today, includeOverdue, includeRecords, windowLabel, pausedFocus, completedCountdown, initialLoadError, autoMiniOnStart, delayAppPreferences, todayRecordCount, todayTodoCount, futureTodoCount, completedTodoCount, historyDayCount, freshTodoSnapshots, freshRecordSnapshots }) => {
     const yesterday = new Date(`${today}T00:00:00`);
     yesterday.setDate(yesterday.getDate() - 1);
     const dateKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -212,6 +212,11 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
     window.__backupImportCalls = 0;
     window.__appPreferenceUpdateCalls = 0;
     window.__failAppPreferenceSave = false;
+    window.__releaseAppPreferencesLoad = null;
+    window.__delayNextAppPreferencesRead = false;
+    window.__releaseNextAppPreferencesRead = null;
+    window.__delayedAppPreferenceReadsCompleted = 0;
+    window.__appStateSyncEmits = 0;
     let initialLoadFailures = initialLoadError ? 1 : 0;
     const eventCallbacks = new Map();
     const eventListeners = new Map();
@@ -396,6 +401,7 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
           case "plugin:event|unlisten":
             return null;
           case "plugin:event|emit": {
+            if (args.event === "app-state-sync") window.__appStateSyncEmits += 1;
             for (const callbackId of eventListeners.get(args.event) ?? []) {
               eventCallbacks.get(callbackId)?.({
                 event: args.event,
@@ -410,8 +416,18 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
             return timer;
           case "get_timer_preferences":
             return timerPreferences;
-          case "get_app_preferences":
-            return appPreferences;
+          case "get_app_preferences": {
+            const snapshot = { ...appPreferences };
+            if (delayAppPreferences) {
+              await new Promise((resolve) => { window.__releaseAppPreferencesLoad = resolve; });
+            }
+            if (window.__delayNextAppPreferencesRead) {
+              window.__delayNextAppPreferencesRead = false;
+              await new Promise((resolve) => { window.__releaseNextAppPreferencesRead = resolve; });
+              window.__delayedAppPreferenceReadsCompleted += 1;
+            }
+            return snapshot;
+          }
           case "get_focus_plan":
             return focusPlan;
           case "update_app_preferences":
@@ -631,7 +647,7 @@ async function bootWithTauriMock(page, { includeOverdue = false, includeRecords 
         }
       },
     };
-  }, { today: localDate(), includeOverdue, includeRecords, windowLabel, pausedFocus, completedCountdown, initialLoadError, autoMiniOnStart, todayRecordCount, todayTodoCount, futureTodoCount, completedTodoCount, historyDayCount, freshTodoSnapshots, freshRecordSnapshots });
+  }, { today: localDate(), includeOverdue, includeRecords, windowLabel, pausedFocus, completedCountdown, initialLoadError, autoMiniOnStart, delayAppPreferences, todayRecordCount, todayTodoCount, futureTodoCount, completedTodoCount, historyDayCount, freshTodoSnapshots, freshRecordSnapshots });
 
   await page.goto("/");
   if (windowLabel === "main") {
@@ -1735,15 +1751,41 @@ test("portable backup preview and import expose the v3 restore choice", async ({
   await expect.poll(() => page.evaluate(() => window.__backupImportCalls)).toBe(1);
 });
 
+test("settings cannot overwrite loaded preferences while the initial snapshot is pending", async ({ page }) => {
+  await bootWithTauriMock(page, { delayAppPreferences: true });
+  await page.getByRole("button", { name: "设置", exact: true }).click();
+
+  const content = page.locator(".minimal-content");
+  const themeChoice = page.locator(".nv-theme-card").filter({ hasText: "编辑纸页" });
+  const chooseTheme = themeChoice.click({ timeout: 10_000 });
+  await expect(content).toHaveJSProperty("inert", true);
+  await expect.poll(() => page.evaluate(() => typeof window.__releaseAppPreferencesLoad)).toBe("function");
+  await page.evaluate(() => window.__releaseAppPreferencesLoad?.());
+  await chooseTheme;
+
+  await expect(content).toHaveJSProperty("inert", false);
+  await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "editorial-paper");
+});
+
 test("failed appearance persistence keeps the live change and offers retry", async ({ page }) => {
   await bootWithTauriMock(page);
   await page.getByRole("button", { name: "设置", exact: true }).click();
-  await page.evaluate(() => { window.__failAppPreferenceSave = true; });
+  await expect(page.locator(".minimal-content")).toHaveJSProperty("inert", false);
+  const initialSyncEmits = await page.evaluate(() => window.__appStateSyncEmits);
+  await page.evaluate(() => {
+    window.__failAppPreferenceSave = true;
+    window.__delayNextAppPreferencesRead = true;
+  });
+  await expect.poll(() => page.evaluate(() => typeof window.__releaseNextAppPreferencesRead)).toBe("function");
   await page.locator(".nv-theme-card").filter({ hasText: "编辑纸页" }).click();
 
   await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "editorial-paper");
   const error = page.locator(".restored-settings-compatibility").getByRole("alert").filter({ hasText: "外观设置保存失败" });
   await expect(error).toBeVisible({ timeout: 3000 });
+  await page.evaluate(() => window.__releaseNextAppPreferencesRead?.());
+  await expect.poll(() => page.evaluate(() => window.__delayedAppPreferenceReadsCompleted)).toBe(1);
+  await expect.poll(() => page.evaluate(() => window.__appStateSyncEmits)).toBeGreaterThan(initialSyncEmits);
+  await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "editorial-paper");
   await page.evaluate(() => { window.__failAppPreferenceSave = false; });
   await error.getByRole("button", { name: "重试保存" }).click();
   await expect(error).toBeHidden({ timeout: 3000 });

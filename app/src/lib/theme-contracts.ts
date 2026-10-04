@@ -117,7 +117,7 @@ export interface TodoSurfaceProps {
   onTodoDueDateChange: (value: string) => void;
   onTodoDueTimeChange: (value: string) => void;
   onTodoImportanceChange: (value: TodoImportance) => void;
-  onAddTodo: () => void | Promise<void>;
+  onAddTodo: () => void | Promise<void | boolean>;
   onToggle: (id: number) => void;
   onBeginEdit: (item: TodoItem) => void;
   onUseForFocus: (item: TodoItem) => void;
