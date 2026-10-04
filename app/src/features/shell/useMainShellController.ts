@@ -118,6 +118,8 @@ type RecordEditDraft = {
   linkedTodoId: number | null;
 };
 type ContinuationPrompt = { todoId: number; title: string };
+type ActionResult<T> = { status: "success"; value: T } | { status: "failed"; error: unknown } | { status: "busy" };
+export type FollowUpTask = { id: string; message: string; retry: () => Promise<void> };
 type AppStateSyncPayload = {
   timer: TimerSnapshot;
   todos: TodoItem[];
@@ -369,6 +371,7 @@ export function useMainShellController() {
   const [loadState, setLoadState] = createSignal<LoadState>("loading");
   const [loadError, setLoadError] = createSignal("");
   const [syncError, setSyncError] = createSignal("");
+  const [followUpTasks, setFollowUpTasks] = createSignal<FollowUpTask[]>([]);
   const [undoAction, setUndoAction] = createSignal<UndoAction | null>(null);
   const [floatingTab, setFloatingTab] = createSignal<FloatingTab>("todos");
   const [floatingOpacity, setFloatingOpacity] = createSignal(readFloatingOpacity());
@@ -427,7 +430,7 @@ export function useMainShellController() {
 
   async function emitAppStateSync() {
     const currentAnalytics = analytics();
-    if (!currentAnalytics) return;
+    if (!currentAnalytics || !ready()) return;
     try {
       await emit(appStateSyncEvent, {
         timer: timer(),
@@ -948,9 +951,9 @@ export function useMainShellController() {
     }, "正在加载…");
   }
 
-  async function run(action: () => Promise<void>, actionLabel = "正在处理…") {
+  async function run<T>(action: () => Promise<T>, actionLabel = "正在处理…"): Promise<ActionResult<T>> {
     if (busy()) {
-      return;
+      return { status: "busy" };
     }
 
     invalidateRefreshes();
@@ -958,14 +961,46 @@ export function useMainShellController() {
     setBusyLabel(actionLabel);
     clearMessage();
     try {
-      await action();
+      const value = await action();
       await emitAppStateSync();
+      return { status: "success", value };
     } catch (error) {
       showMessage(getErrorMessage(error), "error");
+      return { status: "failed", error };
     } finally {
       setBusy(false);
       setBusyLabel("");
     }
+  }
+
+  async function followUp(id: string, message: string, action: () => Promise<void>) {
+    try {
+      await action();
+      setFollowUpTasks((tasks) => tasks.filter((task) => task.id !== id));
+    } catch {
+      setFollowUpTasks((tasks) => [...tasks.filter((task) => task.id !== id), { id, message, retry: action }]);
+    }
+  }
+
+  async function retryFollowUp(id: string) {
+    const task = followUpTasks().find((item) => item.id === id);
+    if (task) await run(() => followUp(task.id, task.message, task.retry), "正在重试后续步骤…");
+  }
+
+  async function refreshAnalyticsAfterSave() {
+    await followUp("analytics", "记录已保存，统计暂未刷新。", async () => {
+      setAnalytics(await getAnalyticsSnapshot());
+    });
+  }
+
+  async function refreshAfterReplacement() {
+    // The old UI no longer describes the newly committed database. Do not
+    // let the user edit stale rows while the replacement snapshot is pending.
+    setLoadState("loading");
+    await followUp("replacement", "数据替换已完成，界面暂未刷新。请重试读取，无需再次导入或清空。", async () => {
+      await loadFromStorage();
+      await loadBackups();
+    });
   }
 
   async function changeMode(mode: TimerMode) {
@@ -1007,7 +1042,7 @@ export function useMainShellController() {
       setSavedConfirmation(false);
       setSessionTitleDirty(false);
       if (autoMiniOnStart() && (timer().modeKey === "stopwatch" || timer().modeKey === "countdown")) {
-        await showFloatingTodos();
+        await followUp("open-mini", "计时已开始，迷你工作台暂未打开。", showFloatingTodos);
       }
       showMessage("已开始计时。", "success");
     }, "正在开始…");
@@ -1043,13 +1078,13 @@ export function useMainShellController() {
       const payload = await completeFocusSession(title);
       setRecords(payload.records);
       setTodos(payload.todoItems);
-      setAnalytics(await getAnalyticsSnapshot());
       applyTimerSnapshot(payload.timerSnapshot);
       setSavedConfirmation(true);
       setSessionTitle("");
       setSessionTitleDirty(false);
       setLinkedTodoId(null);
       setCompleteLinkedTodo(false);
+      await refreshAnalyticsAfterSave();
       const linkedTodo = linkedTodoBeforeFinish === null
         ? null
         : payload.todoItems.find((item) => item.id === linkedTodoBeforeFinish);
@@ -1061,9 +1096,9 @@ export function useMainShellController() {
         setContinuationPrompt(null);
       }
       if (isFloatingWindow) {
-        await restoreMainFromFloatingTodos();
+        await followUp("restore-main", "记录已保存，主窗口暂未恢复。", restoreMainFromFloatingTodos);
       } else if (isFocusFloatingWindow) {
-        await restoreMainFromFocusFloating();
+        await followUp("restore-main", "记录已保存，主窗口暂未恢复。", restoreMainFromFocusFloating);
       }
       showMessage("已保存为一条专注记录。", "success");
     }, "正在保存…");
@@ -1209,10 +1244,10 @@ export function useMainShellController() {
         completedTime: draft.completedTime,
         linkedTodoId: draft.linkedTodoId,
       }));
-      setAnalytics(await getAnalyticsSnapshot());
       setEditingRecord(null);
       setRecordEditDialogOpen(false);
       showMessage("专注记录已更新。", "success");
+      await refreshAnalyticsAfterSave();
     }, "正在保存…");
   }
 
@@ -1448,8 +1483,7 @@ export function useMainShellController() {
 
     await run(async () => {
       const result = await importAppBackup(fileName);
-      await loadFromStorage();
-      await loadBackups();
+      await refreshAfterReplacement();
       showMessage(
         result.migratedFromFormatVersion
           ? `已升级旧版备份，并恢复 ${result.todoCount} 项待办和 ${result.focusRecordCount} 条记录。`
@@ -1497,8 +1531,7 @@ export function useMainShellController() {
     await run(async () => {
       const result = await importAppBackupPath(path, { restoreAppPreferences: restorePortableAppPreferences() });
       setPortableBackupPreview(null);
-      await loadFromStorage();
-      await loadBackups();
+      await refreshAfterReplacement();
       showMessage(`已恢复 ${result.todoCount} 项待办和 ${result.focusRecordCount} 条记录${result.migratedFromFormatVersion ? "，并完成旧版迁移" : ""}。`, "success");
     }, "正在导入便携备份…");
   }
@@ -1510,7 +1543,7 @@ export function useMainShellController() {
 
     await run(async () => {
       await clearAppData();
-      await loadFromStorage();
+      await refreshAfterReplacement();
       showMessage("本地数据已清空，已有备份仍然保留。", "success");
     }, "正在清空…");
   }
@@ -1551,7 +1584,7 @@ export function useMainShellController() {
   }
 
   async function updateFocusPlanState(next: FocusPlanState, successMessage?: string) {
-    await run(async () => {
+    return run(async () => {
       const saved = await updateFocusPlan(next);
       setFocusPlan(saved);
       if (successMessage) {
@@ -1585,8 +1618,8 @@ export function useMainShellController() {
     setLinkedTodoId(item.id);
     setSessionTitle(item.title);
     setSessionTitleDirty(true);
-    await updateFocusPlanState({ ...focusPlan(), currentTodoId: item.id });
-    await startFocus();
+    const result = await updateFocusPlanState({ ...focusPlan(), currentTodoId: item.id });
+    if (result.status === "success") await startFocus();
   }
 
   async function saveContinuationNote(id: number, note: string): Promise<boolean> {
@@ -1611,14 +1644,13 @@ export function useMainShellController() {
     completedTime: string;
     linkedTodoId: number | null;
   }): Promise<boolean> {
-    let saved = false;
-    await run(async () => {
+    const result = await run(async () => {
       setRecords(await createManualFocusRecord(payload));
-      setAnalytics(await getAnalyticsSnapshot());
-      saved = true;
+      closeManualRecord();
       showMessage("手动专注记录已补录。", "success");
+      await refreshAnalyticsAfterSave();
     }, "正在补录专注…");
-    return saved;
+    return result.status === "success";
   }
 
   async function updateRecord(payload: {
@@ -1631,9 +1663,9 @@ export function useMainShellController() {
   }) {
     await run(async () => {
       setRecords(await updateFocusRecord(payload));
-      setAnalytics(await getAnalyticsSnapshot());
       setEditingRecord(null);
       showMessage("专注记录已修正。", "success");
+      await refreshAnalyticsAfterSave();
     }, "正在修正记录…");
   }
 
@@ -1894,7 +1926,7 @@ export function useMainShellController() {
               .catch((error) => {
                 const text = getErrorMessage(error);
                 setSyncError(text);
-                if (!hadSyncError) {
+                if (!hadSyncError && followUpTasks().length === 0) {
                   showMessage("本地数据刷新失败，请稍后重试。", "error");
                 }
               });
@@ -1993,6 +2025,8 @@ export function useMainShellController() {
     loadState,
     loadError,
     syncError,
+    followUpTasks,
+    retryFollowUp,
     undoAction,
     floatingTab,
     setFloatingTab,

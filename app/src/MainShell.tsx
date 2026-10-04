@@ -27,6 +27,7 @@ import {
   unlockFocusFloating,
 } from "./lib/window-controls";
 import CommandPalette from "./components/CommandPalette";
+import FollowUpNotice from "./components/FollowUpNotice";
 import QuickCaptureDialog from "./components/QuickCaptureDialog";
 import ManualFocusRecordDialog from "./components/ManualFocusRecordDialog";
 import ContinuationNotePrompt from "./components/ContinuationNotePrompt";
@@ -116,6 +117,8 @@ function MainShell() {
     loadState,
     loadError,
     syncError,
+    followUpTasks,
+    retryFollowUp,
     undoAction,
     floatingTab,
     setFloatingTab,
@@ -297,6 +300,7 @@ function MainShell() {
             </button>
           </div>
         </header>
+        <FollowUpNotice tasks={followUpTasks} busy={busy} onRetry={retryFollowUp} />
         <div class="focus-floating__clock">
           <span>{timer().status}</span>
           <strong>{timer().elapsedLabel}</strong>
@@ -467,6 +471,7 @@ function MainShell() {
           </section>
         </Show>
 
+        <FollowUpNotice tasks={followUpTasks} busy={busy} onRetry={retryFollowUp} />
         <nav class="floating-tabs" aria-label="悬浮内容">
           <button
             type="button"
@@ -855,6 +860,7 @@ function MainShell() {
               </div>
             </div>
           </Show>
+          <FollowUpNotice tasks={followUpTasks} busy={busy} onRetry={retryFollowUp} />
           <Show when={syncError()}>
             <div class="sync-error" role="status" aria-live="polite">
               <span>本地数据暂时没有刷新成功。</span>
