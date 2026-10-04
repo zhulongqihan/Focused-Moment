@@ -60,8 +60,8 @@ use storage::{
 };
 use tauri::{Manager, WindowEvent};
 
-const APP_VERSION: &str = "2.13.6";
-const APP_MILESTONE: &str = "v2.13.6 basketball theme language aligned with focus and task flow";
+const APP_VERSION: &str = "2.13.7";
+const APP_MILESTONE: &str = "v2.13.7 custom reminder audio uses saved preferences";
 const APP_BACKUP_KIND: &str = "focused-moment-backup";
 const APP_BACKUP_FORMAT_VERSION: u64 = 3;
 const FLOATING_WORKSPACE_SYNC_EVENT: &str = "floating-workspace-sync";

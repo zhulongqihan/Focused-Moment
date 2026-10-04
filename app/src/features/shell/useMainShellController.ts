@@ -186,7 +186,6 @@ const customAlertSoundNameKey = "focused-moment.custom-alert-sound.name";
 const floatingOpacityKey = "focused-moment.floating-window.opacity";
 export const defaultFloatingOpacity = 100;
 export const minFloatingOpacity = 45;
-const alertClaimKeyPrefix = "focused-moment.alert-claimed.";
 const maxCustomAlertSoundBytes = 5 * 1024 * 1024;
 const floatingWorkspaceSyncEvent = "floating-workspace-sync";
 const appStateSyncEvent = "app-state-sync";
@@ -273,18 +272,9 @@ export function getMotionIntensityMode(value: number): MotionIntensityMode {
   return value < 50 ? "subtle" : "full";
 }
 
-function claimAlertSequence(sequence: number) {
-  const key = `${alertClaimKeyPrefix}${sequence}`;
-  if (readLocalStorageValue(key) === "claimed") {
-    return false;
-  }
-  const stored = writeLocalStorageValue(key, "claimed");
-  return stored || readLocalStorageValue(key) !== "claimed";
-}
-
 function playAlertSound(soundKey: AlertSoundKey, customSoundData: string | null = null) {
   if (soundKey === "custom") {
-    const dataUrl = customSoundData || readLocalStorageValue(customAlertSoundDataKey);
+    const dataUrl = customSoundData;
     if (dataUrl) {
       const audio = new Audio(dataUrl);
       audio.volume = 0.85;
@@ -821,6 +811,9 @@ export function useMainShellController() {
   }
 
   function handleNewTimerAlert() {
+    // The main WebView stays alive when hidden to the tray. It owns audible
+    // reminders; sibling windows only render the shared alert state.
+    if (currentWindowLabel !== "main") return;
     const nextSequence = timer().alertSequence;
     if (observedAlertSequence === null) {
       observedAlertSequence = nextSequence;
@@ -831,14 +824,11 @@ export function useMainShellController() {
     }
 
     observedAlertSequence = nextSequence;
-    if (!claimAlertSequence(nextSequence)) {
-      return;
-    }
     if (timerPreferences().windowAttentionReminderEnabled) {
       void flashMainWindowAttention().catch(() => undefined);
     }
     if (timerPreferences().soundReminderEnabled) {
-      playAlertSound(timerPreferences().alertSoundKey);
+      playAlertSound(timerPreferences().alertSoundKey, customAlertSoundData());
     }
   }
 

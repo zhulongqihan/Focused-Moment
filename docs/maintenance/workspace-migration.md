@@ -194,3 +194,10 @@
 - Release EXE：根目录 `Focused Moment.exe`，2.13.6，46,015,488 bytes，SHA-256 `0D0C4B31ED83C980624C8AD5B9713CC5D7451D865DF84A256CB2CB6FEC257C34`；build ID `local-20261004-195659-9ffda0e844`；provenance 位于 `artifacts/builds/local/local-20261004-195659-9ffda0e844/`，184 项输入、`relevantBuildInputDirty=false`。前一入口恢复副本位于 `archive/executables/local/local-20261004-195659-9ffda0e844/Focused Moment.exe`，前版哈希 `A84C09BDE80A900B41D40B43443549C9A2E1CD62DA2218B840A86089131B8F14`。
 - 应用修复提交 `0069314a50656eecf77a1dbe7eee90f18020beda` 与交付文档提交 `33ff8f8` 已快进推送到 `origin/codex/focused-moment-continuity`；正式说明为 `docs/v2.13.6/RELEASE_NOTES.md`。不创建 tag、GitHub Release、安装包或上传资产。
 - `PROJECT_PLAN.md` 按保护要求保持字节/哈希不变：`E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`。`div` 与四份 `docs/context_summary_20260924_*.md` 保持未暂存/未提交；构建 manifest 也将这些非构建输入显示为未提交来源状态。
+
+## 2026-10-05 优化 U1：自定义提醒音源
+
+- 按已批准优化计划实施，详细队列见 optimization-plan.md。
+- 自动提醒与试听改用保存的音源；由主窗口独占声音/任务栏提醒，浮窗展示状态。
+- 浏览器 mock 音效专项 3/3、TypeScript 检查通过；当前未声称 Windows 可听播放已通过，阶段原生验收和根入口交付待执行。
+- 独立版本输入 2.13.7；PROJECT_PLAN.md 原字节受保护，既有用户文件不纳入提交。
