@@ -231,8 +231,6 @@ function MainShell() {
     paletteCommands,
     updateFloatingOpacity,
     showFloatingTodos,
-    setCommandInput,
-    setCommandTrigger,
     setFloatingWorkspaceElement,
   } = useMainShellController();
 
@@ -688,7 +686,6 @@ function MainShell() {
           <button
             type="button"
             class="command-trigger"
-            ref={(element) => setCommandTrigger(element)}
             aria-keyshortcuts="Control+K Meta+K"
             aria-haspopup="dialog"
             aria-expanded={commandPaletteOpen()}
@@ -1005,7 +1002,7 @@ function MainShell() {
               recordGroups: () => recordGroups(),
               ready,
               busy,
-              editingRecord: () => editingRecord(),
+              editingRecord: () => recordEditDialogOpen() ? null : editingRecord(),
               todoCompletionPercent,
               recentWeekActiveDays,
               recentWeekDurationMs,
@@ -1190,7 +1187,6 @@ function MainShell() {
           open={commandPaletteOpen}
           search={commandSearch}
           commands={paletteCommands}
-          inputRef={(element) => setCommandInput(element)}
           onSearch={setCommandSearch}
           onClose={closeCommandPalette}
           onExecute={executePaletteCommand}

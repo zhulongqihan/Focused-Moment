@@ -207,3 +207,31 @@
 - 补录/完成/修改记录立即应用提交结果，统计失败提供独立重试，不重复写入；窗口切换与导入/清空后的读取使用独立后续任务。
 - 故障注入浏览器 mock 4/4、TypeScript 通过。初轮发现重试提示被顶栏遮挡，已使用独立定位样式修复并实际点击验收。
 - 版本2.13.8；根入口尚未重建，原生阶段验收待后续。PROJECT_PLAN.md哈希未变。
+
+### 2026-10-11 优化重启计划批次 0：恢复可验证基线
+
+- **最新依据**：按本轮用户提供的优化重启目标执行。真实源码为 2.13.8，分支 codex/focused-moment-continuity，HEAD 与 origin 同步；PROJECT_PLAN.md 中较旧的项目快照和本轮用户 diff 保持原样。
+- **旧报告归档**：.impeccable/critique/2026-10-04T12-02-05Z__app-src-components-clutchcourtviews-tsx.md 按原字节保存至 archive/workspace-migrations/20261011-pre-batch-a/impeccable/critique/；源文件 SHA-256 为 9C0D95739DF0B092A10ACD0277742F0EAB21EC0822EFFDFC2D1418142F5EE80D。确认目录仅含该报告并移除空目录，结构规则未放宽。
+- **差异保护**：完整应用补丁和未跟踪应用文件副本保存在 archive/workspace-migrations/20261011-pre-batch-a/；manifest 记录 16 个 tracked 改动文件、10 个新文件副本及 SHA-256。首页动作文件已暂存待 C 批恢复；DataRevisions 草稿补丁保留待 B 批完成后重新审查；弹层焦点改动留在 A 批工作区。
+- **PROJECT_PLAN.md**：本轮未写入或暂存；SHA-256 保持 E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604。
+- **入口**：根 EXE 仍为 2.13.6，SHA-256 0D0C4B31ED83C980624C8AD5B9713CC5D7451D865DF84A256CB2CB6FEC257C34。批次 0 不改应用构建输入，未重建；入口保持不变。
+- **验证**：2026-10-11 的 pnpm verify 退出码 0，Rust 39/39；TypeScript、结构、契约、交付脚本均通过。该结果不是 Windows Release 原生验收。
+- **下一步**：完成 A 批弹层与提交结果故障回归，之后冻结 2.13.9 构建输入并制作/验收 Release EXE。
+### 2026-10-11 A 批回归补全：提交结果后的重试不重放写入
+
+- **覆盖缺口**：新增便携备份导入、清空数据、开始计时后自动打开迷你工作台、焦点浮窗返回主窗四个后续步骤失败场景；验证重试仅重读或重试窗口动作，业务写入各只发生一次。另补快速记事真实写入失败时保留草稿并可重试。
+- **测试夹具**：Tauri mock 补齐 clear_app_data 状态变化、主窗恢复行为和计数。完整 Playwright 套件 178/178 通过；A 批专项 9/9，通过后再完成完整套件。
+- **证据**：完整浏览器目录 artifacts/qa/frontend/20261011-a-full-inv-mv3979od-14016-529baf7e-c3db-44b6-93fe-09c581120c79；弹层目录 artifacts/qa/frontend/20261011-dialog-a-inv-mv38wfw5-10932-14cd00ee-df7e-4c48-b69f-afba08af2a03；提交结果目录 artifacts/qa/frontend/20261011-a-actions-rerun-inv-mv395hwe-6692-0156dcd3-623d-4f71-b20c-8fdf788ddf54。
+- **静态/Rust**：pnpm verify 退出码 0，Rust 单测 39/39。Windows Release 原生验收尚未执行。
+- **提交/推送**：测试与夹具单独提交 5f86cd3，已快进推送 origin/codex/focused-moment-continuity；未将任何其他工作区改动混入。
+- **当前状态**：U1/U2 源码已提交，缺失的后续步骤回归已补齐；弹层源码仍待独立提交，2.13.9 版本同步、Release EXE 和 Windows 原生验收未完成。PROJECT_PLAN.md 维持只读。
+- **下一步**：完成弹层差异审阅，升版 2.13.9 并同步 release notes，随后冻结输入完成 Release 构建及原生验收。
+
+### 2026-10-11 A 批 2.13.9 版本同步与冻结回归
+
+- **版本输入**：package.json、Cargo.toml、Cargo.lock、tauri.conf.json、runtime.rs 同步至 2.13.9；更新面向用户的里程碑文案；新增 `docs/v2.13.9/RELEASE_NOTES.md`。弹层键盘焦点、IME、焦点恢复和写入期间关闭/重复提交保护作为本批应用更改纳入。
+- **静态/Rust**：在 app/ 执行 `pnpm verify` 退出码 0；Rust 单测 39/39。既有 unused/dead-code 警告仍存在。
+- **生产前端**：`pnpm build` 成功，2092 个模块；保留 Vite 大 chunk 提示。
+- **浏览器 mock**：首轮默认并发 177/178，一项提醒音浮窗用例在 `page.goto` 等待 load 时超时；页面快照显示已渲染，单项 1 worker 诊断为 1/1。未修改用例/断言、未启用重试；降低完整回归并发到 4 workers 后原套件 178/178。首轮目录 `artifacts/qa/frontend/run-inv-mv39w7ya-43200-3c7a16e5-7eaa-4865-b45f-c197ef35ad50`；诊断目录 `artifacts/qa/frontend/run-inv-mv3a2t2v-39780-05e71eb7-0b54-46d0-8e96-5bf15811e559`；完整通过目录 `artifacts/qa/frontend/run-inv-mv3a3muf-38996-fd09c0fe-d5bb-4605-88c9-39899756eb24`。
+- **候选边界**：打包指纹模块会列出 `app/scripts/` 全部脚本，故未跟踪的本机 QA/性能工具会记入指纹；它们不是前端/Rust 编译输入，不会编入 EXE。仍未暂存/提交未来批次脚本、`div`、历史摘要或 PROJECT_PLAN.md。
+- **下一步**：选择性提交 A 批应用、版本与正式说明文件；再 package:local，校验 Release 候选、输入指纹、根入口与旧入口恢复副本，并对同一候选运行隔离 Windows 原生验收。

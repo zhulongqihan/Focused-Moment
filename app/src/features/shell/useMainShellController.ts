@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, onCleanup, onMount } from "solid-js";
+import { batch, createEffect, createMemo, createSignal, onCleanup, onMount } from "solid-js";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import { emit, listen } from "@tauri-apps/api/event";
 import type {
@@ -388,8 +388,6 @@ export function useMainShellController() {
   let appPreferenceSaveTimer: number | undefined;
   let pendingAppPreferenceSnapshot: AppPreferences | null = null;
   let legacyPreferencesMigrationAttempted = false;
-  let commandInput: HTMLInputElement | undefined;
-  let commandTrigger: HTMLButtonElement | undefined;
   let refreshVersion = 0;
   let timerRefreshVersion = 0;
   let observedAlertSequence: number | null = null;
@@ -1200,8 +1198,10 @@ export function useMainShellController() {
   }
 
   function beginDetailedRecordEdit(record: FocusRecord) {
-    beginEditRecord(record);
-    setRecordEditDialogOpen(true);
+    batch(() => {
+      beginEditRecord(record);
+      setRecordEditDialogOpen(true);
+    });
   }
 
   function patchEditingRecordTitle(title: string) {
@@ -1689,13 +1689,6 @@ export function useMainShellController() {
   function closeCommandPalette() {
     setCommandPaletteOpen(false);
     setCommandSearch("");
-    queueMicrotask(() => {
-      if (commandTrigger && commandTrigger.offsetParent !== null) {
-        commandTrigger.focus();
-        return;
-      }
-      document.querySelector<HTMLElement>(".minimal-nav > button.active")?.focus();
-    });
   }
 
   function openCommandPalette() {
@@ -1777,15 +1770,6 @@ export function useMainShellController() {
   }
 
   createEffect(() => {
-    if (commandPaletteOpen()) {
-      queueMicrotask(() => {
-        commandInput?.focus();
-        commandInput?.select();
-      });
-    }
-  });
-
-  createEffect(() => {
     timer().alertSequence;
     handleNewTimerAlert();
   });
@@ -1803,6 +1787,9 @@ export function useMainShellController() {
     let trayNavigationActive = true;
     let trayNavigationUnlisten: (() => void) | undefined;
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.isComposing || event.keyCode === 229 || event.defaultPrevented) return;
+      const modal = document.querySelector('[role="dialog"][aria-modal="true"]');
+      if (modal && !commandPaletteOpen()) return;
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
         if (commandPaletteOpen()) {
@@ -1814,6 +1801,7 @@ export function useMainShellController() {
       }
 
       if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+        if (modal || (event.target instanceof Element && event.target.closest('input, textarea, select, [contenteditable="true"]'))) return;
         event.preventDefault();
         if (timer().isRunning) {
           showMessage("当前专注正在进行中。", "info");
@@ -1826,6 +1814,7 @@ export function useMainShellController() {
       }
 
       if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === "e") {
+        if (modal || (event.target instanceof Element && event.target.closest('input, textarea, select, [contenteditable="true"]'))) return;
         event.preventDefault();
         if (canFinish()) {
           void finishFocus();
@@ -2145,12 +2134,6 @@ export function useMainShellController() {
     updateFloatingOpacity,
     showFloatingTodos,
     showFocusFloating,
-    setCommandInput: (element: HTMLInputElement | undefined) => {
-      commandInput = element;
-    },
-    setCommandTrigger: (element: HTMLButtonElement | undefined) => {
-      commandTrigger = element;
-    },
     setFloatingWorkspaceElement: (element: HTMLElement | undefined) => {
       floatingWorkspaceElement = element;
     },
