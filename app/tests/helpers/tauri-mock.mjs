@@ -165,6 +165,8 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
     window.__closeMainWindowCalls = 0;
     window.__flashMainWindowAttention = false;
     window.__completedFocusCalls = 0;
+    window.__clearAppDataCalls = 0;
+    window.__mainRestored = false;
     window.__resetTimerCalls = 0;
     window.__startTimerCalls = 0;
     window.__pauseTimerCalls = 0;
@@ -484,6 +486,29 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
             return todos;
           case "list_app_backups":
             return [];
+          case "clear_app_data":
+            window.__clearAppDataCalls += 1;
+            todos = [];
+            focusRecords = [];
+            focusPlan = { currentTodoId: null, todayPickIds: [] };
+            timer = {
+              ...timer,
+              status: "待开始",
+              isRunning: false,
+              elapsedMs: 0,
+              elapsedLabel: "00:00:00",
+              hasUnsubmittedProgress: false,
+              remainingMs: timer.modeKey === "countdown" ? timer.targetDurationMs : null,
+              activeTaskTitle: "",
+              linkedTodoId: null,
+              completeLinkedTodoOnFinish: false,
+              recoveredFromLastSession: false,
+              alertKey: null,
+              alertTitle: null,
+              alertMessage: null,
+            };
+            recalculateAnalytics();
+            return timer;
           case "complete_focus_session": {
             window.__completedFocusCalls += 1;
             const durationMs = timer.elapsedMs || 0;
@@ -541,6 +566,10 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
           case "show_floating_todos":
             window.__floatingTodosShown = true;
             window.__miniWorkspaceShown = true;
+            return null;
+          case "restore_main_from_floating_todos":
+          case "restore_main_from_focus_floating":
+            window.__mainRestored = true;
             return null;
           case "unlock_focus_floating":
             window.__focusFloatingUnlocked = true;
