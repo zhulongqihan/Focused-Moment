@@ -25,3 +25,4 @@
 - B 批 2.13.10 根入口备份位于 `archive/executables/local/local-20261015-194816-ff963e39a1/Focused Moment.exe`，SHA-256 为 `63CE69B934E7A6ADB42A9A2F886AA92926F046845262287D82703F9FDCDB3B40`。
 - Windows 隔离启动 smoke `windows-native-20261015-195043-03386d1148` 记录了哈希匹配、存储/WebView2 目录创建、旧路径防护和合成旧数据迁移断言通过。该 smoke 不覆盖本版本的浮窗和书签交互；其窗口句柄断言未核验实际句柄归属。
 - C 候选的本机交互验收仍待完成：WebView2 CDP 页面 target 为空且 `Page.enable` 超时；2.13.10 同条件对照也出现相同超时，UIA 当前只返回单一 Pane。浮窗完成、主窗保存/跳过和恢复重试不重复写入尚无 Windows 原生交互通过证据。未创建 GitHub Release、tag、安装器或上传资产。
+- 新的隔离启动复核 `c-interaction-20261015-203553-02c2f272` 以候选同哈希 QA 副本创建了合成存储和 WebView2 profile，但当前会话未生成任何候选顶层窗口（主 HWND 与前台 HWND 均为 0），因此未进行业务交互。QA 副本和隔离 profile 已清理；过程报告见 `artifacts/qa/native/c-interaction-20261015-203553-02c2f272/report.md`。
