@@ -1,4 +1,5 @@
 import { For, Show, createEffect, createMemo, createSignal } from "solid-js";
+import { isComposingKey, useDialogFocus } from "../features/shared/useDialogFocus";
 
 export interface PaletteCommand {
   id: string;
@@ -11,13 +12,17 @@ export interface CommandPaletteProps {
   open: () => boolean;
   search: () => string;
   commands: () => PaletteCommand[];
-  inputRef: (element: HTMLInputElement) => void;
   onSearch: (value: string) => void;
   onClose: () => void;
   onExecute: (commandId: string) => void;
 }
 
 export default function CommandPalette(props: CommandPaletteProps) {
+  const dialog = useDialogFocus({
+    open: props.open,
+    onClose: props.onClose,
+    fallbackFocus: () => document.querySelector<HTMLElement>(".minimal-nav > button.active"),
+  });
   const filteredCommands = createMemo(() => {
     const query = props.search().trim().toLocaleLowerCase();
     return props.commands().filter((command) =>
@@ -61,6 +66,7 @@ export default function CommandPalette(props: CommandPaletteProps) {
   }
 
   function handleInputKeyDown(event: KeyboardEvent) {
+    if (isComposingKey(event)) return;
     switch (event.key) {
       case "ArrowDown":
         event.preventDefault();
@@ -84,56 +90,25 @@ export default function CommandPalette(props: CommandPaletteProps) {
         break;
       case "Enter":
         event.preventDefault();
+        event.stopPropagation();
         executeActive();
         break;
-      case "Escape":
-        event.preventDefault();
-        event.stopPropagation();
-        props.onClose();
-        break;
     }
-  }
-
-  function handleDialogKeyDown(event: KeyboardEvent) {
-    if (event.key !== "Tab") {
-      return;
-    }
-
-    cycleFocus(event, event.currentTarget as HTMLElement);
-  }
-
-  function cycleFocus(event: KeyboardEvent, currentElement: HTMLElement) {
-    const dialog = currentElement.closest<HTMLElement>("[role='dialog']");
-    if (!dialog) {
-      return;
-    }
-
-    const focusable = Array.from(dialog.querySelectorAll<HTMLElement>("button:not([disabled]):not([role='option']), input:not([disabled])"));
-    if (focusable.length === 0) {
-      return;
-    }
-
-    const currentIndex = focusable.indexOf(document.activeElement as HTMLElement);
-    const nextIndex = event.shiftKey
-      ? currentIndex <= 0 ? focusable.length - 1 : currentIndex - 1
-      : currentIndex === focusable.length - 1 ? 0 : currentIndex + 1;
-
-    event.preventDefault();
-    event.stopPropagation();
-    focusable[nextIndex]?.focus();
   }
 
   return (
     <Show when={props.open()}>
-      <div class="command-palette-backdrop" onClick={props.onClose}>
+      <div class="command-palette-backdrop" onMouseDown={dialog.onBackdropMouseDown}>
         <section
+          ref={dialog.setDialogRef}
           id="command-palette-dialog"
           class="command-palette"
           role="dialog"
           aria-modal="true"
           aria-labelledby="command-palette-title"
-          onClick={(event) => event.stopPropagation()}
-          onKeyDown={handleDialogKeyDown}
+          data-focus-dialog
+          tabIndex={-1}
+          onKeyDown={dialog.onKeyDown}
         >
           <div class="command-palette__header">
             <div>
@@ -143,19 +118,14 @@ export default function CommandPalette(props: CommandPaletteProps) {
             <button
               type="button"
               class="icon-button"
-              onClick={props.onClose}
-              onKeyDown={(event) => {
-                if (event.key === "Tab") {
-                  cycleFocus(event, event.currentTarget as HTMLElement);
-                }
-              }}
+              onClick={dialog.requestClose}
               aria-label="关闭命令面板"
             >
               Esc
             </button>
           </div>
           <input
-            ref={props.inputRef}
+            data-dialog-initial-focus
             class="command-palette__input"
             type="search"
             value={props.search()}
@@ -165,13 +135,7 @@ export default function CommandPalette(props: CommandPaletteProps) {
             aria-activedescendant={activeCommandId()}
             autocomplete="off"
             onInput={(event) => props.onSearch(event.currentTarget.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Tab") {
-                cycleFocus(event, event.currentTarget as HTMLElement);
-              } else {
-                handleInputKeyDown(event);
-              }
-            }}
+            onKeyDown={handleInputKeyDown}
           />
           <div id="command-palette-list" class="command-palette__list" role="listbox" aria-label="可用命令">
             <Show when={filteredCommands().length > 0} fallback={<p class="command-palette__empty">没有匹配的操作。</p>}>

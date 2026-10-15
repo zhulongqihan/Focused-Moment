@@ -8,13 +8,6 @@ import {
   EditorialPaperTodos,
 } from "./EditorialPaperViews";
 import {
-  GraphiteConsoleFocus,
-  GraphiteConsoleRecords,
-  GraphiteConsoleSettings,
-  GraphiteConsoleToday,
-  GraphiteConsoleTodos,
-} from "./GraphiteConsoleViews";
-import {
   AuroraOceanFocus,
   AuroraOceanRecords,
   AuroraOceanSettings,
@@ -29,6 +22,27 @@ import {
   BotanicalLibraryTodos,
 } from "./BotanicalLibraryViews";
 import {
+  GraphiteConsoleFocus,
+  GraphiteConsoleRecords,
+  GraphiteConsoleSettings,
+  GraphiteConsoleToday,
+  GraphiteConsoleTodos,
+} from "./GraphiteConsoleViews";
+import {
+  MetroPulseFocus,
+  MetroPulseRecords,
+  MetroPulseSettings,
+  MetroPulseToday,
+  MetroPulseTodos,
+} from "./MetroPulseViews";
+import {
+  ClutchCourtFocus,
+  ClutchCourtRecords,
+  ClutchCourtSettings,
+  ClutchCourtToday,
+  ClutchCourtTodos,
+} from "./ClutchCourtViews";
+import {
   NightValleyFocus,
   NightValleyRecords,
   NightValleySettings,
@@ -42,6 +56,7 @@ import type {
   TodoSurfaceProps,
 } from "../lib/theme-contracts";
 import { getTheme, type ThemeId } from "../lib/themes";
+import LegacyThemeShelf from "./LegacyThemeShelf";
 import "./ThemeSurface.css";
 
 export type ThemeSurfaceView = "today" | "focus" | "todos" | "records" | "settings";
@@ -56,9 +71,19 @@ export interface ThemeSurfaceProps {
   settings: SettingsSurfaceProps;
 }
 
-type ThemeImplementation = "night-valley" | "editorial-paper" | "graphite-console" | "aurora-ocean" | "botanical-library";
+type ThemeImplementation =
+  | "night-valley"
+  | "editorial-paper"
+  | "graphite-console"
+  | "metro-pulse"
+  | "clutch-court"
+  | "aurora-ocean"
+  | "botanical-library";
 
 function resolveThemeImplementation(themeId: ThemeId): ThemeImplementation {
+  if (themeId === "legacy-aurora-ocean") return "aurora-ocean";
+  if (themeId === "legacy-botanical-library") return "botanical-library";
+
   switch (getTheme(themeId).id) {
     case "night-valley":
       return "night-valley";
@@ -66,10 +91,10 @@ function resolveThemeImplementation(themeId: ThemeId): ThemeImplementation {
       return "editorial-paper";
     case "graphite-console":
       return "graphite-console";
-    case "aurora-ocean":
-      return "aurora-ocean";
-    case "botanical-library":
-      return "botanical-library";
+    case "metro-pulse":
+      return "metro-pulse";
+    case "clutch-court":
+      return "clutch-court";
     default:
       return "night-valley";
   }
@@ -84,7 +109,8 @@ export default function ThemeSurface(props: ThemeSurfaceProps) {
   const themeImplementation = createMemo(() => resolveThemeImplementation(props.themeId()));
 
   return (
-    <Switch fallback={<section class="theme-surface-unavailable" role="status">当前主题暂不可用，已回退到可用主题。</section>}>
+    <>
+      <Switch fallback={<section class="theme-surface-unavailable" role="status">当前主题暂不可用，已回退到可用主题。</section>}>
       <Match when={themeImplementation() === "night-valley"}>
         <Show when={props.activeView() === "today"}><TodayDashboard {...props.today} /></Show>
         <Show when={props.activeView() === "focus"}><NightValleyFocus {...props.focus} /></Show>
@@ -106,6 +132,20 @@ export default function ThemeSurface(props: ThemeSurfaceProps) {
         <Show when={props.activeView() === "records"}><GraphiteConsoleRecords {...props.records} /></Show>
         <Show when={props.activeView() === "settings"}><GraphiteConsoleSettings {...props.settings} /></Show>
       </Match>
+      <Match when={themeImplementation() === "metro-pulse"}>
+        <Show when={props.activeView() === "today"}><MetroPulseToday {...props.today} /></Show>
+        <Show when={props.activeView() === "focus"}><MetroPulseFocus {...props.focus} /></Show>
+        <Show when={props.activeView() === "todos"}><MetroPulseTodos {...props.todos} /></Show>
+        <Show when={props.activeView() === "records"}><MetroPulseRecords {...props.records} /></Show>
+        <Show when={props.activeView() === "settings"}><MetroPulseSettings {...props.settings} /></Show>
+      </Match>
+      <Match when={themeImplementation() === "clutch-court"}>
+        <Show when={props.activeView() === "today"}><ClutchCourtToday {...props.today} /></Show>
+        <Show when={props.activeView() === "focus"}><ClutchCourtFocus {...props.focus} /></Show>
+        <Show when={props.activeView() === "todos"}><ClutchCourtTodos {...props.todos} /></Show>
+        <Show when={props.activeView() === "records"}><ClutchCourtRecords {...props.records} /></Show>
+        <Show when={props.activeView() === "settings"}><ClutchCourtSettings {...props.settings} /></Show>
+      </Match>
       <Match when={themeImplementation() === "aurora-ocean"}>
         <Show when={props.activeView() === "today"}><AuroraOceanToday {...props.today} /></Show>
         <Show when={props.activeView() === "focus"}><AuroraOceanFocus {...props.focus} /></Show>
@@ -120,6 +160,10 @@ export default function ThemeSurface(props: ThemeSurfaceProps) {
         <Show when={props.activeView() === "records"}><BotanicalLibraryRecords {...props.records} /></Show>
         <Show when={props.activeView() === "settings"}><BotanicalLibrarySettings {...props.settings} /></Show>
       </Match>
-    </Switch>
+      </Switch>
+      <Show when={props.activeView() === "settings"}>
+        <LegacyThemeShelf themeId={props.settings.themeId} onThemeSelect={props.settings.onThemeSelect} />
+      </Show>
+    </>
   );
 }

@@ -22,6 +22,7 @@ function parseTodoDateKey(value: string) {
 }
 
 function formatTodoDateGroupLabel(value: string) {
+  if (value === "未设置日期") return "收件箱 · 未安排";
   const date = parseTodoDateKey(value);
   if (!date) return value;
 

@@ -1,0 +1,25 @@
+.home-focus-status {
+  display: grid;
+  gap: 5px;
+  margin-block: 12px;
+  color: inherit;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.home-focus-status > strong { font-size: 1rem; }
+.home-focus-status > span { font-variant-numeric: tabular-nums; }
+.home-focus-save { min-height: 36px; margin-block-start: 8px; }
+
+.trail-focus-panel .home-focus-status { color: #e7f0ed; }
+.trail-focus-panel [data-home-focus-primary],
+.trail-focus-panel .home-focus-save { width: 100%; }
+.trail-focus-panel [data-home-focus-primary] { margin-block-start: 14px; }
+
+.mp-departure-card > .home-focus-save { position: relative; z-index: 2; width: 100%; }
+.mp-departure-card [data-home-focus-primary] .mp-departure-shortcut > span { font-size: 13px; letter-spacing: 0.08em; }
+.cc-center-clock > .home-focus-save { position: relative; min-height: 32px; padding: 6px 12px; color: #fff; border: 1px solid currentColor; background: #153424; border-radius: 6px; font-size: 13px; }
+
+[data-home-focus-primary]:focus-visible,
+.home-focus-save:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }

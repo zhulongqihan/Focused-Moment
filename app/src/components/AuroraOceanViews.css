@@ -1546,7 +1546,8 @@
 
 .minimal-app.minimal-app--cinematic[data-theme="aurora-ocean"] .ao-archive-point {
   position: absolute;
-  bottom: 0;
+  top: 0;
+  bottom: auto;
   z-index: 2;
   display: flex;
   flex-direction: column;
@@ -1556,7 +1557,7 @@
   border: 0;
   background: transparent;
   color: var(--ao-muted);
-  transform: translateX(-50%);
+  transform: translate(-50%, -5px);
   pointer-events: auto;
 }
 
@@ -1579,7 +1580,9 @@
 }
 
 .minimal-app.minimal-app--cinematic[data-theme="aurora-ocean"] .ao-archive-point span {
+  margin-top: 7px;
   font-size: 0.59rem;
+  white-space: nowrap;
 }
 
 .minimal-app.minimal-app--cinematic[data-theme="aurora-ocean"] .ao-chart-legend {
@@ -2220,8 +2223,12 @@
   line-height: 1.65;
 }
 
-.minimal-app.minimal-app--cinematic[data-theme="aurora-ocean"] .ao-settings-preview .ao-aqua-button {
-  margin-top: 12px;
+.minimal-app.minimal-app--cinematic[data-theme="aurora-ocean"] .ao-settings-preview__status {
+  display: block;
+  margin-top: 2px;
+  color: var(--ao-aqua);
+  font-size: 0.61rem;
+  line-height: 1.5;
 }
 
 .minimal-app.minimal-app--cinematic[data-theme="aurora-ocean"] .ao-edit-grid {
@@ -2342,6 +2349,15 @@
     grid-row: span 4;
     margin: 0;
   }
+}
+
+/* Keep live task titles readable when a narrow card receives a long title. */
+.minimal-app.minimal-app--cinematic[data-theme="aurora-ocean"] .ao-todo-dock strong {
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
+  line-height: 1.45;
 }
 
 @media (max-width: 640px) {
@@ -2722,4 +2738,41 @@
 .minimal-app.minimal-app--cinematic[data-theme="aurora-ocean"] .ao-wave-row small,
 .minimal-app.minimal-app--cinematic[data-theme="aurora-ocean"] .ao-history-items span {
   line-height: 1.5;
+}
+
+/* v2.12.1: Today, Records, and Settings are document surfaces. Their live
+   data must extend the page scroll area instead of being clipped by the
+   measured 100dvh shell. */
+@media (min-width: 821px) {
+  .minimal-app.minimal-app--cinematic[data-theme="aurora-ocean"] {
+    height: auto;
+    min-height: 100vh;
+    overflow-y: auto;
+  }
+
+  .minimal-app.minimal-app--cinematic[data-theme="aurora-ocean"] .minimal-workspace {
+    height: auto;
+    min-height: calc(100vh - 72px);
+    align-items: start;
+  }
+
+  .minimal-app.minimal-app--cinematic[data-theme="aurora-ocean"] .minimal-content {
+    height: auto;
+    min-height: calc(100vh - 72px);
+    overflow: visible !important;
+  }
+}
+
+@media (max-width: 900px) {
+  .minimal-app.minimal-app--cinematic[data-theme="aurora-ocean"] {
+    height: auto;
+    min-height: 100dvh;
+    overflow-y: visible;
+  }
+
+  .minimal-app.minimal-app--cinematic[data-theme="aurora-ocean"] .minimal-workspace,
+  .minimal-app.minimal-app--cinematic[data-theme="aurora-ocean"] .minimal-content {
+    height: auto;
+    min-height: 0;
+  }
 }

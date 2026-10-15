@@ -1542,7 +1542,8 @@
 
 .minimal-app.minimal-app--cinematic[data-theme="botanical-library"] .bl-growth-point {
   position: absolute;
-  bottom: 0;
+  top: 0;
+  bottom: auto;
   z-index: 2;
   display: flex;
   flex-direction: column;
@@ -1552,7 +1553,7 @@
   border: 0;
   background: transparent;
   color: #927a61;
-  transform: translateX(-50%);
+  transform: translate(-50%, -5px);
   pointer-events: auto;
 }
 
@@ -1573,7 +1574,9 @@
 }
 
 .minimal-app.minimal-app--cinematic[data-theme="botanical-library"] .bl-growth-point span {
+  margin-top: 7px;
   font-size: 0.59rem;
+  white-space: nowrap;
 }
 
 .minimal-app.minimal-app--cinematic[data-theme="botanical-library"] .bl-chart-legend {
@@ -2243,6 +2246,14 @@
   line-height: 1.65;
 }
 
+.minimal-app.minimal-app--cinematic[data-theme="botanical-library"] .bl-settings-preview__status {
+  display: block;
+  margin-top: 2px;
+  color: #d6ae6c;
+  font-size: 0.61rem;
+  line-height: 1.5;
+}
+
 .minimal-app.minimal-app--cinematic[data-theme="botanical-library"] .bl-edit-grid {
   grid-column: 1 / -1;
   display: grid;
@@ -2360,6 +2371,21 @@
     grid-row: span 4;
     margin: 0;
   }
+}
+
+/* Keep Today and Records data readable instead of replacing it with an
+   ellipsis when a real task or record has a long title. */
+.minimal-app.minimal-app--cinematic[data-theme="botanical-library"] .bl-stilllife-paper strong,
+.minimal-app.minimal-app--cinematic[data-theme="botanical-library"] .bl-plant-marker strong,
+.minimal-app.minimal-app--cinematic[data-theme="botanical-library"] .bl-desk-ledger strong,
+.minimal-app.minimal-app--cinematic[data-theme="botanical-library"] .bl-reading-row strong,
+.minimal-app.minimal-app--cinematic[data-theme="botanical-library"] .bl-reading-row small,
+.minimal-app.minimal-app--cinematic[data-theme="botanical-library"] .bl-history-items span {
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
+  line-height: 1.45;
 }
 
 @media (max-width: 640px) {
@@ -2650,5 +2676,41 @@
 @media (max-width: 820px) {
   .minimal-app.minimal-app--cinematic[data-theme="botanical-library"] .bl-rhythm-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* v2.12.1: let the long Today/Records/Settings surfaces participate in the
+   page scroll instead of ending at the measured viewport height. */
+@media (min-width: 821px) {
+  .minimal-app.minimal-app--cinematic[data-theme="botanical-library"] {
+    height: auto;
+    min-height: 100vh;
+    overflow-y: auto;
+  }
+
+  .minimal-app.minimal-app--cinematic[data-theme="botanical-library"] .minimal-workspace {
+    height: auto;
+    min-height: calc(100vh - 72px);
+    align-items: start;
+  }
+
+  .minimal-app.minimal-app--cinematic[data-theme="botanical-library"] .minimal-content {
+    height: auto;
+    min-height: calc(100vh - 72px);
+    overflow: visible !important;
+  }
+}
+
+@media (max-width: 900px) {
+  .minimal-app.minimal-app--cinematic[data-theme="botanical-library"] {
+    height: auto;
+    min-height: 100dvh;
+    overflow-y: visible;
+  }
+
+  .minimal-app.minimal-app--cinematic[data-theme="botanical-library"] .minimal-workspace,
+  .minimal-app.minimal-app--cinematic[data-theme="botanical-library"] .minimal-content {
+    height: auto;
+    min-height: 0;
   }
 }

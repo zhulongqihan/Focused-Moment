@@ -1826,7 +1826,7 @@
   transition: transform 180ms ease, color 180ms ease;
 }
 
-.minimal-app--records .record-day[open] .record-day__chevron {
+.minimal-app--records .record-day--expanded .record-day__chevron {
   color: var(--nv-gold);
   transform: rotate(180deg);
 }
@@ -1904,6 +1904,22 @@
 .minimal-app--records .record-day__chevron {
   visibility: visible;
   opacity: 1;
+}
+
+/* v2.12.1: date disclosures are controlled buttons, so the expanded state
+   cannot be lost to the browser's native details toggle during a refresh. */
+.minimal-app--records .record-day__summary {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.minimal-app--records .record-day__summary:focus-visible {
+  outline: 2px solid rgba(239, 185, 103, 0.82);
+  outline-offset: -2px;
 }
 
 /* v2.10.15 records: distribution answers a different question from the
