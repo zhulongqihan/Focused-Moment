@@ -23,7 +23,7 @@
 | --- | --- | --- | --- |
 | 0 恢复可验证基线 | 不升版本 | 已完成 | 旧审阅报告已按原字节归档并记录 SHA-256；未完成的 C/D 改动已生成恢复补丁和新文件副本并暂时移出 A 批输入；用户差异保留；pnpm verify 通过。 |
 | A 交付已有可靠性修复 | 2.13.9 | 已完成 | 来源匹配的 Release EXE 已交付；pnpm verify、生产构建、完整浏览器 178/178、官方 Windows 冒烟、原生交互及进程级声音峰值观测通过。 |
-| B 保证保存与重置安全 | 2.13.10 | 验证中 | 统一事务/恢复日志/会话保护已实现；`pnpm verify`、49 项 Rust 测试（1 项忽略）、完整浏览器 mock 183/183 通过。待构建匹配 Release EXE、运行 Windows 原生冒烟及真实重置交互；Rust 崩溃/并发/回滚证据不替代 Windows Release 强退证据。 |
+| B 保证保存与重置安全 | 2.13.10 | 原生验收未完成 | 源码、Rust/浏览器回归、匹配 Release EXE、官方 Windows 隔离冒烟及 pending/committed 启动恢复验证已完成；重置 UIAutomation 未能操作，Windows Release 活跃写入期间强退仍未验证。暂不进入 C。 |
 | C 统一日常操作 | 2.14.0 | 未开始 | 恢复归档的首页动作改动；七主题行为及完成节点、浮窗完成/书签交接通过验收。 |
 | D 降低持续运行开销 | 2.14.1 | 未开始 | B 完成后重新审查已归档的 DataRevisions 草稿；实现增量同步、单请求在途、轻量计时与音源分离。 |
 | E 降低启动负担并完成总验收 | 2.14.2 | 未开始 | 主题按需加载、预览衍生图、性能比较、Windows 原生专项和最终交接完成。 |
@@ -92,6 +92,10 @@
 - **Rust/静态**：最终 `pnpm verify` 退出码 0，证据 `artifacts/qa/rust/batch-b-verify-final-20261015-160500-a1c7d942/pnpm-verify.log`。Rust 49 passed、0 failed、1 ignored；包含子进程在写入/提交边界退出、恢复中再次退出、并发写入、失败回滚、冲突保护和 stale reset 测试。
 - **生产前端**：`pnpm build` 退出码 0，Vite 6.4.2；日志 `artifacts/qa/build/batch-b-build-20261015-152010-27f72bf1/pnpm-build.log`。保留既有大 chunk 警告。
 - **浏览器 mock**：完整 Playwright `183/183`，4 workers、无重试；证据 `artifacts/qa/frontend/batch-b-full-final-20261015-151021-488af42d-batch-b-full-final-20261015-151021-488af42d/`。覆盖重置确认、取消、失败重试、重复确认和跨窗口旧会话确认；视觉截图 `.../app-reset-confirmation-sho-f28c3-led-without-losing-progress-chromium/screenshots/reset-session-confirmation.png` 已检查。
-- **证据边界**：Rust abrupt-exit 子进程测试验证事务日志写盘边界恢复；当前还没有 2.13.10 Release Windows 冒烟或原生重置 UI 结果。`pnpm native:windows` 的自动覆盖为启动、隔离目录和旧数据迁移；需另跑 UIAutomation。不得把上述代码级结果表述成 Windows Release 进程强退通过。
-- **工作区保护**：`PROJECT_PLAN.md` SHA-256 仍为 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`；本机脚本、`div` 与五份历史摘要未纳入本批暂存。打包指纹会记录未跟踪 `app/scripts/` 辅助脚本并因此标记 dirty，需在 provenance 如实说明。
-- **下一步**：选择性提交 B 应用输入；构建 `package:local` Release 并核对输入指纹/版本资源/根 EXE/恢复副本；对同一哈希执行 Windows 原生冒烟与重置交互，再补齐交付文档。源码提交需推送，但此前 push 请求被 auto-review 拒绝，不得重试；完成可审查的提交和构建结果后再请求该具体 push 的批准。
+- **Release 候选**：源码提交 `297573fe08da83fc76ef63f50738315f8724a2f6`；build ID `local-20261015-153109-5c67dc3626`。候选与根目录 `Focused Moment.exe` 的 FileVersion/ProductVersion 均为 2.13.10、SHA-256 均为 `63CE69B934E7A6ADB42A9A2F886AA92926F046845262287D82703F9FDCDB3B40`，长度 46,347,776 bytes。manifest 为 `artifacts/builds/local/local-20261015-153109-5c67dc3626/manifest.json`；打包日志为 `artifacts/qa/build/batch-b-package-20261015-161500-5edb71a4/pnpm-package-local.log`；192 项输入的前后 fingerprint 均为 `B8B7B42E6ACF072F09503D2C770D96F15361A13CBA23388195B930FAB4D126CF`。前一 2.13.9 根入口 SHA-256 `3542369B271858EDEAC71F70AF56F79EB9CEE55F98991498EA153BD1522A63B3` 的恢复副本为 `archive/executables/local/local-20261015-153109-5c67dc3626/Focused Moment.exe`。
+- **Windows 原生冒烟**：`pnpm native:windows` 通过，run `windows-native-20261015-153341-0cd5821feb`。该自动检查只覆盖同哈希候选的可见启动、隔离数据/WebView2 路径、旧路径防护与合成旧数据迁移，不覆盖重置交互、托盘或活跃写入强退；报告另记有合成临时目录清理警告，不影响上述断言结果。
+- **Windows Release 启动恢复**：pending 日志回滚单场景通过，run `windows-release-transaction-recovery-20261015T080915587Z-f16b06b2`；committed 日志保留并清理单场景通过，run `windows-release-committed-recovery-20261015T081416228Z-16e0b35e`。两者均使用 2.13.10 Release EXE 启动隔离合成存储并核对文件哈希，只证明启动恢复。pending 场景断言通过，但 runner 因临时 WebView2 profile 被占用、清理报 `EBUSY` 而以退出码 1 结束；committed 场景修正 fixture 中 SHA-256 文本大小写后通过，之前的大写 fixture 失败不是产品证据。
+- **重置 UIAutomation**：B 候选 run `windows-reset-native-20261015T073453621Z-9b44abb2` 和 `windows-interactions-20261015T074157130Z-4a72eec9` 都只观察到可见顶层窗口、空 UIA 元素树，且 CDP 不可用；已知可工作的 A 批 2.13.9 控制副本 run `windows-a-known-good-control-20261015T075937729Z-a84719eb` 在同一 harness 下也出现空树/CDP 不可用。根因未知，不能据此归因 B 回归，也不能宣称原生重置验收通过。
+- **验收缺口**：Rust 子进程在事务边界强退测试通过，Windows Release pending/committed 预置日志启动恢复通过；仍未验证 Windows Release 应用在活跃写入期间被强退，也未完成原生重置场景。两类证据不得混称。
+- **工作区保护**：manifest `source.dirty=true`、`relevantBuildInputDirty=true`；`app/scripts/` 的三份未跟踪 QA/性能辅助脚本进入 provenance 指纹，但不进入 Vite/Tauri 编译。`PROJECT_PLAN.md` 保持原始用户差异且未写入/暂存/提交，SHA-256 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`；`div`、五份历史摘要和本机脚本均未纳入提交。
+- **提交/下一步**：B 源码提交已在本地分支 `codex/focused-moment-continuity`；此前 push 被 auto-review 拒绝，不能重试。先完成重置原生交互和 Windows Release 活跃写入强退验证，再更新交付记录；取得用户对明确提交 payload 的批准后才推送。完成前不启动 C 批应用改动。
