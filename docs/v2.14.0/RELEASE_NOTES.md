@@ -26,3 +26,4 @@
 - Windows 隔离启动 smoke `windows-native-20261015-195043-03386d1148` 记录了哈希匹配、存储/WebView2 目录创建、旧路径防护和合成旧数据迁移断言通过。该 smoke 不覆盖本版本的浮窗和书签交互；其窗口句柄断言未核验实际句柄归属。
 - C 候选的本机交互验收仍待完成：WebView2 CDP 页面 target 为空且 `Page.enable` 超时；2.13.10 同条件对照也出现相同超时，UIA 当前只返回单一 Pane。浮窗完成、主窗保存/跳过和恢复重试不重复写入尚无 Windows 原生交互通过证据。未创建 GitHub Release、tag、安装器或上传资产。
 - 新的隔离启动复核 `c-interaction-20261015-203553-02c2f272` 以候选同哈希 QA 副本创建了合成存储和 WebView2 profile，但当前会话未生成任何候选顶层窗口（主 HWND 与前台 HWND 均为 0），因此未进行业务交互。QA 副本和隔离 profile 已清理；过程报告见 `artifacts/qa/native/c-interaction-20261015-203553-02c2f272/report.md`。
+- 已准备供登录桌面运行的隔离启动器 `artifacts/qa/native/c-interaction-desktop-20261015-204411-8a33c5cf/launch-interactive.ps1`；仅通过 PowerShell 语法解析，尚未从可见桌面执行。它校验候选哈希、隔离应用/WebView2 数据，并要求候选自身出现可见 HWND 后才保留进程。
