@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use serde::Serialize;
+use tauri::Emitter;
 
 const MAX_EXTERNAL_BACKUP_BYTES: u64 = 32 * 1024 * 1024;
 
@@ -1008,6 +1009,16 @@ pub(crate) fn update_todo_continuation_note(
     note: String,
 ) -> Result<Vec<TodoItem>, String> {
     let transaction = state.begin_transaction(OperationScope::State)?;
+    let items = update_todo_continuation_note_in_transaction(&state, id, note)?;
+    transaction.commit();
+    Ok(items)
+}
+
+fn update_todo_continuation_note_in_transaction(
+    state: &tauri::State<'_, TimerEngineState>,
+    id: u64,
+    note: String,
+) -> Result<Vec<TodoItem>, String> {
     let normalized_note = normalize_continuation_note(&note)?;
     let updated_at = if normalized_note.is_empty() {
         None
@@ -1025,8 +1036,76 @@ pub(crate) fn update_todo_continuation_note(
         Ok(items.clone())
     })?;
     state.persist()?;
+    Ok(items)
+}
+
+#[tauri::command]
+pub(crate) fn save_continuation_bookmark(
+    state: tauri::State<'_, TimerEngineState>,
+    todo_id: u64,
+    record_id: u64,
+    note: String,
+) -> Result<Vec<TodoItem>, String> {
+    let transaction = state.begin_transaction(OperationScope::State)?;
+    let todo_is_available = state
+        .todo_items
+        .lock()
+        .map_err(|_| "任务列表状态锁定失败".to_string())?
+        .iter()
+        .any(|todo| todo.id == todo_id && !todo.is_completed);
+    if !todo_is_available {
+        return Err("关联待办已完成或删除，这条停笔书签已失效。".to_string());
+    }
+    let notice_is_pending = state
+        .pending_bookmark_notices
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .contains(record_id, todo_id);
+    if !notice_is_pending {
+        return Err("这条停笔书签已失效，请刷新后再试。".to_string());
+    }
+
+    let items = update_todo_continuation_note_in_transaction(&state, todo_id, note)?;
+    // The operation guard keeps the notice stable between validation and acknowledgement.
+    state
+        .pending_bookmark_notices
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .acknowledge_for(record_id, todo_id);
     transaction.commit();
     Ok(items)
+}
+
+#[tauri::command]
+pub(crate) fn get_pending_bookmark_notices(
+    state: tauri::State<'_, TimerEngineState>,
+) -> Result<Vec<PendingBookmarkNotice>, String> {
+    let _operation_guard = state.read_operation()?;
+    state.ensure_ready()?;
+    let todos = state
+        .todo_items
+        .lock()
+        .map_err(|_| "任务列表状态锁定失败".to_string())?;
+    let mut pending = state
+        .pending_bookmark_notices
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    Ok(pending.available_for(&todos))
+}
+
+#[tauri::command]
+pub(crate) fn acknowledge_pending_bookmark_notice(
+    state: tauri::State<'_, TimerEngineState>,
+    record_id: u64,
+) -> Result<(), String> {
+    let _operation_guard = state.read_operation()?;
+    state.ensure_ready()?;
+    state
+        .pending_bookmark_notices
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .acknowledge(record_id);
+    Ok(())
 }
 
 fn clear_focus_plan_reference(state: &TimerEngineState, id: u64) -> Result<(), String> {
@@ -1192,6 +1271,7 @@ pub(crate) fn reset_timer(
 
 #[tauri::command]
 pub(crate) fn complete_focus_session(
+    app: tauri::AppHandle,
     state: tauri::State<'_, TimerEngineState>,
     title: String,
 ) -> Result<CompletionPayload, String> {
@@ -1207,12 +1287,10 @@ pub(crate) fn complete_focus_session(
                     .to_string()
             })?;
 
-            let item = items.iter().find(|item| item.id == id).ok_or_else(|| {
-                "\u{672a}\u{627e}\u{5230}\u{8981}\u{5173}\u{8054}\u{7684}\u{4efb}\u{52a1}"
-                    .to_string()
-            })?;
-
-            Some(item.title.clone())
+            items
+                .iter()
+                .find(|item| item.id == id)
+                .map(|item| item.title.clone())
         }
         None => None,
     };
@@ -1282,6 +1360,17 @@ pub(crate) fn complete_focus_session(
         Ok(cloned_items)
     })?;
 
+    let pending_bookmark_notice = record_linked_todo_id.and_then(|todo_id| {
+        todo_items
+            .iter()
+            .find(|item| item.id == todo_id && !item.is_completed)
+            .map(|item| PendingBookmarkNotice {
+                record_id: next_id,
+                todo_id,
+                title: item.title.clone(),
+            })
+    });
+
     if completed_session.complete_linked_todo_on_finish {
         if let Some(linked_todo_id) = record_linked_todo_id {
             clear_focus_plan_reference(&state, linked_todo_id)?;
@@ -1290,8 +1379,22 @@ pub(crate) fn complete_focus_session(
 
     let timer_snapshot = with_timer_engine(&state, |engine| Ok(engine.snapshot()))?;
     state.persist_all()?;
+    let queued_bookmark_notice = pending_bookmark_notice
+        .map(|notice| {
+            state
+                .pending_bookmark_notices
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .enqueue(notice)
+        })
+        .unwrap_or(false);
     transaction.commit();
     refresh_system_tray_menu(&timer_snapshot);
+    if queued_bookmark_notice {
+        if let Err(error) = app.emit_to("main", PENDING_BOOKMARK_NOTICE_EVENT, ()) {
+            eprintln!("FOCUSED_MOMENT_BOOKMARK_NOTICE_EVENT_FAILED={error}");
+        }
+    }
 
     Ok(CompletionPayload {
         timer_snapshot,

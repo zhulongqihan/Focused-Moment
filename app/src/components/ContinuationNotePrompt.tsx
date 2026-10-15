@@ -1,17 +1,19 @@
 import { createEffect, createSignal, Show, type Accessor } from "solid-js";
 
 interface ContinuationNotePromptProps {
-  prompt: Accessor<{ todoId: number; title: string } | null>;
+  prompt: Accessor<{ recordId: number; todoId: number; title: string } | null>;
   error: Accessor<string>;
   busy: Accessor<boolean>;
-  onSave: (id: number, note: string) => void | Promise<void>;
-  onSkip: () => void;
+  onSave: (todoId: number, recordId: number, note: string) => void | Promise<void>;
+  onSkip: () => void | Promise<void>;
 }
 
 export default function ContinuationNotePrompt(props: ContinuationNotePromptProps) {
   const [note, setNote] = createSignal("");
   createEffect(() => {
-    props.prompt()?.todoId;
+    const prompt = props.prompt();
+    prompt?.todoId;
+    prompt?.recordId;
     setNote("");
   });
 
@@ -28,7 +30,7 @@ export default function ContinuationNotePrompt(props: ContinuationNotePromptProp
           <textarea value={note()} placeholder="例如：从第三段的例子开始" onInput={(event) => setNote(event.currentTarget.value)} />
           <div class="continuation-prompt__actions">
             <button type="button" class="text-button" disabled={props.busy()} onClick={props.onSkip}>暂不记录</button>
-            <button type="button" class="primary-button" disabled={props.busy() || !note().trim()} onClick={() => void props.onSave(prompt().todoId, note())}>{props.error() ? "重试保存" : "保存下次位置"}</button>
+            <button type="button" class="primary-button" disabled={props.busy() || !note().trim()} onClick={() => void props.onSave(prompt().todoId, prompt().recordId, note())}>{props.error() ? "重试保存" : "保存下次位置"}</button>
           </div>
         </section>
       )}

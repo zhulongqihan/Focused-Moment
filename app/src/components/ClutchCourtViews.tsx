@@ -1,4 +1,5 @@
 import { For, Show, createEffect, createMemo, createSignal } from "solid-js";
+import HomeFocusActions from "./HomeFocusActions";
 import { ChevronDown, Plus, RotateCcw } from "lucide-solid";
 import type { FocusRecord, TodoImportance, TodoItem, TimerSnapshot } from "../lib/contracts";
 import type { FocusSurfaceProps, RecordsSurfaceProps, SettingsSurfaceProps, TodaySurfaceProps, TodoSurfaceProps } from "../lib/theme-contracts";
@@ -101,7 +102,6 @@ export function ClutchCourtToday(props: TodaySurfaceProps) {
   const clock = createMemo(() => props.timer().modeKey === "countdown"
     ? ccClock(props.timer(), props.defaultFocusMinutes(), false)
     : ccCompactLabel(props.timer().elapsedLabel));
-  const play = () => props.timer().isRunning ? props.onPause() : props.timerHasProgress() ? props.onContinue() : next() ? props.onStartTodo(next()!) : props.onOpenTodos();
   return <section class="cc-page cc-today-page" aria-label="今日赛场">
     <h1 class="sr-only">今日赛场</h1>
     <div class="cc-today-hero">
@@ -127,7 +127,7 @@ export function ClutchCourtToday(props: TodaySurfaceProps) {
         <span class="cc-court-note cc-court-note--detail">专注眼前事项！<br /><b>KEEP GOING!</b></span>
       </div>
       <div class="cc-court-title"><span>CLUTCH</span><h1>MOMENT</h1><p>从当前待办开始，专注一项。</p></div>
-      <div class="cc-center-clock"><span>专注计时　/　{props.timer().modeKey === "countdown" ? "剩余时间" : "实际用时"}</span><strong>{clock()}</strong><small>{props.timer().activeTaskTitle || next()?.title || "先写下今天的第一项任务"}</small><span class="cc-clock-status" role="status">{status()}</span><button type="button" class="cc-lime-button" disabled={props.busy()} onClick={() => void play()}>{props.timer().isRunning ? "Ⅱ　暂停专注" : props.timerHasProgress() ? "▶　继续专注" : next() ? "▶　开始专注" : "新增待办"}</button></div>
+       <div class="cc-center-clock"><span>专注计时　/　{props.timer().modeKey === "countdown" ? "剩余时间" : "实际用时"}</span><strong>{clock()}</strong><small>{props.timer().activeTaskTitle || next()?.title || "先写下今天的第一项任务"}</small><span class="cc-clock-status" role="status">{status()}</span><HomeFocusActions {...props} nextTodo={next} primaryClass="cc-lime-button" finishClass="cc-secondary-button" /></div>
       <div class="cc-shotclock-badge" aria-label="主题铭牌 24 SEC，不是实际递减计时">24 <small>SEC<br />THEME PLATE</small></div>
       </div>
       <div class="cc-round-markers" role="group" aria-label={"今日任务，显示前 " + Math.min(6, rounds().length) + " 项，共 " + rounds().length + " 项"}>

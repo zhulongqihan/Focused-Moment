@@ -12,6 +12,7 @@ import type { FocusRecord, TodoItem } from "../lib/contracts";
 import type { TodaySurfaceProps } from "../lib/theme-contracts";
 import DailyFocusLine from "./DailyFocusLine";
 import { NightValleyClock } from "./NightValleyDateStamp";
+import HomeFocusActions, { HomeFocusStatus } from "./HomeFocusActions";
 
 export type TodayDashboardProps = TodaySurfaceProps;
 
@@ -522,8 +523,8 @@ export default function TodayDashboard(props: TodaySurfaceProps) {
                     style={{ left: `${node.position.left}%`, top: `${node.position.top}%` }}
                     data-trail-index={node.index}
                     aria-label={`${node.index}. ${node.title} · ${node.time}`}
-                    disabled={props.busy()}
-                    onClick={() => node.item ? props.onStartTodo(node.item) : node.record ? props.onOpenRecords() : props.onOpenFocus()}
+                    disabled={props.busy() || !props.ready()}
+                    onClick={() => node.record ? props.onOpenRecords() : node.item?.isCompleted ? props.onOpenTodos() : node.item ? props.onStartTodo(node.item) : props.onOpenFocus()}
                   >
                     <span
                       classList={{
@@ -640,6 +641,11 @@ export default function TodayDashboard(props: TodaySurfaceProps) {
             </small>
           </div>
 
+          <Show when={!props.timerHasProgress() && props.nextTodo()}>
+            {(item) => <div class="home-focus-status"><span>下一件专注</span><strong>{item().title}</strong></div>}
+          </Show>
+          <HomeFocusStatus {...props} />
+          <HomeFocusActions {...props} primaryClass="primary-button" finishClass="secondary-button" />
           <div class="trail-focus-panel__quiet-note">每一段专注都会留在今天的路径里。</div>
         </aside>
 

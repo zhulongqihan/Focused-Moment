@@ -256,5 +256,14 @@
 - Windows Release 活跃写入强退 run `windows-release-active-write-kill-20261015T091502930Z-d50d1b75` 使用同一 2.13.10 候选 SHA `63CE69B934E7A6ADB42A9A2F886AA92926F046845262287D82703F9FDCDB3B40`。隔离进程 PID 11392 在 state 已更新、pending journal 覆盖 state/runtime 且 runtime 仍旧时退出；随后同一 Release 从共享合成存储启动，将 state 精确回滚到备份 SHA `8FB26543B762282E685FC972677C1778F57C220CE7949080EA1BCC7978E83A7E`，保留 runtime 旧 SHA `E1D118B0A5F297194C037269EB02602473FD23ACE76C9B101ACAAE255E553D77` 并移除 pending journal。
 - 原 runner 没生成 `report.json`，因为恢复探针挑中无 UIA 子元素的 HWND 3279234；对同一隔离进程用 EnumWindows 校验真实可见主窗口 HWND 1050966，再显式传入该句柄后 UIA 得到 84 个控件并找到“计时”按钮。截图和逐项核验写入 `artifacts/qa/native/windows-release-active-write-kill-20261015T091502930Z-d50d1b75/`，补充报告为 `supplemental-verification.json`。这是补充核验通过，不把 runner 本身记为通过。
 - B 批 Windows Release 强退恢复和重置专项已验收，可以开始 C 批本地工作；Rust、Release 原生、UIAutomation 和浏览器 mock 的证据类别仍分别保留。
-- `PROJECT_PLAN.md` 保持受保护的用户差异，未写入、暂存或提交；SHA-256 为 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`。`div`、五份历史 context summary 与三份未跟踪 app QA/性能脚本均保持原样并未提交；脚本被 provenance 指纹纳入，导致 `source.dirty=true` / `relevantBuildInputDirty=true`，但不进入 Vite/Tauri 编译。B 批四个提交已推送至 `origin/codex/focused-moment-continuity`，远端指针为 `d1976da7669e55e979c24bdd319054a529f3d918`；未核验远程 CI，未创建 tag/GitHub Release。
-- **下一步**：B 批交付完成，按优化计划进入 C 批 2.14.0。`PROJECT_PLAN.md` 继续只读。
+- `PROJECT_PLAN.md` 保持受保护的用户差异，未写入、暂存或提交；SHA-256 为 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`。`div`、五份历史 context summary 与三份未跟踪 app QA/性能脚本均保持原样并未提交；脚本被 provenance 指纹纳入，导致 `source.dirty=true` / `relevantBuildInputDirty=true`，但不进入 Vite/Tauri 编译。B 批四个应用/验收提交已推送至 `origin/codex/focused-moment-continuity`，随后文档校正提交 `589beec2a89cc967cccfe21e1dc52b1cc67203a6` 也已推送；上一轮 `git ls-remote` 核实远端最终指针为该提交。未核验远程 CI，未创建 tag/GitHub Release。
+- **下一步**：C 批 2.14.0 已开始。本轮从已校验归档恢复首页动作组件并应用七主题补丁；当前差异限七个首页视图文件和四个新应用文件。先修正空首页快速记事动作并核对夜谷完成节点，再实现浮窗完成与停笔书签交接。`PROJECT_PLAN.md` 继续只读。
+
+### 2026-10-15 C 批代码级验收断点
+
+- **目标约束**：书签提示队列仅在当前进程保留；已保存的书签随待办持久化。队列没有写入状态 JSON 或便携备份。
+- **实现**：七主题首页共享动作与空态快速记事已完成；浮窗完成交给主窗口处理一次；书签保存要求记录 ID、待办 ID 和待处理提示一致，且待办仍未完成；清空/导入清除旧进程内提示； State/All 事务快照在失败回滚时恢复提示。
+- **代码级证据**：版本同步后 `pnpm verify` 通过，Rust 53/0/1；`pnpm build` 通过（Vite 2,096 modules）；完整浏览器 212/212，4 workers、无重试。证据分别位于 `artifacts/qa/rust/batch-c-verify-20261015-46715e8d/`、`artifacts/qa/build/batch-c-build-20261015-294fe5f5/`、`artifacts/qa/frontend/batch-c-full-20261015-f4b69297-inv-c-full-20261015-f4b69297/`。浏览器通过外部 Vite + 临时 Playwright reuse 配置运行；绝对 testDir 指向真实 `app/tests`，正式配置未修改，临时配置与服务均已清理。
+- **当前交付差异**：C 批源码、版本 `2.14.0`、发布说明和维护记录尚未提交/推送；根入口仍是 B 批 2.13.10（SHA-256 `63CE69B934E7A6ADB42A9A2F886AA92926F046845262287D82703F9FDCDB3B40`）。Production build 有 Vite 默认 JS/CSS 500 kB 提示，留给 E 批性能目标；这不影响本批功能构建通过。
+- **保护状态**：`PROJECT_PLAN.md` 未读写以外修改、未暂存、未提交；SHA-256 仍为 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`。`div`、五份旧摘要、三份未跟踪 app QA/性能脚本仍未纳入暂存范围。
+- **唯一下一步**：复核本批 diff 并白名单暂存 C 批产品/测试/发布说明/维护文档，提交推送已确认分支；之后 `pnpm package:local` 生成匹配候选，再以同一候选完成 Windows Release 原生冒烟与交互验收。

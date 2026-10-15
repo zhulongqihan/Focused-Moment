@@ -57,7 +57,9 @@ import {
   updateTodoItem,
   restoreTodoItem,
   toggleTodoItem,
-  updateTodoContinuationNote,
+  acknowledgePendingBookmarkNotice,
+  getPendingBookmarkNotices,
+  saveContinuationBookmark,
 } from "../../lib/tasks";
 import {
   flashMainWindowAttention,
@@ -119,7 +121,7 @@ type RecordEditDraft = {
   completedTime: string;
   linkedTodoId: number | null;
 };
-type ContinuationPrompt = { todoId: number; title: string };
+type ContinuationPrompt = { recordId: number; todoId: number; title: string };
 type ResetConfirmation = { sessionId: string; taskTitle: string; elapsedMs: number };
 type ActionResult<T> = { status: "success"; value: T } | { status: "failed"; error: unknown } | { status: "busy" };
 export type FollowUpTask = { id: string; message: string; retry: () => Promise<void> };
@@ -355,6 +357,7 @@ export function useMainShellController() {
   const [focusPlan, setFocusPlan] = createSignal<FocusPlanState>({ currentTodoId: null, todayPickIds: [] });
   const [continuationPrompt, setContinuationPrompt] = createSignal<ContinuationPrompt | null>(null);
   const [continuationSaveError, setContinuationSaveError] = createSignal("");
+  let pendingBookmarkRefreshVersion = 0;
   const [quickCaptureOpen, setQuickCaptureOpen] = createSignal(false);
   const [quickCaptureTitle, setQuickCaptureTitle] = createSignal("");
   const [manualRecordOpen, setManualRecordOpen] = createSignal(false);
@@ -987,6 +990,7 @@ export function useMainShellController() {
     } finally {
       setBusy(false);
       setBusyLabel("");
+      if (currentWindowLabel === "main") void refreshPendingBookmarkPrompt();
     }
   }
 
@@ -1162,7 +1166,6 @@ export function useMainShellController() {
 
   async function finishFocus() {
     await run(async () => {
-      const linkedTodoBeforeFinish = timer().linkedTodoId ?? linkedTodoId();
       const title = isFloatingWindow || isFocusFloatingWindow
         ? timer().activeTaskTitle
         : activeTitle();
@@ -1175,17 +1178,8 @@ export function useMainShellController() {
       setSessionTitleDirty(false);
       setLinkedTodoId(null);
       setCompleteLinkedTodo(false);
+      await refreshPendingBookmarkPrompt();
       await refreshAnalyticsAfterSave();
-      const linkedTodo = linkedTodoBeforeFinish === null
-        ? null
-        : payload.todoItems.find((item) => item.id === linkedTodoBeforeFinish);
-      if (linkedTodo && !linkedTodo.isCompleted) {
-        setContinuationSaveError("");
-        setContinuationPrompt({ todoId: linkedTodo.id, title: linkedTodo.title });
-      } else {
-        setContinuationSaveError("");
-        setContinuationPrompt(null);
-      }
       if (isFloatingWindow) {
         await followUp("restore-main", "记录已保存，主窗口暂未恢复。", restoreMainFromFloatingTodos);
       } else if (isFocusFloatingWindow) {
@@ -1715,19 +1709,51 @@ export function useMainShellController() {
     if (result.status === "success") await startFocus();
   }
 
-  async function saveContinuationNote(id: number, note: string): Promise<boolean> {
+  async function refreshPendingBookmarkPrompt() {
+    if (currentWindowLabel !== "main" || loadState() !== "ready") return;
+    const requestVersion = ++pendingBookmarkRefreshVersion;
+    try {
+      const pending = await getPendingBookmarkNotices();
+      if (requestVersion !== pendingBookmarkRefreshVersion) return;
+      const next = pending[0];
+      const current = continuationPrompt();
+      setContinuationPrompt(next
+        ? { recordId: next.recordId, todoId: next.todoId, title: next.title }
+        : null);
+      if (!next || current?.recordId !== next.recordId) setContinuationSaveError("");
+    } catch (error) {
+      if (requestVersion === pendingBookmarkRefreshVersion) {
+        console.error("读取停笔书签提示失败。", error);
+      }
+    }
+  }
+
+  async function saveContinuationNote(todoId: number, recordId: number, note: string): Promise<boolean> {
     const normalized = note.trim();
     let saved = false;
     await run(async () => {
-      setTodos(await updateTodoContinuationNote(id, normalized));
+      setTodos(await saveContinuationBookmark(todoId, recordId, normalized));
       saved = true;
       setContinuationSaveError("");
+      setContinuationPrompt(null);
       showMessage(normalized ? "停笔书签已保存。" : "已清空停笔书签。", "success");
+      await refreshPendingBookmarkPrompt();
     }, "正在保存停笔书签…");
     if (!saved) {
       setContinuationSaveError("保存失败，请检查本地数据后点击“重试保存”。");
     }
     return saved;
+  }
+
+  async function skipContinuationPrompt() {
+    const prompt = continuationPrompt();
+    if (!prompt) return;
+    await run(async () => {
+      await acknowledgePendingBookmarkNotice(prompt.recordId);
+      setContinuationPrompt(null);
+      setContinuationSaveError("");
+      await refreshPendingBookmarkPrompt();
+    }, "正在略过停笔书签…");
   }
 
   async function createManualRecord(payload: {
@@ -1879,6 +1905,13 @@ export function useMainShellController() {
     let appStateSyncUnlisten: (() => void) | undefined;
     let trayNavigationActive = true;
     let trayNavigationUnlisten: (() => void) | undefined;
+    let bookmarkSyncActive = true;
+    let pendingBookmarkUnlisten: (() => void) | undefined;
+    let mainWindowShownUnlisten: (() => void) | undefined;
+    const onMainWindowFocus = () => void refreshPendingBookmarkPrompt();
+    const onMainWindowVisibility = () => {
+      if (document.visibilityState === "visible") void refreshPendingBookmarkPrompt();
+    };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.isComposing || event.keyCode === 229 || event.defaultPrevented) return;
       const modal = document.querySelector('[role="dialog"][aria-modal="true"]');
@@ -1951,10 +1984,34 @@ export function useMainShellController() {
         setLoadState("ready");
         setLoadError("");
         setSyncError("");
+        if (currentWindowLabel === "main") void refreshPendingBookmarkPrompt();
       })
         .then((unlisten) => {
           if (appStateSyncActive) {
             appStateSyncUnlisten = unlisten;
+          } else {
+            void unlisten();
+          }
+        })
+        .catch(() => undefined);
+    }
+
+    if (currentWindowLabel === "main") {
+      window.addEventListener("focus", onMainWindowFocus);
+      document.addEventListener("visibilitychange", onMainWindowVisibility);
+      void listen("pending-bookmark-notice", onMainWindowFocus)
+        .then((unlisten) => {
+          if (bookmarkSyncActive) {
+            pendingBookmarkUnlisten = unlisten;
+          } else {
+            void unlisten();
+          }
+        })
+        .catch(() => undefined);
+      void listen("main-window-shown", onMainWindowFocus)
+        .then((unlisten) => {
+          if (bookmarkSyncActive) {
+            mainWindowShownUnlisten = unlisten;
           } else {
             void unlisten();
           }
@@ -1979,9 +2036,11 @@ export function useMainShellController() {
     }
 
     if (currentWindowLabel === "main" || isFloatingWindow || isFocusFloatingWindow) {
-      void loadFromStorage().catch((error) => {
-        showMessage(getErrorMessage(error), "error");
-      });
+      void loadFromStorage()
+        .then(() => refreshPendingBookmarkPrompt())
+        .catch((error) => {
+          showMessage(getErrorMessage(error), "error");
+        });
 
       if (currentWindowLabel === "main") {
         interval = window.setInterval(
@@ -2038,6 +2097,9 @@ export function useMainShellController() {
       if (trayNavigationUnlisten) {
         void trayNavigationUnlisten();
       }
+      bookmarkSyncActive = false;
+      if (pendingBookmarkUnlisten) void pendingBookmarkUnlisten();
+      if (mainWindowShownUnlisten) void mainWindowShownUnlisten();
       if (undoTimer !== undefined) {
         window.clearTimeout(undoTimer);
       }
@@ -2047,6 +2109,9 @@ export function useMainShellController() {
       flushAppPreferencesSave();
       window.removeEventListener("beforeunload", flushAppPreferencesSave);
       window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("focus", onMainWindowFocus);
+      document.removeEventListener("visibilitychange", onMainWindowVisibility);
+      pendingBookmarkRefreshVersion += 1;
       document.documentElement.classList.remove("floating-window");
     });
   });
@@ -2193,14 +2258,11 @@ export function useMainShellController() {
     toggleTodayPick,
     startFocusForTodo,
     saveContinuationNote,
+    skipContinuationPrompt,
     createManualRecord,
     updateRecord,
     continuationPrompt,
     continuationSaveError,
-    dismissContinuationPrompt: () => {
-      setContinuationSaveError("");
-      setContinuationPrompt(null);
-    },
     quickCaptureOpen,
     quickCaptureTitle,
     setQuickCaptureTitle,

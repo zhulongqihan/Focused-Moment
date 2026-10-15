@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { TodoDraft, TodoItem } from "./contracts";
+import type { PendingBookmarkNotice, TodoDraft, TodoItem } from "./contracts";
 
 export async function getTodoItems() {
   return invoke<TodoItem[]>("get_todo_items");
@@ -26,6 +26,18 @@ export async function updateTodoItem(id: number, input: TodoDraft) {
 
 export async function updateTodoContinuationNote(id: number, note: string) {
   return invoke<TodoItem[]>("update_todo_continuation_note", { id, note });
+}
+
+export async function getPendingBookmarkNotices() {
+  return invoke<PendingBookmarkNotice[]>("get_pending_bookmark_notices");
+}
+
+export async function saveContinuationBookmark(todoId: number, recordId: number, note: string) {
+  return invoke<TodoItem[]>("save_continuation_bookmark", { todoId, recordId, note });
+}
+
+export async function acknowledgePendingBookmarkNotice(recordId: number) {
+  return invoke<void>("acknowledge_pending_bookmark_notice", { recordId });
 }
 
 export async function toggleTodoItem(id: number) {

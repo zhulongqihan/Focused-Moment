@@ -602,7 +602,7 @@ test("Restored Today empty states distinguish layout placeholders from real task
       // Empty slots must not impersonate real plays or unfinished tasks.
       await expect(page.locator(".cc-round-marker")).toHaveCount(0);
       await expect(page.locator(".cc-center-clock")).toContainText("先写下今天的第一项任务");
-      await expect(page.locator(".cc-center-clock .cc-lime-button")).toHaveText("新增待办");
+      await expect(page.locator(".cc-center-clock .cc-lime-button")).toHaveText("快速记事");
       await expect(page.locator(".cc-scoreboard")).toContainText("00");
     } else if (themeId === "night-valley") {
       await expect(page.locator(".trail-node")).toHaveCount(1);
@@ -2472,45 +2472,32 @@ test("CC-01 home remains complete at tablet and phone widths", async ({ page }) 
   expect(errors).toEqual([]);
 });
 
-test("CC-01 empty court can open the playbook to add the first round", async ({ page }) => {
+test("CC-01 empty court opens quick capture without starting a session", async ({ page }) => {
   await page.setViewportSize({ width: 1487, height: 1058 });
   await bootReferenceMock(page, { themeId: "clutch-court", includeTodo: false, includeInbox: false, recordCount: 0 });
   await expect(page.locator(".cc-round-markers > .cc-round-marker")).toHaveCount(0);
   const addFirst = page.locator(".cc-center-clock .cc-lime-button");
-  await expect(addFirst).toHaveText("新增待办");
+  await expect(addFirst).toHaveText("快速记事");
   await expect(addFirst).toBeEnabled();
   await addFirst.click();
-  await expect(page.locator(".cc-todos-page")).toBeVisible();
-  await expect(page.locator(".cc-create-play")).toBeVisible();
-  const title = page.locator('input[name="clutchTodoTitle"]');
-  await title.fill("   ");
-  await page.getByRole("button", { name: "保存待办", exact: true }).click();
-  await expect(page.locator(".cc-create-error")).toContainText("请先填写待办名称");
-  await expect(title).toHaveValue("   ");
-  await title.fill("完成第一项计划");
-  await page.evaluate(() => { window.__failCreateTodoOnce = true; });
-  await page.getByRole("button", { name: "保存待办", exact: true }).click();
-  await expect(page.locator(".cc-create-error")).toContainText("保存未成功");
-  await expect(page.locator(".cc-create-play")).toBeVisible();
-  await expect(title).toHaveValue("完成第一项计划");
-  await page.getByRole("button", { name: "保存待办", exact: true }).click();
-  await expect(page.locator(".cc-create-play")).toHaveCount(0);
-  await expect(page.locator(".cc-lane--current .cc-task-row")).toContainText("完成第一项计划");
+  await expect(page.getByRole("dialog", { name: "先记下来，稍后再整理" })).toBeVisible();
+  expect(await page.evaluate(() => window.__startTimerCalls)).toBe(0);
 });
 
 test("CC-01 court clock reflects running and paused focus states", async ({ page }) => {
   await page.setViewportSize({ width: 1487, height: 1058 });
   await bootReferenceMock(page, { themeId: "clutch-court", demoMode: true });
   const clock = page.locator(".cc-home-court .cc-center-clock");
+  const primary = clock.locator("[data-home-focus-primary]");
   await page.locator(".cc-round-markers > .cc-round-marker.current").click();
   await expect(clock.locator(".cc-clock-status")).toHaveText("专注进行中");
-  await expect(clock.locator("button")).toContainText("暂停专注");
-  await expect(clock.locator("button")).toBeEnabled();
+  await expect(primary).toContainText("暂停专注");
+  await expect(primary).toBeEnabled();
   await page.screenshot({ path: testOutputPath("timer-states", "CC-01-running.png"), animations: "disabled" });
 
-  await clock.locator("button").click();
+  await primary.click();
   await expect(clock.locator(".cc-clock-status")).toHaveText("已暂停");
-  await expect(clock.locator("button")).toContainText("继续专注");
+  await expect(primary).toContainText("继续专注");
   await expect(page.locator(".cc-round-markers > .cc-round-marker.current")).toBeDisabled();
   await page.screenshot({ path: testOutputPath("timer-states", "CC-01-paused.png"), animations: "disabled" });
 });

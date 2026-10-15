@@ -1,4 +1,5 @@
 import { For, Show, createEffect, createMemo, createSignal } from "solid-js";
+import HomeFocusActions, { HomeFocusStatus } from "./HomeFocusActions";
 import {
   ArrowRight,
   Check,
@@ -143,10 +144,9 @@ export function AuroraOceanToday(props: TodaySurfaceProps) {
           <h1>让注意力<br /><em>浮向下一束光。</em></h1>
           <p>把今天的事项放进潮汐轨道，光会告诉你下一步应该落在哪里。</p>
           <DailyFocusLine date={props.todayDate} theme="aurora-ocean" />
+          <HomeFocusStatus {...props} />
           <div class="ao-intro-actions">
-            <Show when={nextTodo()} fallback={<button type="button" class="ao-aqua-button" onClick={props.onOpenTodos}><Plus size={16} aria-hidden="true" /> START / 开始专注</button>}>
-              {(item) => <button type="button" class="ao-aqua-button" disabled={props.busy() || props.timerHasProgress()} onClick={() => props.onStartTodo(item())}><Play size={16} fill="currentColor" aria-hidden="true" /> START / 开始专注 <ArrowRight size={15} aria-hidden="true" /></button>}
-            </Show>
+            <HomeFocusActions {...props} primaryClass="ao-aqua-button" finishClass="ao-glass-button" />
             <button type="button" class="ao-ghost-link" onClick={props.onOpenRecords}>查看潮汐记录 <ChevronRight size={15} aria-hidden="true" /></button>
           </div>
           <div class="ao-intro-note"><AoPulse /><span>{props.timer().isRunning ? "当前专注正在形成潮汐" : "今天的光场已准备好"}</span></div>

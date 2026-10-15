@@ -13,6 +13,8 @@ pub(crate) struct TimerEngineState {
     pub(crate) app_preferences: Mutex<AppPreferences>,
     pub(crate) focus_plan: Mutex<FocusPlanState>,
     pub(crate) focus_records: Mutex<Vec<FocusRecord>>,
+    // This handoff is process-local by design and must stay out of portable backups.
+    pub(crate) pending_bookmark_notices: Mutex<PendingBookmarkQueue>,
     pub(crate) next_record_id: Mutex<u64>,
     pub(crate) todo_items: Mutex<Vec<TodoItem>>,
     pub(crate) next_todo_id: Mutex<u64>,
@@ -34,6 +36,7 @@ struct OperationSnapshot {
     next_record_id: Option<u64>,
     todo_items: Option<Vec<TodoItem>>,
     next_todo_id: Option<u64>,
+    pending_bookmark_notices: Option<PendingBookmarkQueue>,
 }
 
 #[derive(Clone, Copy)]
@@ -239,6 +242,7 @@ impl TimerEngineState {
             focus_plan: Mutex::new(normalized_focus_plan),
             next_record_id: Mutex::new(next_record_id.max(next_focus_record_id(&focus_records))),
             focus_records: Mutex::new(focus_records),
+            pending_bookmark_notices: Mutex::new(PendingBookmarkQueue::default()),
             next_todo_id: Mutex::new(next_todo_id.max(next_todo_id_value(&todo_items))),
             todo_items: Mutex::new(todo_items),
             persistence,
@@ -296,7 +300,7 @@ impl TimerEngineState {
     }
 
     fn snapshot_operation_state(&self, scope: OperationScope) -> Result<OperationSnapshot, String> {
-        // Lock order for transactions: operation -> timer -> preferences -> plan -> records -> ids -> todos.
+        // Lock order for transactions: operation -> timer -> preferences -> plan -> records -> ids -> todos -> pending notices.
         let capture_timer = matches!(scope, OperationScope::Runtime | OperationScope::All);
         let capture_state = matches!(scope, OperationScope::State | OperationScope::All);
         let timer = if capture_timer {
@@ -317,6 +321,7 @@ impl TimerEngineState {
             next_record_id,
             todo_items,
             next_todo_id,
+            pending_bookmark_notices,
         ) = if capture_state {
             let timer_preferences = *self
                 .timer_preferences
@@ -350,6 +355,11 @@ impl TimerEngineState {
                 .next_todo_id
                 .lock()
                 .map_err(|_| "任务编号状态锁定失败".to_string())?;
+            let pending_bookmark_notices = self
+                .pending_bookmark_notices
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .clone();
             (
                 Some(timer_preferences),
                 Some(app_preferences),
@@ -358,9 +368,10 @@ impl TimerEngineState {
                 Some(next_record_id),
                 Some(todo_items),
                 Some(next_todo_id),
+                Some(pending_bookmark_notices),
             )
         } else {
-            (None, None, None, None, None, None, None)
+            (None, None, None, None, None, None, None, None)
         };
 
         Ok(OperationSnapshot {
@@ -372,6 +383,7 @@ impl TimerEngineState {
             next_record_id,
             todo_items,
             next_todo_id,
+            pending_bookmark_notices,
         })
     }
 
@@ -408,6 +420,10 @@ impl TimerEngineState {
             .next_todo_id
             .lock()
             .map_err(|_| "任务编号状态锁定失败".to_string())?;
+        let mut pending_bookmark_notices = self
+            .pending_bookmark_notices
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
 
         if let Some(value) = before.timer {
             *timer = value;
@@ -432,6 +448,9 @@ impl TimerEngineState {
         }
         if let Some(value) = before.next_todo_id {
             *next_todo_id = value;
+        }
+        if let Some(value) = before.pending_bookmark_notices {
+            *pending_bookmark_notices = value;
         }
         Ok(())
     }
@@ -625,6 +644,11 @@ impl TimerEngineState {
             *focus_plan = normalized_focus_plan;
         }
 
+        self.pending_bookmark_notices
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clear();
+
         self.persist_all()?;
 
         Ok(BackupImportResult {
@@ -722,6 +746,11 @@ impl TimerEngineState {
                 .map_err(|_| "专注计划状态锁定失败".to_string())?;
             *focus_plan = FocusPlanState::default();
         }
+
+        self.pending_bookmark_notices
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clear();
 
         self.persist_all()
     }

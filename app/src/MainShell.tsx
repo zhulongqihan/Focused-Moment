@@ -204,10 +204,10 @@ function MainShell() {
     toggleTodayPick,
     startFocusForTodo,
     saveContinuationNote,
+    skipContinuationPrompt,
     createManualRecord,
     continuationPrompt,
     continuationSaveError,
-    dismissContinuationPrompt,
     quickCaptureOpen,
     quickCaptureTitle,
     setQuickCaptureTitle,
@@ -1157,10 +1157,10 @@ function MainShell() {
             prompt={continuationPrompt}
             error={continuationSaveError}
             busy={busy}
-            onSave={async (id, note) => {
-              if (await saveContinuationNote(id, note)) dismissContinuationPrompt();
+            onSave={async (todoId, recordId, note) => {
+              await saveContinuationNote(todoId, recordId, note);
             }}
-            onSkip={dismissContinuationPrompt}
+            onSkip={skipContinuationPrompt}
           />
 
           <Show when={message()}>

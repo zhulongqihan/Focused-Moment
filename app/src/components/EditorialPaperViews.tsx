@@ -25,6 +25,7 @@ import DailyFocusLine from "./DailyFocusLine";
 import { TodoDateGroupList } from "../features/todos/TodoDateGroupList";
 import { groupTodosByDate } from "../features/todos/todo-groups";
 import { NightValleyClock } from "./NightValleyDateStamp";
+import HomeFocusActions, { HomeFocusStatus } from "./HomeFocusActions";
 
 function formatPreviewMinutes(value: number) {
   const totalSeconds = Math.max(0, Math.round((Number.isFinite(value) ? value : 0) * 60));
@@ -143,18 +144,20 @@ export function EditorialPaperToday(props: TodaySurfaceProps) {
 
         <aside class="ep-next-card" aria-label="下一件专注">
           <div class="ep-card-corner ep-card-corner--tl" /><div class="ep-card-corner ep-card-corner--br" />
-          <span class="ep-card-label">下一页 / NEXT PAGE</span>
+          <span class="ep-card-label">{props.timerHasProgress() ? "当前专注 / IN FOCUS" : "下一页 / NEXT PAGE"}</span>
+          <Show when={!props.timerHasProgress()} fallback={<HomeFocusStatus {...props} />}>
           <Show
             when={props.nextTodo()}
-            fallback={<><h2>留白也有意义</h2><p>添加一件待办，就能从这里开始下一页。</p><button type="button" class="ep-paper-button" onClick={props.onOpenTodos}>整理待办 <ArrowUpRight size={15} strokeWidth={1.6} aria-hidden="true" /></button></>}
+            fallback={<><h2>留白也有意义</h2><p>添加一件待办，就能从这里开始下一页。</p></>}
           >
             {(item) => <>
               <h2>{item().title}</h2>
               <span class="ep-next-card__duration">预计 <strong>{props.defaultFocusMinutes()}</strong> 分钟</span>
               <p>{props.formatTodoDue(item())}</p>
-              <button type="button" class="ep-paper-button ep-paper-button--green" disabled={props.busy() || props.timerHasProgress()} onClick={() => props.onStartTodo(item())}>开始专注 <ArrowUpRight size={16} strokeWidth={1.6} aria-hidden="true" /></button>
             </>}
           </Show>
+          </Show>
+          <HomeFocusActions {...props} primaryClass="ep-paper-button ep-paper-button--green" finishClass="ep-paper-button" />
           <div class="ep-next-card__seal"><span>FOCUSED</span><strong>MOMENT</strong><i /></div>
         </aside>
       </div>

@@ -191,6 +191,12 @@ export interface TodoItem {
   continuationUpdatedAt: string | null;
 }
 
+export interface PendingBookmarkNotice {
+  recordId: number;
+  todoId: number;
+  title: string;
+}
+
 export interface TodoDraft {
   title: string;
   scheduledDate: string;

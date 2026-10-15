@@ -4,6 +4,7 @@ import type { FocusRecord, TodoImportance, TodoItem, TimerSnapshot } from "../li
 import type { FocusSurfaceProps, RecordsSurfaceProps, SettingsSurfaceProps, TodaySurfaceProps, TodoSurfaceProps } from "../lib/theme-contracts";
 import { buildWeeklyChartGeometry } from "../lib/weekly-chart";
 import { MetroThemeSettings } from "./ThemeSettings";
+import HomeFocusActions from "./HomeFocusActions";
 
 function mpStatus(timer: TimerSnapshot, progress: boolean) {
   if (timer.isRunning) return "进行中";
@@ -47,7 +48,6 @@ export function MetroPulseToday(props: TodaySurfaceProps) {
     : "建议专注 " + props.defaultFocusMinutes() + " 分钟");
   const streak = createMemo(() => props.analytics()?.currentStreakDays ?? 0);
   const status = createMemo(() => mpStatus(props.timer(), props.timerHasProgress()));
-  const depart = () => props.timer().isRunning ? props.onPause() : props.timerCanContinue() ? props.onContinue() : props.timerHasProgress() ? props.onOpenFocus() : next() ? props.onStartTodo(next()!) : props.onOpenTodos();
   return <section class="mp-page mp-today-page" aria-label="今日班次">
     <header class="mp-today-heading"><div><span class="mp-eyebrow">SERVICE 06　/　DAILY LINE</span><h1>今日班次</h1><p>按计划出发，专注让每一天更靠近目标。</p></div></header>
     <div class="mp-today-grid">
@@ -69,15 +69,17 @@ export function MetroPulseToday(props: TodaySurfaceProps) {
       </section>
       <aside class="mp-departure-card" aria-label="下一班出发信息">
         <div class="mp-departure-card__top"><span><strong>下一班</strong><small>NEXT DEPARTURE</small></span><span class="mp-platform-mark"><ArrowUpRight size={56} strokeWidth={2.5} aria-hidden="true" /><small>站台</small><strong>03</strong><small>PLATFORM</small></span></div>
-        <Show when={next()} fallback={<div class="mp-departure-empty"><h2>站台等待乘客</h2><p>添加第一班任务，开始今天的专注线路。</p><button type="button" class="mp-outline-button" onClick={props.onOpenTodos}>添加第一班 <ArrowRight size={15} /></button></div>}>
+        <Show when={props.timerHasProgress()} fallback={<Show when={next()} fallback={<div class="mp-departure-empty"><h2>站台等待乘客</h2><p>添加第一班任务，开始今天的专注线路。</p></div>}>
           {(item) => <><span class="mp-next-label">下一班　/　NEXT STOP</span><h2>{item().title}</h2><p class="mp-departure-detail"><span>{props.formatTodoDue(item())}</span><span classList={{ "mp-departure-state": true, running: props.timer().isRunning, paused: props.timerHasProgress() && !props.timer().isRunning }}>{status()}</span></p></>}
+        </Show>}>
+          <span class="mp-next-label">当前专注　/　IN FOCUS</span><h2>{props.timer().activeTaskTitle || "当前专注"}</h2><p class="mp-departure-detail"><span class="mp-departure-state">{status()}</span></p>
         </Show>
         <div classList={{ "mp-focus-minute-board": true, "mp-focus-minute-board--live": props.timerHasProgress() }} role="img" aria-label={minuteBoardLabel()}>
         <div class="mp-focus-minute-board__digits" data-digit-count={minuteDigits().length}><For each={minuteDigits()}>{(digit) => <span class="mp-flip-digit" aria-hidden="true"><span class="mp-flip-digit__value">{digit}</span></span>}</For></div>
           <div class="mp-focus-minute-board__unit"><strong>{props.timerHasProgress() ? props.timer().modeKey === "countdown" ? "剩余" : "已用" : "分钟"}</strong><span>{props.timerHasProgress() ? "LIVE CLOCK" : "MINUTES"}</span><Show when={props.timerHasProgress()} fallback={<><span>TO</span><span>FOCUS</span></>}><span>REAL TIME</span></Show></div>
         </div>
         <p class="mp-departure-motto" aria-hidden="true">专注创作<br />让想法落地<br />成为作品</p>
-        <button type="button" class="mp-orange-button" disabled={props.busy() || !props.ready() || (!props.timerHasProgress() && !next())} onClick={() => void depart()}><span class="mp-departure-action-label">{props.timer().isRunning ? <Pause size={48} strokeWidth={3} aria-hidden="true" /> : <svg viewBox="0 0 64 64" aria-hidden="true"><path d="M7 24h31V10l22 22-22 22V40H7z" fill="currentColor" /></svg>}<span>{props.timer().isRunning ? "暂停专注" : props.timerCanContinue() ? "继续专注" : props.timerHasProgress() ? "打开待保存计时" : "开始专注"}</span></span><span class="mp-departure-shortcut"><kbd>Ctrl</kbd><kbd>Enter</kbd></span></button>
+        <HomeFocusActions {...props} nextTodo={next} primaryClass="mp-orange-button" finishClass="mp-outline-button" primaryContent={(action) => <><span class="mp-departure-action-label">{action.kind === "pause" ? <Pause size={48} strokeWidth={3} aria-hidden="true" /> : <svg viewBox="0 0 64 64" aria-hidden="true"><path d="M7 24h31V10l22 22-22 22V40H7z" fill="currentColor" /></svg>}<span>{action.label}</span></span><span class="mp-departure-shortcut"><Show when={action.kind === "start" || action.kind === "continue"} fallback={<span>FOCUS</span>}><kbd>Ctrl</kbd><kbd>Enter</kbd></Show></span></>} />
       </aside>
     </div>
     <section class="mp-stat-band"><div><span>已完成</span><strong class="mp-stat-total">{props.todayCompletedTodos().length}<small> / {sequence().length}</small></strong><small class="mp-stat-note">保持节奏，继续前行。</small></div><div><span>连续专注</span><strong>{streak()}<small> 天</small></strong><span class="mp-streak-dots" aria-label={"连续专注 " + streak() + " 天，最近七天刻度"}>{Array.from({ length: 7 }, (_, index) => <i classList={{ active: index < Math.min(streak(), 7) }} />)}</span></div><div class="mp-stat-band__next"><span>下一站</span><strong>{next()?.scheduledTime || "待安排"}</strong></div><div class="mp-stat-band__hint"><span>下一站</span><strong>更好的自己</strong><button type="button" aria-label="查看完整运行记录" onClick={props.onOpenRecords}><ArrowRight size={24} /></button></div></section>

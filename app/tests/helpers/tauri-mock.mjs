@@ -9,8 +9,8 @@ function localDate() {
 }
 
 
-export async function bootWithTauriMock(page, { includeOverdue = false, includeRecords = false, windowLabel = "main", pausedFocus = false, runningFocus = false, completedCountdown = false, initialLoadError = false, autoMiniOnStart = false, delayAppPreferences = false, todayRecordCount = includeRecords ? 1 : 0, todayTodoCount = 1, futureTodoCount = 0, completedTodoCount = 0, historyDayCount = 0, freshTodoSnapshots = false, freshRecordSnapshots = false } = {}) {
-  await page.addInitScript(({ today, includeOverdue, includeRecords, windowLabel, pausedFocus, runningFocus, completedCountdown, initialLoadError, autoMiniOnStart, delayAppPreferences, todayRecordCount, todayTodoCount, futureTodoCount, completedTodoCount, historyDayCount, freshTodoSnapshots, freshRecordSnapshots }) => {
+export async function bootWithTauriMock(page, { includeOverdue = false, includeRecords = false, windowLabel = "main", pausedFocus = false, runningFocus = false, completedCountdown = false, initialLoadError = false, autoMiniOnStart = false, delayAppPreferences = false, todayRecordCount = includeRecords ? 1 : 0, todayTodoCount = 1, futureTodoCount = 0, completedTodoCount = 0, historyDayCount = 0, freshTodoSnapshots = false, freshRecordSnapshots = false, initialPendingBookmarkNotices = [] } = {}) {
+  await page.addInitScript(({ today, includeOverdue, includeRecords, windowLabel, pausedFocus, runningFocus, completedCountdown, initialLoadError, autoMiniOnStart, delayAppPreferences, todayRecordCount, todayTodoCount, futureTodoCount, completedTodoCount, historyDayCount, freshTodoSnapshots, freshRecordSnapshots, initialPendingBookmarkNotices }) => {
     const yesterday = new Date(`${today}T00:00:00`);
     yesterday.setDate(yesterday.getDate() - 1);
     const dateKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -153,6 +153,7 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
         importanceKey: "medium",
       });
     }
+    let pendingBookmarkNotices = initialPendingBookmarkNotices.map((notice) => ({ ...notice }));
     window.__todoItemsCalls = 0;
     window.__focusRecordCalls = 0;
     window.__timerSnapshotCalls = 0;
@@ -165,8 +166,16 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
     window.__closeMainWindowCalls = 0;
     window.__flashMainWindowAttention = false;
     window.__completedFocusCalls = 0;
+    window.__pendingBookmarkQueryCalls = 0;
+    window.__pendingBookmarkEventReady = false;
+    window.__mainWindowShownEventReady = false;
+    window.__bookmarkSaveCalls = 0;
+    window.__bookmarkAcknowledgementCalls = 0;
+    window.__failBookmarkSave = false;
     window.__clearAppDataCalls = 0;
     window.__mainRestored = false;
+    window.__mainRestoreCalls = 0;
+    window.__failNextMainRestore = false;
     window.__resetTimerCalls = 0;
     window.__resetTimerSuccessCalls = 0;
     window.__resetTimerArgs = [];
@@ -192,6 +201,13 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
     let initialLoadFailures = initialLoadError ? 1 : 0;
     const eventCallbacks = new Map();
     const eventListeners = new Map();
+    const emitMockEvent = (event, payload = null) => {
+      for (const callbackId of eventListeners.get(event) ?? []) {
+        eventCallbacks.get(callbackId)?.({ event, id: callbackId, payload });
+      }
+    };
+    window.__emitMockEvent = emitMockEvent;
+    window.__queuePendingBookmarkNotice = (notice) => pendingBookmarkNotices.push({ ...notice });
     let nextEventCallbackId = 1;
     window.__appStateSyncReady = false;
     window.__TAURI_EVENT_PLUGIN_INTERNALS__ = {
@@ -369,19 +385,15 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
             if (args.event === "app-state-sync") {
               window.__appStateSyncReady = true;
             }
+            if (args.event === "pending-bookmark-notice") window.__pendingBookmarkEventReady = true;
+            if (args.event === "main-window-shown") window.__mainWindowShownEventReady = true;
             return args.handler;
           }
           case "plugin:event|unlisten":
             return null;
           case "plugin:event|emit": {
             if (args.event === "app-state-sync") window.__appStateSyncEmits += 1;
-            for (const callbackId of eventListeners.get(args.event) ?? []) {
-              eventCallbacks.get(callbackId)?.({
-                event: args.event,
-                id: callbackId,
-                payload: args.payload,
-              });
-            }
+            emitMockEvent(args.event, args.payload);
             return null;
           }
           case "get_timer_snapshot":
@@ -435,6 +447,15 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
           case "get_todo_items":
             window.__todoItemsCalls += 1;
             return freshTodoSnapshots ? todos.map((item) => ({ ...item })) : todos;
+          case "get_pending_bookmark_notices": {
+            window.__pendingBookmarkQueryCalls += 1;
+            pendingBookmarkNotices = pendingBookmarkNotices.flatMap((notice) => {
+              const todo = todos.find((item) => item.id === notice.todoId);
+              if (!todo || todo.isCompleted) return [];
+              return [{ ...notice, title: todo.title }];
+            });
+            return pendingBookmarkNotices.map((notice) => ({ ...notice }));
+          }
           case "get_focus_records":
             window.__focusRecordCalls += 1;
             return freshRecordSnapshots ? focusRecords.map((record) => ({ ...record })) : focusRecords;
@@ -484,6 +505,19 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
             window.__continuationNoteCalls += 1;
             todos = todos.map((item) => item.id === args.id ? { ...item, continuationNote: args.note, continuationUpdatedAt: args.note ? `${today}T12:00:00` : null } : item);
             return todos;
+          case "save_continuation_bookmark":
+            window.__bookmarkSaveCalls += 1;
+            if (window.__failBookmarkSave) {
+              window.__failBookmarkSave = false;
+              throw new Error("模拟停笔书签保存失败");
+            }
+            todos = todos.map((item) => item.id === args.todoId ? { ...item, continuationNote: args.note, continuationUpdatedAt: args.note ? `${today}T12:00:00` : null } : item);
+            pendingBookmarkNotices = pendingBookmarkNotices.filter((notice) => notice.recordId !== args.recordId);
+            return todos;
+          case "acknowledge_pending_bookmark_notice":
+            window.__bookmarkAcknowledgementCalls += 1;
+            pendingBookmarkNotices = pendingBookmarkNotices.filter((notice) => notice.recordId !== args.recordId);
+            return null;
           case "toggle_todo_item":
             todos = todos.map((item) => item.id === args.id
               ? { ...item, isCompleted: !item.isCompleted }
@@ -526,8 +560,10 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
             if (timer.completeLinkedTodoOnFinish && timer.linkedTodoId !== null) {
               todos = todos.map((item) => item.id === timer.linkedTodoId ? { ...item, isCompleted: true } : item);
             }
+            const recordId = 1000 + focusRecords.length;
+            const linkedTodo = timer.linkedTodoId === null ? null : todos.find((item) => item.id === timer.linkedTodoId) ?? null;
             focusRecords = [...focusRecords, {
-              id: 1000 + focusRecords.length,
+              id: recordId,
               title: args.title,
               durationMs,
               durationLabel,
@@ -535,7 +571,7 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
               modeLabel: timer.mode,
               phaseLabel: timer.phaseLabel,
               linkedTodoId: timer.linkedTodoId,
-              linkedTodoTitle: timer.linkedTodoId === null ? null : todos.find((item) => item.id === timer.linkedTodoId)?.title ?? null,
+              linkedTodoTitle: linkedTodo?.title ?? null,
               completedAt: `${today}T12:00:00`,
               completedDate: today,
               completedTime: "12:00",
@@ -543,6 +579,10 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
               timeBasis: "completion_day",
               editedAt: null,
             }];
+            if (linkedTodo && !linkedTodo.isCompleted && !pendingBookmarkNotices.some((notice) => notice.recordId === recordId)) {
+              pendingBookmarkNotices.push({ recordId, todoId: linkedTodo.id, title: linkedTodo.title });
+              emitMockEvent("pending-bookmark-notice");
+            }
             recalculateAnalytics();
             timer = {
               ...timer,
@@ -576,7 +616,13 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
             return null;
           case "restore_main_from_floating_todos":
           case "restore_main_from_focus_floating":
+            window.__mainRestoreCalls += 1;
+            if (window.__failNextMainRestore) {
+              window.__failNextMainRestore = false;
+              throw new Error("模拟主窗口恢复失败");
+            }
             window.__mainRestored = true;
+            emitMockEvent("main-window-shown");
             return null;
           case "unlock_focus_floating":
             window.__focusFloatingUnlocked = true;
@@ -664,7 +710,7 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
         }
       },
     };
-  }, { today: localDate(), includeOverdue, includeRecords, windowLabel, pausedFocus, runningFocus, completedCountdown, initialLoadError, autoMiniOnStart, delayAppPreferences, todayRecordCount, todayTodoCount, futureTodoCount, completedTodoCount, historyDayCount, freshTodoSnapshots, freshRecordSnapshots });
+  }, { today: localDate(), includeOverdue, includeRecords, windowLabel, pausedFocus, runningFocus, completedCountdown, initialLoadError, autoMiniOnStart, delayAppPreferences, todayRecordCount, todayTodoCount, futureTodoCount, completedTodoCount, historyDayCount, freshTodoSnapshots, freshRecordSnapshots, initialPendingBookmarkNotices });
 
   await page.goto("/");
   if (windowLabel === "main") {

@@ -5,17 +5,17 @@ mod storage;
 mod timer_engine;
 
 pub(crate) use commands::{
-    acknowledge_timer_alert, bootstrap_shell, clear_app_data, complete_focus_session,
-    create_manual_focus_record, create_todo_item, delete_focus_record, delete_focus_records,
-    delete_todo_item, export_app_backup, export_app_backup_to_path, export_recovery_material,
-    get_analytics_snapshot, get_app_preferences, get_focus_plan, get_focus_records,
-    get_timer_preferences, get_timer_snapshot, get_todo_items, import_app_backup,
-    import_app_backup_path, list_app_backups, open_app_backup_folder, pause_timer,
-    preview_app_backup_path, reset_timer, restore_focus_record, restore_todo_item,
-    set_countdown_minutes, start_timer, switch_timer_mode, toggle_todo_item,
-    update_app_preferences, update_focus_plan, update_focus_record, update_focus_record_title,
-    update_timer_context, update_timer_preferences, update_todo_continuation_note,
-    update_todo_item,
+    acknowledge_pending_bookmark_notice, acknowledge_timer_alert, bootstrap_shell, clear_app_data,
+    complete_focus_session, create_manual_focus_record, create_todo_item, delete_focus_record,
+    delete_focus_records, delete_todo_item, export_app_backup, export_app_backup_to_path,
+    export_recovery_material, get_analytics_snapshot, get_app_preferences, get_focus_plan,
+    get_focus_records, get_pending_bookmark_notices, get_timer_preferences, get_timer_snapshot,
+    get_todo_items, import_app_backup, import_app_backup_path, list_app_backups,
+    open_app_backup_folder, pause_timer, preview_app_backup_path, reset_timer,
+    restore_focus_record, restore_todo_item, save_continuation_bookmark, set_countdown_minutes,
+    start_timer, switch_timer_mode, toggle_todo_item, update_app_preferences, update_focus_plan,
+    update_focus_record, update_focus_record_title, update_timer_context, update_timer_preferences,
+    update_todo_continuation_note, update_todo_item,
 };
 #[cfg(target_os = "macos")]
 pub(crate) use desktop::trigger_native_smoke_tray_click;
@@ -61,11 +61,13 @@ use storage::{
 };
 use tauri::{Manager, WindowEvent};
 
-const APP_VERSION: &str = "2.13.10";
-const APP_MILESTONE: &str = "v2.13.10 crash-safe save and reset protection";
+const APP_VERSION: &str = "2.14.0";
+const APP_MILESTONE: &str = "v2.14.0 unified daily actions and bookmark handoff";
 const APP_BACKUP_KIND: &str = "focused-moment-backup";
 const APP_BACKUP_FORMAT_VERSION: u64 = 3;
 const FLOATING_WORKSPACE_SYNC_EVENT: &str = "floating-workspace-sync";
+pub(crate) const PENDING_BOOKMARK_NOTICE_EVENT: &str = "pending-bookmark-notice";
+pub(crate) const MAIN_WINDOW_SHOWN_EVENT: &str = "main-window-shown";
 
 const DEFAULT_THEME_ID: &str = "night-valley";
 const DEFAULT_VISUAL_INTENSITY: u8 = 72;
@@ -380,6 +382,135 @@ struct TodoItem {
     continuation_note: String,
     #[serde(default)]
     continuation_updated_at: Option<String>,
+}
+
+#[derive(Clone, Serialize, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PendingBookmarkNotice {
+    pub(crate) record_id: u64,
+    pub(crate) todo_id: u64,
+    pub(crate) title: String,
+}
+
+#[derive(Clone, Default)]
+pub(crate) struct PendingBookmarkQueue {
+    notices: Vec<PendingBookmarkNotice>,
+}
+
+impl PendingBookmarkQueue {
+    pub(crate) fn enqueue(&mut self, notice: PendingBookmarkNotice) -> bool {
+        if self
+            .notices
+            .iter()
+            .any(|pending| pending.record_id == notice.record_id)
+        {
+            return false;
+        }
+        self.notices.push(notice);
+        true
+    }
+
+    pub(crate) fn acknowledge(&mut self, record_id: u64) {
+        self.notices.retain(|notice| notice.record_id != record_id);
+    }
+
+    pub(crate) fn contains(&self, record_id: u64, todo_id: u64) -> bool {
+        self.notices
+            .iter()
+            .any(|notice| notice.record_id == record_id && notice.todo_id == todo_id)
+    }
+
+    pub(crate) fn acknowledge_for(&mut self, record_id: u64, todo_id: u64) -> bool {
+        if !self.contains(record_id, todo_id) {
+            return false;
+        }
+        self.acknowledge(record_id);
+        true
+    }
+
+    pub(crate) fn clear(&mut self) {
+        self.notices.clear();
+    }
+
+    pub(crate) fn available_for(&mut self, todos: &[TodoItem]) -> Vec<PendingBookmarkNotice> {
+        self.notices.retain_mut(|notice| {
+            let Some(todo) = todos.iter().find(|todo| todo.id == notice.todo_id) else {
+                return false;
+            };
+            if todo.is_completed {
+                return false;
+            }
+            notice.title.clone_from(&todo.title);
+            true
+        });
+        self.notices.clone()
+    }
+}
+
+#[cfg(test)]
+mod pending_bookmark_queue_tests {
+    use super::*;
+
+    fn todo(id: u64, title: &str, is_completed: bool) -> TodoItem {
+        TodoItem {
+            id,
+            title: title.to_string(),
+            is_completed,
+            scheduled_date: String::new(),
+            scheduled_time: String::new(),
+            importance_key: "medium".to_string(),
+            continuation_note: String::new(),
+            continuation_updated_at: None,
+        }
+    }
+
+    fn notice(record_id: u64, todo_id: u64, title: &str) -> PendingBookmarkNotice {
+        PendingBookmarkNotice {
+            record_id,
+            todo_id,
+            title: title.to_string(),
+        }
+    }
+
+    #[test]
+    fn pending_notices_are_deduplicated_and_acknowledged_by_record_id() {
+        let mut queue = PendingBookmarkQueue::default();
+        assert!(queue.enqueue(notice(20, 1, "事项")));
+        assert!(!queue.enqueue(notice(20, 1, "重复")));
+        assert!(queue.enqueue(notice(21, 1, "事项")));
+
+        queue.acknowledge(20);
+        let pending = queue.available_for(&[todo(1, "事项", false)]);
+
+        assert_eq!(pending, vec![notice(21, 1, "事项")]);
+    }
+
+    #[test]
+    fn completed_or_deleted_todos_remove_stale_bookmark_notices() {
+        let mut queue = PendingBookmarkQueue::default();
+        queue.enqueue(notice(30, 1, "旧标题"));
+        queue.enqueue(notice(31, 2, "已完成"));
+        queue.enqueue(notice(32, 3, "已删除"));
+
+        let pending =
+            queue.available_for(&[todo(1, "更新后的标题", false), todo(2, "已完成", true)]);
+
+        assert_eq!(pending, vec![notice(30, 1, "更新后的标题")]);
+        assert_eq!(queue.notices, pending);
+    }
+
+    #[test]
+    fn bookmark_acknowledgement_requires_the_matching_todo() {
+        let mut queue = PendingBookmarkQueue::default();
+        queue.enqueue(notice(40, 7, "事项"));
+
+        assert!(queue.contains(40, 7));
+        assert!(!queue.contains(40, 8));
+        assert!(!queue.acknowledge_for(40, 8));
+        assert_eq!(queue.notices, vec![notice(40, 7, "事项")]);
+        assert!(queue.acknowledge_for(40, 7));
+        assert!(queue.notices.is_empty());
+    }
 }
 
 #[derive(Clone, Copy, Default, Eq, PartialEq)]
@@ -1007,6 +1138,7 @@ mod tests {
             app_preferences: Mutex::new(AppPreferences::default()),
             focus_plan: Mutex::new(FocusPlanState::default()),
             focus_records: Mutex::new(Vec::new()),
+            pending_bookmark_notices: Mutex::new(PendingBookmarkQueue::default()),
             next_record_id: Mutex::new(next_record_id),
             todo_items: Mutex::new(Vec::new()),
             next_todo_id: Mutex::new(0),
@@ -1230,6 +1362,7 @@ mod tests {
             app_preferences: Mutex::new(AppPreferences::default()),
             focus_plan: Mutex::new(FocusPlanState::default()),
             focus_records: Mutex::new(Vec::new()),
+            pending_bookmark_notices: Mutex::new(PendingBookmarkQueue::default()),
             next_record_id: Mutex::new(0),
             todo_items: Mutex::new(Vec::new()),
             next_todo_id: Mutex::new(0),
@@ -1300,6 +1433,16 @@ mod tests {
             PersistenceStore::for_test_with_failure(&root, storage::SaveStage::RuntimePromoteNew)
                 .expect("create faulty store");
         let state = state_with_store(faulty_store, 1, 1_000);
+        let previous_notice = PendingBookmarkNotice {
+            record_id: 17,
+            todo_id: 8,
+            title: "仍待保存的事项".to_string(),
+        };
+        state
+            .pending_bookmark_notices
+            .lock()
+            .expect("lock pending bookmark queue")
+            .enqueue(previous_notice.clone());
         let transaction = state
             .begin_transaction(OperationScope::All)
             .expect("begin backup import transaction");
@@ -1338,6 +1481,86 @@ mod tests {
                 .stopwatch_elapsed_ms,
             1_000
         );
+        assert_eq!(
+            state
+                .pending_bookmark_notices
+                .lock()
+                .expect("lock restored bookmark queue")
+                .notices,
+            vec![previous_notice]
+        );
+        cleanup_isolated_root(&root);
+    }
+
+    #[test]
+    fn clearing_and_importing_data_purge_pending_bookmarks() {
+        let root = isolated_root();
+        let store = PersistenceStore::for_test(&root).expect("create bookmark lifecycle store");
+        let state = state_with_store(store, 0, 0);
+        let notice = PendingBookmarkNotice {
+            record_id: 21,
+            todo_id: 7,
+            title: "旧事项".to_string(),
+        };
+
+        state
+            .pending_bookmark_notices
+            .lock()
+            .expect("lock pending bookmark queue")
+            .enqueue(notice.clone());
+        let clear_transaction = state
+            .begin_transaction(OperationScope::All)
+            .expect("begin clear transaction");
+        state.clear_all().expect("clear application data");
+        clear_transaction.commit();
+        assert!(state
+            .pending_bookmark_notices
+            .lock()
+            .expect("lock cleared bookmark queue")
+            .notices
+            .is_empty());
+
+        state
+            .todo_items
+            .lock()
+            .expect("lock imported todos")
+            .push(test_todo("新事项", 7));
+        state
+            .pending_bookmark_notices
+            .lock()
+            .expect("lock pending bookmark queue")
+            .enqueue(notice);
+        let backup = AppBackupFile {
+            kind: APP_BACKUP_KIND.to_string(),
+            format_version: APP_BACKUP_FORMAT_VERSION,
+            schema_version: CURRENT_STORAGE_SCHEMA_VERSION,
+            app_version: APP_VERSION.to_string(),
+            exported_at: "2026-10-15T12:00:00+08:00".to_string(),
+            state: PersistedState {
+                schema_version: CURRENT_STORAGE_SCHEMA_VERSION,
+                todo_items: vec![test_todo("导入后的同 ID 事项", 7)],
+                next_todo_id: 8,
+                ..PersistedState::default()
+            },
+            runtime: PersistedRuntimeState {
+                schema_version: CURRENT_STORAGE_SCHEMA_VERSION,
+                ..PersistedRuntimeState::default()
+            },
+        };
+        let import_transaction = state
+            .begin_transaction(OperationScope::All)
+            .expect("begin backup import transaction");
+        state
+            .apply_backup_file(backup)
+            .expect("import replacement data");
+        import_transaction.commit();
+
+        assert!(state
+            .pending_bookmark_notices
+            .lock()
+            .expect("lock imported bookmark queue")
+            .notices
+            .is_empty());
         cleanup_isolated_root(&root);
     }
 
@@ -1519,6 +1742,7 @@ mod tests {
                 time_basis: "completion_day".to_string(),
                 edited_at: None,
             }]),
+            pending_bookmark_notices: Mutex::new(PendingBookmarkQueue::default()),
             next_record_id: Mutex::new(42),
             todo_items: Mutex::new(vec![TodoItem {
                 id: 42,
@@ -2099,6 +2323,9 @@ pub fn run() {
             create_todo_item,
             update_todo_item,
             update_todo_continuation_note,
+            save_continuation_bookmark,
+            get_pending_bookmark_notices,
+            acknowledge_pending_bookmark_notice,
             toggle_todo_item,
             delete_todo_item,
             restore_todo_item,

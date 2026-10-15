@@ -67,6 +67,7 @@ pub(crate) fn show_main_window(app: &AppHandle) -> Result<(), String> {
 
     window.show().map_err(|error| error.to_string())?;
     window.set_focus().map_err(|error| error.to_string())?;
+    let _ = app.emit_to("main", MAIN_WINDOW_SHOWN_EVENT, ());
     Ok(())
 }
 

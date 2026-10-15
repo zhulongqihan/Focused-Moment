@@ -1,6 +1,6 @@
 import { For, Show, createEffect, createMemo, createSignal } from "solid-js";
+import HomeFocusActions, { HomeFocusStatus } from "./HomeFocusActions";
 import {
-  ArrowRight,
   Check,
   CheckCircle2,
   ChevronRight,
@@ -219,9 +219,14 @@ export function GraphiteConsoleToday(props: TodaySurfaceProps) {
         </GcPanel>
 
         <GcPanel title="NEXT OPERATION" code="AUTO / 01" class="gc-operation-panel">
-          <Show when={nextTodo()} fallback={<div class="gc-operation-empty"><span>QUEUE EMPTY</span><h2>等待下一件事</h2><p>把一个念头放进待办队列。</p><button type="button" class="gc-lime-button" onClick={props.onOpenTodos}><Plus size={17} aria-hidden="true" /> 添加待办</button></div>}>
-            {(item) => <div class="gc-operation-card"><span class="gc-card-kicker">NEXT FOCUS</span><h2>{item().title}</h2><div class="gc-operation-meta"><span>DURATION</span><strong>{props.defaultFocusMinutes()} <small>MIN</small></strong></div><div class="gc-operation-meta"><span>NOTE</span><p>{props.formatTodoDue(item())}</p></div><div class="gc-operation-status"><span><i class="gc-led gc-led--orange" /> STATUS</span><strong>QUEUED</strong></div><button type="button" class="gc-lime-button" disabled={props.busy() || props.timerHasProgress()} onClick={() => props.onStartTodo(item())}><Play size={17} fill="currentColor" aria-hidden="true" /> START / 开始专注 <ArrowRight size={16} aria-hidden="true" /></button></div>}
-          </Show>
+          <div class="gc-operation-card">
+            <Show when={!props.timerHasProgress()} fallback={<><span class="gc-card-kicker">IN FOCUS</span><HomeFocusStatus {...props} /></>}>
+              <Show when={nextTodo()} fallback={<div class="gc-operation-empty"><span>QUEUE EMPTY</span><h2>等待下一件事</h2><p>把一个念头放进待办队列。</p></div>}>
+                {(item) => <><span class="gc-card-kicker">NEXT FOCUS</span><h2>{item().title}</h2><div class="gc-operation-meta"><span>DURATION</span><strong>{props.defaultFocusMinutes()} <small>MIN</small></strong></div><div class="gc-operation-meta"><span>NOTE</span><p>{props.formatTodoDue(item())}</p></div><div class="gc-operation-status"><span><i class="gc-led gc-led--orange" /> STATUS</span><strong>QUEUED</strong></div></>}
+              </Show>
+            </Show>
+            <HomeFocusActions {...props} primaryClass="gc-lime-button" finishClass="gc-dark-button" />
+          </div>
           <div class="gc-operation-footer"><span>FOCUS MODULE</span><strong>STANDARD MODE</strong><i class="gc-signal-bars"><b /><b /><b /><b /><b /><b /><b /><b /><b /></i></div>
         </GcPanel>
       </div>

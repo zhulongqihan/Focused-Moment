@@ -1215,7 +1215,7 @@ test("finishing a linked round keeps the todo open and saves a continuation book
   await prompt.getByRole("textbox").fill("从第三段的例子继续");
   await prompt.getByRole("button", { name: "保存下次位置" }).click();
 
-  await expect.poll(() => page.evaluate(() => window.__continuationNoteCalls)).toBe(1);
+  await expect.poll(() => page.evaluate(() => window.__bookmarkSaveCalls)).toBe(1);
   await expect(prompt).toBeHidden();
   const plan = await openRestoredFocusPlan(page);
   await expect(plan.getByText("下次继续：从第三段的例子继续", { exact: true })).toBeVisible();
