@@ -64,5 +64,7 @@ Write-Host "Local executable delivery succeeded."
 Write-Host (" - build ID: {0}" -f $result.buildId)
 Write-Host (" - root executable: {0}" -f $result.rootExecutablePath)
 Write-Host (" - SHA-256: {0}" -f $result.sha256)
+Write-Host (" - file version: {0}" -f $result.versionInfo.fileVersion)
+Write-Host (" - product version: {0}" -f $result.versionInfo.productVersion)
 Write-Host (" - manifest: {0}" -f $result.manifestPath)
 Write-Host (" - journal: {0}" -f $result.journalPath)

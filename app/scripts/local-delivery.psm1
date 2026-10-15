@@ -61,6 +61,18 @@ function Get-LocalDeliveryFileHash {
   }
 }
 
+function ConvertTo-LocalDeliveryVersionIdentity {
+  param([AllowNull()][string]$Value)
+
+  if (-not $Value) {
+    return $null
+  }
+  if ($Value.Trim() -match '^(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)(?:\.0)?$') {
+    return "{0}.{1}.{2}" -f $Matches.major, $Matches.minor, $Matches.patch
+  }
+  return $null
+}
+
 function Get-LocalDeliveryInputFiles {
   param(
     [Parameter(Mandatory = $true)]
@@ -286,6 +298,10 @@ function Publish-LocalExecutable {
     [scriptblock]$ManifestWriter = {
       param($manifestPath, $manifestValue)
       Write-LocalDeliveryJson -Path $manifestPath -Value $manifestValue
+    },
+    [scriptblock]$VersionReader = {
+      param($path)
+      (Get-Item -LiteralPath $path).VersionInfo
     }
   )
 
@@ -305,6 +321,27 @@ function Publish-LocalExecutable {
   }
   if ($candidate -match "[\\/]debug[\\/]") {
     throw "Debug artifacts cannot be delivered to the root entry: $candidate"
+  }
+
+  $expectedVersionIdentity = ConvertTo-LocalDeliveryVersionIdentity -Value $ExpectedVersion
+  if (-not $expectedVersionIdentity) {
+    throw "Expected application version is not a supported numeric release version: $ExpectedVersion"
+  }
+  $versionInfo = & $VersionReader $candidate
+  if (-not $versionInfo) {
+    throw "Release candidate has no readable Windows version resource: $candidate"
+  }
+  $candidateVersionInfo = [ordered]@{}
+  foreach ($field in @("FileVersion", "ProductVersion")) {
+    $rawVersion = [string]$versionInfo.$field
+    $versionIdentity = ConvertTo-LocalDeliveryVersionIdentity -Value $rawVersion
+    if (-not $versionIdentity) {
+      throw "Release candidate is missing a valid Windows $field resource: '$rawVersion'"
+    }
+    if ($versionIdentity -ne $expectedVersionIdentity) {
+      throw "Release candidate Windows $field mismatch. Expected $expectedVersionIdentity, got $rawVersion."
+    }
+    $candidateVersionInfo[$field.Substring(0, 1).ToLowerInvariant() + $field.Substring(1)] = $rawVersion.Trim()
   }
 
   $rootExecutable = if ($RootExecutablePath) { Get-LocalDeliveryAbsolutePath -Path $RootExecutablePath } else { Join-Path $workspaceRoot "Focused Moment.exe" }
@@ -401,6 +438,7 @@ function Publish-LocalExecutable {
         path = ConvertTo-LocalDeliveryRelativePath -Path $candidate -Root $workspaceRoot
         sha256 = $candidateHash
         length = (Get-Item -LiteralPath $candidate).Length
+        versionInfo = $candidateVersionInfo
       }
       rootExecutable = [ordered]@{
         path = ConvertTo-LocalDeliveryRelativePath -Path $rootExecutable -Root $workspaceRoot
@@ -441,6 +479,7 @@ function Publish-LocalExecutable {
       candidatePath = $candidate
       rootExecutablePath = $rootExecutable
       sha256 = $candidateHash
+      versionInfo = $candidateVersionInfo
       phase = "delivered"
     }
   } catch {
