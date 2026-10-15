@@ -235,3 +235,14 @@
 - **浏览器 mock**：首轮默认并发 177/178，一项提醒音浮窗用例在 `page.goto` 等待 load 时超时；页面快照显示已渲染，单项 1 worker 诊断为 1/1。未修改用例/断言、未启用重试；降低完整回归并发到 4 workers 后原套件 178/178。首轮目录 `artifacts/qa/frontend/run-inv-mv39w7ya-43200-3c7a16e5-7eaa-4865-b45f-c197ef35ad50`；诊断目录 `artifacts/qa/frontend/run-inv-mv3a2t2v-39780-05e71eb7-0b54-46d0-8e96-5bf15811e559`；完整通过目录 `artifacts/qa/frontend/run-inv-mv3a3muf-38996-fd09c0fe-d5bb-4605-88c9-39899756eb24`。
 - **候选边界**：打包指纹模块会列出 `app/scripts/` 全部脚本，故未跟踪的本机 QA/性能工具会记入指纹；它们不是前端/Rust 编译输入，不会编入 EXE。仍未暂存/提交未来批次脚本、`div`、历史摘要或 PROJECT_PLAN.md。
 - **下一步**：选择性提交 A 批应用、版本与正式说明文件；再 package:local，校验 Release 候选、输入指纹、根入口与旧入口恢复副本，并对同一候选运行隔离 Windows 原生验收。
+
+### 2026-10-15 A 批最终交付与 B 批转接
+
+- **源码/提交**：弹层、2.13.9 版本同步与发布说明为 `8d98254`；Windows UIAutomation 空名称防护为 `102eb05`；本地交付实际 EXE FileVersion/ProductVersion 校验及 8 个 fixture 场景为 `ef6fc5f`；全部推送到 `origin/codex/focused-moment-continuity`。`PROJECT_PLAN.md` 未写入/暂存/提交，SHA-256 仍为 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`。
+- **最终构建**：`local-20261015-132218-f95a936d5c`。候选和根 EXE SHA-256 为 `3542369B271858EDEAC71F70AF56F79EB9CEE55F98991498EA153BD1522A63B3`；PE FileVersion/ProductVersion 和应用来源版本均为 2.13.9。构建输入前后均为 191 个文件、摘要 `DB40CBE04E6C3F898DADF0EDBC1BB2064E4E0B123C22A5E1276B4D3CE27E81D7`；HEAD 为 `ef6fc5fc19f0f5cb11c29169ab4d32cff9060b01`。版本资源不匹配会在入口备份/替换前拒绝。
+- **恢复副本**：旧 2.13.9 根入口哈希 `BE76F13C750982BB17F2E2F9749AF87A784E131769868DF067436B92C69BED7B` 存于 `archive/executables/local/local-20261015-132218-f95a936d5c/Focused Moment.exe`；原 2.13.6 哈希 `0D0C4B31ED83C980624C8AD5B9713CC5D7451D865DF84A256CB2CB6FEC257C34` 仍有备份 `archive/executables/local/local-20261011-115259-4e93da2a1e/Focused Moment.exe`。
+- **最终验证**：`pnpm verify` 通过，Rust 39/39、交付脚本 8/8；生产构建成功；完整 Playwright 178/178，4 workers、无重试，目录 `artifacts/qa/frontend/run-inv-mv936un8-3176-dd58550e-2819-4c5d-82f7-fd421527f0ff`。官方 Windows 隔离冒烟 `artifacts/qa/native/windows-native-20261015-132425-5b9ac9b87d` 通过。
+- **真实 Windows 交互/音频**：UIAutomation 运行 `artifacts/qa/native/windows-interactions-20261015T052510928Z-41a4b4ec/report.json` 6 项通过，覆盖启动、暂停、浮窗显示/返回、完成保存及重启读取；CDP 未开放，故无 IPC 调用计数。`artifacts/qa/native/windows-interactions-20261015T052715706Z-ea5c1c34/report.json` 的隔离进程音量计确认试听和提醒有输出（峰值分别 0.0337293、0.0337603427）；不证明人耳可听或音源身份。系统托盘与隐藏窗口提醒仍在总验收范围。
+- **已知 B 批风险**：合成注入一个新业务文件配旧 runtime 文件，重启后可继续；再次完成保存后记录数由 1 变 2。此为磁盘状态注入，不是运行中强退测试。B 批需要修复统一事务/双文件恢复，不复用此结果声称恢复通过。
+- **输入边界**：打包 provenance 因 `app/scripts/` 全量指纹将未跟踪辅助脚本标为 dirty，故 manifest `relevantBuildInputDirty=true`；它们不进入 Vite/Tauri 可执行输入。`PROJECT_PLAN.md`、`div`、历史摘要和剩余本机脚本均未暂存/提交。构建前首次发现 Cargo.toml 行尾被 Tauri/Cargo 从 CRLF 改为 LF，交付守卫阻止替换；稳定行尾后按最终摘要成功重建。
+- **B 批下一步**：只读复核 `PROJECT_PLAN.md`；沿 `commands.rs`/`timer_engine.rs`/`storage.rs` 梳理全部写入、托盘、导入、清空、退出路径与锁顺序；以此确定统一事务日志格式及崩溃注入边界。保存其他未提交用户差异，不启动 C/D 应用改动。
