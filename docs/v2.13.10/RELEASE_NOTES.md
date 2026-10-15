@@ -24,5 +24,7 @@
 - 原 2.13.9 根入口 SHA-256 `3542369B271858EDEAC71F70AF56F79EB9CEE55F98991498EA153BD1522A63B3` 已恢复备份至 `archive/executables/local/local-20261015-153109-5c67dc3626/Focused Moment.exe`。
 - `pnpm native:windows` 隔离冒烟通过，run `windows-native-20261015-153341-0cd5821feb`；覆盖同哈希 Release 副本的可见启动、隔离数据/WebView2 路径、旧路径防护和合成旧数据迁移，不覆盖重置 UI 或活跃写入期间强退；报告另有合成临时目录清理警告。
 - Windows Release 启动恢复：pending 日志回滚场景通过，run `windows-release-transaction-recovery-20261015T080915587Z-f16b06b2`；committed 日志保留并清理场景通过，run `windows-release-committed-recovery-20261015T081416228Z-16e0b35e`。两项均使用此版本 EXE 和隔离合成存储，验证启动恢复而非活跃写入期间强退。pending runner 在场景断言通过后因临时 WebView2 profile 清理遇到 `EBUSY` 以退出码 1 结束；committed 场景在 fixture 改用小写 SHA-256 文本后通过。
-- 原生重置交互尚未完成：B Release 的 `windows-reset-native-20261015T073453621Z-9b44abb2` 与 `windows-interactions-20261015T074157130Z-4a72eec9` 均遇到可见顶层窗口但 UIA 子元素为空、CDP 不可用；同一 harness 对已通过 A 批交互验收的 2.13.9 控制副本 `windows-a-known-good-control-20261015T075937729Z-a84719eb` 也出现相同结果，根因尚未确认。
-- **状态：2.13.10 本地 Release 候选已构建并写入根入口，但 B 批原生验收未完成。** Windows Release 活跃写入期间强退与原生重置专项仍待验证；pending/committed 启动恢复不能替代这两项证据。本版本当前不标记为完整交付；未创建安装包、tag、GitHub Release 或上传资产。
+- Windows 原生重置 UIAutomation run `windows-reset-native-20261015T084539307Z-e809fa5d` 的 8 项断言通过，覆盖默认焦点“保留本轮”、取消保留运行态、确认清空和不创建专注记录。早期乱码来自未设 UTF-8 的测试探针；修正后通过。
+- Windows Release 活跃事务强退 run `windows-release-active-write-kill-20261015T091502930Z-d50d1b75` 证明 state 已替换而 runtime 仍旧、pending journal 覆盖两文件时进程退出；同一候选重启后 state 精确回滚、runtime 保持旧值且 pending journal 删除。恢复截图和 `supplemental-verification.json` 位于该 QA run 目录。
+- 活跃强退 runner 未产出自身 `report.json`：它选中了没有 UIA 子元素的窗口句柄；EnumWindows 找到可见主窗口后，显式句柄 UIA 检查通过（84 个控件，包含“计时”按钮）。补充 JSON 记录文件哈希、原生窗口结果和 runner 限制；本结论基于这些可复核证据，不把 runner 退出码记为通过。
+- **状态：2.13.10 本地 Release 候选与 B 批验收完成。** 根目录入口已写入匹配候选；B 源码与文档尚未推送，未创建 tag、GitHub Release、安装包或上传资产。此前 push 被 auto-review 拒绝，未重试，远程推送待用户批准明确 payload。
