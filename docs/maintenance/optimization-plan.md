@@ -5,9 +5,9 @@
 ## 当前交付状态
 
 - A 批 2.13.9 已完成源码提交推送、Release EXE 交付和最终候选的隔离 Windows 验收；其交付源码提交为 `ef6fc5fc19f0f5cb11c29169ab4d32cff9060b01`。
-- A 批首次交付的根入口为 2.13.9（SHA-256 `3542369B271858EDEAC71F70AF56F79EB9CEE55F98991498EA153BD1522A63B3`）；之后已由 B 批替换。当前根目录 `Focused Moment.exe` 仍为 B 批 2.13.10，SHA-256 `63CE69B934E7A6ADB42A9A2F886AA92926F046845262287D82703F9FDCDB3B40`，build ID `local-20261015-153109-5c67dc3626`。
+- A 批首次交付的根入口为 2.13.9（SHA-256 `3542369B271858EDEAC71F70AF56F79EB9CEE55F98991498EA153BD1522A63B3`）；之后由 B、C 批依次替换。当前根目录 `Focused Moment.exe` 为 C 批 2.14.0，SHA-256 `8FB3E4A468C52A6745A4DD1F164B9CB76DDB8969358A3A23E3BA34B670646F4C`，build ID `local-20261015-194816-ff963e39a1`。
 - B 批 2.13.10 本地验收已完成：四个应用/验收提交先快进推送至 `d1976da7669e55e979c24bdd319054a529f3d918`，后续文档提交 `589beec2a89cc967cccfe21e1dc52b1cc67203a6` 与发布说明指针校正 `0084a05` 也已推送。B 批相关实现、Release 候选和 Windows 原生验收证据见下方对应工作单元。
-- C 批 2.14.0 的版本同步后代码级验收已完成，源码提交 `e3923313bf2be17e3cca4dfbe443aedda7448979` 已推送；远端分支指针已由 `git ls-remote` 核实。`pnpm verify` 通过（Rust 53 passed、0 failed、1 ignored）、生产构建通过（2,096 模块）、完整 Playwright 212/212 通过。书签队列保持目标规定的仅进程内语义，并在清空/导入和事务回滚路径得到根因修复。待制作 `pnpm package:local` Release 候选并对同一候选完成 Windows 原生专项；根入口仍为 B 批 2.13.10。
+- C 批 2.14.0 源码提交 `e3923313bf2be17e3cca4dfbe443aedda7448979` 与交付记录提交 `3f33b574f6245a121f56ca1bc3a9e3476f68fb7f` 已推送；候选已通过默认 `pnpm package:local` 更新根入口，PE 资源、候选/根哈希、构建前后指纹和旧入口恢复副本均匹配。`pnpm verify`（Rust 53 passed、0 failed、1 ignored）、生产构建（2,096 模块）和完整 Playwright 212/212 通过。官方 Windows smoke 的存储/合成迁移断言通过；其窗口断言未独立确认。C 核心交互的 UIA/CDP 验收未完成：本次 WebView 页面 target 为空且 CDP `Page.enable` 超时，2.13.10 同条件对照也出现相同超时。根入口为 C 批 2.14.0，但 C 尚未满足交互验收退出条件。
 - 未另外核验远程 CI；未做 GitHub Release、tag、安装器或资产上传。`PROJECT_PLAN.md` 仍受只读保护，当前 SHA-256 为 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`。
 
 ## 本轮原始基线（2026-10-11）
@@ -25,7 +25,7 @@
 | 0 恢复可验证基线 | 不升版本 | 已完成 | 旧审阅报告已按原字节归档并记录 SHA-256；未完成的 C/D 改动已生成恢复补丁和新文件副本并暂时移出 A 批输入；用户差异保留；pnpm verify 通过。 |
 | A 交付已有可靠性修复 | 2.13.9 | 已完成 | 来源匹配的 Release EXE 已交付；pnpm verify、生产构建、完整浏览器 178/178、官方 Windows 冒烟、原生交互及进程级声音峰值观测通过。 |
 | B 保证保存与重置安全 | 2.13.10 | 本地验收完成并已推送 | 源码、Rust/浏览器回归、匹配 Release EXE、官方 Windows 隔离冒烟、原生重置 UIAutomation 和活跃写入强退后的启动回滚均通过。四个提交已推送至确认分支；未检查远程 CI，未创建正式 Release。 |
-| C 统一日常操作 | 2.14.0 | 源码已提交推送，代码级验收通过，待 Release | 提交 `e392331` 已推送并核实远端指针；待 `package:local` 候选及同一候选的 Windows 原生验收。 |
+| C 统一日常操作 | 2.14.0 | 候选已交付；交互原生验收待完成 | 候选 build ID `local-20261015-194816-ff963e39a1`，版本和哈希校验通过；官方 smoke 记录的存储/迁移断言通过，窗口断言未独立确认。七主题核心流程、浮窗完成与主窗书签交接尚未在可用的 Windows WebView 交互会话中验证。 |
 | D 降低持续运行开销 | 2.14.1 | 未开始 | B 完成后重新审查已归档的 DataRevisions 草稿；实现增量同步、单请求在途、轻量计时与音源分离。 |
 | E 降低启动负担并完成总验收 | 2.14.2 | 未开始 | 主题按需加载、预览衍生图、性能比较、Windows 原生专项和最终交接完成。 |
 
@@ -126,4 +126,12 @@
 - **浏览器 mock**：完整 Playwright 212/212 通过，4 workers、0 重试，用时 5.8 分钟。目录：`artifacts/qa/frontend/batch-c-full-20261015-f4b69297-inv-c-full-20261015-f4b69297/`；`playwright.log` 记录最终汇总，`.last-run.json` 状态为 passed。使用外部启动的仓库 Vite 与临时 `reuseExistingServer` 配置；配置将 `testDir` 指向仓库 `app/tests` 绝对路径，正式 `playwright.config.mjs` 未修改；Vite 与临时配置已关闭/清除。
 - **工作区保护**：`PROJECT_PLAN.md` 哈希仍为 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`；未写入、暂存或提交。`div`、五份历史 context summary、三份未跟踪 app QA/性能脚本未混入本批路径白名单。
 - **提交/推送**：C 批源码、测试、2.14.0 发布说明和维护记录为提交 `e3923313bf2be17e3cca4dfbe443aedda7448979`，已快进推送至 `origin/codex/focused-moment-continuity`；`git ls-remote` 返回相同指针。B 批说明校正 `0084a05` 也已单独推送。
-- **下一步**：执行 `pnpm package:local`，核对候选版本资源、来源指纹及 2.13.10 恢复副本，再对同一 2.14.0 Release 候选运行 Windows 原生冒烟和交互验收。此时根 EXE 仍为 2.13.10，C 批尚未交付。
+- **下一步**：先在具有可交互 WebView2 页面和有效 UIA 控件的 Windows 会话中，使用根入口 2.14.0 完成浮窗记录提交、主窗保存/跳过书签、主窗恢复重试不重复写入。完成前不开始 D 批应用改动。
+
+### 2026-10-15 C 批 Release 候选与 Windows 验收断点
+
+- **候选来源**：默认 `pnpm package:local` 成功，build ID `local-20261015-194816-ff963e39a1`，源 HEAD `3f33b574f6245a121f56ca1bc3a9e3476f68fb7f`，分支 `codex/focused-moment-continuity`。候选与根 `Focused Moment.exe` SHA-256 均为 `8FB3E4A468C52A6745A4DD1F164B9CB76DDB8969358A3A23E3BA34B670646F4C`；PE FileVersion/ProductVersion 均为 2.14.0。manifest：`artifacts/builds/local/local-20261015-194816-ff963e39a1/manifest.json`。
+- **输入与恢复**：195 个输入文件的构建前后摘要均为 `7AF0A62D2256606512301E9C1A22377D39437A6E46796E053CA0C11C040DE3BF`。manifest 如实记录 `app/scripts/measure-release-performance.mjs`、`app/scripts/windows-native-interactions.audio.ps1`、`app/scripts/windows-native-interactions.ps1` 为相关未提交辅助脚本；它们未进入 Vite/Tauri 编译。旧 B 版 2.13.10 根入口 SHA-256 `63CE69B934E7A6ADB42A9A2F886AA92926F046845262287D82703F9FDCDB3B40` 保存在 `archive/executables/local/local-20261015-194816-ff963e39a1/Focused Moment.exe`。
+- **Windows 隔离 smoke**：`pnpm native:windows` run `windows-native-20261015-195043-03386d1148` 退出码 0；报告记录 QA 副本哈希匹配、隔离存储创建、旧路径防护和合成旧数据迁移通过。该脚本未覆盖计时/浮窗/书签交互；其 `Process.MainWindowHandle` 窗口可见断言没有核验 HWND 拥有者与有效性，因此不作为 C 界面可交互的证明。报告初始记录 TEMP 清理拒绝访问；之后用仓库清理脚本对本轮九个唯一隔离目录完成校验清理，均已不存在。
+- **交互验收限制**：C 候选 WebView2 CDP target 的 title/URL 为空，`Page.enable` 超时；UIA helper 默认读取到 40×40 输入法覆盖窗，显式主窗句柄只见到单一 Pane。用同一 profile 参数对 B 版 2.13.10 复测，CDP target 与 `Page.enable` 超时相同，另一次 `Runtime.evaluate` 也超时。当前 Windows 会话 `GetForegroundWindow` 返回空句柄；本轮未执行 C 业务按钮交互，不记录为通过。C/B 诊断分别位于 `artifacts/qa/native/windows-native-cdp-fast-20261015121729-77777032-1/`、`artifacts/qa/native/windows-native-control-cdp-fast-20261015121843-e34492f6-9/` 和 `artifacts/qa/native/windows-native-control-runtime-cdp-20261015122038-bf3ae320-d/`。
+- **状态/唯一下一步**：本地 2.14.0 Release 候选已交付且来源可追溯；C 批交互退出条件仍待验。获取可用的交互式 Windows WebView2 会话后，先完成上述三项原生交互验收，再进入 D。

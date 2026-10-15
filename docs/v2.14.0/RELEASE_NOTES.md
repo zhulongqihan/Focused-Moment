@@ -17,4 +17,11 @@
 ## 验证
 
 - 完整 Playwright 浏览器 mock：212/212 通过，4 workers、无重试；覆盖七种首页主题、快速记事、浮窗书签交接及 Clutch Court 桌面/平板/窄屏流程。
-- `pnpm verify` 通过；Rust 单测 51 passed、0 failed、1 ignored。
+- `pnpm verify` 通过；Rust 单测 53 passed、0 failed、1 ignored。
+
+## 本地 Release 候选状态（2026-10-15；未创建正式 Release）
+
+- 默认 `pnpm package:local` 已生成 build ID `local-20261015-194816-ff963e39a1`。候选与根入口 SHA-256 均为 `8FB3E4A468C52A6745A4DD1F164B9CB76DDB8969358A3A23E3BA34B670646F4C`，PE FileVersion/ProductVersion 均为 2.14.0。来源 HEAD 为 `3f33b574f6245a121f56ca1bc3a9e3476f68fb7f`；构建输入 195 项前后摘要均为 `7AF0A62D2256606512301E9C1A22377D39437A6E46796E053CA0C11C040DE3BF`。完整 manifest：`artifacts/builds/local/local-20261015-194816-ff963e39a1/manifest.json`。
+- B 批 2.13.10 根入口备份位于 `archive/executables/local/local-20261015-194816-ff963e39a1/Focused Moment.exe`，SHA-256 为 `63CE69B934E7A6ADB42A9A2F886AA92926F046845262287D82703F9FDCDB3B40`。
+- Windows 隔离启动 smoke `windows-native-20261015-195043-03386d1148` 记录了哈希匹配、存储/WebView2 目录创建、旧路径防护和合成旧数据迁移断言通过。该 smoke 不覆盖本版本的浮窗和书签交互；其窗口句柄断言未核验实际句柄归属。
+- C 候选的本机交互验收仍待完成：WebView2 CDP 页面 target 为空且 `Page.enable` 超时；2.13.10 同条件对照也出现相同超时，UIA 当前只返回单一 Pane。浮窗完成、主窗保存/跳过和恢复重试不重复写入尚无 Windows 原生交互通过证据。未创建 GitHub Release、tag、安装器或上传资产。
