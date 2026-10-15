@@ -7,6 +7,7 @@ pub(crate) struct RunAnchor {
 }
 
 pub(crate) struct TimerEngineState {
+    pub(crate) operation_lock: Mutex<()>,
     pub(crate) timer: Mutex<TimerEngine>,
     pub(crate) timer_preferences: Mutex<TimerPreferences>,
     pub(crate) app_preferences: Mutex<AppPreferences>,
@@ -24,8 +25,50 @@ pub(crate) struct PersistedBundle {
     pub(crate) runtime: PersistedRuntimeState,
 }
 
-#[derive(Default)]
+struct OperationSnapshot {
+    timer: Option<TimerEngine>,
+    timer_preferences: Option<TimerPreferences>,
+    app_preferences: Option<AppPreferences>,
+    focus_plan: Option<FocusPlanState>,
+    focus_records: Option<Vec<FocusRecord>>,
+    next_record_id: Option<u64>,
+    todo_items: Option<Vec<TodoItem>>,
+    next_todo_id: Option<u64>,
+}
+
+#[derive(Clone, Copy)]
+pub(crate) enum OperationScope {
+    Runtime,
+    State,
+    All,
+}
+
+pub(crate) struct OperationTransaction<'a> {
+    state: &'a TimerEngineState,
+    _operation_guard: std::sync::MutexGuard<'a, ()>,
+    before: Option<OperationSnapshot>,
+}
+
+impl OperationTransaction<'_> {
+    pub(crate) fn commit(mut self) {
+        self.before = None;
+    }
+}
+
+impl Drop for OperationTransaction<'_> {
+    fn drop(&mut self) {
+        if let Some(before) = self.before.take() {
+            if let Err(error) = self.state.restore_operation_snapshot(before) {
+                eprintln!("FOCUSED_MOMENT_MEMORY_ROLLBACK_FAILED={error}");
+            }
+        }
+    }
+}
+
+#[derive(Clone, Default)]
 pub(crate) struct TimerEngine {
+    pub(crate) session_id: SessionId,
+    pub(crate) session_started: bool,
     pub(crate) mode: TimerMode,
     pub(crate) running_anchor: Option<RunAnchor>,
     pub(crate) stopwatch_elapsed_ms: u64,
@@ -57,6 +100,23 @@ pub(crate) struct CompletedSession {
     pub(crate) task_title: String,
     pub(crate) linked_todo_id: Option<u64>,
     pub(crate) complete_linked_todo_on_finish: bool,
+}
+
+#[derive(Clone)]
+pub(crate) struct SessionId(String);
+
+impl Default for SessionId {
+    fn default() -> Self {
+        static NEXT_SESSION_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+        let sequence = NEXT_SESSION_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        Self(format!("{}-{sequence}", std::process::id()))
+    }
+}
+
+impl SessionId {
+    pub(crate) fn matches(&self, candidate: &str) -> bool {
+        self.0 == candidate
+    }
 }
 
 fn normalize_focus_plan(
@@ -172,6 +232,7 @@ impl TimerEngineState {
         }
 
         let mut state = Self {
+            operation_lock: Mutex::new(()),
             timer: Mutex::new(timer),
             timer_preferences: Mutex::new(normalized_preferences),
             app_preferences: Mutex::new(normalized_app_preferences),
@@ -209,6 +270,170 @@ impl TimerEngineState {
         self.persistence
             .as_ref()
             .ok_or_else(|| "本地数据存储不可用，应用已进入恢复保护状态；请重启后重试。".to_string())
+    }
+
+    pub(crate) fn read_operation(&self) -> Result<std::sync::MutexGuard<'_, ()>, String> {
+        self.operation_lock
+            .lock()
+            .map_err(|_| "应用操作锁定失败".to_string())
+    }
+
+    pub(crate) fn begin_transaction(
+        &self,
+        scope: OperationScope,
+    ) -> Result<OperationTransaction<'_>, String> {
+        let operation_guard = self.read_operation()?;
+        self.ensure_ready()?;
+        self.persistence_store()?
+            .ensure_ready_for_write()
+            .map_err(crate::storage::TransactionError::into_message)?;
+        let before = self.snapshot_operation_state(scope)?;
+        Ok(OperationTransaction {
+            state: self,
+            _operation_guard: operation_guard,
+            before: Some(before),
+        })
+    }
+
+    fn snapshot_operation_state(&self, scope: OperationScope) -> Result<OperationSnapshot, String> {
+        // Lock order for transactions: operation -> timer -> preferences -> plan -> records -> ids -> todos.
+        let capture_timer = matches!(scope, OperationScope::Runtime | OperationScope::All);
+        let capture_state = matches!(scope, OperationScope::State | OperationScope::All);
+        let timer = if capture_timer {
+            Some(
+                self.timer
+                    .lock()
+                    .map_err(|_| "计时引擎状态锁定失败".to_string())?
+                    .clone(),
+            )
+        } else {
+            None
+        };
+        let (
+            timer_preferences,
+            app_preferences,
+            focus_plan,
+            focus_records,
+            next_record_id,
+            todo_items,
+            next_todo_id,
+        ) = if capture_state {
+            let timer_preferences = *self
+                .timer_preferences
+                .lock()
+                .map_err(|_| "计时设置状态锁定失败".to_string())?;
+            let app_preferences = self
+                .app_preferences
+                .lock()
+                .map_err(|_| "应用设置状态锁定失败".to_string())?
+                .clone();
+            let focus_plan = self
+                .focus_plan
+                .lock()
+                .map_err(|_| "专注计划状态锁定失败".to_string())?
+                .clone();
+            let focus_records = self
+                .focus_records
+                .lock()
+                .map_err(|_| "记录列表状态锁定失败".to_string())?
+                .clone();
+            let next_record_id = *self
+                .next_record_id
+                .lock()
+                .map_err(|_| "记录编号状态锁定失败".to_string())?;
+            let todo_items = self
+                .todo_items
+                .lock()
+                .map_err(|_| "任务列表状态锁定失败".to_string())?
+                .clone();
+            let next_todo_id = *self
+                .next_todo_id
+                .lock()
+                .map_err(|_| "任务编号状态锁定失败".to_string())?;
+            (
+                Some(timer_preferences),
+                Some(app_preferences),
+                Some(focus_plan),
+                Some(focus_records),
+                Some(next_record_id),
+                Some(todo_items),
+                Some(next_todo_id),
+            )
+        } else {
+            (None, None, None, None, None, None, None)
+        };
+
+        Ok(OperationSnapshot {
+            timer,
+            timer_preferences,
+            app_preferences,
+            focus_plan,
+            focus_records,
+            next_record_id,
+            todo_items,
+            next_todo_id,
+        })
+    }
+
+    fn restore_operation_snapshot(&self, before: OperationSnapshot) -> Result<(), String> {
+        let mut timer = self
+            .timer
+            .lock()
+            .map_err(|_| "计时引擎状态锁定失败".to_string())?;
+        let mut timer_preferences = self
+            .timer_preferences
+            .lock()
+            .map_err(|_| "计时设置状态锁定失败".to_string())?;
+        let mut app_preferences = self
+            .app_preferences
+            .lock()
+            .map_err(|_| "应用设置状态锁定失败".to_string())?;
+        let mut focus_plan = self
+            .focus_plan
+            .lock()
+            .map_err(|_| "专注计划状态锁定失败".to_string())?;
+        let mut focus_records = self
+            .focus_records
+            .lock()
+            .map_err(|_| "记录列表状态锁定失败".to_string())?;
+        let mut next_record_id = self
+            .next_record_id
+            .lock()
+            .map_err(|_| "记录编号状态锁定失败".to_string())?;
+        let mut todo_items = self
+            .todo_items
+            .lock()
+            .map_err(|_| "任务列表状态锁定失败".to_string())?;
+        let mut next_todo_id = self
+            .next_todo_id
+            .lock()
+            .map_err(|_| "任务编号状态锁定失败".to_string())?;
+
+        if let Some(value) = before.timer {
+            *timer = value;
+        }
+        if let Some(value) = before.timer_preferences {
+            *timer_preferences = value;
+        }
+        if let Some(value) = before.app_preferences {
+            *app_preferences = value;
+        }
+        if let Some(value) = before.focus_plan {
+            *focus_plan = value;
+        }
+        if let Some(value) = before.focus_records {
+            *focus_records = value;
+        }
+        if let Some(value) = before.next_record_id {
+            *next_record_id = value;
+        }
+        if let Some(value) = before.todo_items {
+            *todo_items = value;
+        }
+        if let Some(value) = before.next_todo_id {
+            *next_todo_id = value;
+        }
+        Ok(())
     }
 
     pub(crate) fn snapshot_state(&self) -> Result<PersistedState, String> {
@@ -277,119 +502,7 @@ impl TimerEngineState {
         })
     }
 
-    pub(crate) fn restore_state_snapshot(&self, snapshot: &PersistedState) -> Result<(), String> {
-        let normalized_preferences = snapshot
-            .timer_preferences
-            .normalized()
-            .map_err(|_| "无法回退：计时设置快照不合法。".to_string())?;
-        let normalized_app_preferences = snapshot
-            .app_preferences
-            .clone()
-            .normalized()
-            .map_err(|_| "无法回退：应用设置快照不合法。".to_string())?;
-        let normalized_focus_plan =
-            normalize_focus_plan(snapshot.focus_plan.clone(), &snapshot.todo_items, false);
-
-        {
-            let mut timer = self
-                .timer
-                .lock()
-                .map_err(|_| "计时引擎状态锁定失败".to_string())?;
-            timer.apply_preferences(normalized_preferences);
-        }
-        {
-            let mut preferences = self
-                .timer_preferences
-                .lock()
-                .map_err(|_| "计时设置状态锁定失败".to_string())?;
-            *preferences = normalized_preferences;
-        }
-        {
-            let mut preferences = self
-                .app_preferences
-                .lock()
-                .map_err(|_| "应用设置状态锁定失败".to_string())?;
-            *preferences = normalized_app_preferences;
-        }
-        {
-            let mut records = self
-                .focus_records
-                .lock()
-                .map_err(|_| "记录列表状态锁定失败".to_string())?;
-            *records = snapshot.focus_records.clone();
-        }
-        {
-            let mut next_record_id = self
-                .next_record_id
-                .lock()
-                .map_err(|_| "记录编号状态锁定失败".to_string())?;
-            *next_record_id = snapshot
-                .next_record_id
-                .max(next_focus_record_id(&snapshot.focus_records));
-        }
-        {
-            let mut items = self
-                .todo_items
-                .lock()
-                .map_err(|_| "任务列表状态锁定失败".to_string())?;
-            *items = snapshot.todo_items.clone();
-        }
-        {
-            let mut next_todo_id = self
-                .next_todo_id
-                .lock()
-                .map_err(|_| "任务编号状态锁定失败".to_string())?;
-            *next_todo_id = snapshot
-                .next_todo_id
-                .max(next_todo_id_value(&snapshot.todo_items));
-        }
-        {
-            let mut focus_plan = self
-                .focus_plan
-                .lock()
-                .map_err(|_| "专注计划状态锁定失败".to_string())?;
-            *focus_plan = normalized_focus_plan;
-        }
-
-        Ok(())
-    }
-
-    pub(crate) fn restore_runtime_snapshot(
-        &self,
-        snapshot: &PersistedRuntimeState,
-    ) -> Result<(), String> {
-        let preferences = *self
-            .timer_preferences
-            .lock()
-            .map_err(|_| "计时设置状态锁定失败".to_string())?;
-        let mut timer = self
-            .timer
-            .lock()
-            .map_err(|_| "计时引擎状态锁定失败".to_string())?;
-        *timer = TimerEngine::from_persisted_runtime(snapshot.clone(), preferences);
-        Ok(())
-    }
-
-    pub(crate) fn restore_bundle(&self, snapshot: &PersistedBundle) -> Result<(), String> {
-        self.restore_state_snapshot(&snapshot.state)?;
-        self.restore_runtime_snapshot(&snapshot.runtime)
-    }
-
-    pub(crate) fn format_persistence_failure(
-        action: &str,
-        error: String,
-        rollback_errors: Vec<String>,
-    ) -> String {
-        if rollback_errors.is_empty() {
-            format!("{action}失败：{error}。内存状态已回退，未报告虚假成功，请重试。")
-        } else {
-            format!(
-                "{action}失败：{error}。自动回退也未完全成功：{}；请立即重启应用并使用有效备份恢复。",
-                rollback_errors.join("；")
-            )
-        }
-    }
-
+    #[cfg(test)]
     pub(crate) fn apply_backup_file(
         &self,
         backup: AppBackupFile,
@@ -533,82 +646,22 @@ impl TimerEngineState {
 
     pub(crate) fn persist(&self) -> Result<(), String> {
         let store = self.persistence_store()?;
-        let previous = store.load()?;
         let persisted = self.snapshot_state()?;
-
-        if let Err(error) = store.save(&persisted) {
-            let rollback_errors = self
-                .restore_state_snapshot(&previous)
-                .err()
-                .into_iter()
-                .collect();
-            return Err(Self::format_persistence_failure(
-                "保存本地状态",
-                error,
-                rollback_errors,
-            ));
-        }
-
-        Ok(())
+        store.save(&persisted)
     }
 
     pub(crate) fn persist_runtime(&self) -> Result<(), String> {
         let store = self.persistence_store()?;
-        let previous = store.load_runtime()?;
         let persisted = self.snapshot_runtime_state()?;
-
-        if let Err(error) = store.save_runtime(&persisted) {
-            let rollback_errors = self
-                .restore_runtime_snapshot(&previous)
-                .err()
-                .into_iter()
-                .collect();
-            return Err(Self::format_persistence_failure(
-                "保存本地运行态",
-                error,
-                rollback_errors,
-            ));
-        }
-
-        Ok(())
+        store.save_runtime(&persisted)
     }
 
     pub(crate) fn persist_all(&self) -> Result<(), String> {
         let store = self.persistence_store()?;
-        let previous = PersistedBundle {
-            state: store.load()?,
-            runtime: store.load_runtime()?,
-        };
         let current = self.snapshot_bundle()?;
-
-        if let Err(error) = store.save(&current.state) {
-            let rollback_errors = self.restore_bundle(&previous).err().into_iter().collect();
-            return Err(Self::format_persistence_failure(
-                "保存本地状态与运行态",
-                error,
-                rollback_errors,
-            ));
-        }
-
-        if let Err(error) = store.save_runtime(&current.runtime) {
-            let mut rollback_errors = Vec::new();
-            if let Err(rollback_error) = store.save(&previous.state) {
-                rollback_errors.push(format!("磁盘状态回退失败：{rollback_error}"));
-            }
-            if let Err(rollback_error) = store.save_runtime(&previous.runtime) {
-                rollback_errors.push(format!("磁盘运行态回退失败：{rollback_error}"));
-            }
-            if let Err(rollback_error) = self.restore_bundle(&previous) {
-                rollback_errors.push(format!("内存状态回退失败：{rollback_error}"));
-            }
-            return Err(Self::format_persistence_failure(
-                "保存本地状态与运行态",
-                error,
-                rollback_errors,
-            ));
-        }
-
-        Ok(())
+        store
+            .save_all(&current.state, &current.runtime)
+            .map_err(crate::storage::TransactionError::into_message)
     }
 
     pub(crate) fn clear_all(&self) -> Result<(), String> {
@@ -662,6 +715,14 @@ impl TimerEngineState {
             *preferences = TimerPreferences::default();
         }
 
+        {
+            let mut focus_plan = self
+                .focus_plan
+                .lock()
+                .map_err(|_| "专注计划状态锁定失败".to_string())?;
+            *focus_plan = FocusPlanState::default();
+        }
+
         self.persist_all()
     }
 }
@@ -698,6 +759,12 @@ impl TimerEngine {
         let countdown_duration_ms = normalize_countdown_duration_ms(runtime.countdown_duration_ms);
 
         Self {
+            session_id: SessionId::default(),
+            session_started: runtime.is_running
+                || runtime.stopwatch_elapsed_ms > 0
+                || runtime.countdown_elapsed_ms > 0
+                || runtime.pomodoro_elapsed_ms > 0
+                || runtime.pending_pomodoro_record_ms.is_some(),
             mode,
             running_anchor: anchor,
             stopwatch_elapsed_ms: runtime.stopwatch_elapsed_ms,
@@ -786,6 +853,13 @@ impl TimerEngine {
         linked_todo_id: Option<u64>,
         complete_linked_todo_on_finish: bool,
     ) {
+        if self.current_task_title != title
+            || self.linked_todo_id != linked_todo_id
+            || self.complete_linked_todo_on_finish != complete_linked_todo_on_finish
+        {
+            self.session_id = SessionId::default();
+            self.session_started = self.running_anchor.is_some() || self.has_unsubmitted_progress();
+        }
         self.current_task_title = title;
         self.linked_todo_id = linked_todo_id;
         self.complete_linked_todo_on_finish = complete_linked_todo_on_finish;
@@ -861,9 +935,30 @@ impl TimerEngine {
 
     pub(crate) fn start(&mut self) {
         if self.running_anchor.is_none() {
+            if !self.session_started {
+                self.session_id = SessionId::default();
+                self.session_started = true;
+            }
             self.running_anchor = Some(Self::new_anchor());
         }
         self.clear_recovery_flag();
+    }
+
+    pub(crate) fn clear_todo_link(&mut self, todo_id: u64) {
+        if self.linked_todo_id == Some(todo_id) {
+            self.linked_todo_id = None;
+            self.complete_linked_todo_on_finish = false;
+            self.session_id = SessionId::default();
+            self.session_started = self.running_anchor.is_some() || self.has_unsubmitted_progress();
+        }
+    }
+
+    pub(crate) fn reset_for_session(&mut self, expected_session_id: &str) -> Result<(), String> {
+        if !self.session_id.matches(expected_session_id) {
+            return Err("本轮计时已在其他窗口发生变化，请刷新后再操作。".to_string());
+        }
+        self.reset();
+        Ok(())
     }
 
     pub(crate) fn pause(&mut self) {
@@ -882,6 +977,8 @@ impl TimerEngine {
         self.countdown_completed_alerted = false;
         self.clear_alert();
         self.clear_recovery_flag();
+        self.session_id = SessionId::default();
+        self.session_started = false;
 
         match self.mode {
             TimerMode::Stopwatch => self.stopwatch_elapsed_ms = 0,
@@ -909,6 +1006,8 @@ impl TimerEngine {
         self.countdown_completed_alerted = false;
         self.clear_alert();
         self.clear_recovery_flag();
+        self.session_id = SessionId::default();
+        self.session_started = false;
 
         match self.mode {
             TimerMode::Stopwatch => self.stopwatch_elapsed_ms = 0,
@@ -934,6 +1033,8 @@ impl TimerEngine {
         self.countdown_elapsed_ms = 0;
         self.countdown_completed_alerted = false;
         self.clear_alert();
+        self.session_id = SessionId::default();
+        self.session_started = false;
         Ok(())
     }
 
@@ -956,6 +1057,8 @@ impl TimerEngine {
                 self.stopwatch_stage_index = 0;
                 self.clear_alert();
                 self.clear_recovery_flag();
+                self.session_id = SessionId::default();
+                self.session_started = false;
 
                 Ok(CompletedSession {
                     duration_ms: elapsed_ms,
@@ -982,6 +1085,8 @@ impl TimerEngine {
                 self.countdown_completed_alerted = false;
                 self.clear_alert();
                 self.clear_recovery_flag();
+                self.session_id = SessionId::default();
+                self.session_started = false;
 
                 Ok(CompletedSession {
                     duration_ms: elapsed_ms,
@@ -996,6 +1101,8 @@ impl TimerEngine {
             TimerMode::Pomodoro => {
                 if let Some(elapsed_ms) = self.pending_pomodoro_record_ms.take() {
                     self.clear_alert();
+                    self.session_id = SessionId::default();
+                    self.session_started = false;
                     return Ok(CompletedSession {
                         duration_ms: elapsed_ms,
                         mode_key: "pomodoro",
@@ -1032,6 +1139,8 @@ impl TimerEngine {
                 self.clear_context();
                 self.clear_alert();
                 self.clear_recovery_flag();
+                self.session_id = SessionId::default();
+                self.session_started = false;
 
                 Ok(CompletedSession {
                     duration_ms: elapsed_ms,
@@ -1070,6 +1179,7 @@ impl TimerEngine {
         let mode_switch_hint = self.mode_switch_hint();
         TimerSnapshot {
             mode_key: "stopwatch",
+            session_id: self.session_id.0.clone(),
             phase_key: "stopwatch",
             mode: "\u{6b63}\u{5411}\u{8ba1}\u{65f6}",
             phase_label: "\u{6b63}\u{5411}\u{8ba1}\u{65f6}",
@@ -1123,6 +1233,7 @@ impl TimerEngine {
         let mode_switch_hint = self.mode_switch_hint();
         TimerSnapshot {
             mode_key: "countdown",
+            session_id: self.session_id.0.clone(),
             phase_key: "countdown",
             mode: "倒计时",
             phase_label: "倒计时",
@@ -1186,6 +1297,7 @@ impl TimerEngine {
         let mode_switch_hint = self.mode_switch_hint();
         TimerSnapshot {
             mode_key: "pomodoro",
+            session_id: self.session_id.0.clone(),
             phase_key: match self.pomodoro_phase {
                 PomodoroPhase::Focus => "focus",
                 PomodoroPhase::Break => "break",

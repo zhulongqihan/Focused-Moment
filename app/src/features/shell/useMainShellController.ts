@@ -1,6 +1,7 @@
 import { batch, createEffect, createMemo, createSignal, onCleanup, onMount } from "solid-js";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import { emit, listen } from "@tauri-apps/api/event";
+import { save } from "@tauri-apps/plugin-dialog";
 import type {
   AppPreferences,
   AppPreferencesView,
@@ -36,6 +37,7 @@ import {
   pauseTimer,
   previewAppBackupPath,
   exportAppBackupToPath,
+  exportRecoveryMaterial as exportRecoveryMaterialToPath,
   importAppBackupPath,
   resetTimer,
   restoreFocusRecord,
@@ -118,6 +120,7 @@ type RecordEditDraft = {
   linkedTodoId: number | null;
 };
 type ContinuationPrompt = { todoId: number; title: string };
+type ResetConfirmation = { sessionId: string; taskTitle: string; elapsedMs: number };
 type ActionResult<T> = { status: "success"; value: T } | { status: "failed"; error: unknown } | { status: "busy" };
 export type FollowUpTask = { id: string; message: string; retry: () => Promise<void> };
 type AppStateSyncPayload = {
@@ -146,6 +149,7 @@ export const isFocusUnlockWindow = currentWindowLabel === "focus-unlock";
 
 const emptyTimerSnapshot: TimerSnapshot = {
   modeKey: "stopwatch",
+  sessionId: "",
   phaseKey: "stopwatch",
   mode: "正向计时",
   phaseLabel: "正向计时",
@@ -319,9 +323,16 @@ function getErrorMessage(error: unknown) {
   return typeof error === "string" ? error : "操作未完成，请重试。";
 }
 
+function isRecoveryMaterialError(message: string) {
+  return message.includes("事务")
+    || message.includes("恢复保护状态")
+    || message.includes("本地数据未加载");
+}
+
 export function useMainShellController() {
   const [activeView, setActiveView] = createSignal<AppView>("today");
   const [timer, setTimer] = createSignal<TimerSnapshot>(emptyTimerSnapshot);
+  const [resetConfirmation, setResetConfirmation] = createSignal<ResetConfirmation | null>(null);
   const [savedConfirmation, setSavedConfirmation] = createSignal(false);
   const [todos, setTodos] = createSignal<TodoItem[]>([]);
   // The shell refreshes once per second. Keep unchanged history rows stable so
@@ -370,6 +381,8 @@ export function useMainShellController() {
   const [messageKind, setMessageKind] = createSignal<FeedbackKind>("info");
   const [loadState, setLoadState] = createSignal<LoadState>("loading");
   const [loadError, setLoadError] = createSignal("");
+  const [recoveryBlockReason, setRecoveryBlockReason] = createSignal("");
+  const recoveryMaterialAvailable = createMemo(() => Boolean(recoveryBlockReason()));
   const [syncError, setSyncError] = createSignal("");
   const [followUpTasks, setFollowUpTasks] = createSignal<FollowUpTask[]>([]);
   const [undoAction, setUndoAction] = createSignal<UndoAction | null>(null);
@@ -439,10 +452,12 @@ export function useMainShellController() {
         appPreferencesView: currentAppPreferencesView(),
         focusPlan: focusPlan(),
       } satisfies AppStateSyncPayload);
+      setSyncError("");
     } catch {
       // State sync is an enhancement for sibling windows. The initiating
       // window already holds the committed state, so a failed broadcast must
       // never turn a successful business operation into a false error.
+      setSyncError("其他窗口暂时没有同步到本次状态。");
     }
   }
 
@@ -934,10 +949,12 @@ export function useMainShellController() {
       await refresh(true);
       setLoadState("ready");
       setSyncError("");
+      setRecoveryBlockReason("");
     } catch (error) {
       const text = getErrorMessage(error);
       setLoadState("error");
       setLoadError(text);
+      if (isRecoveryMaterialError(text)) setRecoveryBlockReason(text);
       throw error;
     }
   }
@@ -963,8 +980,41 @@ export function useMainShellController() {
       await emitAppStateSync();
       return { status: "success", value };
     } catch (error) {
-      showMessage(getErrorMessage(error), "error");
+      const message = getErrorMessage(error);
+      if (isRecoveryMaterialError(message)) setRecoveryBlockReason(message);
+      showMessage(message, "error");
       return { status: "failed", error };
+    } finally {
+      setBusy(false);
+      setBusyLabel("");
+    }
+  }
+
+  async function exportRecoveryMaterialFile() {
+    if (busy()) return;
+    let selectedPath: string | null;
+    try {
+      selectedPath = await save({
+        defaultPath: "focused-moment-recovery-material.json",
+        filters: [{ name: "Focused Moment recovery material", extensions: ["json"] }],
+      });
+    } catch (error) {
+      showMessage(`无法打开保存位置：${getErrorMessage(error)}`, "error");
+      return;
+    }
+    if (!selectedPath) return;
+
+    setBusy(true);
+    setBusyLabel("正在导出恢复材料…");
+    clearMessage();
+    try {
+      const destination = await exportRecoveryMaterialToPath(
+        selectedPath,
+        recoveryBlockReason(),
+      );
+      showMessage(`恢复材料已导出：${destination}`, "success");
+    } catch (error) {
+      showMessage(getErrorMessage(error), "error");
     } finally {
       setBusy(false);
       setBusyLabel("");
@@ -1053,9 +1103,9 @@ export function useMainShellController() {
     }, "正在暂停…");
   }
 
-  async function resetFocus() {
-    await run(async () => {
-      const nextTimer = await resetTimer();
+  async function performReset(sessionId: string) {
+    const result = await run(async () => {
+      const nextTimer = await resetTimer(sessionId);
       setCountdownDraftDirty(false);
       applyTimerSnapshot(nextTimer);
       setSavedConfirmation(false);
@@ -1065,6 +1115,49 @@ export function useMainShellController() {
       setCompleteLinkedTodo(false);
       showMessage("本轮已重置，没有生成记录。", "info");
     }, "正在重置…");
+
+    if (result.status === "failed") {
+      try {
+        const latest = await getTimerSnapshot();
+        applyTimerSnapshot(latest);
+        if (latest.sessionId !== sessionId && resetConfirmation()?.sessionId === sessionId) {
+          setResetConfirmation(null);
+          showMessage("本轮已在其他窗口发生变化，请检查当前状态后重新操作。", "info");
+        }
+      } catch {
+        // Preserve the failed action message and the confirmation for a retry.
+      }
+    }
+    return result;
+  }
+
+  async function resetFocus() {
+    const current = timer();
+    if (current.hasUnsubmittedProgress) {
+      setResetConfirmation({
+        sessionId: current.sessionId,
+        taskTitle: current.activeTaskTitle,
+        elapsedMs: current.elapsedMs,
+      });
+      return;
+    }
+    await performReset(current.sessionId);
+  }
+
+  async function confirmResetFocus() {
+    const pending = resetConfirmation();
+    if (!pending || busy()) return;
+    if (timer().sessionId !== pending.sessionId) {
+      setResetConfirmation(null);
+      showMessage("本轮已在其他窗口发生变化，请检查当前状态后重新操作。", "info");
+      return;
+    }
+    const result = await performReset(pending.sessionId);
+    if (result.status === "success") setResetConfirmation(null);
+  }
+
+  function cancelResetFocus() {
+    if (!busy()) setResetConfirmation(null);
   }
 
   async function finishFocus() {
@@ -1962,6 +2055,7 @@ export function useMainShellController() {
     activeView,
     setActiveView,
     timer,
+    resetConfirmation,
     savedConfirmation,
     todos,
     records,
@@ -2013,6 +2107,7 @@ export function useMainShellController() {
     messageKind,
     loadState,
     loadError,
+    recoveryMaterialAvailable,
     syncError,
     followUpTasks,
     retryFollowUp,
@@ -2064,6 +2159,8 @@ export function useMainShellController() {
     startFocus,
     pauseFocus,
     resetFocus,
+    confirmResetFocus,
+    cancelResetFocus,
     addTodo,
     toggleTodo,
     beginEditTodo,
@@ -2123,6 +2220,7 @@ export function useMainShellController() {
     restoreBackup,
     previewPortableBackup,
     exportPortableBackup,
+    exportRecoveryMaterialFile,
     importPortableBackup,
     clearAllData,
     changeView,

@@ -17,6 +17,7 @@ export interface ShellSnapshot {
 
 export interface TimerSnapshot {
   modeKey: "stopwatch" | "countdown" | "pomodoro";
+  sessionId: string;
   phaseKey: "stopwatch" | "countdown" | "focus" | "break";
   mode: string;
   phaseLabel: string;

@@ -9,8 +9,8 @@ function localDate() {
 }
 
 
-export async function bootWithTauriMock(page, { includeOverdue = false, includeRecords = false, windowLabel = "main", pausedFocus = false, completedCountdown = false, initialLoadError = false, autoMiniOnStart = false, delayAppPreferences = false, todayRecordCount = includeRecords ? 1 : 0, todayTodoCount = 1, futureTodoCount = 0, completedTodoCount = 0, historyDayCount = 0, freshTodoSnapshots = false, freshRecordSnapshots = false } = {}) {
-  await page.addInitScript(({ today, includeOverdue, includeRecords, windowLabel, pausedFocus, completedCountdown, initialLoadError, autoMiniOnStart, delayAppPreferences, todayRecordCount, todayTodoCount, futureTodoCount, completedTodoCount, historyDayCount, freshTodoSnapshots, freshRecordSnapshots }) => {
+export async function bootWithTauriMock(page, { includeOverdue = false, includeRecords = false, windowLabel = "main", pausedFocus = false, runningFocus = false, completedCountdown = false, initialLoadError = false, autoMiniOnStart = false, delayAppPreferences = false, todayRecordCount = includeRecords ? 1 : 0, todayTodoCount = 1, futureTodoCount = 0, completedTodoCount = 0, historyDayCount = 0, freshTodoSnapshots = false, freshRecordSnapshots = false } = {}) {
+  await page.addInitScript(({ today, includeOverdue, includeRecords, windowLabel, pausedFocus, runningFocus, completedCountdown, initialLoadError, autoMiniOnStart, delayAppPreferences, todayRecordCount, todayTodoCount, futureTodoCount, completedTodoCount, historyDayCount, freshTodoSnapshots, freshRecordSnapshots }) => {
     const yesterday = new Date(`${today}T00:00:00`);
     yesterday.setDate(yesterday.getDate() - 1);
     const dateKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -168,6 +168,11 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
     window.__clearAppDataCalls = 0;
     window.__mainRestored = false;
     window.__resetTimerCalls = 0;
+    window.__resetTimerSuccessCalls = 0;
+    window.__resetTimerArgs = [];
+    window.__failResetTimer = false;
+    window.__holdNextResetTimer = false;
+    window.__releaseResetTimer = null;
     window.__startTimerCalls = 0;
     window.__pauseTimerCalls = 0;
     window.__miniWorkspaceShown = false;
@@ -223,20 +228,21 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
     todos = todos.map((item) => ({ ...item, continuationNote: item.continuationNote ?? "", continuationUpdatedAt: item.continuationUpdatedAt ?? null }));
     focusRecords = focusRecords.map((record) => ({ ...record, source: record.source ?? "timer", timeBasis: record.timeBasis ?? "completion_day", editedAt: record.editedAt ?? null }));
     let timer = {
+      sessionId: "mock-session-1",
       modeKey: completedCountdown ? "countdown" : "stopwatch",
       phaseKey: completedCountdown ? "countdown" : "stopwatch",
       mode: completedCountdown ? "倒计时" : "正向计时",
       phaseLabel: completedCountdown ? "倒计时" : "正向计时",
-      status: completedCountdown ? "已结束" : "待开始",
-      isRunning: false,
-      elapsedMs: completedCountdown ? 60 * 60 * 1000 : pausedFocus ? 30_000 : 0,
-      elapsedLabel: completedCountdown ? "00:00:00" : pausedFocus ? "00:00:30" : "00:00:00",
+      status: completedCountdown ? "已结束" : runningFocus ? "正向计时中" : pausedFocus ? "已暂停" : "待开始",
+      isRunning: runningFocus,
+      elapsedMs: completedCountdown ? 60 * 60 * 1000 : pausedFocus || runningFocus ? 30_000 : 0,
+      elapsedLabel: completedCountdown ? "01:00:00" : pausedFocus || runningFocus ? "00:00:30" : "00:00:00",
       targetDurationMs: completedCountdown ? 60 * 60 * 1000 : 25 * 60 * 1000,
       remainingMs: completedCountdown ? 0 : null,
       secondaryLabel: completedCountdown ? "本轮剩余时间" : "已累计时长",
       canCompleteSession: true,
-      hasUnsubmittedProgress: completedCountdown || pausedFocus,
-      activeTaskTitle: pausedFocus ? "写完产品复盘" : "",
+      hasUnsubmittedProgress: completedCountdown || pausedFocus || runningFocus,
+      activeTaskTitle: pausedFocus || runningFocus ? "写完产品复盘" : "",
       linkedTodoId: null,
       completeLinkedTodoOnFinish: false,
       currentRound: 1,
@@ -540,6 +546,7 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
             recalculateAnalytics();
             timer = {
               ...timer,
+              sessionId: `mock-session-complete-${window.__completedFocusCalls}`,
               status: "未开始",
               isRunning: false,
               elapsedMs: 0,
@@ -558,7 +565,7 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
           }
           case "start_timer":
             window.__startTimerCalls += 1;
-            timer = { ...timer, isRunning: true, elapsedMs: timer.elapsedMs || 60_000, elapsedLabel: timer.elapsedMs ? timer.elapsedLabel : "00:01:00", hasUnsubmittedProgress: true, status: "正向计时中" };
+            timer = { ...timer, sessionId: timer.hasUnsubmittedProgress ? timer.sessionId : `mock-session-start-${window.__startTimerCalls}`, isRunning: true, elapsedMs: timer.elapsedMs || 60_000, elapsedLabel: timer.elapsedMs ? timer.elapsedLabel : "00:01:00", hasUnsubmittedProgress: true, status: "正向计时中" };
             return timer;
           case "show_focus_floating":
             window.__focusFloatingShown = true;
@@ -598,8 +605,21 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
             return timer;
           case "reset_timer":
             window.__resetTimerCalls += 1;
+            window.__resetTimerArgs.push({ ...args });
+            if (args.sessionId !== timer.sessionId) {
+              throw new Error("本轮已在其他窗口发生变化，请检查当前状态后重新操作。");
+            }
+            if (window.__holdNextResetTimer) {
+              window.__holdNextResetTimer = false;
+              await new Promise((resolve) => { window.__releaseResetTimer = resolve; });
+            }
+            if (window.__failResetTimer) {
+              window.__failResetTimer = false;
+              throw new Error("模拟重置写入失败");
+            }
             timer = {
               ...timer,
+              sessionId: `mock-session-reset-${window.__resetTimerCalls}`,
               status: "待开始",
               isRunning: false,
               elapsedMs: 0,
@@ -614,6 +634,7 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
               alertTitle: null,
               alertMessage: null,
             };
+            window.__resetTimerSuccessCalls += 1;
             return timer;
           case "update_timer_context":
             timer = { ...timer, activeTaskTitle: args.title, linkedTodoId: args.linkedTodoId ?? null, completeLinkedTodoOnFinish: Boolean(args.completeLinkedTodoOnFinish) };
@@ -621,6 +642,7 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
           case "switch_timer_mode":
             timer = {
               ...timer,
+              sessionId: `mock-session-mode-${Date.now()}`,
               modeKey: args.mode,
               mode: args.mode === "countdown" ? "倒计时" : "正向计时",
               phaseKey: args.mode,
@@ -632,6 +654,7 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
           case "set_countdown_minutes":
             timer = {
               ...timer,
+              sessionId: `mock-session-countdown-${Date.now()}`,
               targetDurationMs: Number(args.minutes) * 60 * 1000,
               remainingMs: Number(args.minutes) * 60 * 1000,
             };
@@ -641,7 +664,7 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
         }
       },
     };
-  }, { today: localDate(), includeOverdue, includeRecords, windowLabel, pausedFocus, completedCountdown, initialLoadError, autoMiniOnStart, delayAppPreferences, todayRecordCount, todayTodoCount, futureTodoCount, completedTodoCount, historyDayCount, freshTodoSnapshots, freshRecordSnapshots });
+  }, { today: localDate(), includeOverdue, includeRecords, windowLabel, pausedFocus, runningFocus, completedCountdown, initialLoadError, autoMiniOnStart, delayAppPreferences, todayRecordCount, todayTodoCount, futureTodoCount, completedTodoCount, historyDayCount, freshTodoSnapshots, freshRecordSnapshots });
 
   await page.goto("/");
   if (windowLabel === "main") {

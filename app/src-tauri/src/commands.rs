@@ -178,7 +178,9 @@ pub(crate) fn bootstrap_shell() -> ShellSnapshot {
 pub(crate) fn get_timer_snapshot(
     state: tauri::State<'_, TimerEngineState>,
 ) -> Result<TimerSnapshot, String> {
+    let operation = state.read_operation()?;
     let snapshot = with_timer_engine(&state, |engine| Ok(engine.snapshot()))?;
+    drop(operation);
     refresh_system_tray_menu(&snapshot);
     Ok(snapshot)
 }
@@ -187,11 +189,13 @@ pub(crate) fn get_timer_snapshot(
 pub(crate) fn acknowledge_timer_alert(
     state: tauri::State<'_, TimerEngineState>,
 ) -> Result<TimerSnapshot, String> {
+    let transaction = state.begin_transaction(OperationScope::Runtime)?;
     let snapshot = with_timer_engine(&state, |engine| {
         engine.clear_alert();
         Ok(engine.snapshot())
     })?;
     state.persist_runtime()?;
+    transaction.commit();
     refresh_system_tray_menu(&snapshot);
     Ok(snapshot)
 }
@@ -200,6 +204,7 @@ pub(crate) fn acknowledge_timer_alert(
 pub(crate) fn get_timer_preferences(
     state: tauri::State<'_, TimerEngineState>,
 ) -> Result<TimerPreferencesSnapshot, String> {
+    let _operation = state.read_operation()?;
     state.ensure_ready()?;
     let preferences = *state
         .timer_preferences
@@ -214,6 +219,7 @@ pub(crate) fn update_timer_preferences(
     state: tauri::State<'_, TimerEngineState>,
     preferences: TimerPreferences,
 ) -> Result<TimerPreferencesSnapshot, String> {
+    let transaction = state.begin_transaction(OperationScope::All)?;
     state.ensure_ready()?;
     let normalized_preferences = preferences.normalized()?;
 
@@ -234,6 +240,7 @@ pub(crate) fn update_timer_preferences(
     }
 
     state.persist_all()?;
+    transaction.commit();
     Ok(normalized_preferences.snapshot())
 }
 
@@ -241,6 +248,7 @@ pub(crate) fn update_timer_preferences(
 pub(crate) fn get_app_preferences(
     state: tauri::State<'_, TimerEngineState>,
 ) -> Result<AppPreferences, String> {
+    let _operation = state.read_operation()?;
     state.ensure_ready()?;
     state
         .app_preferences
@@ -254,6 +262,7 @@ pub(crate) fn update_app_preferences(
     state: tauri::State<'_, TimerEngineState>,
     preferences: AppPreferences,
 ) -> Result<AppPreferences, String> {
+    let transaction = state.begin_transaction(OperationScope::State)?;
     state.ensure_ready()?;
     let normalized = preferences.normalized()?;
     {
@@ -264,6 +273,7 @@ pub(crate) fn update_app_preferences(
         *stored = normalized.clone();
     }
     state.persist()?;
+    transaction.commit();
     Ok(normalized)
 }
 
@@ -271,6 +281,7 @@ pub(crate) fn update_app_preferences(
 pub(crate) fn get_focus_plan(
     state: tauri::State<'_, TimerEngineState>,
 ) -> Result<FocusPlanState, String> {
+    let _operation = state.read_operation()?;
     state.ensure_ready()?;
     state
         .focus_plan
@@ -285,6 +296,7 @@ pub(crate) fn update_focus_plan(
     current_todo_id: Option<u64>,
     today_pick_ids: Vec<u64>,
 ) -> Result<FocusPlanState, String> {
+    let transaction = state.begin_transaction(OperationScope::State)?;
     state.ensure_ready()?;
     let items = state
         .todo_items
@@ -330,6 +342,7 @@ pub(crate) fn update_focus_plan(
         *plan = next.clone();
     }
     state.persist()?;
+    transaction.commit();
     Ok(next)
 }
 
@@ -340,6 +353,7 @@ pub(crate) fn update_timer_context(
     linked_todo_id: Option<u64>,
     complete_linked_todo_on_finish: bool,
 ) -> Result<TimerSnapshot, String> {
+    let transaction = state.begin_transaction(OperationScope::Runtime)?;
     state.ensure_ready()?;
     if let Some(id) = linked_todo_id {
         let items = state.todo_items.lock().map_err(|_| {
@@ -365,6 +379,7 @@ pub(crate) fn update_timer_context(
     })?;
 
     state.persist_runtime()?;
+    transaction.commit();
     refresh_system_tray_menu(&snapshot);
     Ok(snapshot)
 }
@@ -374,6 +389,7 @@ pub(crate) fn switch_timer_mode(
     state: tauri::State<'_, TimerEngineState>,
     mode: String,
 ) -> Result<TimerSnapshot, String> {
+    let transaction = state.begin_transaction(OperationScope::Runtime)?;
     let next_mode = parse_mode(&mode)?;
     let snapshot = with_timer_engine(&state, |engine| {
         if engine.mode != next_mode && engine.has_unsubmitted_progress() {
@@ -383,6 +399,7 @@ pub(crate) fn switch_timer_mode(
         Ok(engine.snapshot())
     })?;
     state.persist_runtime()?;
+    transaction.commit();
     refresh_system_tray_menu(&snapshot);
     Ok(snapshot)
 }
@@ -392,6 +409,7 @@ pub(crate) fn set_countdown_minutes(
     state: tauri::State<'_, TimerEngineState>,
     minutes: u64,
 ) -> Result<TimerSnapshot, String> {
+    let transaction = state.begin_transaction(OperationScope::Runtime)?;
     let snapshot = with_timer_engine(&state, |engine| {
         if engine.mode != TimerMode::Countdown {
             return Err("请先切换到倒计时模式。".to_string());
@@ -400,6 +418,7 @@ pub(crate) fn set_countdown_minutes(
         Ok(engine.snapshot())
     })?;
     state.persist_runtime()?;
+    transaction.commit();
     refresh_system_tray_menu(&snapshot);
     Ok(snapshot)
 }
@@ -408,6 +427,7 @@ pub(crate) fn set_countdown_minutes(
 pub(crate) fn get_focus_records(
     state: tauri::State<'_, TimerEngineState>,
 ) -> Result<Vec<FocusRecord>, String> {
+    let _operation = state.read_operation()?;
     state.ensure_ready()?;
     let records = state.focus_records.lock().map_err(|_| {
         "\u{8bb0}\u{5f55}\u{5217}\u{8868}\u{72b6}\u{6001}\u{9501}\u{5b9a}\u{5931}\u{8d25}"
@@ -423,6 +443,7 @@ pub(crate) fn update_focus_record_title(
     id: u64,
     title: String,
 ) -> Result<Vec<FocusRecord>, String> {
+    let transaction = state.begin_transaction(OperationScope::State)?;
     let normalized_title = normalize_focus_record_title(&title)?;
     let records = with_focus_records(&state, |records| {
         let record = records
@@ -436,6 +457,7 @@ pub(crate) fn update_focus_record_title(
     })?;
 
     state.persist()?;
+    transaction.commit();
     Ok(records)
 }
 
@@ -448,6 +470,7 @@ pub(crate) fn create_manual_focus_record(
     completed_time: String,
     linked_todo_id: Option<u64>,
 ) -> Result<Vec<FocusRecord>, String> {
+    let transaction = state.begin_transaction(OperationScope::State)?;
     state.ensure_ready()?;
     let normalized_title = normalize_focus_record_title(&title)?;
     if !(1..=1440).contains(&duration_minutes) {
@@ -512,6 +535,7 @@ pub(crate) fn create_manual_focus_record(
         Ok(records.clone())
     })?;
     state.persist()?;
+    transaction.commit();
     Ok(records)
 }
 
@@ -525,6 +549,7 @@ pub(crate) fn update_focus_record(
     completed_time: String,
     linked_todo_id: Option<u64>,
 ) -> Result<Vec<FocusRecord>, String> {
+    let transaction = state.begin_transaction(OperationScope::State)?;
     let normalized_title = normalize_focus_record_title(&title)?;
     if !(1..=1440).contains(&duration_minutes) {
         return Err("记录时长需要在 1 到 1440 分钟之间。".to_string());
@@ -574,6 +599,7 @@ pub(crate) fn update_focus_record(
         Ok(records.clone())
     })?;
     state.persist()?;
+    transaction.commit();
     Ok(records)
 }
 
@@ -582,6 +608,7 @@ pub(crate) fn delete_focus_record(
     state: tauri::State<'_, TimerEngineState>,
     id: u64,
 ) -> Result<Vec<FocusRecord>, String> {
+    let transaction = state.begin_transaction(OperationScope::State)?;
     let records = with_focus_records(&state, |records| {
         let before_len = records.len();
         records.retain(|record| record.id != id);
@@ -594,6 +621,7 @@ pub(crate) fn delete_focus_record(
     })?;
 
     state.persist()?;
+    transaction.commit();
     Ok(records)
 }
 
@@ -602,6 +630,7 @@ pub(crate) fn restore_focus_record(
     state: tauri::State<'_, TimerEngineState>,
     record: FocusRecord,
 ) -> Result<Vec<FocusRecord>, String> {
+    let transaction = state.begin_transaction(OperationScope::State)?;
     let record_id = record.id;
     let records = with_focus_records(&state, |records| {
         if records.iter().any(|item| item.id == record_id) {
@@ -622,6 +651,7 @@ pub(crate) fn restore_focus_record(
     }
 
     state.persist()?;
+    transaction.commit();
     Ok(records)
 }
 
@@ -630,6 +660,7 @@ pub(crate) fn delete_focus_records(
     state: tauri::State<'_, TimerEngineState>,
     ids: Vec<u64>,
 ) -> Result<Vec<FocusRecord>, String> {
+    let transaction = state.begin_transaction(OperationScope::State)?;
     if ids.is_empty() {
         return Err("当前范围内没有可清理的专注记录".to_string());
     }
@@ -647,6 +678,7 @@ pub(crate) fn delete_focus_records(
     })?;
 
     state.persist()?;
+    transaction.commit();
     Ok(records)
 }
 
@@ -654,6 +686,7 @@ pub(crate) fn delete_focus_records(
 pub(crate) fn get_analytics_snapshot(
     state: tauri::State<'_, TimerEngineState>,
 ) -> Result<AnalyticsSnapshot, String> {
+    let _operation = state.read_operation()?;
     state.ensure_ready()?;
     let records = state.focus_records.lock().map_err(|_| {
         "\u{8bb0}\u{5f55}\u{5217}\u{8868}\u{72b6}\u{6001}\u{9501}\u{5b9a}\u{5931}\u{8d25}"
@@ -669,13 +702,17 @@ pub(crate) fn get_analytics_snapshot(
 
 #[tauri::command]
 pub(crate) fn clear_app_data(state: tauri::State<'_, TimerEngineState>) -> Result<(), String> {
-    state.clear_all()
+    let transaction = state.begin_transaction(OperationScope::All)?;
+    state.clear_all()?;
+    transaction.commit();
+    Ok(())
 }
 
 #[tauri::command]
 pub(crate) fn list_app_backups(
     state: tauri::State<'_, TimerEngineState>,
 ) -> Result<Vec<BackupListItem>, String> {
+    let _operation = state.read_operation()?;
     let store = state.persistence_store()?;
 
     let backups = store.list_user_backups()?;
@@ -709,6 +746,7 @@ pub(crate) fn list_app_backups(
 pub(crate) fn export_app_backup(
     state: tauri::State<'_, TimerEngineState>,
 ) -> Result<BackupExportResult, String> {
+    let _operation = state.read_operation()?;
     let store = state.persistence_store()?;
 
     let backup = state.export_backup_file()?;
@@ -728,6 +766,7 @@ pub(crate) fn import_app_backup(
     state: tauri::State<'_, TimerEngineState>,
     file_name: String,
 ) -> Result<BackupImportResult, String> {
+    let transaction = state.begin_transaction(OperationScope::All)?;
     let store = state.persistence_store()?;
 
     let backup = store.load_user_backup(&file_name)?;
@@ -739,6 +778,7 @@ pub(crate) fn import_app_backup(
     let mut result = state.apply_backup_file_with_options(backup, false)?;
     result.imported_file_name = file_name;
     result.rollback_file_name = rollback_file_name;
+    transaction.commit();
     Ok(result)
 }
 
@@ -760,6 +800,7 @@ pub(crate) fn export_app_backup_to_path(
     state: tauri::State<'_, TimerEngineState>,
     path: String,
 ) -> Result<BackupExportResult, String> {
+    let _operation = state.read_operation()?;
     state.ensure_ready()?;
     let path = PathBuf::from(path.trim());
     if path.as_os_str().is_empty() {
@@ -792,6 +833,7 @@ pub(crate) fn import_app_backup_path(
     path: String,
     restore_app_preferences: bool,
 ) -> Result<BackupImportResult, String> {
+    let transaction = state.begin_transaction(OperationScope::All)?;
     let path = external_backup_path(&path)?;
     let (backup, _migrated, _original_format, _original_schema) = read_external_backup(&path)?;
     let store = state.persistence_store()?;
@@ -802,6 +844,7 @@ pub(crate) fn import_app_backup_path(
     let mut result = state.apply_backup_file_with_options(backup, restore_app_preferences)?;
     result.imported_file_name = path.display().to_string();
     result.rollback_file_name = rollback_file_name;
+    transaction.commit();
     Ok(result)
 }
 
@@ -809,6 +852,7 @@ pub(crate) fn import_app_backup_path(
 pub(crate) fn open_app_backup_folder(
     state: tauri::State<'_, TimerEngineState>,
 ) -> Result<(), String> {
+    let _operation = state.read_operation()?;
     let store = state.persistence_store()?;
     let backup_dir = store.user_backup_dir()?;
 
@@ -838,9 +882,37 @@ pub(crate) fn open_app_backup_folder(
 }
 
 #[tauri::command]
+pub(crate) fn export_recovery_material(
+    state: tauri::State<'_, TimerEngineState>,
+    path: String,
+    blocked_reason: Option<String>,
+) -> Result<String, String> {
+    let _operation = state.read_operation()?;
+    let path = PathBuf::from(path.trim());
+    if path.as_os_str().is_empty() {
+        return Err("恢复材料路径不能为空。".to_string());
+    }
+    if path.extension().and_then(|value| value.to_str()) != Some("json") {
+        return Err("恢复材料必须保存为 JSON 文件。".to_string());
+    }
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|error| format!("无法创建恢复材料目录：{error}"))?;
+    }
+    let store = state
+        .persistence
+        .as_ref()
+        .ok_or_else(|| "本地存储不可用，无法读取恢复材料。".to_string())?;
+    let material = store.recovery_material(blocked_reason)?;
+    let serialized = serde_json::to_vec_pretty(&material).map_err(|error| error.to_string())?;
+    fs::write(&path, serialized).map_err(|error| format!("写入恢复材料失败：{error}"))?;
+    Ok(path.display().to_string())
+}
+
+#[tauri::command]
 pub(crate) fn get_todo_items(
     state: tauri::State<'_, TimerEngineState>,
 ) -> Result<Vec<TodoItem>, String> {
+    let _operation = state.read_operation()?;
     with_todo_items(&state, |items| {
         let mut cloned_items = items.clone();
         sort_todo_items(&mut cloned_items);
@@ -856,6 +928,7 @@ pub(crate) fn create_todo_item(
     scheduled_time: String,
     importance_key: String,
 ) -> Result<Vec<TodoItem>, String> {
+    let transaction = state.begin_transaction(OperationScope::State)?;
     state.ensure_ready()?;
     let normalized_title = normalize_todo_title(&title)?;
     let normalized_date = normalize_scheduled_date(&scheduled_date)?;
@@ -891,6 +964,7 @@ pub(crate) fn create_todo_item(
     })?;
 
     state.persist()?;
+    transaction.commit();
     Ok(items)
 }
 
@@ -903,6 +977,7 @@ pub(crate) fn update_todo_item(
     scheduled_time: String,
     importance_key: String,
 ) -> Result<Vec<TodoItem>, String> {
+    let transaction = state.begin_transaction(OperationScope::State)?;
     let normalized_title = normalize_todo_title(&title)?;
     let normalized_date = normalize_scheduled_date(&scheduled_date)?;
     let normalized_time = normalize_scheduled_time(&scheduled_time)?;
@@ -922,6 +997,7 @@ pub(crate) fn update_todo_item(
     })?;
 
     state.persist()?;
+    transaction.commit();
     Ok(items)
 }
 
@@ -931,6 +1007,7 @@ pub(crate) fn update_todo_continuation_note(
     id: u64,
     note: String,
 ) -> Result<Vec<TodoItem>, String> {
+    let transaction = state.begin_transaction(OperationScope::State)?;
     let normalized_note = normalize_continuation_note(&note)?;
     let updated_at = if normalized_note.is_empty() {
         None
@@ -948,6 +1025,7 @@ pub(crate) fn update_todo_continuation_note(
         Ok(items.clone())
     })?;
     state.persist()?;
+    transaction.commit();
     Ok(items)
 }
 
@@ -968,6 +1046,7 @@ pub(crate) fn toggle_todo_item(
     state: tauri::State<'_, TimerEngineState>,
     id: u64,
 ) -> Result<Vec<TodoItem>, String> {
+    let transaction = state.begin_transaction(OperationScope::All)?;
     let mut should_clear_timer_link = false;
     let items = with_todo_items(&state, |items| {
         let item = items.iter_mut().find(|item| item.id == id).ok_or_else(|| {
@@ -983,16 +1062,14 @@ pub(crate) fn toggle_todo_item(
     if should_clear_timer_link {
         clear_focus_plan_reference(&state, id)?;
         with_timer_engine(&state, |engine| {
-            if engine.linked_todo_id == Some(id) {
-                engine.linked_todo_id = None;
-                return Ok(());
-            }
+            engine.clear_todo_link(id);
             Ok(())
         })?;
         state.persist_all()?;
     } else {
         state.persist()?;
     }
+    transaction.commit();
     Ok(items)
 }
 
@@ -1001,6 +1078,7 @@ pub(crate) fn delete_todo_item(
     state: tauri::State<'_, TimerEngineState>,
     id: u64,
 ) -> Result<Vec<TodoItem>, String> {
+    let transaction = state.begin_transaction(OperationScope::All)?;
     let items = with_todo_items(&state, |items| {
         let before_len = items.len();
         items.retain(|item| item.id != id);
@@ -1016,13 +1094,12 @@ pub(crate) fn delete_todo_item(
     })?;
 
     with_timer_engine(&state, |engine| {
-        if engine.linked_todo_id == Some(id) {
-            engine.linked_todo_id = None;
-        }
+        engine.clear_todo_link(id);
         Ok(())
     })?;
     clear_focus_plan_reference(&state, id)?;
     state.persist_all()?;
+    transaction.commit();
     Ok(items)
 }
 
@@ -1031,6 +1108,7 @@ pub(crate) fn restore_todo_item(
     state: tauri::State<'_, TimerEngineState>,
     item: TodoItem,
 ) -> Result<Vec<TodoItem>, String> {
+    let transaction = state.begin_transaction(OperationScope::State)?;
     let normalized_item = TodoItem {
         id: item.id,
         title: normalize_todo_title(&item.title)?,
@@ -1062,6 +1140,7 @@ pub(crate) fn restore_todo_item(
     }
 
     state.persist()?;
+    transaction.commit();
     Ok(items)
 }
 
@@ -1069,11 +1148,13 @@ pub(crate) fn restore_todo_item(
 pub(crate) fn start_timer(
     state: tauri::State<'_, TimerEngineState>,
 ) -> Result<TimerSnapshot, String> {
+    let transaction = state.begin_transaction(OperationScope::Runtime)?;
     let snapshot = with_timer_engine(&state, |engine| {
         engine.start();
         Ok(engine.snapshot())
     })?;
     state.persist_runtime()?;
+    transaction.commit();
     refresh_system_tray_menu(&snapshot);
     Ok(snapshot)
 }
@@ -1082,11 +1163,13 @@ pub(crate) fn start_timer(
 pub(crate) fn pause_timer(
     state: tauri::State<'_, TimerEngineState>,
 ) -> Result<TimerSnapshot, String> {
+    let transaction = state.begin_transaction(OperationScope::Runtime)?;
     let snapshot = with_timer_engine(&state, |engine| {
         engine.pause();
         Ok(engine.snapshot())
     })?;
     state.persist_runtime()?;
+    transaction.commit();
     refresh_system_tray_menu(&snapshot);
     Ok(snapshot)
 }
@@ -1094,12 +1177,15 @@ pub(crate) fn pause_timer(
 #[tauri::command]
 pub(crate) fn reset_timer(
     state: tauri::State<'_, TimerEngineState>,
+    session_id: String,
 ) -> Result<TimerSnapshot, String> {
+    let transaction = state.begin_transaction(OperationScope::Runtime)?;
     let snapshot = with_timer_engine(&state, |engine| {
-        engine.reset();
+        engine.reset_for_session(&session_id)?;
         Ok(engine.snapshot())
     })?;
     state.persist_runtime()?;
+    transaction.commit();
     refresh_system_tray_menu(&snapshot);
     Ok(snapshot)
 }
@@ -1109,6 +1195,7 @@ pub(crate) fn complete_focus_session(
     state: tauri::State<'_, TimerEngineState>,
     title: String,
 ) -> Result<CompletionPayload, String> {
+    let transaction = state.begin_transaction(OperationScope::All)?;
     let completed_session = with_timer_engine(&state, |engine| engine.complete_focus_session())?;
     let (completed_at, completed_date, completed_time) = current_local_markers();
     let record_linked_todo_id = completed_session.linked_todo_id;
@@ -1201,9 +1288,9 @@ pub(crate) fn complete_focus_session(
         }
     }
 
-    state.persist_all()?;
-
     let timer_snapshot = with_timer_engine(&state, |engine| Ok(engine.snapshot()))?;
+    state.persist_all()?;
+    transaction.commit();
     refresh_system_tray_menu(&timer_snapshot);
 
     Ok(CompletionPayload {

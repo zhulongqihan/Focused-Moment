@@ -7,14 +7,15 @@ mod timer_engine;
 pub(crate) use commands::{
     acknowledge_timer_alert, bootstrap_shell, clear_app_data, complete_focus_session,
     create_manual_focus_record, create_todo_item, delete_focus_record, delete_focus_records,
-    delete_todo_item, export_app_backup, export_app_backup_to_path, get_analytics_snapshot,
-    get_app_preferences, get_focus_plan, get_focus_records, get_timer_preferences,
-    get_timer_snapshot, get_todo_items, import_app_backup, import_app_backup_path,
-    list_app_backups, open_app_backup_folder, pause_timer, preview_app_backup_path, reset_timer,
-    restore_focus_record, restore_todo_item, set_countdown_minutes, start_timer, switch_timer_mode,
-    toggle_todo_item, update_app_preferences, update_focus_plan, update_focus_record,
-    update_focus_record_title, update_timer_context, update_timer_preferences,
-    update_todo_continuation_note, update_todo_item,
+    delete_todo_item, export_app_backup, export_app_backup_to_path, export_recovery_material,
+    get_analytics_snapshot, get_app_preferences, get_focus_plan, get_focus_records,
+    get_timer_preferences, get_timer_snapshot, get_todo_items, import_app_backup,
+    import_app_backup_path, list_app_backups, open_app_backup_folder, pause_timer,
+    preview_app_backup_path, reset_timer, restore_focus_record, restore_todo_item,
+    set_countdown_minutes, start_timer, switch_timer_mode, toggle_todo_item,
+    update_app_preferences, update_focus_plan, update_focus_record, update_focus_record_title,
+    update_timer_context, update_timer_preferences, update_todo_continuation_note,
+    update_todo_item,
 };
 #[cfg(target_os = "macos")]
 pub(crate) use desktop::trigger_native_smoke_tray_click;
@@ -44,7 +45,7 @@ pub(crate) use timer_engine::{
     elapsed_since_anchor_ms, elapsed_since_anchor_ms_at, format_duration_ms,
     normalize_countdown_duration_ms, parse_alert_key_value, parse_mode, parse_mode_key_value,
     parse_phase_key_value, system_time_to_epoch_ms, with_timer_engine, CompletedSession,
-    PersistedBundle, RunAnchor, TimerEngine, TimerEngineState,
+    OperationScope, PersistedBundle, RunAnchor, TimerEngine, TimerEngineState,
 };
 
 use std::cmp::Reverse;
@@ -60,8 +61,8 @@ use storage::{
 };
 use tauri::{Manager, WindowEvent};
 
-const APP_VERSION: &str = "2.13.9";
-const APP_MILESTONE: &str = "v2.13.9 keyboard-safe modal workflows";
+const APP_VERSION: &str = "2.13.10";
+const APP_MILESTONE: &str = "v2.13.10 crash-safe save and reset protection";
 const APP_BACKUP_KIND: &str = "focused-moment-backup";
 const APP_BACKUP_FORMAT_VERSION: u64 = 3;
 const FLOATING_WORKSPACE_SYNC_EVENT: &str = "floating-workspace-sync";
@@ -239,6 +240,7 @@ impl AppLifecycleState {
 #[serde(rename_all = "camelCase")]
 struct TimerSnapshot {
     mode_key: &'static str,
+    session_id: String,
     phase_key: &'static str,
     mode: &'static str,
     phase_label: &'static str,
@@ -996,6 +998,7 @@ mod tests {
         stopwatch_elapsed_ms: u64,
     ) -> TimerEngineState {
         TimerEngineState {
+            operation_lock: Mutex::new(()),
             timer: Mutex::new(TimerEngine {
                 stopwatch_elapsed_ms,
                 ..TimerEngine::default()
@@ -1010,6 +1013,193 @@ mod tests {
             persistence: Some(store),
             startup_error: None,
         }
+    }
+
+    fn test_todo(title: &str, id: u64) -> TodoItem {
+        TodoItem {
+            id,
+            title: title.to_string(),
+            is_completed: false,
+            scheduled_date: String::new(),
+            scheduled_time: String::new(),
+            importance_key: "medium".to_string(),
+            continuation_note: String::new(),
+            continuation_updated_at: None,
+        }
+    }
+
+    #[test]
+    fn session_id_survives_pause_resume_and_rejects_stale_reset() {
+        let mut engine = TimerEngine::default();
+        let idle_session = engine.snapshot().session_id;
+        engine.start();
+        let started_session = engine.snapshot().session_id;
+        assert_ne!(started_session, idle_session);
+
+        engine.pause();
+        assert!(engine.session_id.matches(&started_session));
+        engine.start();
+        assert!(engine.session_id.matches(&started_session));
+
+        engine
+            .reset_for_session(&started_session)
+            .expect("confirm reset for current session");
+        assert!(!engine.session_id.matches(&started_session));
+        engine.start();
+        engine.stopwatch_elapsed_ms = 4_000;
+        let next_session = engine.snapshot().session_id;
+        assert_ne!(next_session, started_session);
+        let stale_error = engine
+            .reset_for_session(&started_session)
+            .expect_err("stale reset confirmation must be rejected");
+        assert!(stale_error.contains("其他窗口"));
+        assert_eq!(engine.stopwatch_elapsed_ms, 4_000);
+        assert!(engine.session_id.matches(&next_session));
+    }
+
+    #[test]
+    fn completing_or_replacing_context_invalidates_the_previous_session_id() {
+        let mut engine = TimerEngine::default();
+        engine.start();
+        engine.stopwatch_elapsed_ms = 1_000;
+        let current_id = engine.snapshot().session_id;
+        engine
+            .complete_focus_session()
+            .expect("complete a non-empty stopwatch session");
+        assert!(!engine.session_id.matches(&current_id));
+
+        let completed_id = engine.snapshot().session_id;
+        engine.update_context("新事项".to_string(), Some(7), false);
+        assert!(!engine.session_id.matches(&completed_id));
+    }
+
+    #[test]
+    fn operation_gate_hides_uncommitted_changes_from_snapshots() {
+        let root = isolated_root();
+        seed_persisted_bundle(&root);
+        let state = state_with_store(
+            PersistenceStore::for_test(&root).expect("create operation fixture store"),
+            1,
+            1_000,
+        );
+        let (writer_ready_tx, writer_ready_rx) = std::sync::mpsc::channel();
+        let (release_writer_tx, release_writer_rx) = std::sync::mpsc::channel();
+        let (reader_started_tx, reader_started_rx) = std::sync::mpsc::channel();
+        let (reader_result_tx, reader_result_rx) = std::sync::mpsc::channel();
+
+        std::thread::scope(|scope| {
+            let writer_state = &state;
+            scope.spawn(move || {
+                let transaction = writer_state
+                    .begin_transaction(OperationScope::State)
+                    .expect("begin writer transaction");
+                writer_state
+                    .todo_items
+                    .lock()
+                    .unwrap()
+                    .push(test_todo("暂存事项", 0));
+                writer_ready_tx.send(()).unwrap();
+                release_writer_rx.recv().unwrap();
+                writer_state.persist().expect("persist writer transaction");
+                transaction.commit();
+            });
+
+            writer_ready_rx
+                .recv()
+                .expect("writer reached uncommitted state");
+            let reader_state = &state;
+            scope.spawn(move || {
+                reader_started_tx.send(()).unwrap();
+                let _operation = reader_state
+                    .read_operation()
+                    .expect("acquire snapshot gate");
+                let snapshot = reader_state
+                    .snapshot_state()
+                    .expect("read committed snapshot");
+                reader_result_tx
+                    .send(
+                        snapshot
+                            .todo_items
+                            .iter()
+                            .map(|item| item.title.clone())
+                            .collect::<Vec<_>>(),
+                    )
+                    .unwrap();
+            });
+            reader_started_rx.recv().expect("reader started");
+            assert!(reader_result_rx
+                .recv_timeout(Duration::from_millis(100))
+                .is_err());
+            release_writer_tx.send(()).unwrap();
+            let observed = reader_result_rx
+                .recv_timeout(Duration::from_secs(5))
+                .expect("reader proceeds after commit");
+            assert_eq!(observed, vec!["暂存事项"]);
+        });
+
+        cleanup_isolated_root(&root);
+    }
+
+    #[test]
+    fn failed_writer_rollback_cannot_overwrite_a_later_success() {
+        let root = isolated_root();
+        seed_persisted_bundle(&root);
+        let faulty_store =
+            PersistenceStore::for_test_with_failure(&root, storage::SaveStage::PromoteNew)
+                .expect("create one-shot faulty store");
+        let state = state_with_store(faulty_store, 1, 1_000);
+        let (failed_writer_ready_tx, failed_writer_ready_rx) = std::sync::mpsc::channel();
+        let (release_failed_writer_tx, release_failed_writer_rx) = std::sync::mpsc::channel();
+        let (successful_writer_started_tx, successful_writer_started_rx) =
+            std::sync::mpsc::channel();
+
+        std::thread::scope(|scope| {
+            let failed_state = &state;
+            scope.spawn(move || {
+                let transaction = failed_state
+                    .begin_transaction(OperationScope::State)
+                    .expect("begin failing transaction");
+                failed_state
+                    .todo_items
+                    .lock()
+                    .unwrap()
+                    .push(test_todo("失败事项", 0));
+                failed_writer_ready_tx.send(()).unwrap();
+                release_failed_writer_rx.recv().unwrap();
+                assert!(failed_state.persist().is_err());
+                drop(transaction);
+            });
+
+            failed_writer_ready_rx.recv().expect("failing writer ready");
+            let successful_state = &state;
+            scope.spawn(move || {
+                successful_writer_started_tx.send(()).unwrap();
+                let transaction = successful_state
+                    .begin_transaction(OperationScope::State)
+                    .expect("begin successful transaction after rollback");
+                successful_state
+                    .todo_items
+                    .lock()
+                    .unwrap()
+                    .push(test_todo("成功事项", 0));
+                successful_state
+                    .persist()
+                    .expect("persist successful transaction");
+                transaction.commit();
+            });
+            successful_writer_started_rx
+                .recv()
+                .expect("second writer started");
+            release_failed_writer_tx.send(()).unwrap();
+        });
+
+        let items = state.todo_items.lock().unwrap().clone();
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].title, "成功事项");
+        let saved = state.persistence_store().unwrap().load().unwrap();
+        assert_eq!(saved.todo_items.len(), 1);
+        assert_eq!(saved.todo_items[0].title, "成功事项");
+        cleanup_isolated_root(&root);
     }
 
     fn seed_persisted_bundle(root: &std::path::Path) {
@@ -1034,6 +1224,7 @@ mod tests {
     #[test]
     fn persistence_failure_is_not_reported_as_success() {
         let state = TimerEngineState {
+            operation_lock: Mutex::new(()),
             timer: Mutex::new(TimerEngine::default()),
             timer_preferences: Mutex::new(TimerPreferences::default()),
             app_preferences: Mutex::new(AppPreferences::default()),
@@ -1059,24 +1250,28 @@ mod tests {
             PersistenceStore::for_test_with_failure(&root, storage::SaveStage::RuntimePromoteNew)
                 .expect("create faulty store");
         let state = state_with_store(faulty_store, 2, 2_000);
+        let transaction = state
+            .begin_transaction(OperationScope::All)
+            .expect("begin state transaction");
 
         let error = state
             .persist_all()
             .expect_err("runtime commit failure must be reported");
-        assert!(error.contains("保存本地状态与运行态失败"));
+        assert!(error.contains("注入存储故障"));
+        drop(transaction);
         assert_eq!(
             state
                 .snapshot_state()
                 .expect("snapshot state")
                 .next_record_id,
-            1
+            2
         );
         assert_eq!(
             state
                 .snapshot_runtime_state()
                 .expect("snapshot runtime")
                 .stopwatch_elapsed_ms,
-            1_000
+            2_000
         );
 
         let recovered_store = PersistenceStore::for_test(&root).expect("reopen recovered store");
@@ -1105,6 +1300,9 @@ mod tests {
             PersistenceStore::for_test_with_failure(&root, storage::SaveStage::RuntimePromoteNew)
                 .expect("create faulty store");
         let state = state_with_store(faulty_store, 1, 1_000);
+        let transaction = state
+            .begin_transaction(OperationScope::All)
+            .expect("begin backup import transaction");
         let backup = AppBackupFile {
             kind: APP_BACKUP_KIND.to_string(),
             format_version: APP_BACKUP_FORMAT_VERSION,
@@ -1125,6 +1323,7 @@ mod tests {
         };
 
         assert!(state.apply_backup_file(backup).is_err());
+        drop(transaction);
         assert_eq!(
             state
                 .snapshot_state()
@@ -1278,6 +1477,7 @@ mod tests {
             alert_sound_key: AlertSoundKey::Custom,
         };
         let source_state = TimerEngineState {
+            operation_lock: Mutex::new(()),
             timer: Mutex::new(TimerEngine {
                 mode: TimerMode::Pomodoro,
                 stopwatch_elapsed_ms: 1_600_000,
@@ -1887,6 +2087,7 @@ pub fn run() {
             delete_focus_records,
             get_analytics_snapshot,
             clear_app_data,
+            export_recovery_material,
             list_app_backups,
             export_app_backup,
             import_app_backup,

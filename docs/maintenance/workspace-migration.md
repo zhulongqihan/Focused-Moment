@@ -246,3 +246,12 @@
 - **已知 B 批风险**：合成注入一个新业务文件配旧 runtime 文件，重启后可继续；再次完成保存后记录数由 1 变 2。此为磁盘状态注入，不是运行中强退测试。B 批需要修复统一事务/双文件恢复，不复用此结果声称恢复通过。
 - **输入边界**：打包 provenance 因 `app/scripts/` 全量指纹将未跟踪辅助脚本标为 dirty，故 manifest `relevantBuildInputDirty=true`；它们不进入 Vite/Tauri 可执行输入。`PROJECT_PLAN.md`、`div`、历史摘要和剩余本机脚本均未暂存/提交。构建前首次发现 Cargo.toml 行尾被 Tauri/Cargo 从 CRLF 改为 LF，交付守卫阻止替换；稳定行尾后按最终摘要成功重建。
 - **B 批下一步**：只读复核 `PROJECT_PLAN.md`；沿 `commands.rs`/`timer_engine.rs`/`storage.rs` 梳理全部写入、托盘、导入、清空、退出路径与锁顺序；以此确定统一事务日志格式及崩溃注入边界。保存其他未提交用户差异，不启动 C/D 应用改动。
+
+### 2026-10-15 B 批实现与验收交接
+
+- B 批 2.13.10 已实现统一操作事务、pending/committed 持久化恢复日志、并发读写门控、失败回滚和重置会话保护；Rust 与前端验证完成，版本 Release 候选及 Windows 原生验收尚待执行。
+- 最终 `pnpm verify` 退出码 0，Rust 49 passed、0 failed、1 ignored；证据 `artifacts/qa/rust/batch-b-verify-final-20261015-160500-a1c7d942/pnpm-verify.log`。完整浏览器 mock 183/183，4 workers、无重试；目录 `artifacts/qa/frontend/batch-b-full-final-20261015-151021-488af42d-batch-b-full-final-20261015-151021-488af42d/`。生产构建成功；目录 `artifacts/qa/build/batch-b-build-20261015-152010-27f72bf1/`。
+- `PROJECT_PLAN.md` 全程只读，SHA-256 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`。用户已有未跟踪脚本、`div` 和五份历史 context summary 保持原样，不暂存、不提交。
+- 当前分支 `codex/focused-moment-continuity`，构建前 HEAD `1ec1c1b6df78ef821a044f92dbfccad4da17ba16`，本地较 origin ahead 1。B 源码和验证文档将选择性提交；本次不推送。此前 push 被 auto-review 拒绝，待具体 B commit 与 Release 结果齐备后请求对该 payload 的批准，不重复调用 push。
+- 已知打包指纹范围：`local-delivery.psm1` 会把本机未跟踪的 `app/scripts/` QA 辅助文件列入 provenance，造成 `relevantBuildInputDirty=true`；它们不进入 Vite/Tauri 编译。需保存原状并在交付说明中解释。
+- 下一步唯一交付单元：提交 B 源码与初版说明 → `pnpm package:local` → 同一候选的 `pnpm native:windows` 与 Windows 重置 UIAutomation → 补写 build ID、EXE 与备份哈希、run ID → docs-only 证据更新提交。

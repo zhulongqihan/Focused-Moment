@@ -194,6 +194,7 @@ async function bootReferenceMock(page, {
     let focusRecords = demoMode ? demoRecords : normalRecords;
     window.__focusRecordCalls = 0;
     let timer = {
+      sessionId: "today-mock-session-1",
       modeKey: countdownPreview ? "countdown" : "stopwatch",
       phaseKey: countdownPreview ? "countdown" : "stopwatch",
       mode: countdownPreview ? "倒计时" : "正向计时",
@@ -446,6 +447,7 @@ async function bootReferenceMock(page, {
           case "reset_timer":
             timer = {
               ...timer,
+              sessionId: `today-mock-session-reset-${Date.now()}`,
               isRunning: false,
               status: "待开始",
               elapsedMs: 0,
@@ -2541,6 +2543,10 @@ test("CC-02 game clock exposes idle, running, paused, countdown-finished, and sa
   await page.screenshot({ path: testOutputPath("CC-02-states", "paused.png"), animations: "disabled" });
 
   await surface.locator(".cc-timer-actions .cc-secondary-button").last().click();
+  const resetDialog = page.getByRole("dialog", { name: "重置本轮计时？" });
+  await expect(resetDialog).toBeVisible();
+  await resetDialog.getByRole("button", { name: "确认重置" }).click();
+  await expect(resetDialog).toBeHidden();
   await expect(status).toContainText("准备开始专注");
   await expect(surface.locator(".cc-center-circle--timer > strong")).toHaveText("0:00");
   await surface.locator('input[name="clutchSessionTitle"]').fill("最后一攻");

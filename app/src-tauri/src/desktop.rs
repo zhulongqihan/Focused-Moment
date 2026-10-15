@@ -177,6 +177,7 @@ pub(crate) fn hide_main_window(window: &Window) -> Result<(), String> {
 }
 
 pub(crate) fn snapshot_from_timer_state(state: &TimerEngineState) -> Result<TimerSnapshot, String> {
+    let _operation = state.read_operation()?;
     state.ensure_ready()?;
     let mut engine = state
         .timer
@@ -356,6 +357,7 @@ pub(crate) fn toggle_timer_from_tray(app: &AppHandle) -> Result<(), String> {
     let state = app
         .try_state::<TimerEngineState>()
         .ok_or_else(|| "找不到计时状态".to_string())?;
+    let transaction = state.begin_transaction(OperationScope::Runtime)?;
     let snapshot = {
         state.ensure_ready()?;
         let mut engine = state
@@ -374,6 +376,7 @@ pub(crate) fn toggle_timer_from_tray(app: &AppHandle) -> Result<(), String> {
     };
 
     state.persist_runtime()?;
+    transaction.commit();
     refresh_system_tray_menu(&snapshot);
     Ok(())
 }
@@ -465,10 +468,9 @@ pub(crate) fn build_system_tray(app: &AppHandle) -> Result<(), String> {
                 }
             }
             TRAY_QUIT_ID => {
-                if let Some(state) = app.try_state::<AppLifecycleState>() {
-                    state.mark_quitting();
+                if let Err(error) = quit_application(app.clone()) {
+                    eprintln!("FOCUSED_MOMENT_TRAY_QUIT=error:{error}");
                 }
-                app.exit(0);
             }
             _ => {}
         })
@@ -773,6 +775,11 @@ pub(crate) fn restore_main_from_floating_todos(app: tauri::AppHandle) -> Result<
 
 #[tauri::command]
 pub(crate) fn quit_application(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(state) = app.try_state::<TimerEngineState>() {
+        let transaction = state.begin_transaction(OperationScope::Runtime)?;
+        state.persist_runtime()?;
+        transaction.commit();
+    }
     if let Some(state) = app.try_state::<AppLifecycleState>() {
         state.mark_quitting();
     }

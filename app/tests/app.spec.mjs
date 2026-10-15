@@ -659,6 +659,133 @@ test("timer workspace keeps only actionable controls and state copy", async ({ p
   await expect.poll(() => page.evaluate(() => window.__resetTimerCalls)).toBe(1);
 });
 
+for (const scenario of [
+  { name: "running", options: { runningFocus: true } },
+  { name: "expired", options: { completedCountdown: true } },
+]) {
+  test(`reset confirmation protects ${scenario.name} session progress`, async ({ page }) => {
+    await bootWithTauriMock(page, scenario.options);
+    await page.getByRole("button", { name: "计时", exact: true }).click();
+    await page.getByRole("button", { name: "重置本次专注", exact: true }).click();
+
+    const dialog = page.getByRole("dialog", { name: "重置本轮计时？" });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "保留本轮" })).toBeFocused();
+    await dialog.getByRole("button", { name: "保留本轮" }).click();
+    await expect(dialog).toBeHidden();
+    await expect.poll(() => page.evaluate(() => window.__resetTimerCalls)).toBe(0);
+    await expect.poll(() => page.evaluate(() => window.__getAppStateSyncPayload().timer.hasUnsubmittedProgress)).toBe(true);
+  });
+}
+
+test("reset confirmation shows the current session and can be cancelled without losing progress", async ({ page }) => {
+  await bootWithTauriMock(page, { pausedFocus: true });
+  await page.getByRole("button", { name: "计时", exact: true }).click();
+  const resetButton = page.getByRole("button", { name: "重置本次专注", exact: true });
+  await resetButton.click();
+
+  let dialog = page.getByRole("dialog", { name: "重置本轮计时？" });
+  await expect(dialog).toContainText("写完产品复盘");
+  await expect(dialog).toContainText("00:00:30");
+  await expect(dialog.getByRole("button", { name: "保留本轮" })).toBeFocused();
+  await page.screenshot({ path: testOutputPath("screenshots", "reset-session-confirmation.png"), animations: "disabled" });
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect.poll(() => page.evaluate(() => window.__resetTimerCalls)).toBe(0);
+  await expect.poll(() => page.evaluate(() => window.__getAppStateSyncPayload().timer.elapsedMs)).toBe(30_000);
+
+  await resetButton.click();
+  dialog = page.getByRole("dialog", { name: "重置本轮计时？" });
+  await expect(dialog).toBeVisible();
+  await page.locator(".workflow-dialog-backdrop").dispatchEvent("mousedown");
+  await expect(dialog).toBeHidden();
+  await expect.poll(() => page.evaluate(() => window.__resetTimerCalls)).toBe(0);
+  await expect.poll(() => page.evaluate(() => window.__getAppStateSyncPayload().timer.hasUnsubmittedProgress)).toBe(true);
+});
+
+test("reset confirmation sends its captured session id and commits only once", async ({ page }) => {
+  await bootWithTauriMock(page, { pausedFocus: true });
+  await page.getByRole("button", { name: "计时", exact: true }).click();
+  await page.getByRole("button", { name: "重置本次专注", exact: true }).click();
+
+  const dialog = page.getByRole("dialog", { name: "重置本轮计时？" });
+  await page.evaluate(() => { window.__holdNextResetTimer = true; });
+  const confirmButton = dialog.getByRole("button", { name: "确认重置" });
+  await confirmButton.click();
+  await expect.poll(() => page.evaluate(() => window.__resetTimerCalls)).toBe(1);
+  const busyButton = dialog.getByRole("button", { name: "正在重置…" });
+  await expect(busyButton).toBeDisabled();
+  await busyButton.dispatchEvent("click");
+  await page.evaluate(() => window.__releaseResetTimer?.());
+
+  await expect(dialog).toBeHidden();
+  await expect.poll(() => page.evaluate(() => window.__resetTimerCalls)).toBe(1);
+  await expect.poll(() => page.evaluate(() => window.__resetTimerArgs)).toEqual([{ sessionId: "mock-session-1" }]);
+  await expect.poll(() => page.evaluate(() => window.__getAppStateSyncPayload().timer.hasUnsubmittedProgress)).toBe(false);
+});
+
+test("failed reset keeps progress for retry and a stale confirmation cannot clear a new session", async ({ page }) => {
+  await bootWithTauriMock(page, { pausedFocus: true });
+  await page.getByRole("button", { name: "计时", exact: true }).click();
+  await page.getByRole("button", { name: "重置本次专注", exact: true }).click();
+
+  let dialog = page.getByRole("dialog", { name: "重置本轮计时？" });
+  await page.evaluate(() => { window.__failResetTimer = true; });
+  await dialog.getByRole("button", { name: "确认重置" }).click();
+  await expect.poll(() => page.evaluate(() => window.__resetTimerCalls)).toBe(1);
+  await expect(dialog).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.__getAppStateSyncPayload().timer.elapsedMs)).toBe(30_000);
+  await dialog.getByRole("button", { name: "确认重置" }).click();
+  await expect(dialog).toBeHidden();
+  await expect.poll(() => page.evaluate(() => window.__resetTimerCalls)).toBe(2);
+  await expect.poll(() => page.evaluate(() => window.__resetTimerSuccessCalls)).toBe(1);
+  await expect.poll(() => page.evaluate(() => window.__resetTimerArgs)).toEqual([
+    { sessionId: "mock-session-1" },
+    { sessionId: "mock-session-1" },
+  ]);
+
+  await page.evaluate(() => {
+    window.__replaceTimer({
+      sessionId: "other-window-session",
+      elapsedMs: 90_000,
+      elapsedLabel: "00:01:30",
+      activeTaskTitle: "新一轮事项",
+      isRunning: false,
+      status: "已暂停",
+      hasUnsubmittedProgress: true,
+    });
+    return window.__TAURI_INTERNALS__.invoke("plugin:event|emit", {
+      event: "app-state-sync",
+      payload: window.__getAppStateSyncPayload(),
+    });
+  });
+  await expect(page.locator(".timer-readout")).toContainText("00:01:30");
+  await page.getByRole("button", { name: "重置本次专注", exact: true }).click();
+  dialog = page.getByRole("dialog", { name: "重置本轮计时？" });
+  await expect(dialog).toContainText("新一轮事项");
+  await page.evaluate(() => {
+    window.__replaceTimer({
+      sessionId: "newer-window-session",
+      elapsedMs: 120_000,
+      elapsedLabel: "00:02:00",
+      activeTaskTitle: "更新后的事项",
+      isRunning: false,
+      status: "已暂停",
+      hasUnsubmittedProgress: true,
+    });
+    return window.__TAURI_INTERNALS__.invoke("plugin:event|emit", {
+      event: "app-state-sync",
+      payload: window.__getAppStateSyncPayload(),
+    });
+  });
+  await expect(page.locator(".timer-readout")).toContainText("00:02:00");
+  await dialog.getByRole("button", { name: "确认重置" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByText("本轮已在其他窗口发生变化，请检查当前状态后重新操作。")).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.__resetTimerSuccessCalls)).toBe(1);
+  await expect.poll(() => page.evaluate(() => window.__getAppStateSyncPayload().timer.elapsedMs)).toBe(120_000);
+});
+
 test("timer workspace distinguishes a completed countdown", async ({ page }) => {
   await bootWithTauriMock(page, { completedCountdown: true });
 
@@ -689,8 +816,11 @@ test("timer workspace offers quick durations and a usable pre-start reset", asyn
   await expect(page.locator(".nv-mode-switcher button.active")).toHaveText("倒计时");
   await expect(page.locator(".timer-readout")).toContainText("45:00");
 
+  const idleSessionId = await page.evaluate(() => window.__getAppStateSyncPayload().timer.sessionId);
   await page.getByRole("button", { name: "清空设置", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "重置本轮计时？" })).toHaveCount(0);
   await expect.poll(() => page.evaluate(() => window.__resetTimerCalls)).toBe(1);
+  await expect.poll(() => page.evaluate(() => window.__resetTimerArgs[0])).toEqual({ sessionId: idleSessionId });
 });
 
 test("timer page can reopen the focus floating window after returning to main", async ({ page }) => {

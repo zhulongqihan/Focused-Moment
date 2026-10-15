@@ -29,6 +29,7 @@ import {
 import CommandPalette from "./components/CommandPalette";
 import FollowUpNotice from "./components/FollowUpNotice";
 import QuickCaptureDialog from "./components/QuickCaptureDialog";
+import ResetSessionDialog from "./components/ResetSessionDialog";
 import ManualFocusRecordDialog from "./components/ManualFocusRecordDialog";
 import ContinuationNotePrompt from "./components/ContinuationNotePrompt";
 import FocusRecordEditDialog from "./components/FocusRecordEditDialog";
@@ -68,6 +69,7 @@ function MainShell() {
   const {
     activeView,
     timer,
+    resetConfirmation,
     savedConfirmation,
     todos,
     records,
@@ -116,6 +118,8 @@ function MainShell() {
     messageKind,
     loadState,
     loadError,
+    recoveryMaterialAvailable,
+    exportRecoveryMaterialFile,
     syncError,
     followUpTasks,
     retryFollowUp,
@@ -165,6 +169,8 @@ function MainShell() {
     startFocus,
     pauseFocus,
     resetFocus,
+    confirmResetFocus,
+    cancelResetFocus,
     addTodo,
     toggleTodo,
     beginEditTodo,
@@ -860,9 +866,17 @@ function MainShell() {
           <FollowUpNotice tasks={followUpTasks} busy={busy} onRetry={retryFollowUp} />
           <Show when={syncError()}>
             <div class="sync-error" role="status" aria-live="polite">
-              <span>本地数据暂时没有刷新成功。</span>
+              <span>{syncError()}</span>
               <button type="button" class="text-button" disabled={busy()} onClick={() => void retryLoad()}>
                 重试
+              </button>
+            </div>
+          </Show>
+          <Show when={recoveryMaterialAvailable()}>
+            <div class="sync-error" role="alert" aria-live="assertive">
+              <span>本地事务处于恢复保护状态。为避免覆盖现场，新的写入已暂停。</span>
+              <button type="button" class="secondary-button" disabled={busy()} onClick={() => void exportRecoveryMaterialFile()}>
+                导出恢复材料
               </button>
             </div>
           </Show>
@@ -1111,6 +1125,14 @@ function MainShell() {
             onTitleChange={setQuickCaptureTitle}
             onSave={saveQuickCapture}
             onClose={closeQuickCapture}
+          />
+          <ResetSessionDialog
+            open={() => Boolean(resetConfirmation())}
+            taskTitle={() => resetConfirmation()?.taskTitle ?? ""}
+            elapsedLabel={() => formatDurationMs(resetConfirmation()?.elapsedMs ?? 0)}
+            busy={busy}
+            onConfirm={confirmResetFocus}
+            onClose={cancelResetFocus}
           />
           <ManualFocusRecordDialog
             open={manualRecordOpen}

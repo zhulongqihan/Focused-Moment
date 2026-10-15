@@ -57,8 +57,8 @@ export async function pauseTimer() {
   return invoke<TimerSnapshot>("pause_timer");
 }
 
-export async function resetTimer() {
-  return invoke<TimerSnapshot>("reset_timer");
+export async function resetTimer(sessionId: string) {
+  return invoke<TimerSnapshot>("reset_timer", { sessionId });
 }
 
 export async function switchTimerMode(
@@ -159,6 +159,10 @@ export async function previewAppBackupPath(path: string) {
 
 export async function exportAppBackupToPath(path: string) {
   return invoke<BackupExportResult>("export_app_backup_to_path", { path });
+}
+
+export async function exportRecoveryMaterial(path: string, blockedReason: string) {
+  return invoke<string>("export_recovery_material", { path, blockedReason });
 }
 
 export async function importAppBackupPath(path: string, options: BackupImportOptions) {

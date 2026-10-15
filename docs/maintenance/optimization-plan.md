@@ -6,7 +6,7 @@
 
 - A 批 2.13.9 已完成源码提交推送、Release EXE 交付和最终候选的隔离 Windows 验收。当前分支 HEAD 与 origin 同步于 `ef6fc5fc19f0f5cb11c29169ab4d32cff9060b01`。
 - 根目录 `Focused Moment.exe`：版本资源 FileVersion/ProductVersion 均为 2.13.9；SHA-256 `3542369B271858EDEAC71F70AF56F79EB9CEE55F98991498EA153BD1522A63B3`；build ID `local-20261015-132218-f95a936d5c`。
-- 正在进入 B 批；首要证据是 Windows 原生隔离夹具复现旧双文件混合状态再次保存后记录数从 1 增至 2。此为合成状态注入，不是运行中强退复现，B 批仍须完成真实崩溃边界验收。
+- B 批 2.13.10 的统一事务、恢复日志、原生会话标识与重置确认实现及 Rust/浏览器验收已完成；Release EXE、Windows 原生重置交互、提交推送仍待完成。Rust 子进程已在各写盘边界突然退出并验证恢复；这不是 Windows Release 应用进程强退证据。
 - 未做 GitHub Release、tag、安装器或资产上传。`PROJECT_PLAN.md` 仍受只读保护，当前 SHA-256 为 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`。
 
 ## 本轮原始基线（2026-10-11）
@@ -23,7 +23,7 @@
 | --- | --- | --- | --- |
 | 0 恢复可验证基线 | 不升版本 | 已完成 | 旧审阅报告已按原字节归档并记录 SHA-256；未完成的 C/D 改动已生成恢复补丁和新文件副本并暂时移出 A 批输入；用户差异保留；pnpm verify 通过。 |
 | A 交付已有可靠性修复 | 2.13.9 | 已完成 | 来源匹配的 Release EXE 已交付；pnpm verify、生产构建、完整浏览器 178/178、官方 Windows 冒烟、原生交互及进程级声音峰值观测通过。 |
-| B 保证保存与重置安全 | 2.13.10 | 进行中 | 从持久化写入边界和锁顺序开始审查；已记录旧混合状态二次保存会新增重复记录。需设计统一事务/恢复日志/重置会话保护，并通过真实强退、并发、失败回滚和重置专项。 |
+| B 保证保存与重置安全 | 2.13.10 | 验证中 | 统一事务/恢复日志/会话保护已实现；`pnpm verify`、49 项 Rust 测试（1 项忽略）、完整浏览器 mock 183/183 通过。待构建匹配 Release EXE、运行 Windows 原生冒烟及真实重置交互；Rust 崩溃/并发/回滚证据不替代 Windows Release 强退证据。 |
 | C 统一日常操作 | 2.14.0 | 未开始 | 恢复归档的首页动作改动；七主题行为及完成节点、浮窗完成/书签交接通过验收。 |
 | D 降低持续运行开销 | 2.14.1 | 未开始 | B 完成后重新审查已归档的 DataRevisions 草稿；实现增量同步、单请求在途、轻量计时与音源分离。 |
 | E 降低启动负担并完成总验收 | 2.14.2 | 未开始 | 主题按需加载、预览衍生图、性能比较、Windows 原生专项和最终交接完成。 |
@@ -85,3 +85,13 @@
 - **B 批根因线索**：同一隔离 UIA 运行用合成“新状态/旧运行态”混合对，界面允许继续，重复保存后记录数变成 2。未做定时进程强退；该结果证明需在 B 批修复事务一致性，不能用作强退恢复通过证据。
 
 下一步：读取受保护的 `PROJECT_PLAN.md` 作为旧基线参考，审查 B 批命令读写调用链、磁盘文件与锁顺序，再冻结事务/恢复日志设计及专项验收矩阵；此前不直接沿用归档的 DataRevisions 锁设计。
+
+### 2026-10-15 B 批实现与代码级验证
+
+- **实现范围**：统一命令、托盘、导入、清空及退出保存事务；pending/committed sidecar 恢复日志；事务范围快照和操作锁；运行态单文件事务；重置会话 ID 与迟到确认保护；恢复材料导出入口。版本输入同步为 2.13.10。
+- **Rust/静态**：最终 `pnpm verify` 退出码 0，证据 `artifacts/qa/rust/batch-b-verify-final-20261015-160500-a1c7d942/pnpm-verify.log`。Rust 49 passed、0 failed、1 ignored；包含子进程在写入/提交边界退出、恢复中再次退出、并发写入、失败回滚、冲突保护和 stale reset 测试。
+- **生产前端**：`pnpm build` 退出码 0，Vite 6.4.2；日志 `artifacts/qa/build/batch-b-build-20261015-152010-27f72bf1/pnpm-build.log`。保留既有大 chunk 警告。
+- **浏览器 mock**：完整 Playwright `183/183`，4 workers、无重试；证据 `artifacts/qa/frontend/batch-b-full-final-20261015-151021-488af42d-batch-b-full-final-20261015-151021-488af42d/`。覆盖重置确认、取消、失败重试、重复确认和跨窗口旧会话确认；视觉截图 `.../app-reset-confirmation-sho-f28c3-led-without-losing-progress-chromium/screenshots/reset-session-confirmation.png` 已检查。
+- **证据边界**：Rust abrupt-exit 子进程测试验证事务日志写盘边界恢复；当前还没有 2.13.10 Release Windows 冒烟或原生重置 UI 结果。`pnpm native:windows` 的自动覆盖为启动、隔离目录和旧数据迁移；需另跑 UIAutomation。不得把上述代码级结果表述成 Windows Release 进程强退通过。
+- **工作区保护**：`PROJECT_PLAN.md` SHA-256 仍为 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`；本机脚本、`div` 与五份历史摘要未纳入本批暂存。打包指纹会记录未跟踪 `app/scripts/` 辅助脚本并因此标记 dirty，需在 provenance 如实说明。
+- **下一步**：选择性提交 B 应用输入；构建 `package:local` Release 并核对输入指纹/版本资源/根 EXE/恢复副本；对同一哈希执行 Windows 原生冒烟与重置交互，再补齐交付文档。源码提交需推送，但此前 push 请求被 auto-review 拒绝，不得重试；完成可审查的提交和构建结果后再请求该具体 push 的批准。
