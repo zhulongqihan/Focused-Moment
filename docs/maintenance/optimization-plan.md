@@ -6,8 +6,8 @@
 
 - A 批 2.13.9 已完成源码提交推送、Release EXE 交付和最终候选的隔离 Windows 验收；其交付源码提交为 `ef6fc5fc19f0f5cb11c29169ab4d32cff9060b01`。
 - A 批首次交付的根入口为 2.13.9（SHA-256 `3542369B271858EDEAC71F70AF56F79EB9CEE55F98991498EA153BD1522A63B3`）；之后已由 B 批替换。当前根目录 `Focused Moment.exe` 仍为 B 批 2.13.10，SHA-256 `63CE69B934E7A6ADB42A9A2F886AA92926F046845262287D82703F9FDCDB3B40`，build ID `local-20261015-153109-5c67dc3626`。
-- B 批 2.13.10 本地验收已完成：四个应用/验收提交先快进推送至 `d1976da7669e55e979c24bdd319054a529f3d918`，后续文档校正提交 `589beec2a89cc967cccfe21e1dc52b1cc67203a6` 也已推送。当前本地 HEAD 与远端跟踪分支同步于 `589beec`；该远端指针在上一轮推送后经 `git ls-remote` 核实。统一事务与恢复日志、重置会话保护、Rust/浏览器/构建、Release 候选，以及 Windows 原生重置和 Windows Release 活跃写入期间强退恢复均有通过证据。
-- C 批 2.14.0 的版本同步后代码级验收已完成：`pnpm verify` 通过（Rust 53 passed、0 failed、1 ignored）、生产构建通过（2,096 模块）、完整 Playwright 212/212 通过。已根因修复书签队列在同进程清空/导入后的失效关联与错误确认；队列保持目标规定的仅进程内语义。源码提交/推送、`pnpm package:local` Release 候选和同一候选的 Windows 原生专项仍待完成；根入口目前仍为 B 批 2.13.10。
+- B 批 2.13.10 本地验收已完成：四个应用/验收提交先快进推送至 `d1976da7669e55e979c24bdd319054a529f3d918`，后续文档提交 `589beec2a89cc967cccfe21e1dc52b1cc67203a6` 与发布说明指针校正 `0084a05` 也已推送。B 批相关实现、Release 候选和 Windows 原生验收证据见下方对应工作单元。
+- C 批 2.14.0 的版本同步后代码级验收已完成，源码提交 `e3923313bf2be17e3cca4dfbe443aedda7448979` 已推送；远端分支指针已由 `git ls-remote` 核实。`pnpm verify` 通过（Rust 53 passed、0 failed、1 ignored）、生产构建通过（2,096 模块）、完整 Playwright 212/212 通过。书签队列保持目标规定的仅进程内语义，并在清空/导入和事务回滚路径得到根因修复。待制作 `pnpm package:local` Release 候选并对同一候选完成 Windows 原生专项；根入口仍为 B 批 2.13.10。
 - 未另外核验远程 CI；未做 GitHub Release、tag、安装器或资产上传。`PROJECT_PLAN.md` 仍受只读保护，当前 SHA-256 为 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`。
 
 ## 本轮原始基线（2026-10-11）
@@ -25,7 +25,7 @@
 | 0 恢复可验证基线 | 不升版本 | 已完成 | 旧审阅报告已按原字节归档并记录 SHA-256；未完成的 C/D 改动已生成恢复补丁和新文件副本并暂时移出 A 批输入；用户差异保留；pnpm verify 通过。 |
 | A 交付已有可靠性修复 | 2.13.9 | 已完成 | 来源匹配的 Release EXE 已交付；pnpm verify、生产构建、完整浏览器 178/178、官方 Windows 冒烟、原生交互及进程级声音峰值观测通过。 |
 | B 保证保存与重置安全 | 2.13.10 | 本地验收完成并已推送 | 源码、Rust/浏览器回归、匹配 Release EXE、官方 Windows 隔离冒烟、原生重置 UIAutomation 和活跃写入强退后的启动回滚均通过。四个提交已推送至确认分支；未检查远程 CI，未创建正式 Release。 |
-| C 统一日常操作 | 2.14.0 | 最终代码级验收通过，待 Release | 七主题首页动作、浮窗书签交接、书签队列生命周期和窄屏回归已完成；待源码提交推送、Release 候选及同一候选的 Windows 原生验收。 |
+| C 统一日常操作 | 2.14.0 | 源码已提交推送，代码级验收通过，待 Release | 提交 `e392331` 已推送并核实远端指针；待 `package:local` 候选及同一候选的 Windows 原生验收。 |
 | D 降低持续运行开销 | 2.14.1 | 未开始 | B 完成后重新审查已归档的 DataRevisions 草稿；实现增量同步、单请求在途、轻量计时与音源分离。 |
 | E 降低启动负担并完成总验收 | 2.14.2 | 未开始 | 主题按需加载、预览衍生图、性能比较、Windows 原生专项和最终交接完成。 |
 
@@ -125,4 +125,5 @@
 - **生产前端构建**：`pnpm build` 退出码 0，Vite 6.4.2 转换 2,096 个模块。日志：`artifacts/qa/build/batch-c-build-20261015-294fe5f5/pnpm-build.log`。仍有入口 JS/CSS 大于 Vite 默认 500 kB 提示，保留给 E 批启动性能工作。
 - **浏览器 mock**：完整 Playwright 212/212 通过，4 workers、0 重试，用时 5.8 分钟。目录：`artifacts/qa/frontend/batch-c-full-20261015-f4b69297-inv-c-full-20261015-f4b69297/`；`playwright.log` 记录最终汇总，`.last-run.json` 状态为 passed。使用外部启动的仓库 Vite 与临时 `reuseExistingServer` 配置；配置将 `testDir` 指向仓库 `app/tests` 绝对路径，正式 `playwright.config.mjs` 未修改；Vite 与临时配置已关闭/清除。
 - **工作区保护**：`PROJECT_PLAN.md` 哈希仍为 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`；未写入、暂存或提交。`div`、五份历史 context summary、三份未跟踪 app QA/性能脚本未混入本批路径白名单。
-- **下一步**：代码级验收完成；先按路径复核并只暂存 C 批源码、2.14.0 发布说明与维护记录，提交并推送 `codex/focused-moment-continuity`；随后执行 `pnpm package:local`，核对来源指纹及 2.13.10 恢复副本，再对同一 2.14.0 Release 候选运行 Windows 原生冒烟和交互验收。此时根 EXE 仍为 2.13.10，C 批尚未交付。
+- **提交/推送**：C 批源码、测试、2.14.0 发布说明和维护记录为提交 `e3923313bf2be17e3cca4dfbe443aedda7448979`，已快进推送至 `origin/codex/focused-moment-continuity`；`git ls-remote` 返回相同指针。B 批说明校正 `0084a05` 也已单独推送。
+- **下一步**：执行 `pnpm package:local`，核对候选版本资源、来源指纹及 2.13.10 恢复副本，再对同一 2.14.0 Release 候选运行 Windows 原生冒烟和交互验收。此时根 EXE 仍为 2.13.10，C 批尚未交付。

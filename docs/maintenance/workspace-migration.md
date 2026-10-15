@@ -264,6 +264,6 @@
 - **目标约束**：书签提示队列仅在当前进程保留；已保存的书签随待办持久化。队列没有写入状态 JSON 或便携备份。
 - **实现**：七主题首页共享动作与空态快速记事已完成；浮窗完成交给主窗口处理一次；书签保存要求记录 ID、待办 ID 和待处理提示一致，且待办仍未完成；清空/导入清除旧进程内提示； State/All 事务快照在失败回滚时恢复提示。
 - **代码级证据**：版本同步后 `pnpm verify` 通过，Rust 53/0/1；`pnpm build` 通过（Vite 2,096 modules）；完整浏览器 212/212，4 workers、无重试。证据分别位于 `artifacts/qa/rust/batch-c-verify-20261015-46715e8d/`、`artifacts/qa/build/batch-c-build-20261015-294fe5f5/`、`artifacts/qa/frontend/batch-c-full-20261015-f4b69297-inv-c-full-20261015-f4b69297/`。浏览器通过外部 Vite + 临时 Playwright reuse 配置运行；绝对 testDir 指向真实 `app/tests`，正式配置未修改，临时配置与服务均已清理。
-- **当前交付差异**：C 批源码、版本 `2.14.0`、发布说明和维护记录尚未提交/推送；根入口仍是 B 批 2.13.10（SHA-256 `63CE69B934E7A6ADB42A9A2F886AA92926F046845262287D82703F9FDCDB3B40`）。Production build 有 Vite 默认 JS/CSS 500 kB 提示，留给 E 批性能目标；这不影响本批功能构建通过。
+- **当前交付差异**：C 批源码、测试、版本 `2.14.0`、发布说明和维护记录已由 `e3923313bf2be17e3cca4dfbe443aedda7448979` 提交并推送；`git ls-remote` 核实远端分支指针一致。根入口仍是 B 批 2.13.10（SHA-256 `63CE69B934E7A6ADB42A9A2F886AA92926F046845262287D82703F9FDCDB3B40`）。Production build 有 Vite 默认 JS/CSS 500 kB 提示，留给 E 批性能目标；这不影响本批功能构建通过。
 - **保护状态**：`PROJECT_PLAN.md` 未读写以外修改、未暂存、未提交；SHA-256 仍为 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`。`div`、五份旧摘要、三份未跟踪 app QA/性能脚本仍未纳入暂存范围。
-- **唯一下一步**：复核本批 diff 并白名单暂存 C 批产品/测试/发布说明/维护文档，提交推送已确认分支；之后 `pnpm package:local` 生成匹配候选，再以同一候选完成 Windows Release 原生冒烟与交互验收。
+- **唯一下一步**：运行默认 `pnpm package:local` 生成 2.14.0 匹配候选，核对构建来源指纹和 2.13.10 恢复副本，再以同一候选完成 Windows Release 原生冒烟与交互验收。
