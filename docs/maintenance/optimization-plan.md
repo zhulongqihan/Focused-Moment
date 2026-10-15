@@ -6,8 +6,8 @@
 
 - A 批 2.13.9 已完成源码提交推送、Release EXE 交付和最终候选的隔离 Windows 验收。当前分支 HEAD 与 origin 同步于 `ef6fc5fc19f0f5cb11c29169ab4d32cff9060b01`。
 - 根目录 `Focused Moment.exe`：版本资源 FileVersion/ProductVersion 均为 2.13.9；SHA-256 `3542369B271858EDEAC71F70AF56F79EB9CEE55F98991498EA153BD1522A63B3`；build ID `local-20261015-132218-f95a936d5c`。
-- B 批 2.13.10 本地验收已完成：统一事务与恢复日志、重置会话保护、Rust/浏览器/构建、Release 候选，以及 Windows 原生重置和 Windows Release 活跃写入期间强退恢复均有通过证据。详细记录见本节 B 批验收。
-- B 批代码和交接文档仍只在本地；此前 push 被 auto-review 拒绝，未重试。未做 GitHub Release、tag、安装器或资产上传。`PROJECT_PLAN.md` 仍受只读保护，当前 SHA-256 为 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`。
+- B 批 2.13.10 本地验收已完成，代码与交接文档的四个提交已快进推送至 `origin/codex/focused-moment-continuity`，远端分支指向 `d1976da7669e55e979c24bdd319054a529f3d918`。统一事务与恢复日志、重置会话保护、Rust/浏览器/构建、Release 候选，以及 Windows 原生重置和 Windows Release 活跃写入期间强退恢复均有通过证据。
+- 未另外核验远程 CI；未做 GitHub Release、tag、安装器或资产上传。`PROJECT_PLAN.md` 仍受只读保护，当前 SHA-256 为 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`。
 
 ## 本轮原始基线（2026-10-11）
 
@@ -23,7 +23,7 @@
 | --- | --- | --- | --- |
 | 0 恢复可验证基线 | 不升版本 | 已完成 | 旧审阅报告已按原字节归档并记录 SHA-256；未完成的 C/D 改动已生成恢复补丁和新文件副本并暂时移出 A 批输入；用户差异保留；pnpm verify 通过。 |
 | A 交付已有可靠性修复 | 2.13.9 | 已完成 | 来源匹配的 Release EXE 已交付；pnpm verify、生产构建、完整浏览器 178/178、官方 Windows 冒烟、原生交互及进程级声音峰值观测通过。 |
-| B 保证保存与重置安全 | 2.13.10 | 本地验收完成，推送待授权 | 源码、Rust/浏览器回归、匹配 Release EXE、官方 Windows 隔离冒烟、原生重置 UIAutomation 和活跃写入强退后的启动回滚均通过。可以进入 C 的本地工作；远程推送仍待用户明确批准。 |
+| B 保证保存与重置安全 | 2.13.10 | 本地验收完成并已推送 | 源码、Rust/浏览器回归、匹配 Release EXE、官方 Windows 隔离冒烟、原生重置 UIAutomation 和活跃写入强退后的启动回滚均通过。四个提交已推送至确认分支；未检查远程 CI，未创建正式 Release。 |
 | C 统一日常操作 | 2.14.0 | 未开始 | 恢复归档的首页动作改动；七主题行为及完成节点、浮窗完成/书签交接通过验收。 |
 | D 降低持续运行开销 | 2.14.1 | 未开始 | B 完成后重新审查已归档的 DataRevisions 草稿；实现增量同步、单请求在途、轻量计时与音源分离。 |
 | E 降低启动负担并完成总验收 | 2.14.2 | 未开始 | 主题按需加载、预览衍生图、性能比较、Windows 原生专项和最终交接完成。 |
@@ -100,4 +100,4 @@
 - **原生窗口证据与探针限制**：恢复窗口截图位于 `artifacts/qa/native/windows-release-active-write-kill-20261015T091502930Z-d50d1b75/recovery-current.png`。原 runner 的恢复探针未写 `report.json`：它选中了可见但无名称、没有 UIA 子元素的 HWND 3279234；通过 EnumWindows 确认同一隔离进程的真实主窗口 HWND 1050966 后，显式句柄 UIA Inspect 得到 84 个控件并找到“计时”按钮。独立核验记录为 `artifacts/qa/native/windows-release-active-write-kill-20261015T091502930Z-d50d1b75/supplemental-verification.json`，说明 runner 的句柄发现限制及逐项文件哈希。该补充核验和混合状态快照共同支持功能验收，不声称原 runner 本身退出码通过。
 - **B 批结论**：Windows Release 强退后恢复与原生重置验收缺口已关闭；Rust 子进程故障注入、Windows Release 启动恢复、原生 UIAutomation 和浏览器 mock 仍按各自证据类别分别记录。B 本地验收完成，可以开始 C 批本地应用工作。
 - **工作区保护**：manifest `source.dirty=true`、`relevantBuildInputDirty=true`；`app/scripts/` 的三份未跟踪 QA/性能辅助脚本进入 provenance 指纹，但不进入 Vite/Tauri 编译。`PROJECT_PLAN.md` 保持原始用户差异且未写入/暂存/提交，SHA-256 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`；`div`、五份历史摘要和本机脚本均未纳入提交。
-- **提交/下一步**：B 源码提交和本次文档更新保留在本地分支 `codex/focused-moment-continuity`。此前 push 被 auto-review 拒绝，不重试；后续推送须待用户批准明确的提交 payload。B 的本地验收已完成，下一项按计划进入 C 批 2.14.0。
+- **提交/下一步**：B 的四个提交已快进推送至 `origin/codex/focused-moment-continuity`，远端指针经 `git ls-remote` 核实为 `d1976da7669e55e979c24bdd319054a529f3d918`。未核验远程 CI，未创建正式 Release。B 交付完成，下一项按计划进入 C 批 2.14.0。

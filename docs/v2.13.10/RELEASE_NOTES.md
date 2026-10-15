@@ -27,4 +27,4 @@
 - Windows 原生重置 UIAutomation run `windows-reset-native-20261015T084539307Z-e809fa5d` 的 8 项断言通过，覆盖默认焦点“保留本轮”、取消保留运行态、确认清空和不创建专注记录。早期乱码来自未设 UTF-8 的测试探针；修正后通过。
 - Windows Release 活跃事务强退 run `windows-release-active-write-kill-20261015T091502930Z-d50d1b75` 证明 state 已替换而 runtime 仍旧、pending journal 覆盖两文件时进程退出；同一候选重启后 state 精确回滚、runtime 保持旧值且 pending journal 删除。恢复截图和 `supplemental-verification.json` 位于该 QA run 目录。
 - 活跃强退 runner 未产出自身 `report.json`：它选中了没有 UIA 子元素的窗口句柄；EnumWindows 找到可见主窗口后，显式句柄 UIA 检查通过（84 个控件，包含“计时”按钮）。补充 JSON 记录文件哈希、原生窗口结果和 runner 限制；本结论基于这些可复核证据，不把 runner 退出码记为通过。
-- **状态：2.13.10 本地 Release 候选与 B 批验收完成。** 根目录入口已写入匹配候选；B 源码与文档尚未推送，未创建 tag、GitHub Release、安装包或上传资产。此前 push 被 auto-review 拒绝，未重试，远程推送待用户批准明确 payload。
+- **状态：2.13.10 本地 Release 候选与 B 批验收完成。** 根目录入口已写入匹配候选；B 批四个提交已推送至 `origin/codex/focused-moment-continuity`，远端指针经核实为 `d1976da7669e55e979c24bdd319054a529f3d918`。未核验远程 CI，未创建 tag、GitHub Release、安装包或上传资产。
