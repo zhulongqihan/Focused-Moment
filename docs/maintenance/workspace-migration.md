@@ -301,3 +301,11 @@
 - 同一候选隔离 Windows smoke 通过：`windows-native-20261022-183531-3160ffc11a`，报告 `artifacts/qa/native/windows-native-20261022-183531-3160ffc11a/report.md`。范围为可见启动、隔离用户目录/WebView2、旧路径防护和合成旧格式迁移；不包括计时、托盘、浮窗、备份 UI、声音、通知或用户主动退出交互。该范围与 D 批浏览器 mock/Rust 结果分开记录。
 - 最终根入口已是 2.14.1；D 退出条件通过，可以开始 E 批 2.14.2。其第一项工作是读取 C 批 2.14.0 基线和现有 Release 性能脚本/资源清单，冻结同机器对比设置后采集 E 优化前性能基线；随后实现按主题动态加载和预览 WebP 优化。
 - `PROJECT_PLAN.md` 未修改、未暂存、未提交，SHA-256 保持 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`。受保护的用户文件未纳入此次文档记录提交。
+
+## 2026-10-22 E 批性能基线与续作状态
+
+- 用户确认已退出此前可见的 2.14.0 主窗；当前进程检查未发现 `Focused Moment` 运行实例。根入口保持 D 批 2.14.1，SHA-256 `71F0E8B24E1B3F99B51F39E57F6BFE42B24BDE22596608A7E22DAD5CFEA834C5`，未重建或替换。
+- E 批规范执行状态已写入 `docs/maintenance/optimization-plan.md`。C 批 2.14.0 Release 完整性能基线 run `release-performance-20261022T110303321Z-7d8e220b` 已有 42 个 60 秒测量、18 次隔离启动；12 次数据矩阵启动首个可见窗口中位数/范围 905.8 ms（657.0–1,302.7），UIA 控件就绪上界 2,112.1 ms（1,670.6–3,070.4）。CPU、私有内存和动效拆分表见规范清单及 `matrix-report.json`。
+- C 批生产构建日志显示单入口 JS 934.75 kB（gzip 195.69 kB），作为 Vite 输出舍入精度下的首屏字节参考。E 对照必须用同一浏览器请求跟踪汇总交互前所有实际加载 JS 的原始字节；不可只比较入口 chunk。
+- 当前规范状态：D 已交付；E 正在进行但应用改动尚未开始。已核实 `ThemeSurface.tsx` 静态导入七种实现；`ThemePicker`、`ThemeSettings` 与 `LegacyThemeShelf` 共用 `/theme-previews/*.png`，七张源 PNG 合计 14,287,645 bytes。所有源图需保留，只增添经过视觉检查的 WebP 衍生图。CSS 由 `MainShell.tsx` 按既有顺序全局导入，E 不调整级联次序。
+- 续作唯一下一步：将 `ThemeSurface` 的七个实现改为 success-cache / reject-retryable 按需模块加载，加载中的主题切换不更改当前 `themeId`；成功且仍为最新选择时才应用并保存。加入失败重试、返回当前主题、竞态切换和业务交互不中断回归，再生成 640px WebP 与尺寸/lazy 图片属性。`PROJECT_PLAN.md` 保持只读，SHA-256 仍为 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`；受保护的用户未跟踪脚本、`div` 和旧摘要未暂存或提交。
