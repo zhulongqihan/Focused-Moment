@@ -281,6 +281,35 @@ async function bootReferenceMock(page, {
       dailyBreakdown: demoMode ? demoDailyBreakdown : [],
     };
 
+    let dataRevisions = {
+      processId: 1,
+      todoRevision: 1,
+      recordRevision: 1,
+      appPreferencesRevision: 1,
+      timerPreferencesRevision: 1,
+      focusPlanRevision: 1,
+      audioRevision: 1,
+      timerOperationRevision: 1,
+    };
+    let timerSampleSequence = 0;
+    const eventCallbacks = new Map();
+    const copyRevisions = () => ({ ...dataRevisions });
+    const emitMockEvent = (event, payload) => {
+      for (const [registeredEvent, callback] of eventCallbacks.values()) {
+        if (registeredEvent === event) callback({ event, payload });
+      }
+    };
+    const revisionedWrite = (value, changed = []) => {
+      for (const key of changed) dataRevisions[key] += 1;
+      const revisions = copyRevisions();
+      emitMockEvent("data-revisions-changed", revisions);
+      return { revisions, value };
+    };
+    const appPreferencesView = () => {
+      const { customAlertSoundData, ...view } = appPreferences;
+      return { ...view, hasCustomAlertSound: Boolean(customAlertSoundData) };
+    };
+
     window.__startTimerCalls = 0;
     window.__miniWorkspaceShown = 0;
     window.__appPreferenceUpdateCalls = 0;
@@ -294,14 +323,57 @@ async function bootReferenceMock(page, {
         currentWebview: { label: "main" },
       },
       transformCallback: (callback) => {
-        window.__referenceEventCallback = callback;
-        return 1;
+        const callbackId = eventCallbacks.size + 1;
+        eventCallbacks.set(callbackId, ["", callback]);
+        return callbackId;
       },
       invoke: async (command, args = {}) => {
+        let completedTodoChanged = false;
         switch (command) {
           case "plugin:event|listen":
+            eventCallbacks.set(args.handler, [args.event, eventCallbacks.get(args.handler)?.[1]]);
+            return args.handler;
           case "plugin:event|unlisten":
             return 1;
+          case "plugin:event|emit":
+            emitMockEvent(args.event, args.payload);
+            return null;
+          case "get_data_revisions":
+            return copyRevisions();
+          case "get_sync_snapshot": {
+            const domains = args.domains ?? [];
+            const snapshot = { revisions: copyRevisions() };
+            if (domains.includes("todos")) snapshot.todos = todos.map((item) => ({ ...item }));
+            if (domains.includes("records")) {
+              window.__focusRecordCalls += 1;
+              snapshot.records = focusRecords.map((record) => ({ ...record }));
+            }
+            if (domains.includes("analytics") || args.includeAnalytics) {
+              snapshot.analytics = {
+                ...analytics,
+                dailyBreakdown: analytics.dailyBreakdown.map((day) => ({ ...day })),
+              };
+            }
+            if (domains.includes("appPreferences")) snapshot.appPreferences = appPreferencesView();
+            if (domains.includes("timerPreferences")) snapshot.timerPreferences = { ...timerPreferences };
+            if (domains.includes("focusPlan")) snapshot.focusPlan = { ...focusPlan, todayPickIds: [...focusPlan.todayPickIds] };
+            return snapshot;
+          }
+          case "get_timer_sync_snapshot":
+            timerSampleSequence += 1;
+            return {
+              processId: dataRevisions.processId,
+              sampleSequence: timerSampleSequence,
+              timerOperationRevision: dataRevisions.timerOperationRevision,
+              timer,
+            };
+          case "get_custom_alert_audio":
+            return {
+              processId: dataRevisions.processId,
+              revision: dataRevisions.audioRevision,
+              name: appPreferences.customAlertSoundName,
+              data: appPreferences.customAlertSoundData,
+            };
           case "get_timer_snapshot":
             return timer;
           case "get_timer_preferences":
@@ -309,15 +381,15 @@ async function bootReferenceMock(page, {
           case "update_timer_preferences":
             window.__timerPreferenceUpdateCalls += 1;
             Object.assign(timerPreferences, args.preferences ?? {});
-            return timerPreferences;
+            return revisionedWrite(timerPreferences, ["timerPreferencesRevision", "timerOperationRevision"]);
           case "get_app_preferences":
-            return appPreferences;
+            return appPreferencesView();
           case "update_app_preferences":
             window.__appPreferenceUpdateCalls += 1;
             window.__lastAppPreferencesUpdate = args.preferences ?? {};
             window.__appPreferenceUpdateHistory.push(args.preferences ?? {});
             appPreferences = { ...appPreferences, ...(args.preferences ?? {}) };
-            return appPreferences;
+            return revisionedWrite(appPreferencesView(), ["appPreferencesRevision"]);
           case "get_focus_plan":
             return focusPlan;
           case "update_focus_plan":
@@ -471,6 +543,7 @@ async function bootReferenceMock(page, {
             return timer;
           case "complete_focus_session":
             {
+              completedTodoChanged = timer.completeLinkedTodoOnFinish && timer.linkedTodoId !== null;
               const linkedTodo = todos.find((item) => item.id === timer.linkedTodoId) ?? null;
               const durationMs = timer.elapsedMs;
               const completedTime = "12:01";
@@ -522,7 +595,11 @@ async function bootReferenceMock(page, {
               currentRound: timer.currentRound + 1,
               completedFocusCount: timer.completedFocusCount + 1,
             };
-            return { records: focusRecords.slice(), todoItems: todos.slice(), timerSnapshot: { ...timer } };
+            return revisionedWrite({ records: focusRecords.slice(), todoItems: todos.slice(), timerSnapshot: { ...timer } }, [
+              "recordRevision",
+              "timerOperationRevision",
+              ...(completedTodoChanged ? ["todoRevision"] : []),
+            ]);
           case "show_floating_todos":
             window.__miniWorkspaceShown += 1;
             return null;
@@ -882,9 +959,9 @@ test("Metro and Clutch seven-day records share chart coordinates and expand the 
     await expect(history).toBeInViewport({ ratio: 0.6 });
     await expect(history).toContainText("完整历史");
     const lastHistorySummary = history.locator("details summary").last();
-    const recordsCallsBeforeRefresh = await page.evaluate(() => window.__focusRecordCalls);
+    const recordsCallsBeforeStableRender = await page.evaluate(() => window.__focusRecordCalls);
     await lastHistorySummary.evaluate((node) => node.setAttribute("data-history-node-probe", "stable"));
-    await expect.poll(() => page.evaluate(() => window.__focusRecordCalls)).toBeGreaterThan(recordsCallsBeforeRefresh);
+    await expect.poll(() => page.evaluate(() => window.__focusRecordCalls)).toBe(recordsCallsBeforeStableRender);
     await expect(history.locator('[data-history-node-probe="stable"]')).toHaveCount(1);
     await lastHistorySummary.scrollIntoViewIfNeeded();
     await expect(lastHistorySummary).toBeInViewport();

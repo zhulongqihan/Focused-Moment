@@ -187,18 +187,150 @@ pub(crate) fn get_timer_snapshot(
 }
 
 #[tauri::command]
-pub(crate) fn acknowledge_timer_alert(
+pub(crate) fn get_data_revisions(
     state: tauri::State<'_, TimerEngineState>,
-) -> Result<TimerSnapshot, String> {
+) -> Result<DataRevisions, String> {
+    let _operation = state.read_operation()?;
+    state.ensure_ready()?;
+    Ok(state.revision_snapshot())
+}
+
+#[tauri::command]
+pub(crate) fn get_sync_snapshot(
+    state: tauri::State<'_, TimerEngineState>,
+    domains: Vec<SyncDomain>,
+    include_analytics: bool,
+) -> Result<SyncSnapshot, String> {
+    let _operation = state.read_operation()?;
+    state.ensure_ready()?;
+    let has_todos = domains.contains(&SyncDomain::Todos);
+    let has_records = domains.contains(&SyncDomain::Records);
+    let wants_analytics = include_analytics || domains.contains(&SyncDomain::Analytics);
+
+    let todos = if has_todos || wants_analytics {
+        Some(
+            state
+                .todo_items
+                .lock()
+                .map_err(|_| "任务列表状态锁定失败".to_string())?
+                .clone(),
+        )
+    } else {
+        None
+    };
+    let records = if has_records || wants_analytics {
+        Some(
+            state
+                .focus_records
+                .lock()
+                .map_err(|_| "记录列表状态锁定失败".to_string())?
+                .clone(),
+        )
+    } else {
+        None
+    };
+    let analytics = if wants_analytics {
+        match (&records, &todos) {
+            (Some(records), Some(todos)) => Some(analytics_snapshot(records, todos)),
+            _ => None,
+        }
+    } else {
+        None
+    };
+    let app_preferences = if domains.contains(&SyncDomain::AppPreferences) {
+        Some(
+            state
+                .app_preferences
+                .lock()
+                .map_err(|_| "应用设置状态锁定失败".to_string())?
+                .view(),
+        )
+    } else {
+        None
+    };
+    let timer_preferences = if domains.contains(&SyncDomain::TimerPreferences) {
+        Some(
+            state
+                .timer_preferences
+                .lock()
+                .map_err(|_| "计时设置状态锁定失败".to_string())?
+                .snapshot(),
+        )
+    } else {
+        None
+    };
+    let focus_plan = if domains.contains(&SyncDomain::FocusPlan) {
+        Some(
+            state
+                .focus_plan
+                .lock()
+                .map_err(|_| "专注计划状态锁定失败".to_string())?
+                .clone(),
+        )
+    } else {
+        None
+    };
+
+    Ok(SyncSnapshot {
+        revisions: state.revision_snapshot(),
+        todos: has_todos.then_some(todos).flatten(),
+        records: has_records.then_some(records).flatten(),
+        analytics,
+        app_preferences,
+        timer_preferences,
+        focus_plan,
+    })
+}
+
+#[tauri::command]
+pub(crate) fn get_timer_sync_snapshot(
+    state: tauri::State<'_, TimerEngineState>,
+) -> Result<TimerSyncSnapshot, String> {
+    let _operation = state.read_operation()?;
+    state.ensure_ready()?;
+    let revisions = state.revision_snapshot();
+    let timer = with_timer_engine(&state, |engine| Ok(engine.snapshot()))?;
+    Ok(TimerSyncSnapshot {
+        process_id: revisions.process_id,
+        sample_sequence: state.next_timer_sample_sequence(),
+        timer_operation_revision: revisions.timer_operation_revision,
+        timer,
+    })
+}
+
+#[tauri::command]
+pub(crate) fn get_custom_alert_audio(
+    state: tauri::State<'_, TimerEngineState>,
+) -> Result<CustomAlertAudio, String> {
+    let _operation = state.read_operation()?;
+    state.ensure_ready()?;
+    let revisions = state.revision_snapshot();
+    let preferences = state
+        .app_preferences
+        .lock()
+        .map_err(|_| "应用设置状态锁定失败".to_string())?;
+    Ok(CustomAlertAudio {
+        process_id: revisions.process_id,
+        revision: revisions.audio_revision,
+        name: preferences.custom_alert_sound_name.clone(),
+        data: preferences.custom_alert_sound_data.clone(),
+    })
+}
+
+#[tauri::command]
+pub(crate) fn acknowledge_timer_alert(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, TimerEngineState>,
+) -> Result<RevisionedResult<TimerSnapshot>, String> {
     let transaction = state.begin_transaction(OperationScope::Runtime)?;
     let snapshot = with_timer_engine(&state, |engine| {
         engine.clear_alert();
         Ok(engine.snapshot())
     })?;
     state.persist_runtime()?;
-    transaction.commit();
+    let revisions = transaction.commit(RevisionChanges::TIMER_OPERATION);
     refresh_system_tray_menu(&snapshot);
-    Ok(snapshot)
+    Ok(revisioned_result(&app, revisions, snapshot))
 }
 
 #[tauri::command]
@@ -217,9 +349,10 @@ pub(crate) fn get_timer_preferences(
 
 #[tauri::command]
 pub(crate) fn update_timer_preferences(
+    app: tauri::AppHandle,
     state: tauri::State<'_, TimerEngineState>,
     preferences: TimerPreferences,
-) -> Result<TimerPreferencesSnapshot, String> {
+) -> Result<RevisionedResult<TimerPreferencesSnapshot>, String> {
     let transaction = state.begin_transaction(OperationScope::All)?;
     state.ensure_ready()?;
     let normalized_preferences = preferences.normalized()?;
@@ -241,41 +374,82 @@ pub(crate) fn update_timer_preferences(
     }
 
     state.persist_all()?;
-    transaction.commit();
-    Ok(normalized_preferences.snapshot())
+    let revisions = transaction
+        .commit(RevisionChanges::TIMER_PREFERENCES.with(RevisionChanges::TIMER_OPERATION));
+    Ok(revisioned_result(
+        &app,
+        revisions,
+        normalized_preferences.snapshot(),
+    ))
 }
 
 #[tauri::command]
 pub(crate) fn get_app_preferences(
     state: tauri::State<'_, TimerEngineState>,
-) -> Result<AppPreferences, String> {
+) -> Result<AppPreferencesView, String> {
     let _operation = state.read_operation()?;
     state.ensure_ready()?;
     state
         .app_preferences
         .lock()
         .map_err(|_| "应用设置状态锁定失败".to_string())
-        .map(|preferences| preferences.clone())
+        .map(|preferences| preferences.view())
 }
 
 #[tauri::command]
 pub(crate) fn update_app_preferences(
+    app: tauri::AppHandle,
     state: tauri::State<'_, TimerEngineState>,
-    preferences: AppPreferences,
-) -> Result<AppPreferences, String> {
+    preferences: AppPreferencesPatch,
+) -> Result<RevisionedResult<AppPreferencesView>, String> {
     let transaction = state.begin_transaction(OperationScope::State)?;
     state.ensure_ready()?;
-    let normalized = preferences.normalized()?;
-    {
+    let normalized = {
         let mut stored = state
             .app_preferences
             .lock()
             .map_err(|_| "应用设置状态锁定失败".to_string())?;
-        *stored = normalized.clone();
-    }
+        preferences.apply(&mut stored)?;
+        stored.view()
+    };
     state.persist()?;
-    transaction.commit();
-    Ok(normalized)
+    let revisions = transaction.commit(RevisionChanges::APP_PREFERENCES);
+    Ok(revisioned_result(&app, revisions, normalized))
+}
+
+#[tauri::command]
+pub(crate) fn update_custom_alert_audio(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, TimerEngineState>,
+    name: String,
+    data: Option<String>,
+) -> Result<RevisionedResult<CustomAlertAudioMetadata>, String> {
+    let transaction = state.begin_transaction(OperationScope::State)?;
+    state.ensure_ready()?;
+    let (name, data) = {
+        let mut stored = state
+            .app_preferences
+            .lock()
+            .map_err(|_| "应用设置状态锁定失败".to_string())?;
+        stored.custom_alert_sound_name = name;
+        stored.custom_alert_sound_data = data;
+        let normalized = stored.clone().normalized()?;
+        *stored = normalized;
+        (
+            stored.custom_alert_sound_name.clone(),
+            stored.custom_alert_sound_data.clone(),
+        )
+    };
+    state.persist()?;
+    let revisions =
+        transaction.commit(RevisionChanges::APP_PREFERENCES.with(RevisionChanges::AUDIO));
+    let audio = CustomAlertAudioMetadata {
+        process_id: revisions.process_id,
+        revision: revisions.audio_revision,
+        name,
+        has_custom_alert_sound: data.is_some(),
+    };
+    Ok(revisioned_result(&app, revisions, audio))
 }
 
 #[tauri::command]
@@ -293,10 +467,11 @@ pub(crate) fn get_focus_plan(
 
 #[tauri::command]
 pub(crate) fn update_focus_plan(
+    app: tauri::AppHandle,
     state: tauri::State<'_, TimerEngineState>,
     current_todo_id: Option<u64>,
     today_pick_ids: Vec<u64>,
-) -> Result<FocusPlanState, String> {
+) -> Result<RevisionedResult<FocusPlanState>, String> {
     let transaction = state.begin_transaction(OperationScope::State)?;
     state.ensure_ready()?;
     let items = state
@@ -343,17 +518,18 @@ pub(crate) fn update_focus_plan(
         *plan = next.clone();
     }
     state.persist()?;
-    transaction.commit();
-    Ok(next)
+    let revisions = transaction.commit(RevisionChanges::FOCUS_PLAN);
+    Ok(revisioned_result(&app, revisions, next))
 }
 
 #[tauri::command]
 pub(crate) fn update_timer_context(
+    app: tauri::AppHandle,
     state: tauri::State<'_, TimerEngineState>,
     title: String,
     linked_todo_id: Option<u64>,
     complete_linked_todo_on_finish: bool,
-) -> Result<TimerSnapshot, String> {
+) -> Result<RevisionedResult<TimerSnapshot>, String> {
     let transaction = state.begin_transaction(OperationScope::Runtime)?;
     state.ensure_ready()?;
     if let Some(id) = linked_todo_id {
@@ -380,16 +556,17 @@ pub(crate) fn update_timer_context(
     })?;
 
     state.persist_runtime()?;
-    transaction.commit();
+    let revisions = transaction.commit(RevisionChanges::TIMER_OPERATION);
     refresh_system_tray_menu(&snapshot);
-    Ok(snapshot)
+    Ok(revisioned_result(&app, revisions, snapshot))
 }
 
 #[tauri::command]
 pub(crate) fn switch_timer_mode(
+    app: tauri::AppHandle,
     state: tauri::State<'_, TimerEngineState>,
     mode: String,
-) -> Result<TimerSnapshot, String> {
+) -> Result<RevisionedResult<TimerSnapshot>, String> {
     let transaction = state.begin_transaction(OperationScope::Runtime)?;
     let next_mode = parse_mode(&mode)?;
     let snapshot = with_timer_engine(&state, |engine| {
@@ -400,16 +577,17 @@ pub(crate) fn switch_timer_mode(
         Ok(engine.snapshot())
     })?;
     state.persist_runtime()?;
-    transaction.commit();
+    let revisions = transaction.commit(RevisionChanges::TIMER_OPERATION);
     refresh_system_tray_menu(&snapshot);
-    Ok(snapshot)
+    Ok(revisioned_result(&app, revisions, snapshot))
 }
 
 #[tauri::command]
 pub(crate) fn set_countdown_minutes(
+    app: tauri::AppHandle,
     state: tauri::State<'_, TimerEngineState>,
     minutes: u64,
-) -> Result<TimerSnapshot, String> {
+) -> Result<RevisionedResult<TimerSnapshot>, String> {
     let transaction = state.begin_transaction(OperationScope::Runtime)?;
     let snapshot = with_timer_engine(&state, |engine| {
         if engine.mode != TimerMode::Countdown {
@@ -419,9 +597,9 @@ pub(crate) fn set_countdown_minutes(
         Ok(engine.snapshot())
     })?;
     state.persist_runtime()?;
-    transaction.commit();
+    let revisions = transaction.commit(RevisionChanges::TIMER_OPERATION);
     refresh_system_tray_menu(&snapshot);
-    Ok(snapshot)
+    Ok(revisioned_result(&app, revisions, snapshot))
 }
 
 #[tauri::command]
@@ -440,10 +618,11 @@ pub(crate) fn get_focus_records(
 
 #[tauri::command]
 pub(crate) fn update_focus_record_title(
+    app: tauri::AppHandle,
     state: tauri::State<'_, TimerEngineState>,
     id: u64,
     title: String,
-) -> Result<Vec<FocusRecord>, String> {
+) -> Result<RevisionedResult<Vec<FocusRecord>>, String> {
     let transaction = state.begin_transaction(OperationScope::State)?;
     let normalized_title = normalize_focus_record_title(&title)?;
     let records = with_focus_records(&state, |records| {
@@ -458,19 +637,20 @@ pub(crate) fn update_focus_record_title(
     })?;
 
     state.persist()?;
-    transaction.commit();
-    Ok(records)
+    let revisions = transaction.commit(RevisionChanges::RECORDS);
+    Ok(revisioned_result(&app, revisions, records))
 }
 
 #[tauri::command]
 pub(crate) fn create_manual_focus_record(
+    app: tauri::AppHandle,
     state: tauri::State<'_, TimerEngineState>,
     title: String,
     duration_minutes: u64,
     completed_date: String,
     completed_time: String,
     linked_todo_id: Option<u64>,
-) -> Result<Vec<FocusRecord>, String> {
+) -> Result<RevisionedResult<Vec<FocusRecord>>, String> {
     let transaction = state.begin_transaction(OperationScope::State)?;
     state.ensure_ready()?;
     let normalized_title = normalize_focus_record_title(&title)?;
@@ -536,12 +716,13 @@ pub(crate) fn create_manual_focus_record(
         Ok(records.clone())
     })?;
     state.persist()?;
-    transaction.commit();
-    Ok(records)
+    let revisions = transaction.commit(RevisionChanges::RECORDS);
+    Ok(revisioned_result(&app, revisions, records))
 }
 
 #[tauri::command]
 pub(crate) fn update_focus_record(
+    app: tauri::AppHandle,
     state: tauri::State<'_, TimerEngineState>,
     id: u64,
     title: String,
@@ -549,7 +730,7 @@ pub(crate) fn update_focus_record(
     completed_date: String,
     completed_time: String,
     linked_todo_id: Option<u64>,
-) -> Result<Vec<FocusRecord>, String> {
+) -> Result<RevisionedResult<Vec<FocusRecord>>, String> {
     let transaction = state.begin_transaction(OperationScope::State)?;
     let normalized_title = normalize_focus_record_title(&title)?;
     if !(1..=1440).contains(&duration_minutes) {
@@ -600,15 +781,16 @@ pub(crate) fn update_focus_record(
         Ok(records.clone())
     })?;
     state.persist()?;
-    transaction.commit();
-    Ok(records)
+    let revisions = transaction.commit(RevisionChanges::RECORDS);
+    Ok(revisioned_result(&app, revisions, records))
 }
 
 #[tauri::command]
 pub(crate) fn delete_focus_record(
+    app: tauri::AppHandle,
     state: tauri::State<'_, TimerEngineState>,
     id: u64,
-) -> Result<Vec<FocusRecord>, String> {
+) -> Result<RevisionedResult<Vec<FocusRecord>>, String> {
     let transaction = state.begin_transaction(OperationScope::State)?;
     let records = with_focus_records(&state, |records| {
         let before_len = records.len();
@@ -622,15 +804,16 @@ pub(crate) fn delete_focus_record(
     })?;
 
     state.persist()?;
-    transaction.commit();
-    Ok(records)
+    let revisions = transaction.commit(RevisionChanges::RECORDS);
+    Ok(revisioned_result(&app, revisions, records))
 }
 
 #[tauri::command]
 pub(crate) fn restore_focus_record(
+    app: tauri::AppHandle,
     state: tauri::State<'_, TimerEngineState>,
     record: FocusRecord,
-) -> Result<Vec<FocusRecord>, String> {
+) -> Result<RevisionedResult<Vec<FocusRecord>>, String> {
     let transaction = state.begin_transaction(OperationScope::State)?;
     let record_id = record.id;
     let records = with_focus_records(&state, |records| {
@@ -652,15 +835,16 @@ pub(crate) fn restore_focus_record(
     }
 
     state.persist()?;
-    transaction.commit();
-    Ok(records)
+    let revisions = transaction.commit(RevisionChanges::RECORDS);
+    Ok(revisioned_result(&app, revisions, records))
 }
 
 #[tauri::command]
 pub(crate) fn delete_focus_records(
+    app: tauri::AppHandle,
     state: tauri::State<'_, TimerEngineState>,
     ids: Vec<u64>,
-) -> Result<Vec<FocusRecord>, String> {
+) -> Result<RevisionedResult<Vec<FocusRecord>>, String> {
     let transaction = state.begin_transaction(OperationScope::State)?;
     if ids.is_empty() {
         return Err("当前范围内没有可清理的专注记录".to_string());
@@ -679,8 +863,8 @@ pub(crate) fn delete_focus_records(
     })?;
 
     state.persist()?;
-    transaction.commit();
-    Ok(records)
+    let revisions = transaction.commit(RevisionChanges::RECORDS);
+    Ok(revisioned_result(&app, revisions, records))
 }
 
 #[tauri::command]
@@ -702,11 +886,20 @@ pub(crate) fn get_analytics_snapshot(
 }
 
 #[tauri::command]
-pub(crate) fn clear_app_data(state: tauri::State<'_, TimerEngineState>) -> Result<(), String> {
+pub(crate) fn clear_app_data(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, TimerEngineState>,
+) -> Result<RevisionedResult<()>, String> {
     let transaction = state.begin_transaction(OperationScope::All)?;
     state.clear_all()?;
-    transaction.commit();
-    Ok(())
+    let revisions = transaction.commit(
+        RevisionChanges::RECORDS
+            .with(RevisionChanges::TODOS)
+            .with(RevisionChanges::TIMER_PREFERENCES)
+            .with(RevisionChanges::FOCUS_PLAN)
+            .with(RevisionChanges::TIMER_OPERATION),
+    );
+    Ok(revisioned_result(&app, revisions, ()))
 }
 
 #[tauri::command]
@@ -764,9 +957,10 @@ pub(crate) fn export_app_backup(
 
 #[tauri::command]
 pub(crate) fn import_app_backup(
+    app: tauri::AppHandle,
     state: tauri::State<'_, TimerEngineState>,
     file_name: String,
-) -> Result<BackupImportResult, String> {
+) -> Result<RevisionedResult<BackupImportResult>, String> {
     let transaction = state.begin_transaction(OperationScope::All)?;
     let store = state.persistence_store()?;
 
@@ -779,8 +973,14 @@ pub(crate) fn import_app_backup(
     let mut result = state.apply_backup_file_with_options(backup, false)?;
     result.imported_file_name = file_name;
     result.rollback_file_name = rollback_file_name;
-    transaction.commit();
-    Ok(result)
+    let revisions = transaction.commit(
+        RevisionChanges::RECORDS
+            .with(RevisionChanges::TODOS)
+            .with(RevisionChanges::TIMER_PREFERENCES)
+            .with(RevisionChanges::FOCUS_PLAN)
+            .with(RevisionChanges::TIMER_OPERATION),
+    );
+    Ok(revisioned_result(&app, revisions, result))
 }
 
 #[tauri::command]
@@ -830,11 +1030,22 @@ pub(crate) fn export_app_backup_to_path(
 
 #[tauri::command]
 pub(crate) fn import_app_backup_path(
+    app: tauri::AppHandle,
     state: tauri::State<'_, TimerEngineState>,
     path: String,
     restore_app_preferences: bool,
-) -> Result<BackupImportResult, String> {
+) -> Result<RevisionedResult<BackupImportResult>, String> {
     let transaction = state.begin_transaction(OperationScope::All)?;
+    let previous_audio = {
+        let preferences = state
+            .app_preferences
+            .lock()
+            .map_err(|_| "应用设置状态锁定失败".to_string())?;
+        (
+            preferences.custom_alert_sound_name.clone(),
+            preferences.custom_alert_sound_data.clone(),
+        )
+    };
     let path = external_backup_path(&path)?;
     let (backup, _migrated, _original_format, _original_schema) = read_external_backup(&path)?;
     let store = state.persistence_store()?;
@@ -845,8 +1056,29 @@ pub(crate) fn import_app_backup_path(
     let mut result = state.apply_backup_file_with_options(backup, restore_app_preferences)?;
     result.imported_file_name = path.display().to_string();
     result.rollback_file_name = rollback_file_name;
-    transaction.commit();
-    Ok(result)
+    let current_audio = {
+        let preferences = state
+            .app_preferences
+            .lock()
+            .map_err(|_| "应用设置状态锁定失败".to_string())?;
+        (
+            preferences.custom_alert_sound_name.clone(),
+            preferences.custom_alert_sound_data.clone(),
+        )
+    };
+    let mut changes = RevisionChanges::RECORDS
+        .with(RevisionChanges::TODOS)
+        .with(RevisionChanges::TIMER_PREFERENCES)
+        .with(RevisionChanges::FOCUS_PLAN)
+        .with(RevisionChanges::TIMER_OPERATION);
+    if restore_app_preferences {
+        changes = changes.with(RevisionChanges::APP_PREFERENCES);
+        if previous_audio != current_audio {
+            changes = changes.with(RevisionChanges::AUDIO);
+        }
+    }
+    let revisions = transaction.commit(changes);
+    Ok(revisioned_result(&app, revisions, result))
 }
 
 #[tauri::command]
@@ -923,12 +1155,13 @@ pub(crate) fn get_todo_items(
 
 #[tauri::command]
 pub(crate) fn create_todo_item(
+    app: tauri::AppHandle,
     state: tauri::State<'_, TimerEngineState>,
     title: String,
     scheduled_date: String,
     scheduled_time: String,
     importance_key: String,
-) -> Result<Vec<TodoItem>, String> {
+) -> Result<RevisionedResult<Vec<TodoItem>>, String> {
     let transaction = state.begin_transaction(OperationScope::State)?;
     state.ensure_ready()?;
     let normalized_title = normalize_todo_title(&title)?;
@@ -965,19 +1198,20 @@ pub(crate) fn create_todo_item(
     })?;
 
     state.persist()?;
-    transaction.commit();
-    Ok(items)
+    let revisions = transaction.commit(RevisionChanges::TODOS);
+    Ok(revisioned_result(&app, revisions, items))
 }
 
 #[tauri::command]
 pub(crate) fn update_todo_item(
+    app: tauri::AppHandle,
     state: tauri::State<'_, TimerEngineState>,
     id: u64,
     title: String,
     scheduled_date: String,
     scheduled_time: String,
     importance_key: String,
-) -> Result<Vec<TodoItem>, String> {
+) -> Result<RevisionedResult<Vec<TodoItem>>, String> {
     let transaction = state.begin_transaction(OperationScope::State)?;
     let normalized_title = normalize_todo_title(&title)?;
     let normalized_date = normalize_scheduled_date(&scheduled_date)?;
@@ -998,20 +1232,21 @@ pub(crate) fn update_todo_item(
     })?;
 
     state.persist()?;
-    transaction.commit();
-    Ok(items)
+    let revisions = transaction.commit(RevisionChanges::TODOS);
+    Ok(revisioned_result(&app, revisions, items))
 }
 
 #[tauri::command]
 pub(crate) fn update_todo_continuation_note(
+    app: tauri::AppHandle,
     state: tauri::State<'_, TimerEngineState>,
     id: u64,
     note: String,
-) -> Result<Vec<TodoItem>, String> {
+) -> Result<RevisionedResult<Vec<TodoItem>>, String> {
     let transaction = state.begin_transaction(OperationScope::State)?;
     let items = update_todo_continuation_note_in_transaction(&state, id, note)?;
-    transaction.commit();
-    Ok(items)
+    let revisions = transaction.commit(RevisionChanges::TODOS);
+    Ok(revisioned_result(&app, revisions, items))
 }
 
 fn update_todo_continuation_note_in_transaction(
@@ -1041,11 +1276,12 @@ fn update_todo_continuation_note_in_transaction(
 
 #[tauri::command]
 pub(crate) fn save_continuation_bookmark(
+    app: tauri::AppHandle,
     state: tauri::State<'_, TimerEngineState>,
     todo_id: u64,
     record_id: u64,
     note: String,
-) -> Result<Vec<TodoItem>, String> {
+) -> Result<RevisionedResult<Vec<TodoItem>>, String> {
     let transaction = state.begin_transaction(OperationScope::State)?;
     let todo_is_available = state
         .todo_items
@@ -1072,8 +1308,8 @@ pub(crate) fn save_continuation_bookmark(
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner())
         .acknowledge_for(record_id, todo_id);
-    transaction.commit();
-    Ok(items)
+    let revisions = transaction.commit(RevisionChanges::TODOS);
+    Ok(revisioned_result(&app, revisions, items))
 }
 
 #[tauri::command]
@@ -1122,10 +1358,20 @@ fn clear_focus_plan_reference(state: &TimerEngineState, id: u64) -> Result<(), S
 
 #[tauri::command]
 pub(crate) fn toggle_todo_item(
+    app: tauri::AppHandle,
     state: tauri::State<'_, TimerEngineState>,
     id: u64,
-) -> Result<Vec<TodoItem>, String> {
+) -> Result<RevisionedResult<Vec<TodoItem>>, String> {
     let transaction = state.begin_transaction(OperationScope::All)?;
+    let timer_was_linked =
+        with_timer_engine(&state, |engine| Ok(engine.linked_todo_id == Some(id)))?;
+    let focus_plan_was_linked = {
+        let plan = state
+            .focus_plan
+            .lock()
+            .map_err(|_| "专注计划状态锁定失败".to_string())?;
+        plan.current_todo_id == Some(id) || plan.today_pick_ids.contains(&id)
+    };
     let mut should_clear_timer_link = false;
     let items = with_todo_items(&state, |items| {
         let item = items.iter_mut().find(|item| item.id == id).ok_or_else(|| {
@@ -1148,16 +1394,33 @@ pub(crate) fn toggle_todo_item(
     } else {
         state.persist()?;
     }
-    transaction.commit();
-    Ok(items)
+    let mut changes = RevisionChanges::TODOS;
+    if should_clear_timer_link && timer_was_linked {
+        changes = changes.with(RevisionChanges::TIMER_OPERATION);
+    }
+    if should_clear_timer_link && focus_plan_was_linked {
+        changes = changes.with(RevisionChanges::FOCUS_PLAN);
+    }
+    let revisions = transaction.commit(changes);
+    Ok(revisioned_result(&app, revisions, items))
 }
 
 #[tauri::command]
 pub(crate) fn delete_todo_item(
+    app: tauri::AppHandle,
     state: tauri::State<'_, TimerEngineState>,
     id: u64,
-) -> Result<Vec<TodoItem>, String> {
+) -> Result<RevisionedResult<Vec<TodoItem>>, String> {
     let transaction = state.begin_transaction(OperationScope::All)?;
+    let timer_was_linked =
+        with_timer_engine(&state, |engine| Ok(engine.linked_todo_id == Some(id)))?;
+    let focus_plan_was_linked = {
+        let plan = state
+            .focus_plan
+            .lock()
+            .map_err(|_| "专注计划状态锁定失败".to_string())?;
+        plan.current_todo_id == Some(id) || plan.today_pick_ids.contains(&id)
+    };
     let items = with_todo_items(&state, |items| {
         let before_len = items.len();
         items.retain(|item| item.id != id);
@@ -1178,15 +1441,23 @@ pub(crate) fn delete_todo_item(
     })?;
     clear_focus_plan_reference(&state, id)?;
     state.persist_all()?;
-    transaction.commit();
-    Ok(items)
+    let mut changes = RevisionChanges::TODOS;
+    if timer_was_linked {
+        changes = changes.with(RevisionChanges::TIMER_OPERATION);
+    }
+    if focus_plan_was_linked {
+        changes = changes.with(RevisionChanges::FOCUS_PLAN);
+    }
+    let revisions = transaction.commit(changes);
+    Ok(revisioned_result(&app, revisions, items))
 }
 
 #[tauri::command]
 pub(crate) fn restore_todo_item(
+    app: tauri::AppHandle,
     state: tauri::State<'_, TimerEngineState>,
     item: TodoItem,
-) -> Result<Vec<TodoItem>, String> {
+) -> Result<RevisionedResult<Vec<TodoItem>>, String> {
     let transaction = state.begin_transaction(OperationScope::State)?;
     let normalized_item = TodoItem {
         id: item.id,
@@ -1219,54 +1490,57 @@ pub(crate) fn restore_todo_item(
     }
 
     state.persist()?;
-    transaction.commit();
-    Ok(items)
+    let revisions = transaction.commit(RevisionChanges::TODOS);
+    Ok(revisioned_result(&app, revisions, items))
 }
 
 #[tauri::command]
 pub(crate) fn start_timer(
+    app: tauri::AppHandle,
     state: tauri::State<'_, TimerEngineState>,
-) -> Result<TimerSnapshot, String> {
+) -> Result<RevisionedResult<TimerSnapshot>, String> {
     let transaction = state.begin_transaction(OperationScope::Runtime)?;
     let snapshot = with_timer_engine(&state, |engine| {
         engine.start();
         Ok(engine.snapshot())
     })?;
     state.persist_runtime()?;
-    transaction.commit();
+    let revisions = transaction.commit(RevisionChanges::TIMER_OPERATION);
     refresh_system_tray_menu(&snapshot);
-    Ok(snapshot)
+    Ok(revisioned_result(&app, revisions, snapshot))
 }
 
 #[tauri::command]
 pub(crate) fn pause_timer(
+    app: tauri::AppHandle,
     state: tauri::State<'_, TimerEngineState>,
-) -> Result<TimerSnapshot, String> {
+) -> Result<RevisionedResult<TimerSnapshot>, String> {
     let transaction = state.begin_transaction(OperationScope::Runtime)?;
     let snapshot = with_timer_engine(&state, |engine| {
         engine.pause();
         Ok(engine.snapshot())
     })?;
     state.persist_runtime()?;
-    transaction.commit();
+    let revisions = transaction.commit(RevisionChanges::TIMER_OPERATION);
     refresh_system_tray_menu(&snapshot);
-    Ok(snapshot)
+    Ok(revisioned_result(&app, revisions, snapshot))
 }
 
 #[tauri::command]
 pub(crate) fn reset_timer(
+    app: tauri::AppHandle,
     state: tauri::State<'_, TimerEngineState>,
     session_id: String,
-) -> Result<TimerSnapshot, String> {
+) -> Result<RevisionedResult<TimerSnapshot>, String> {
     let transaction = state.begin_transaction(OperationScope::Runtime)?;
     let snapshot = with_timer_engine(&state, |engine| {
         engine.reset_for_session(&session_id)?;
         Ok(engine.snapshot())
     })?;
     state.persist_runtime()?;
-    transaction.commit();
+    let revisions = transaction.commit(RevisionChanges::TIMER_OPERATION);
     refresh_system_tray_menu(&snapshot);
-    Ok(snapshot)
+    Ok(revisioned_result(&app, revisions, snapshot))
 }
 
 #[tauri::command]
@@ -1274,11 +1548,13 @@ pub(crate) fn complete_focus_session(
     app: tauri::AppHandle,
     state: tauri::State<'_, TimerEngineState>,
     title: String,
-) -> Result<CompletionPayload, String> {
+) -> Result<RevisionedResult<CompletionPayload>, String> {
     let transaction = state.begin_transaction(OperationScope::All)?;
     let completed_session = with_timer_engine(&state, |engine| engine.complete_focus_session())?;
     let (completed_at, completed_date, completed_time) = current_local_markers();
     let record_linked_todo_id = completed_session.linked_todo_id;
+    let mut todo_completed = false;
+    let mut focus_plan_reference_cleared = false;
 
     let linked_todo_title = match record_linked_todo_id {
         Some(id) => {
@@ -1350,7 +1626,10 @@ pub(crate) fn complete_focus_session(
         if completed_session.complete_linked_todo_on_finish {
             if let Some(linked_todo_id) = record_linked_todo_id {
                 if let Some(item) = items.iter_mut().find(|item| item.id == linked_todo_id) {
-                    item.is_completed = true;
+                    if !item.is_completed {
+                        item.is_completed = true;
+                        todo_completed = true;
+                    }
                 }
             }
         }
@@ -1373,6 +1652,14 @@ pub(crate) fn complete_focus_session(
 
     if completed_session.complete_linked_todo_on_finish {
         if let Some(linked_todo_id) = record_linked_todo_id {
+            focus_plan_reference_cleared = {
+                let plan = state
+                    .focus_plan
+                    .lock()
+                    .map_err(|_| "专注计划状态锁定失败".to_string())?;
+                plan.current_todo_id == Some(linked_todo_id)
+                    || plan.today_pick_ids.contains(&linked_todo_id)
+            };
             clear_focus_plan_reference(&state, linked_todo_id)?;
         }
     }
@@ -1388,7 +1675,14 @@ pub(crate) fn complete_focus_session(
                 .enqueue(notice)
         })
         .unwrap_or(false);
-    transaction.commit();
+    let mut changes = RevisionChanges::RECORDS.with(RevisionChanges::TIMER_OPERATION);
+    if todo_completed {
+        changes = changes.with(RevisionChanges::TODOS);
+    }
+    if focus_plan_reference_cleared {
+        changes = changes.with(RevisionChanges::FOCUS_PLAN);
+    }
+    let revisions = transaction.commit(changes);
     refresh_system_tray_menu(&timer_snapshot);
     if queued_bookmark_notice {
         if let Err(error) = app.emit_to("main", PENDING_BOOKMARK_NOTICE_EVENT, ()) {
@@ -1396,9 +1690,13 @@ pub(crate) fn complete_focus_session(
         }
     }
 
-    Ok(CompletionPayload {
-        timer_snapshot,
-        records,
-        todo_items,
-    })
+    Ok(revisioned_result(
+        &app,
+        revisions,
+        CompletionPayload {
+            timer_snapshot,
+            records,
+            todo_items,
+        },
+    ))
 }

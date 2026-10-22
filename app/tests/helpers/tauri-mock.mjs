@@ -157,6 +157,21 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
     window.__todoItemsCalls = 0;
     window.__focusRecordCalls = 0;
     window.__timerSnapshotCalls = 0;
+    window.__timerSyncSnapshotCalls = 0;
+    window.__businessSyncCalls = 0;
+    window.__businessSyncDomains = [];
+    window.__businessSyncInFlight = 0;
+    window.__maxBusinessSyncInFlight = 0;
+    window.__fullBusinessBroadcastEmits = 0;
+    window.__customAlertAudioReads = 0;
+    window.__failNextCustomAlertAudioRead = false;
+    window.__timerSyncSampleEmits = 0;
+    window.__revisionEventEmits = 0;
+    window.__revisionEventReady = false;
+    window.__timerSyncSampleReady = false;
+    window.__syncSnapshotDelayMs = 0;
+    window.__holdNextSyncSnapshot = false;
+    window.__releaseSyncSnapshot = null;
     window.__focusFloatingShown = false;
     window.__floatingTodosShown = false;
     window.__focusFloatingUnlocked = false;
@@ -197,7 +212,6 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
     window.__delayNextAppPreferencesRead = false;
     window.__releaseNextAppPreferencesRead = null;
     window.__delayedAppPreferenceReadsCompleted = 0;
-    window.__appStateSyncEmits = 0;
     let initialLoadFailures = initialLoadError ? 1 : 0;
     const eventCallbacks = new Map();
     const eventListeners = new Map();
@@ -210,6 +224,17 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
     window.__queuePendingBookmarkNotice = (notice) => pendingBookmarkNotices.push({ ...notice });
     let nextEventCallbackId = 1;
     window.__appStateSyncReady = false;
+    window.__revisionCalibrationCallbacks = [];
+    const nativeSetInterval = window.setInterval.bind(window);
+    window.setInterval = (handler, timeout, ...args) => {
+      if (timeout === 30_000 && typeof handler === "function") {
+        window.__revisionCalibrationCallbacks.push(handler);
+      }
+      return nativeSetInterval(handler, timeout, ...args);
+    };
+    window.__triggerRevisionCalibration = () => {
+      for (const callback of window.__revisionCalibrationCallbacks) callback();
+    };
     window.__TAURI_EVENT_PLUGIN_INTERNALS__ = {
       unregisterListener: (event, eventId) => {
         eventListeners.get(event)?.delete(eventId);
@@ -355,6 +380,103 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
       focusPlan,
     });
 
+    let dataRevisions = {
+      processId: 1,
+      todoRevision: 1,
+      recordRevision: 1,
+      appPreferencesRevision: 1,
+      timerPreferencesRevision: 1,
+      focusPlanRevision: 1,
+      audioRevision: 1,
+      timerOperationRevision: 1,
+    };
+    let timerSampleSequence = 0;
+    const copyRevisions = () => ({ ...dataRevisions });
+    const emitRevisionChange = () => {
+      window.__revisionEventEmits += 1;
+      emitMockEvent("data-revisions-changed", copyRevisions());
+    };
+    const bump = (...keys) => {
+      for (const key of keys) dataRevisions[key] += 1;
+      emitRevisionChange();
+    };
+    const revisionedWrite = (command, value) => {
+      const changed = {
+        acknowledge_timer_alert: ["timerOperationRevision"],
+        update_timer_preferences: ["timerPreferencesRevision", "timerOperationRevision"],
+        update_app_preferences: ["appPreferencesRevision"],
+        update_custom_alert_audio: ["appPreferencesRevision", "audioRevision"],
+        update_focus_plan: ["focusPlanRevision"],
+        update_timer_context: ["timerOperationRevision"],
+        switch_timer_mode: ["timerOperationRevision"],
+        set_countdown_minutes: ["timerOperationRevision"],
+        update_focus_record_title: ["recordRevision"],
+        create_manual_focus_record: ["recordRevision"],
+        update_focus_record: ["recordRevision"],
+        delete_focus_record: ["recordRevision"],
+        restore_focus_record: ["recordRevision"],
+        delete_focus_records: ["recordRevision"],
+        create_todo_item: ["todoRevision"],
+        update_todo_item: ["todoRevision"],
+        update_todo_continuation_note: ["todoRevision"],
+        save_continuation_bookmark: ["todoRevision"],
+        toggle_todo_item: ["todoRevision"],
+        delete_todo_item: ["todoRevision"],
+        restore_todo_item: ["todoRevision"],
+        clear_app_data: ["recordRevision", "todoRevision", "timerPreferencesRevision", "focusPlanRevision", "timerOperationRevision"],
+        import_app_backup: ["recordRevision", "todoRevision", "timerPreferencesRevision", "focusPlanRevision", "timerOperationRevision"],
+        import_app_backup_path: ["recordRevision", "todoRevision", "timerPreferencesRevision", "focusPlanRevision", "timerOperationRevision"],
+        start_timer: ["timerOperationRevision"],
+        pause_timer: ["timerOperationRevision"],
+        reset_timer: ["timerOperationRevision"],
+        complete_focus_session: ["recordRevision", "timerOperationRevision"],
+      }[command] ?? [];
+      if (command === "complete_focus_session") {
+        if (window.__completedTodoByTimer) changed.push("todoRevision");
+        if (window.__clearedFocusPlanByTimer) changed.push("focusPlanRevision");
+        window.__completedTodoByTimer = false;
+        window.__clearedFocusPlanByTimer = false;
+      }
+      if (command === "toggle_todo_item" || command === "delete_todo_item") {
+        if (window.__clearedFocusPlanByTodo) changed.push("focusPlanRevision");
+        if (window.__clearedTimerLinkByTodo) changed.push("timerOperationRevision");
+        window.__clearedFocusPlanByTodo = false;
+        window.__clearedTimerLinkByTodo = false;
+      }
+      bump(...changed);
+      return { revisions: copyRevisions(), value };
+    };
+    window.__getDataRevisions = copyRevisions;
+    window.__setDataRevisions = (patch) => {
+      dataRevisions = { ...dataRevisions, ...patch };
+      emitRevisionChange();
+    };
+    window.__setDataRevisionsSilently = (patch) => {
+      dataRevisions = { ...dataRevisions, ...patch };
+    };
+    window.__replaceTodos = (next) => {
+      todos = next.map((item) => ({ ...item }));
+      recalculateAnalytics();
+    };
+    window.__replaceRecords = (next) => {
+      focusRecords = next.map((record) => ({ ...record }));
+      recalculateAnalytics();
+    };
+    window.__setCustomAlertAudioData = (name, data) => {
+      appPreferences = { ...appPreferences, customAlertSoundName: name, customAlertSoundData: data };
+    };
+    window.__emitTimerSample = (patch = {}) => {
+      timer = { ...timer, ...patch };
+      timerSampleSequence += 1;
+      emitMockEvent("timer-sync-sample", {
+        processId: dataRevisions.processId,
+        sampleSequence: timerSampleSequence,
+        timerOperationRevision: dataRevisions.timerOperationRevision,
+        timer,
+      });
+    };
+    window.__emitTimerSamplePayload = (payload) => emitMockEvent("timer-sync-sample", payload);
+
     window.__TAURI_INTERNALS__ = {
       metadata: {
         currentWindow: { label: windowLabel },
@@ -364,15 +486,10 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
         const callbackId = nextEventCallbackId;
         nextEventCallbackId += 1;
         eventCallbacks.set(callbackId, callback);
-        if (windowLabel === "main") {
-          window.__trayNavigationCallback = callback;
-        } else {
-          window.__floatingWorkspaceEventCallback = callback;
-        }
         return callbackId;
       },
       invoke: async (command, args = {}) => {
-        if (initialLoadFailures > 0 && ["get_timer_snapshot", "get_timer_preferences", "get_app_preferences", "get_focus_plan", "get_todo_items", "get_focus_records", "get_analytics_snapshot"].includes(command)) {
+        if (initialLoadFailures > 0 && ["get_sync_snapshot"].includes(command)) {
           initialLoadFailures -= 1;
           throw new Error("模拟本地数据读取失败");
         }
@@ -382,9 +499,14 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
             const listeners = eventListeners.get(args.event) ?? new Set();
             listeners.add(args.handler);
             eventListeners.set(args.event, listeners);
-            if (args.event === "app-state-sync") {
-              window.__appStateSyncReady = true;
+            if (args.event === "tray-navigate") {
+              window.__trayNavigationCallback = eventCallbacks.get(args.handler);
             }
+            if (args.event === "floating-workspace-sync") {
+              window.__floatingWorkspaceEventCallback = eventCallbacks.get(args.handler);
+            }
+            if (args.event === "data-revisions-changed") window.__revisionEventReady = true;
+            if (args.event === "timer-sync-sample") window.__timerSyncSampleReady = true;
             if (args.event === "pending-bookmark-notice") window.__pendingBookmarkEventReady = true;
             if (args.event === "main-window-shown") window.__mainWindowShownEventReady = true;
             return args.handler;
@@ -392,13 +514,82 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
           case "plugin:event|unlisten":
             return null;
           case "plugin:event|emit": {
-            if (args.event === "app-state-sync") window.__appStateSyncEmits += 1;
+            if (args.event === "timer-sync-sample") window.__timerSyncSampleEmits += 1;
+            if (args.event === "app-state-sync") window.__fullBusinessBroadcastEmits += 1;
             emitMockEvent(args.event, args.payload);
             return null;
           }
+          case "get_data_revisions":
+            return copyRevisions();
+          case "get_sync_snapshot": {
+            const domains = Array.isArray(args.domains) ? args.domains : [];
+            window.__businessSyncCalls += 1;
+            window.__businessSyncDomains.push([...domains]);
+            window.__businessSyncInFlight += 1;
+            window.__maxBusinessSyncInFlight = Math.max(window.__maxBusinessSyncInFlight, window.__businessSyncInFlight);
+            const snapshot = { revisions: copyRevisions() };
+            if (domains.includes("todos")) snapshot.todos = todos.map((item) => ({ ...item }));
+            if (domains.includes("records")) snapshot.records = focusRecords.map((record) => ({ ...record }));
+            if (domains.includes("analytics") || args.includeAnalytics) {
+              snapshot.analytics = {
+                ...analytics,
+                dailyBreakdown: analytics.dailyBreakdown.map((day) => ({ ...day })),
+              };
+            }
+            if (domains.includes("appPreferences")) {
+              const { customAlertSoundData, ...view } = appPreferences;
+              snapshot.appPreferences = { ...view, hasCustomAlertSound: Boolean(customAlertSoundData) };
+            }
+            if (domains.includes("timerPreferences")) snapshot.timerPreferences = { ...timerPreferences };
+            if (domains.includes("focusPlan")) snapshot.focusPlan = { ...focusPlan, todayPickIds: [...focusPlan.todayPickIds] };
+            try {
+              if (domains.includes("appPreferences") && delayAppPreferences) {
+                await new Promise((resolve) => { window.__releaseAppPreferencesLoad = resolve; });
+              }
+              if (domains.includes("appPreferences") && window.__delayNextAppPreferencesRead) {
+                window.__delayNextAppPreferencesRead = false;
+                await new Promise((resolve) => { window.__releaseNextAppPreferencesRead = resolve; });
+                window.__delayedAppPreferenceReadsCompleted += 1;
+              }
+              if (window.__holdNextSyncSnapshot) {
+                window.__holdNextSyncSnapshot = false;
+                await new Promise((resolve) => { window.__releaseSyncSnapshot = resolve; });
+              }
+              if (window.__syncSnapshotDelayMs > 0) {
+                await new Promise((resolve) => window.setTimeout(resolve, window.__syncSnapshotDelayMs));
+              }
+              return snapshot;
+            } finally {
+              window.__businessSyncInFlight -= 1;
+            }
+          }
+          case "get_timer_sync_snapshot":
+            window.__timerSyncSnapshotCalls += 1;
+            timerSampleSequence += 1;
+            return {
+              processId: dataRevisions.processId,
+              sampleSequence: timerSampleSequence,
+              timerOperationRevision: dataRevisions.timerOperationRevision,
+              timer,
+            };
+          case "get_custom_alert_audio":
+            window.__customAlertAudioReads += 1;
+            if (window.__failNextCustomAlertAudioRead) {
+              window.__failNextCustomAlertAudioRead = false;
+              throw new Error("模拟音频读取失败");
+            }
+            return {
+              processId: dataRevisions.processId,
+              revision: dataRevisions.audioRevision,
+              name: appPreferences.customAlertSoundName,
+              data: appPreferences.customAlertSoundData,
+            };
           case "get_timer_snapshot":
             window.__timerSnapshotCalls += 1;
             return timer;
+          case "acknowledge_timer_alert":
+            timer = { ...timer, alertKey: null, alertTitle: null, alertMessage: null };
+            return revisionedWrite(command, timer);
           case "get_timer_preferences":
             return timerPreferences;
           case "get_app_preferences": {
@@ -411,7 +602,8 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
               await new Promise((resolve) => { window.__releaseNextAppPreferencesRead = resolve; });
               window.__delayedAppPreferenceReadsCompleted += 1;
             }
-            return snapshot;
+            const { customAlertSoundData, ...view } = snapshot;
+            return { ...view, hasCustomAlertSound: Boolean(customAlertSoundData) };
           }
           case "get_focus_plan":
             return focusPlan;
@@ -419,10 +611,18 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
             window.__appPreferenceUpdateCalls += 1;
             if (window.__failAppPreferenceSave) throw new Error("模拟外观设置保存失败");
             appPreferences = { ...appPreferences, ...args.preferences, schemaVersion: 3 };
-            return appPreferences;
+            return revisionedWrite(command, { ...appPreferences, customAlertSoundData: undefined, hasCustomAlertSound: Boolean(appPreferences.customAlertSoundData) });
+          case "update_custom_alert_audio":
+            appPreferences = { ...appPreferences, customAlertSoundName: args.name ?? "", customAlertSoundData: args.data ?? null };
+            return revisionedWrite(command, {
+              processId: dataRevisions.processId,
+              revision: dataRevisions.audioRevision + 1,
+              name: appPreferences.customAlertSoundName,
+              hasCustomAlertSound: Boolean(appPreferences.customAlertSoundData),
+            });
           case "update_focus_plan":
             focusPlan = { currentTodoId: args.currentTodoId ?? null, todayPickIds: Array.from(new Set(args.todayPickIds ?? [])).slice(0, 3) };
-            return focusPlan;
+            return revisionedWrite(command, focusPlan);
           case "preview_app_backup_path":
             window.__backupPreviewCalls += 1;
             return {
@@ -443,7 +643,10 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
             return { fileName: args.path.split(/[\\\\/]/).pop() || "focused-moment-backup.json", filePath: args.path, exportedAt: `${today}T12:00:00Z` };
           case "import_app_backup_path":
             window.__backupImportCalls += 1;
-            return { todoCount: todos.length, focusRecordCount: focusRecords.length, restoredAppPreferences: Boolean(args.restoreAppPreferences), migrated: false, rollbackPath: "mock-rollback.json" };
+            return revisionedWrite(command, { importedFileName: args.path, rollbackFileName: "mock-rollback.json", todoCount: todos.length, focusRecordCount: focusRecords.length, restoredRuntimeSession: false, migratedFromFormatVersion: null, restoredAppPreferences: Boolean(args.restoreAppPreferences) });
+          case "import_app_backup":
+            window.__backupImportCalls += 1;
+            return revisionedWrite(command, { importedFileName: args.fileName, rollbackFileName: "mock-rollback.json", todoCount: todos.length, focusRecordCount: focusRecords.length, restoredRuntimeSession: false, migratedFromFormatVersion: null, restoredAppPreferences: false });
           case "get_todo_items":
             window.__todoItemsCalls += 1;
             return freshTodoSnapshots ? todos.map((item) => ({ ...item })) : todos;
@@ -463,13 +666,14 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
             focusRecords = focusRecords.map((record) => record.id === args.id
               ? { ...record, title: args.title, editedAt: `${today}T12:00:00` }
               : record);
-            return focusRecords;
+            recalculateAnalytics();
+            return revisionedWrite(command, focusRecords);
           case "update_focus_record": {
             window.__recordUpdateCalls += 1;
             const linkedTodo = args.linkedTodoId == null ? null : todos.find((item) => item.id === Number(args.linkedTodoId));
             focusRecords = focusRecords.map((record) => record.id === args.id ? { ...record, title: args.title, durationMs: Number(args.durationMinutes) * 60 * 1000, durationLabel: formatDuration(Number(args.durationMinutes) * 60 * 1000), completedDate: args.completedDate, completedTime: args.completedTime || "", completedAt: `${args.completedDate}T${args.completedTime || "00:00"}:00`, linkedTodoId: args.linkedTodoId == null ? null : Number(args.linkedTodoId), linkedTodoTitle: linkedTodo?.title ?? null, editedAt: `${today}T12:00:00` } : record);
             recalculateAnalytics();
-            return focusRecords;
+            return revisionedWrite(command, focusRecords);
           }
           case "create_manual_focus_record": {
             window.__manualRecordCalls += 1;
@@ -477,10 +681,22 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
             const durationMs = Number(args.durationMinutes) * 60 * 1000;
             focusRecords = [...focusRecords, { id: 9000 + focusRecords.length, title: args.title, durationMs, durationLabel: formatDuration(durationMs), modeKey: "stopwatch", modeLabel: "手动补录", phaseLabel: "手动补录", linkedTodoId: args.linkedTodoId == null ? null : Number(args.linkedTodoId), linkedTodoTitle: linkedTodo?.title ?? null, completedAt: `${args.completedDate}T${args.completedTime || "00:00"}:00`, completedDate: args.completedDate, completedTime: args.completedTime || "", source: "manual", timeBasis: "completion_day", editedAt: null }];
             recalculateAnalytics();
-            return focusRecords;
+            return revisionedWrite(command, focusRecords);
           }
           case "get_analytics_snapshot":
             return analytics;
+          case "delete_focus_record":
+            focusRecords = focusRecords.filter((record) => record.id !== args.id);
+            recalculateAnalytics();
+            return revisionedWrite(command, focusRecords);
+          case "restore_focus_record":
+            focusRecords = [...focusRecords, args.record];
+            recalculateAnalytics();
+            return revisionedWrite(command, focusRecords);
+          case "delete_focus_records":
+            focusRecords = focusRecords.filter((record) => !args.ids.includes(record.id));
+            recalculateAnalytics();
+            return revisionedWrite(command, focusRecords);
           case "update_todo_item":
             todos = todos.map((item) => item.id === args.id
               ? {
@@ -491,7 +707,8 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
                   importanceKey: args.importanceKey,
                 }
               : item);
-            return todos;
+            recalculateAnalytics();
+            return revisionedWrite(command, todos);
           case "create_todo_item": {
             if ((args.scheduledDate ?? "") === "") {
               window.__quickCaptureCalls += 1;
@@ -499,12 +716,12 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
             const nextId = Math.max(0, ...todos.map((item) => item.id)) + 1;
             todos = [...todos, { id: nextId, title: args.title, isCompleted: false, scheduledDate: args.scheduledDate ?? "", scheduledTime: args.scheduledTime ?? "", importanceKey: args.importanceKey ?? "medium", continuationNote: "", continuationUpdatedAt: null }];
             recalculateAnalytics();
-            return todos;
+            return revisionedWrite(command, todos);
           }
           case "update_todo_continuation_note":
             window.__continuationNoteCalls += 1;
             todos = todos.map((item) => item.id === args.id ? { ...item, continuationNote: args.note, continuationUpdatedAt: args.note ? `${today}T12:00:00` : null } : item);
-            return todos;
+            return revisionedWrite(command, todos);
           case "save_continuation_bookmark":
             window.__bookmarkSaveCalls += 1;
             if (window.__failBookmarkSave) {
@@ -513,17 +730,39 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
             }
             todos = todos.map((item) => item.id === args.todoId ? { ...item, continuationNote: args.note, continuationUpdatedAt: args.note ? `${today}T12:00:00` : null } : item);
             pendingBookmarkNotices = pendingBookmarkNotices.filter((notice) => notice.recordId !== args.recordId);
-            return todos;
+            return revisionedWrite(command, todos);
           case "acknowledge_pending_bookmark_notice":
             window.__bookmarkAcknowledgementCalls += 1;
             pendingBookmarkNotices = pendingBookmarkNotices.filter((notice) => notice.recordId !== args.recordId);
             return null;
           case "toggle_todo_item":
-            todos = todos.map((item) => item.id === args.id
-              ? { ...item, isCompleted: !item.isCompleted }
-              : item);
+            window.__clearedFocusPlanByTodo = focusPlan.currentTodoId === args.id || focusPlan.todayPickIds.includes(args.id);
+            window.__clearedTimerLinkByTodo = timer.linkedTodoId === args.id;
+            todos = todos.map((item) => {
+              if (item.id !== args.id) return item;
+              const isCompleted = !item.isCompleted;
+              if (isCompleted && focusPlan.todayPickIds.includes(args.id)) {
+                focusPlan = {
+                  currentTodoId: focusPlan.currentTodoId === args.id ? null : focusPlan.currentTodoId,
+                  todayPickIds: focusPlan.todayPickIds.filter((id) => id !== args.id),
+                };
+              }
+              return { ...item, isCompleted };
+            });
             recalculateAnalytics();
-            return todos;
+            return revisionedWrite(command, todos);
+          case "delete_todo_item":
+            window.__clearedFocusPlanByTodo = focusPlan.currentTodoId === args.id || focusPlan.todayPickIds.includes(args.id);
+            window.__clearedTimerLinkByTodo = timer.linkedTodoId === args.id;
+            focusPlan = { currentTodoId: focusPlan.currentTodoId === args.id ? null : focusPlan.currentTodoId, todayPickIds: focusPlan.todayPickIds.filter((id) => id !== args.id) };
+            timer = timer.linkedTodoId === args.id ? { ...timer, linkedTodoId: null } : timer;
+            todos = todos.filter((item) => item.id !== args.id);
+            recalculateAnalytics();
+            return revisionedWrite(command, todos);
+          case "restore_todo_item":
+            todos = [...todos, args.item];
+            recalculateAnalytics();
+            return revisionedWrite(command, todos);
           case "list_app_backups":
             return [];
           case "clear_app_data":
@@ -548,7 +787,7 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
               alertMessage: null,
             };
             recalculateAnalytics();
-            return timer;
+            return revisionedWrite(command, null);
           case "complete_focus_session": {
             window.__completedFocusCalls += 1;
             const durationMs = timer.elapsedMs || 0;
@@ -558,7 +797,13 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
             const seconds = totalSeconds % 60;
             const durationLabel = [hours, minutes, seconds].map((part) => String(part).padStart(2, "0")).join(":");
             if (timer.completeLinkedTodoOnFinish && timer.linkedTodoId !== null) {
+              window.__completedTodoByTimer = todos.some((item) => item.id === timer.linkedTodoId && !item.isCompleted);
+              window.__clearedFocusPlanByTimer = focusPlan.currentTodoId === timer.linkedTodoId || focusPlan.todayPickIds.includes(timer.linkedTodoId);
               todos = todos.map((item) => item.id === timer.linkedTodoId ? { ...item, isCompleted: true } : item);
+              focusPlan = {
+                currentTodoId: focusPlan.currentTodoId === timer.linkedTodoId ? null : focusPlan.currentTodoId,
+                todayPickIds: focusPlan.todayPickIds.filter((id) => id !== timer.linkedTodoId),
+              };
             }
             const recordId = 1000 + focusRecords.length;
             const linkedTodo = timer.linkedTodoId === null ? null : todos.find((item) => item.id === timer.linkedTodoId) ?? null;
@@ -601,12 +846,12 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
               alertMessage: null,
               recoveredFromLastSession: false,
             };
-            return { timerSnapshot: timer, records: focusRecords, todoItems: todos };
+            return revisionedWrite(command, { timerSnapshot: timer, records: focusRecords, todoItems: todos });
           }
           case "start_timer":
             window.__startTimerCalls += 1;
             timer = { ...timer, sessionId: timer.hasUnsubmittedProgress ? timer.sessionId : `mock-session-start-${window.__startTimerCalls}`, isRunning: true, elapsedMs: timer.elapsedMs || 60_000, elapsedLabel: timer.elapsedMs ? timer.elapsedLabel : "00:01:00", hasUnsubmittedProgress: true, status: "正向计时中" };
-            return timer;
+            return revisionedWrite(command, timer);
           case "show_focus_floating":
             window.__focusFloatingShown = true;
             return null;
@@ -644,11 +889,11 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
             return null;
           case "update_timer_preferences":
             timerPreferences = args.preferences;
-            return timerPreferences;
+            return revisionedWrite(command, timerPreferences);
           case "pause_timer":
             window.__pauseTimerCalls += 1;
             timer = { ...timer, isRunning: false, status: "已暂停" };
-            return timer;
+            return revisionedWrite(command, timer);
           case "reset_timer":
             window.__resetTimerCalls += 1;
             window.__resetTimerArgs.push({ ...args });
@@ -681,10 +926,10 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
               alertMessage: null,
             };
             window.__resetTimerSuccessCalls += 1;
-            return timer;
+            return revisionedWrite(command, timer);
           case "update_timer_context":
             timer = { ...timer, activeTaskTitle: args.title, linkedTodoId: args.linkedTodoId ?? null, completeLinkedTodoOnFinish: Boolean(args.completeLinkedTodoOnFinish) };
-            return timer;
+            return revisionedWrite(command, timer);
           case "switch_timer_mode":
             timer = {
               ...timer,
@@ -696,7 +941,7 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
               targetDurationMs: args.mode === "countdown" ? 25 * 60 * 1000 : null,
               remainingMs: args.mode === "countdown" ? 25 * 60 * 1000 : null,
             };
-            return timer;
+            return revisionedWrite(command, timer);
           case "set_countdown_minutes":
             timer = {
               ...timer,
@@ -704,7 +949,7 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
               targetDurationMs: Number(args.minutes) * 60 * 1000,
               remainingMs: Number(args.minutes) * 60 * 1000,
             };
-            return timer;
+            return revisionedWrite(command, timer);
           default:
             return null;
         }

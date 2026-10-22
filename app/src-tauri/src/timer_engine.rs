@@ -8,6 +8,8 @@ pub(crate) struct RunAnchor {
 
 pub(crate) struct TimerEngineState {
     pub(crate) operation_lock: Mutex<()>,
+    pub(crate) revisions: Mutex<DataRevisions>,
+    pub(crate) timer_sample_sequence: AtomicU64,
     pub(crate) timer: Mutex<TimerEngine>,
     pub(crate) timer_preferences: Mutex<TimerPreferences>,
     pub(crate) app_preferences: Mutex<AppPreferences>,
@@ -46,6 +48,28 @@ pub(crate) enum OperationScope {
     All,
 }
 
+#[derive(Clone, Copy, Default)]
+pub(crate) struct RevisionChanges(u16);
+
+impl RevisionChanges {
+    pub(crate) const NONE: Self = Self(0);
+    pub(crate) const TODOS: Self = Self(1 << 0);
+    pub(crate) const RECORDS: Self = Self(1 << 1);
+    pub(crate) const APP_PREFERENCES: Self = Self(1 << 2);
+    pub(crate) const TIMER_PREFERENCES: Self = Self(1 << 3);
+    pub(crate) const FOCUS_PLAN: Self = Self(1 << 4);
+    pub(crate) const AUDIO: Self = Self(1 << 5);
+    pub(crate) const TIMER_OPERATION: Self = Self(1 << 6);
+
+    pub(crate) const fn with(self, other: Self) -> Self {
+        Self(self.0 | other.0)
+    }
+
+    fn contains(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
 pub(crate) struct OperationTransaction<'a> {
     state: &'a TimerEngineState,
     _operation_guard: std::sync::MutexGuard<'a, ()>,
@@ -53,8 +77,38 @@ pub(crate) struct OperationTransaction<'a> {
 }
 
 impl OperationTransaction<'_> {
-    pub(crate) fn commit(mut self) {
+    pub(crate) fn commit(mut self, changes: RevisionChanges) -> DataRevisions {
         self.before = None;
+        let mut revisions = self
+            .state
+            .revisions
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        if changes.contains(RevisionChanges::TODOS) {
+            revisions.todo_revision = revisions.todo_revision.saturating_add(1);
+        }
+        if changes.contains(RevisionChanges::RECORDS) {
+            revisions.record_revision = revisions.record_revision.saturating_add(1);
+        }
+        if changes.contains(RevisionChanges::APP_PREFERENCES) {
+            revisions.app_preferences_revision =
+                revisions.app_preferences_revision.saturating_add(1);
+        }
+        if changes.contains(RevisionChanges::TIMER_PREFERENCES) {
+            revisions.timer_preferences_revision =
+                revisions.timer_preferences_revision.saturating_add(1);
+        }
+        if changes.contains(RevisionChanges::FOCUS_PLAN) {
+            revisions.focus_plan_revision = revisions.focus_plan_revision.saturating_add(1);
+        }
+        if changes.contains(RevisionChanges::AUDIO) {
+            revisions.audio_revision = revisions.audio_revision.saturating_add(1);
+        }
+        if changes.contains(RevisionChanges::TIMER_OPERATION) {
+            revisions.timer_operation_revision =
+                revisions.timer_operation_revision.saturating_add(1);
+        }
+        *revisions
     }
 }
 
@@ -236,6 +290,8 @@ impl TimerEngineState {
 
         let mut state = Self {
             operation_lock: Mutex::new(()),
+            revisions: Mutex::new(DataRevisions::new()),
+            timer_sample_sequence: AtomicU64::new(0),
             timer: Mutex::new(timer),
             timer_preferences: Mutex::new(normalized_preferences),
             app_preferences: Mutex::new(normalized_app_preferences),
@@ -280,6 +336,17 @@ impl TimerEngineState {
         self.operation_lock
             .lock()
             .map_err(|_| "应用操作锁定失败".to_string())
+    }
+
+    pub(crate) fn revision_snapshot(&self) -> DataRevisions {
+        *self
+            .revisions
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
+    pub(crate) fn next_timer_sample_sequence(&self) -> u64 {
+        self.timer_sample_sequence.fetch_add(1, Ordering::Relaxed) + 1
     }
 
     pub(crate) fn begin_transaction(

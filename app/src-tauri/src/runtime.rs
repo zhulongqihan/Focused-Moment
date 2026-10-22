@@ -8,14 +8,16 @@ pub(crate) use commands::{
     acknowledge_pending_bookmark_notice, acknowledge_timer_alert, bootstrap_shell, clear_app_data,
     complete_focus_session, create_manual_focus_record, create_todo_item, delete_focus_record,
     delete_focus_records, delete_todo_item, export_app_backup, export_app_backup_to_path,
-    export_recovery_material, get_analytics_snapshot, get_app_preferences, get_focus_plan,
-    get_focus_records, get_pending_bookmark_notices, get_timer_preferences, get_timer_snapshot,
+    export_recovery_material, get_analytics_snapshot, get_app_preferences, get_custom_alert_audio,
+    get_data_revisions, get_focus_plan, get_focus_records, get_pending_bookmark_notices,
+    get_sync_snapshot, get_timer_preferences, get_timer_snapshot, get_timer_sync_snapshot,
     get_todo_items, import_app_backup, import_app_backup_path, list_app_backups,
     open_app_backup_folder, pause_timer, preview_app_backup_path, reset_timer,
     restore_focus_record, restore_todo_item, save_continuation_bookmark, set_countdown_minutes,
-    start_timer, switch_timer_mode, toggle_todo_item, update_app_preferences, update_focus_plan,
-    update_focus_record, update_focus_record_title, update_timer_context, update_timer_preferences,
-    update_todo_continuation_note, update_todo_item,
+    start_timer, switch_timer_mode, toggle_todo_item, update_app_preferences,
+    update_custom_alert_audio, update_focus_plan, update_focus_record, update_focus_record_title,
+    update_timer_context, update_timer_preferences, update_todo_continuation_note,
+    update_todo_item,
 };
 #[cfg(target_os = "macos")]
 pub(crate) use desktop::trigger_native_smoke_tray_click;
@@ -45,11 +47,12 @@ pub(crate) use timer_engine::{
     elapsed_since_anchor_ms, elapsed_since_anchor_ms_at, format_duration_ms,
     normalize_countdown_duration_ms, parse_alert_key_value, parse_mode, parse_mode_key_value,
     parse_phase_key_value, system_time_to_epoch_ms, with_timer_engine, CompletedSession,
-    OperationScope, PersistedBundle, RunAnchor, TimerEngine, TimerEngineState,
+    OperationScope, PersistedBundle, RevisionChanges, RunAnchor, TimerEngine, TimerEngineState,
 };
 
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, HashSet};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -59,15 +62,38 @@ use storage::{
     AppBackupFile, PersistedRuntimeState, PersistedState, PersistenceStore,
     CURRENT_STORAGE_SCHEMA_VERSION,
 };
-use tauri::{Manager, WindowEvent};
+use tauri::{Emitter, Manager, WindowEvent};
 
-const APP_VERSION: &str = "2.14.0";
-const APP_MILESTONE: &str = "v2.14.0 unified daily actions and bookmark handoff";
+const APP_VERSION: &str = "2.14.1";
+const APP_MILESTONE: &str = "v2.14.1 incremental synchronization and lower idle traffic";
 const APP_BACKUP_KIND: &str = "focused-moment-backup";
 const APP_BACKUP_FORMAT_VERSION: u64 = 3;
 const FLOATING_WORKSPACE_SYNC_EVENT: &str = "floating-workspace-sync";
+pub(crate) const DATA_REVISIONS_CHANGED_EVENT: &str = "data-revisions-changed";
 pub(crate) const PENDING_BOOKMARK_NOTICE_EVENT: &str = "pending-bookmark-notice";
 pub(crate) const MAIN_WINDOW_SHOWN_EVENT: &str = "main-window-shown";
+
+pub(crate) fn publish_data_revisions(app: &tauri::AppHandle, revisions: DataRevisions) {
+    if let Err(error) = app.emit(DATA_REVISIONS_CHANGED_EVENT, revisions) {
+        eprintln!("FOCUSED_MOMENT_DATA_REVISION_EVENT_FAILED={error}");
+    }
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct RevisionedResult<T> {
+    revisions: DataRevisions,
+    value: T,
+}
+
+pub(crate) fn revisioned_result<T>(
+    app: &tauri::AppHandle,
+    revisions: DataRevisions,
+    value: T,
+) -> RevisionedResult<T> {
+    publish_data_revisions(app, revisions);
+    RevisionedResult { revisions, value }
+}
 
 const DEFAULT_THEME_ID: &str = "night-valley";
 const DEFAULT_VISUAL_INTENSITY: u8 = 72;
@@ -184,6 +210,149 @@ impl AppPreferences {
         }
         Ok(self)
     }
+
+    fn view(&self) -> AppPreferencesView {
+        AppPreferencesView {
+            schema_version: self.schema_version,
+            theme_id: self.theme_id.clone(),
+            visual_intensity: self.visual_intensity,
+            motion_intensity: self.motion_intensity,
+            density: self.density.clone(),
+            floating_opacity: self.floating_opacity,
+            auto_mini_on_start: self.auto_mini_on_start,
+            custom_alert_sound_name: self.custom_alert_sound_name.clone(),
+            has_custom_alert_sound: self.custom_alert_sound_data.is_some(),
+        }
+    }
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct AppPreferencesView {
+    schema_version: u64,
+    theme_id: String,
+    visual_intensity: u8,
+    motion_intensity: u8,
+    density: String,
+    floating_opacity: u8,
+    auto_mini_on_start: bool,
+    custom_alert_sound_name: String,
+    has_custom_alert_sound: bool,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct AppPreferencesPatch {
+    theme_id: Option<String>,
+    visual_intensity: Option<u8>,
+    motion_intensity: Option<u8>,
+    density: Option<String>,
+    floating_opacity: Option<u8>,
+    auto_mini_on_start: Option<bool>,
+}
+
+impl AppPreferencesPatch {
+    fn apply(self, current: &mut AppPreferences) -> Result<(), String> {
+        if let Some(value) = self.theme_id {
+            current.theme_id = value;
+        }
+        if let Some(value) = self.visual_intensity {
+            current.visual_intensity = value;
+        }
+        if let Some(value) = self.motion_intensity {
+            current.motion_intensity = value;
+        }
+        if let Some(value) = self.density {
+            current.density = value;
+        }
+        if let Some(value) = self.floating_opacity {
+            current.floating_opacity = value;
+        }
+        if let Some(value) = self.auto_mini_on_start {
+            current.auto_mini_on_start = value;
+        }
+        current.schema_version = CURRENT_STORAGE_SCHEMA_VERSION;
+        *current = current.clone().normalized()?;
+        Ok(())
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct DataRevisions {
+    process_id: u32,
+    todo_revision: u64,
+    record_revision: u64,
+    app_preferences_revision: u64,
+    timer_preferences_revision: u64,
+    focus_plan_revision: u64,
+    audio_revision: u64,
+    timer_operation_revision: u64,
+}
+
+impl DataRevisions {
+    fn new() -> Self {
+        Self {
+            process_id: std::process::id(),
+            ..Self::default()
+        }
+    }
+}
+
+#[derive(Clone, Copy, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum SyncDomain {
+    Todos,
+    Records,
+    AppPreferences,
+    TimerPreferences,
+    FocusPlan,
+    Analytics,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SyncSnapshot {
+    revisions: DataRevisions,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    todos: Option<Vec<TodoItem>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    records: Option<Vec<FocusRecord>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    analytics: Option<AnalyticsSnapshot>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    app_preferences: Option<AppPreferencesView>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    timer_preferences: Option<TimerPreferencesSnapshot>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    focus_plan: Option<FocusPlanState>,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CustomAlertAudio {
+    process_id: u32,
+    revision: u64,
+    name: String,
+    data: Option<String>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CustomAlertAudioMetadata {
+    process_id: u32,
+    revision: u64,
+    name: String,
+    has_custom_alert_sound: bool,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct TimerSyncSnapshot {
+    process_id: u32,
+    sample_sequence: u64,
+    timer_operation_revision: u64,
+    timer: TimerSnapshot,
 }
 
 #[derive(Clone, Default, Serialize, Deserialize)]
@@ -915,6 +1084,125 @@ mod tests {
     use super::*;
 
     #[test]
+    fn committed_revision_changes_only_advance_the_marked_domains() {
+        let root = isolated_root();
+        let store = PersistenceStore::for_test(&root).expect("create revision fixture store");
+        let state = state_with_store(store, 0, 0);
+        let before = state.revision_snapshot();
+
+        let transaction = state
+            .begin_transaction(OperationScope::State)
+            .expect("begin revision transaction");
+        let after =
+            transaction.commit(RevisionChanges::APP_PREFERENCES.with(RevisionChanges::AUDIO));
+
+        assert_eq!(after.process_id, before.process_id);
+        assert_eq!(after.todo_revision, before.todo_revision);
+        assert_eq!(after.record_revision, before.record_revision);
+        assert_eq!(
+            after.app_preferences_revision,
+            before.app_preferences_revision + 1
+        );
+        assert_eq!(
+            after.timer_preferences_revision,
+            before.timer_preferences_revision
+        );
+        assert_eq!(after.focus_plan_revision, before.focus_plan_revision);
+        assert_eq!(after.audio_revision, before.audio_revision + 1);
+        assert_eq!(
+            after.timer_operation_revision,
+            before.timer_operation_revision
+        );
+
+        drop(state);
+        cleanup_isolated_root(&root);
+    }
+
+    #[test]
+    fn dropping_a_failed_transaction_restores_data_without_advancing_revisions() {
+        let root = isolated_root();
+        let store = PersistenceStore::for_test(&root).expect("create rollback fixture store");
+        let state = state_with_store(store, 0, 0);
+        let before = state.revision_snapshot();
+
+        {
+            let _transaction = state
+                .begin_transaction(OperationScope::State)
+                .expect("begin rollback transaction");
+            state
+                .todo_items
+                .lock()
+                .expect("lock todo fixture")
+                .push(test_todo("未提交待办", 1));
+        }
+
+        assert!(state
+            .todo_items
+            .lock()
+            .expect("lock restored todos")
+            .is_empty());
+        assert_eq!(state.revision_snapshot(), before);
+
+        drop(state);
+        cleanup_isolated_root(&root);
+    }
+
+    #[test]
+    fn app_preference_patch_preserves_unmentioned_fields_and_custom_audio() {
+        let mut current = AppPreferences {
+            theme_id: "night-valley".to_string(),
+            visual_intensity: 61,
+            motion_intensity: 37,
+            density: "compact".to_string(),
+            floating_opacity: 73,
+            auto_mini_on_start: true,
+            custom_alert_sound_name: "私有提醒.wav".to_string(),
+            custom_alert_sound_data: Some("data:audio/wav;base64,AA==".to_string()),
+            ..AppPreferences::default()
+        };
+        let patch: AppPreferencesPatch = serde_json::from_str(r#"{"themeId":"metro-pulse"}"#)
+            .expect("deserialize appearance patch");
+
+        patch.apply(&mut current).expect("apply appearance patch");
+
+        assert_eq!(current.theme_id, "metro-pulse");
+        assert_eq!(current.visual_intensity, 61);
+        assert_eq!(current.motion_intensity, 37);
+        assert_eq!(current.density, "compact");
+        assert_eq!(current.floating_opacity, 73);
+        assert!(current.auto_mini_on_start);
+        assert_eq!(current.custom_alert_sound_name, "私有提醒.wav");
+        assert_eq!(
+            current.custom_alert_sound_data.as_deref(),
+            Some("data:audio/wav;base64,AA==")
+        );
+    }
+
+    #[test]
+    fn revision_only_sync_snapshot_serializes_a_fixed_metadata_shape() {
+        let snapshot = SyncSnapshot {
+            revisions: DataRevisions::new(),
+            todos: None,
+            records: None,
+            analytics: None,
+            app_preferences: None,
+            timer_preferences: None,
+            focus_plan: None,
+        };
+
+        let value = serde_json::to_value(snapshot).expect("serialize revision-only snapshot");
+        let snapshot_fields = value.as_object().expect("snapshot is an object");
+        assert_eq!(snapshot_fields.len(), 1);
+        let revisions = snapshot_fields
+            .get("revisions")
+            .and_then(serde_json::Value::as_object)
+            .expect("snapshot contains revision metadata");
+        assert_eq!(revisions.len(), 8);
+        assert!(!value.to_string().contains("records"));
+        assert!(!value.to_string().contains("customAlertSoundData"));
+    }
+
+    #[test]
     fn legacy_ids_migrate_and_archived_theme_ids_survive_preferences_and_backups() {
         let metro = AppPreferences {
             theme_id: "aurora-ocean".to_string(),
@@ -1130,6 +1418,8 @@ mod tests {
     ) -> TimerEngineState {
         TimerEngineState {
             operation_lock: Mutex::new(()),
+            revisions: Mutex::new(DataRevisions::new()),
+            timer_sample_sequence: AtomicU64::new(0),
             timer: Mutex::new(TimerEngine {
                 stopwatch_elapsed_ms,
                 ..TimerEngine::default()
@@ -1233,7 +1523,7 @@ mod tests {
                 writer_ready_tx.send(()).unwrap();
                 release_writer_rx.recv().unwrap();
                 writer_state.persist().expect("persist writer transaction");
-                transaction.commit();
+                transaction.commit(RevisionChanges::TODOS);
             });
 
             writer_ready_rx
@@ -1317,7 +1607,7 @@ mod tests {
                 successful_state
                     .persist()
                     .expect("persist successful transaction");
-                transaction.commit();
+                transaction.commit(RevisionChanges::TODOS);
             });
             successful_writer_started_rx
                 .recv()
@@ -1357,6 +1647,8 @@ mod tests {
     fn persistence_failure_is_not_reported_as_success() {
         let state = TimerEngineState {
             operation_lock: Mutex::new(()),
+            revisions: Mutex::new(DataRevisions::new()),
+            timer_sample_sequence: AtomicU64::new(0),
             timer: Mutex::new(TimerEngine::default()),
             timer_preferences: Mutex::new(TimerPreferences::default()),
             app_preferences: Mutex::new(AppPreferences::default()),
@@ -1512,7 +1804,13 @@ mod tests {
             .begin_transaction(OperationScope::All)
             .expect("begin clear transaction");
         state.clear_all().expect("clear application data");
-        clear_transaction.commit();
+        clear_transaction.commit(
+            RevisionChanges::RECORDS
+                .with(RevisionChanges::TODOS)
+                .with(RevisionChanges::TIMER_PREFERENCES)
+                .with(RevisionChanges::FOCUS_PLAN)
+                .with(RevisionChanges::TIMER_OPERATION),
+        );
         assert!(state
             .pending_bookmark_notices
             .lock()
@@ -1553,7 +1851,13 @@ mod tests {
         state
             .apply_backup_file(backup)
             .expect("import replacement data");
-        import_transaction.commit();
+        import_transaction.commit(
+            RevisionChanges::RECORDS
+                .with(RevisionChanges::TODOS)
+                .with(RevisionChanges::TIMER_PREFERENCES)
+                .with(RevisionChanges::FOCUS_PLAN)
+                .with(RevisionChanges::TIMER_OPERATION),
+        );
 
         assert!(state
             .pending_bookmark_notices
@@ -1701,6 +2005,8 @@ mod tests {
         };
         let source_state = TimerEngineState {
             operation_lock: Mutex::new(()),
+            revisions: Mutex::new(DataRevisions::new()),
+            timer_sample_sequence: AtomicU64::new(0),
             timer: Mutex::new(TimerEngine {
                 mode: TimerMode::Pomodoro,
                 stopwatch_elapsed_ms: 1_600_000,
@@ -2293,11 +2599,16 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             bootstrap_shell,
             get_timer_snapshot,
+            get_data_revisions,
+            get_sync_snapshot,
+            get_timer_sync_snapshot,
+            get_custom_alert_audio,
             acknowledge_timer_alert,
             get_timer_preferences,
             update_timer_preferences,
             get_app_preferences,
             update_app_preferences,
+            update_custom_alert_audio,
             get_focus_plan,
             update_focus_plan,
             update_timer_context,

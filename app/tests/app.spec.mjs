@@ -346,22 +346,18 @@ test("floating workspace can adjust and remember its opacity", async ({ page }) 
 test("floating timer receives main-window state sync without polling", async ({ page }) => {
   await bootWithTauriMock(page, { windowLabel: "todo-float", pausedFocus: true });
 
-  const initialCalls = await page.evaluate(() => window.__timerSnapshotCalls);
-  await expect.poll(() => page.evaluate(() => window.__appStateSyncReady)).toBe(true);
-  await page.evaluate(() => {
-    window.__replaceTimer({
-      elapsedMs: 42_000,
-      elapsedLabel: "00:00:42",
-      status: "已暂停",
-    });
-    return window.__TAURI_INTERNALS__.invoke("plugin:event|emit", {
-      event: "app-state-sync",
-      payload: window.__getAppStateSyncPayload(),
-    });
-  });
+  const initialCalls = await page.evaluate(() => window.__timerSyncSnapshotCalls);
+  const businessCalls = await page.evaluate(() => window.__businessSyncCalls);
+  await expect.poll(() => page.evaluate(() => window.__timerSyncSampleReady)).toBe(true);
+  await page.evaluate(() => window.__emitTimerSample({
+    elapsedMs: 42_000,
+    elapsedLabel: "00:00:42",
+    status: "已暂停",
+  }));
   await expect(page.getByText("00:00:42", { exact: true })).toBeVisible();
   await page.waitForTimeout(1500);
-  await expect.poll(() => page.evaluate(() => window.__timerSnapshotCalls)).toBe(initialCalls);
+  expect(await page.evaluate(() => window.__timerSyncSnapshotCalls)).toBe(initialCalls);
+  expect(await page.evaluate(() => window.__businessSyncCalls)).toBe(businessCalls);
 });
 
 test("floating workspace only shows todos when there is no active timer", async ({ page }) => {
@@ -485,9 +481,12 @@ test("record day keeps its collapsed state during background refresh", async ({ 
   await recordDays.nth(1).locator(".record-day__summary").click();
   await expect(recordDays.nth(1).locator(".record-row").first()).toBeHidden();
 
-  const callsBeforeRefresh = await page.evaluate(() => window.__focusRecordCalls);
-  await expect.poll(() => page.evaluate(() => window.__focusRecordCalls), { timeout: 3000 })
-    .toBeGreaterThan(callsBeforeRefresh);
+  await page.evaluate(() => {
+    const revisions = window.__getDataRevisions();
+    window.__setDataRevisions({ recordRevision: revisions.recordRevision + 1 });
+  });
+  await expect.poll(() => page.evaluate(() => window.__businessSyncCalls), { timeout: 3000 })
+    .toBeGreaterThan(1);
   await expect(recordDays.nth(1).locator(".record-row").first()).toBeHidden();
   await expect(recordDays.nth(1).locator(".record-day__summary")).toHaveAttribute("aria-expanded", "false");
 });
@@ -586,8 +585,8 @@ test("timer snapshots keep refreshing while a record draft is open", async ({ pa
 
   const input = record.locator('input[name="editRecordTitle-3"]');
   await input.fill("仍在编辑中的草稿");
-  const timerCallsBefore = await page.evaluate(() => window.__timerSnapshotCalls);
-  const todoCallsBefore = await page.evaluate(() => window.__todoItemsCalls);
+  const timerCallsBefore = await page.evaluate(() => window.__timerSyncSnapshotCalls);
+  const businessCallsBefore = await page.evaluate(() => window.__businessSyncCalls);
   await page.evaluate(() => window.__replaceTimer({
     status: "运行中",
     isRunning: true,
@@ -595,16 +594,15 @@ test("timer snapshots keep refreshing while a record draft is open", async ({ pa
     elapsedLabel: "00:00:31",
   }));
 
-  await expect.poll(() => page.evaluate(() => window.__timerSnapshotCalls), { timeout: 2500 })
+  await expect.poll(() => page.evaluate(() => window.__timerSyncSnapshotCalls), { timeout: 2500 })
     .toBeGreaterThan(timerCallsBefore);
-  await expect.poll(() => page.evaluate(() => window.__todoItemsCalls), { timeout: 2500 })
-    .toBe(todoCallsBefore);
+  expect(await page.evaluate(() => window.__businessSyncCalls)).toBe(businessCallsBefore);
   await expect(input).toHaveValue("仍在编辑中的草稿");
 
   await page.waitForTimeout(30_000);
-  await expect.poll(() => page.evaluate(() => window.__timerSnapshotCalls), { timeout: 5000 })
+  await expect.poll(() => page.evaluate(() => window.__timerSyncSnapshotCalls), { timeout: 5000 })
     .toBeGreaterThan(timerCallsBefore + 20);
-  expect(await page.evaluate(() => window.__todoItemsCalls)).toBe(todoCallsBefore);
+  expect(await page.evaluate(() => window.__businessSyncCalls)).toBe(businessCallsBefore);
   await expect(input).toHaveValue("仍在编辑中的草稿");
 
   await page.getByRole("button", { name: "计时", exact: true }).click();
@@ -754,10 +752,8 @@ test("failed reset keeps progress for retry and a stale confirmation cannot clea
       status: "已暂停",
       hasUnsubmittedProgress: true,
     });
-    return window.__TAURI_INTERNALS__.invoke("plugin:event|emit", {
-      event: "app-state-sync",
-      payload: window.__getAppStateSyncPayload(),
-    });
+    const revisions = window.__getDataRevisions();
+    window.__setDataRevisions({ timerOperationRevision: revisions.timerOperationRevision + 1 });
   });
   await expect(page.locator(".timer-readout")).toContainText("00:01:30");
   await page.getByRole("button", { name: "重置本次专注", exact: true }).click();
@@ -773,10 +769,8 @@ test("failed reset keeps progress for retry and a stale confirmation cannot clea
       status: "已暂停",
       hasUnsubmittedProgress: true,
     });
-    return window.__TAURI_INTERNALS__.invoke("plugin:event|emit", {
-      event: "app-state-sync",
-      payload: window.__getAppStateSyncPayload(),
-    });
+    const revisions = window.__getDataRevisions();
+    window.__setDataRevisions({ timerOperationRevision: revisions.timerOperationRevision + 1 });
   });
   await expect(page.locator(".timer-readout")).toContainText("00:02:00");
   await dialog.getByRole("button", { name: "确认重置" }).click();
@@ -885,9 +879,9 @@ test("todo editor saves a date selected from the native date picker", async ({ p
   await page.getByRole("button", { name: /^待办/ }).click();
   await page.getByRole("button", { name: "编辑" }).click();
 
-  const todoItemsCallsBeforeWaiting = await page.evaluate(() => window.__todoItemsCalls);
+  const businessSyncCallsBeforeWaiting = await page.evaluate(() => window.__businessSyncCalls);
   await page.waitForTimeout(1200);
-  expect(await page.evaluate(() => window.__todoItemsCalls)).toBe(todoItemsCallsBeforeWaiting);
+  expect(await page.evaluate(() => window.__businessSyncCalls)).toBe(businessSyncCallsBeforeWaiting);
 
   const dateInput = page.locator('input[name="editTodoDate-1"]');
   const geometry = await page.evaluate(() => {
@@ -1089,13 +1083,17 @@ test("todo date group keeps its scroll position during background refresh", asyn
   await page.getByRole("button", { name: /^待办/ }).click();
 
   const items = page.locator(".nv-todo-date-group").first().locator(".nv-todo-date-group__items");
-  const callsBeforeScroll = await page.evaluate(() => window.__todoItemsCalls);
+  const callsBeforeScroll = await page.evaluate(() => window.__businessSyncCalls);
   await items.evaluate((element) => {
     element.scrollTop = element.scrollHeight;
   });
   expect(await items.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
 
-  await expect.poll(() => page.evaluate(() => window.__todoItemsCalls), { timeout: 3000 })
+  await page.evaluate(() => {
+    const revisions = window.__getDataRevisions();
+    window.__setDataRevisions({ todoRevision: revisions.todoRevision + 1 });
+  });
+  await expect.poll(() => page.evaluate(() => window.__businessSyncCalls), { timeout: 3000 })
     .toBeGreaterThan(callsBeforeScroll);
   expect(await items.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
 });
@@ -1288,20 +1286,16 @@ test("failed appearance persistence keeps the live change and offers retry", asy
   await bootWithTauriMock(page);
   await page.getByRole("button", { name: "设置", exact: true }).click();
   await expect(page.locator(".minimal-content")).toHaveJSProperty("inert", false);
-  const initialSyncEmits = await page.evaluate(() => window.__appStateSyncEmits);
+  const initialRevisionEvents = await page.evaluate(() => window.__revisionEventEmits);
   await page.evaluate(() => {
     window.__failAppPreferenceSave = true;
-    window.__delayNextAppPreferencesRead = true;
   });
-  await expect.poll(() => page.evaluate(() => typeof window.__releaseNextAppPreferencesRead)).toBe("function");
   await page.locator(".nv-theme-card").filter({ hasText: "编辑纸页" }).click();
 
   await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "editorial-paper");
   const error = page.locator(".restored-settings-compatibility").getByRole("alert").filter({ hasText: "外观设置保存失败" });
   await expect(error).toBeVisible({ timeout: 3000 });
-  await page.evaluate(() => window.__releaseNextAppPreferencesRead?.());
-  await expect.poll(() => page.evaluate(() => window.__delayedAppPreferenceReadsCompleted)).toBe(1);
-  await expect.poll(() => page.evaluate(() => window.__appStateSyncEmits)).toBeGreaterThan(initialSyncEmits);
+  expect(await page.evaluate(() => window.__revisionEventEmits)).toBe(initialRevisionEvents);
   await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "editorial-paper");
   await page.evaluate(() => { window.__failAppPreferenceSave = false; });
   await error.getByRole("button", { name: "重试保存" }).click();

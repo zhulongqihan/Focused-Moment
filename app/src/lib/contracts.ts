@@ -73,6 +73,73 @@ export interface AppPreferencesView extends Omit<AppPreferences, "customAlertSou
   hasCustomAlertSound: boolean;
 }
 
+export type AppPreferencesPatch = Partial<
+  Pick<
+    AppPreferences,
+    | "themeId"
+    | "visualIntensity"
+    | "motionIntensity"
+    | "density"
+    | "floatingOpacity"
+    | "autoMiniOnStart"
+  >
+>;
+
+export interface DataRevisions {
+  processId: number;
+  todoRevision: number;
+  recordRevision: number;
+  appPreferencesRevision: number;
+  timerPreferencesRevision: number;
+  focusPlanRevision: number;
+  audioRevision: number;
+  timerOperationRevision: number;
+}
+
+export type SyncDomain =
+  | "todos"
+  | "records"
+  | "appPreferences"
+  | "timerPreferences"
+  | "focusPlan"
+  | "analytics";
+
+export interface SyncSnapshot {
+  revisions: DataRevisions;
+  todos?: TodoItem[];
+  records?: FocusRecord[];
+  analytics?: AnalyticsSnapshot;
+  appPreferences?: AppPreferencesView;
+  timerPreferences?: TimerPreferences;
+  focusPlan?: FocusPlanState;
+}
+
+export interface TimerSyncSnapshot {
+  processId: number;
+  sampleSequence: number;
+  timerOperationRevision: number;
+  timer: TimerSnapshot;
+}
+
+export interface CustomAlertAudio {
+  processId: number;
+  revision: number;
+  name: string;
+  data: string | null;
+}
+
+export interface CustomAlertAudioMetadata {
+  processId: number;
+  revision: number;
+  name: string;
+  hasCustomAlertSound: boolean;
+}
+
+export interface RevisionedResult<T> {
+  revisions: DataRevisions;
+  value: T;
+}
+
 export interface FocusPlanState {
   currentTodoId: number | null;
   todayPickIds: number[];

@@ -285,3 +285,11 @@
 - **规范基线**：`docs/maintenance/optimization-plan.md` 是批次状态规范来源。已更新其当前交付区与表格，保留历史工作单中的当时限制陈述。reconcile-project-state 的文件时间/JSON 检查结果 `status=ok`；该工具只检查 mtime 和 JSON 文件可解析性，不判断 Markdown 语义，因此本次按提交、报告与最新状态条目人工核对。
 - **调用链发现**：当前主窗空闲轮询每秒调用七域 `refresh()` 并广播完整 `app-state-sync`；应用偏好读取携带自定义音频；`refreshVersion` 丢弃旧结果但不限制同时请求。计时快照读取还会刷新托盘菜单；全对象偏好更新可覆盖旧窗口的无关字段。旧 DataPublication 草稿比较整个持久化 JSON 来推版本，可能给大记录集增加全量序列化成本，因此不直接沿用。
 - **下一步**：继续只读审查 `commands.rs` / `runtime.rs` 业务写事务与锁顺序，映射待办、记录、应用偏好、计时偏好、焦点计划及音源版本；完成 D 设计后再进入应用实现。`PROJECT_PLAN.md` 未写入、未暂存、未提交，SHA-256 保持 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`。用户自有改动与未跟踪文件保持原状。
+
+## 2026-10-22 D 批 2.14.1 本地实现与候选交付检查点
+
+- **实现与代码级验证**：按 `docs/maintenance/optimization-plan.md` 中 D 目标完成原生域修订号、选择性快照、每窗口单飞增量刷新、计时样本和独立音频读取。完整 Playwright 219/219，4 workers、0 retries；目录 `artifacts/qa/frontend/d-full-final-20261022-inv-mvjc8w2z-39320-e1a77ce2-8473-4f43-917b-704f3fca9e30/`。最终 `pnpm verify` 退出码 0，Rust 57 passed/0 failed/1 ignored，日志 `artifacts/qa/verify/d-batch-20261022-final/pnpm-verify.log`。
+- **交付保护修正**：默认候选发布先探测 `Focused Moment` 和 `focused-moment` 两种 Windows 进程名。用户进程运行时只保存候选与 manifest/journal，不尝试覆盖根 EXE；无法安全复制被锁的旧文件时，manifest 把旧根哈希记录为事实、backupPath 置空、标记 `rootReplacementCompleted=false`。Windows 原生 smoke 同样识别两种名称；交付脚本 10 项用例通过，其中包含候选-only 和 smoke 进程保护。
+- **Release 候选来源**：默认 `pnpm package:local` build ID `local-20261022-175851-0138254e16`，版本 2.14.1，SHA-256 `A4F08A49C44A054C81A62881419B44EC6C806429AC484810813959FDEED72D9C`。196 项构建输入 digest `4C6F9BBE033BE43D027E351CD46C149B49F7AE318B9B00329480B884B29EA1D7` 前后相同。候选、manifest 和日志分别位于 `artifacts/builds/local/local-20261022-175851-0138254e16/` 和 `artifacts/qa/build/d-batch-20261022/pnpm-package-local-final.log`。
+- **Windows 原生状态**：根 2.14.0 进程 PID 43308 仍有可见、响应中的窗口；旧入口 SHA-256 保持 `8FB3E4A468C52A6745A4DD1F164B9CB76DDB8969358A3A23E3BA34B670646F4C`。修正参数传递后，以候选路径运行 `pnpm native:windows` 被正确进程保护拒绝，日志 `artifacts/qa/native/windows-native-d-process-guard-20261022/native-smoke-attempt.log`。没有运行候选原生行为断言，不能记为通过；也没有终止用户进程。
+- **下一步**：用户手动退出根 2.14.0 后，重新执行默认 `pnpm package:local`，核对根入口与候选同哈希，再对该 Release 运行 `pnpm native:windows`。在 D 退出条件通过之前不开始 E。`PROJECT_PLAN.md` 继续保持只读，SHA-256 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`；用户自有差异和未跟踪资料没有纳入本工作单元。

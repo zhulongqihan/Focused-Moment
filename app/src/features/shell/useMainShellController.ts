@@ -4,11 +4,15 @@ import { emit, listen } from "@tauri-apps/api/event";
 import { save } from "@tauri-apps/plugin-dialog";
 import type {
   AppPreferences,
+  AppPreferencesPatch,
   AppPreferencesView,
   AnalyticsSnapshot,
   AlertSoundKey,
   BackupListItem,
   BackupPreview,
+  CustomAlertAudio,
+  CustomAlertAudioMetadata,
+  DataRevisions,
   FeedbackKind,
   FocusRecord,
   FocusPlanState,
@@ -16,6 +20,9 @@ import type {
   TodoImportance,
   TimerSnapshot,
   TimerPreferences,
+  TimerSyncSnapshot,
+  SyncDomain,
+  SyncSnapshot,
   TodoItem,
 } from "../../lib/contracts";
 import {
@@ -23,14 +30,13 @@ import {
   clearAppData,
   completeFocusSession,
   createManualFocusRecord,
+  dataRevisionsChangedEvent,
   deleteFocusRecord,
   exportAppBackup,
-  getAnalyticsSnapshot,
-  getAppPreferences,
-  getFocusPlan,
-  getFocusRecords,
-  getTimerPreferences,
-  getTimerSnapshot,
+  getCustomAlertAudio,
+  getDataRevisions,
+  getSyncSnapshot,
+  getTimerSyncSnapshot,
   importAppBackup,
   listAppBackups,
   openAppBackupFolder,
@@ -44,16 +50,18 @@ import {
   setCountdownMinutes as configureCountdownMinutes,
   startTimer,
   switchTimerMode,
+  timerSyncSampleEvent,
   updateTimerPreferences,
   updateFocusRecord,
   updateAppPreferences,
+  updateCustomAlertAudio,
   updateFocusPlan,
   updateTimerContext,
 } from "../../lib/timer";
+import { subscribeToLocalRevisionChanges } from "../../lib/revisioned-command";
 import {
   createTodoItem,
   deleteTodoItem,
-  getTodoItems,
   updateTodoItem,
   restoreTodoItem,
   toggleTodoItem,
@@ -125,15 +133,21 @@ type ContinuationPrompt = { recordId: number; todoId: number; title: string };
 type ResetConfirmation = { sessionId: string; taskTitle: string; elapsedMs: number };
 type ActionResult<T> = { status: "success"; value: T } | { status: "failed"; error: unknown } | { status: "busy" };
 export type FollowUpTask = { id: string; message: string; retry: () => Promise<void> };
-type AppStateSyncPayload = {
-  timer: TimerSnapshot;
-  todos: TodoItem[];
-  records: FocusRecord[];
-  analytics: AnalyticsSnapshot;
-  timerPreferences: TimerPreferences;
-  appPreferencesView: AppPreferencesView;
-  focusPlan: FocusPlanState;
-};
+const allBusinessDomains: SyncDomain[] = [
+  "todos",
+  "records",
+  "analytics",
+  "appPreferences",
+  "timerPreferences",
+  "focusPlan",
+];
+
+const floatingBusinessDomains: SyncDomain[] = [
+  "todos",
+  "appPreferences",
+  "timerPreferences",
+  "focusPlan",
+];
 
 function getWindowLabel() {
   try {
@@ -196,7 +210,6 @@ export const defaultFloatingOpacity = 100;
 export const minFloatingOpacity = 45;
 const maxCustomAlertSoundBytes = 5 * 1024 * 1024;
 const floatingWorkspaceSyncEvent = "floating-workspace-sync";
-const appStateSyncEvent = "app-state-sync";
 const trayNavigateEvent = "tray-navigate";
 const themeStorageKey = "focused-moment.theme";
 const visualIntensityKey = "focused-moment.visual-intensity";
@@ -337,8 +350,7 @@ export function useMainShellController() {
   const [resetConfirmation, setResetConfirmation] = createSignal<ResetConfirmation | null>(null);
   const [savedConfirmation, setSavedConfirmation] = createSignal(false);
   const [todos, setTodos] = createSignal<TodoItem[]>([]);
-  // The shell refreshes once per second. Keep unchanged history rows stable so
-  // a background read does not detach open/scrolling archive controls.
+  // Preserve unchanged history rows when a records revision invalidates them.
   const [records, setRecords] = createSignal<FocusRecord[]>([], { equals: focusRecordListsEqual });
   const [analytics, setAnalytics] = createSignal<AnalyticsSnapshot | null>(null);
   const [sessionTitle, setSessionTitle] = createSignal("");
@@ -353,7 +365,11 @@ export function useMainShellController() {
   const [autoMiniOnStart, setAutoMiniOnStart] = createSignal(false);
   const [appPreferenceSaveError, setAppPreferenceSaveError] = createSignal("");
   const [appPreferenceSaveBusy, setAppPreferenceSaveBusy] = createSignal(false);
-  const [failedAppPreferenceSnapshot, setFailedAppPreferenceSnapshot] = createSignal<AppPreferences | null>(null);
+  const [failedAppPreferenceSnapshot, setFailedAppPreferenceSnapshot] = createSignal<{
+    snapshot: AppPreferences;
+    patch: AppPreferencesPatch;
+  } | null>(null);
+  const [failedCustomAlertAudio, setFailedCustomAlertAudio] = createSignal<{ name: string; data: string | null } | null>(null);
   const [focusPlan, setFocusPlan] = createSignal<FocusPlanState>({ currentTodoId: null, todayPickIds: [] });
   const [continuationPrompt, setContinuationPrompt] = createSignal<ContinuationPrompt | null>(null);
   const [continuationSaveError, setContinuationSaveError] = createSignal("");
@@ -401,11 +417,26 @@ export function useMainShellController() {
   let undoTimer: number | undefined;
   let messageTimer: number | undefined;
   let appPreferenceSaveVersion = 0;
+  let customAlertAudioSaveVersion = 0;
   let appPreferenceSaveTimer: number | undefined;
   let pendingAppPreferenceSnapshot: AppPreferences | null = null;
+  let pendingAppPreferencePatch: AppPreferencesPatch | null = null;
   let legacyPreferencesMigrationAttempted = false;
-  let refreshVersion = 0;
-  let timerRefreshVersion = 0;
+  const pendingSyncDomains = new Set<SyncDomain>();
+  const forcedSyncDomains = new Set<SyncDomain>();
+  let syncDrainPromise: Promise<void> | null = null;
+  let syncRetryTimer: number | undefined;
+  let syncRetryAttempt = 0;
+  let calibrationPending = false;
+  let observedRevisions: DataRevisions | null = null;
+  let audioRevision = 0;
+  let audioProcessId = 0;
+  let timerSampleInFlight = false;
+  let timerSampleSequence = 0;
+  let timerProcessId = 0;
+  let lastMainTimerSampleAt = Date.now();
+  let lastLocalDay = getToday();
+  let localRevisionUnsubscribe: (() => void) | undefined;
   let observedAlertSequence: number | null = null;
   let floatingTimerWasAvailable = false;
   let floatingWorkspaceElement: HTMLElement | undefined;
@@ -427,43 +458,6 @@ export function useMainShellController() {
     };
   }
 
-  function currentAppPreferencesView(): AppPreferencesView {
-    const preferences = currentAppPreferences();
-    return {
-      schemaVersion: preferences.schemaVersion,
-      themeId: preferences.themeId,
-      visualIntensity: preferences.visualIntensity,
-      motionIntensity: preferences.motionIntensity,
-      density: preferences.density,
-      floatingOpacity: preferences.floatingOpacity,
-      autoMiniOnStart: preferences.autoMiniOnStart,
-      customAlertSoundName: preferences.customAlertSoundName,
-      hasCustomAlertSound: Boolean(preferences.customAlertSoundData),
-    };
-  }
-
-  async function emitAppStateSync() {
-    const currentAnalytics = analytics();
-    if (!currentAnalytics || !ready()) return;
-    try {
-      await emit(appStateSyncEvent, {
-        timer: timer(),
-        todos: todos(),
-        records: records(),
-        analytics: currentAnalytics,
-        timerPreferences: timerPreferences(),
-        appPreferencesView: currentAppPreferencesView(),
-        focusPlan: focusPlan(),
-      } satisfies AppStateSyncPayload);
-      setSyncError("");
-    } catch {
-      // State sync is an enhancement for sibling windows. The initiating
-      // window already holds the committed state, so a failed broadcast must
-      // never turn a successful business operation into a false error.
-      setSyncError("其他窗口暂时没有同步到本次状态。");
-    }
-  }
-
   function applyAppPreferences(next: AppPreferences) {
     setThemeId(normalizeThemeId(next.themeId));
     setVisualIntensity(next.visualIntensity);
@@ -475,19 +469,28 @@ export function useMainShellController() {
     setCustomAlertSoundData(next.customAlertSoundData);
   }
 
-  function persistAppPreferences(snapshot: AppPreferences, version: number) {
+  function applyAppPreferencesView(next: AppPreferencesView) {
+    setThemeId(normalizeThemeId(next.themeId));
+    setVisualIntensity(next.visualIntensity);
+    setMotionIntensity(next.motionIntensity);
+    setDensity(next.density);
+    setFloatingOpacity(next.floatingOpacity);
+    setAutoMiniOnStart(next.autoMiniOnStart);
+    setCustomAlertSoundName(next.customAlertSoundName);
+  }
+
+  function persistAppPreferences(snapshot: AppPreferences, patch: AppPreferencesPatch, version: number) {
     setAppPreferenceSaveBusy(true);
-    void updateAppPreferences(snapshot)
+    void updateAppPreferences(patch)
       .then((saved) => {
         if (version !== appPreferenceSaveVersion) return;
-        applyAppPreferences(saved);
+        applyAppPreferencesView(saved);
         setAppPreferenceSaveError("");
         setFailedAppPreferenceSnapshot(null);
-        void emitAppStateSync();
       })
       .catch((error) => {
         if (version !== appPreferenceSaveVersion) return;
-        setFailedAppPreferenceSnapshot(snapshot);
+        setFailedAppPreferenceSnapshot({ snapshot, patch });
         setAppPreferenceSaveError(`外观设置保存失败：${getErrorMessage(error)}`);
       })
       .finally(() => {
@@ -497,10 +500,13 @@ export function useMainShellController() {
       });
   }
 
-  function scheduleAppPreferencesSave(patch: Partial<AppPreferences>) {
+  function scheduleAppPreferencesSave(
+    patch: Partial<Omit<AppPreferences, "customAlertSoundName" | "customAlertSoundData">>,
+  ) {
     const next = { ...currentAppPreferences(), ...patch, schemaVersion: 3 };
     applyAppPreferences(next);
     pendingAppPreferenceSnapshot = next;
+    pendingAppPreferencePatch = { ...pendingAppPreferencePatch, ...patch };
     setAppPreferenceSaveError("");
     setFailedAppPreferenceSnapshot(null);
     appPreferenceSaveVersion += 1;
@@ -511,30 +517,56 @@ export function useMainShellController() {
     appPreferenceSaveTimer = window.setTimeout(() => {
       appPreferenceSaveTimer = undefined;
       pendingAppPreferenceSnapshot = null;
-      persistAppPreferences(next, version);
+      const pendingPatch = pendingAppPreferencePatch;
+      pendingAppPreferencePatch = null;
+      if (pendingPatch) persistAppPreferences(next, pendingPatch, version);
     }, 200);
   }
 
   function flushAppPreferencesSave() {
-    if (appPreferenceSaveTimer === undefined || !pendingAppPreferenceSnapshot) {
+    if (appPreferenceSaveTimer === undefined || !pendingAppPreferenceSnapshot || !pendingAppPreferencePatch) {
       return;
     }
     window.clearTimeout(appPreferenceSaveTimer);
     appPreferenceSaveTimer = undefined;
     const snapshot = pendingAppPreferenceSnapshot;
+    const patch = pendingAppPreferencePatch;
     pendingAppPreferenceSnapshot = null;
+    pendingAppPreferencePatch = null;
     appPreferenceSaveVersion += 1;
-    persistAppPreferences(snapshot, appPreferenceSaveVersion);
+    persistAppPreferences(snapshot, patch, appPreferenceSaveVersion);
   }
 
   function retryAppPreferencesSave() {
-    const snapshot = failedAppPreferenceSnapshot();
-    if (snapshot) {
-      scheduleAppPreferencesSave(snapshot);
+    const failed = failedAppPreferenceSnapshot();
+    if (failed) {
+      scheduleAppPreferencesSave(failed.patch);
+    }
+    const failedAudio = failedCustomAlertAudio();
+    if (failedAudio) void persistCustomAlertAudio(failedAudio.name, failedAudio.data);
+  }
+
+  async function persistCustomAlertAudio(name: string, data: string | null) {
+    const version = ++customAlertAudioSaveVersion;
+    setAppPreferenceSaveBusy(true);
+    setAppPreferenceSaveError("");
+    setFailedCustomAlertAudio(null);
+    try {
+      const saved: CustomAlertAudioMetadata = await updateCustomAlertAudio(name, data);
+      if (version !== customAlertAudioSaveVersion) return;
+      setCustomAlertSoundName(saved.name);
+      setCustomAlertSoundData(data);
+      setAppPreferenceSaveError("");
+    } catch (error) {
+      if (version !== customAlertAudioSaveVersion) return;
+      setFailedCustomAlertAudio({ name, data });
+      setAppPreferenceSaveError(`自定义音效保存失败：${getErrorMessage(error)}`);
+    } finally {
+      if (version === customAlertAudioSaveVersion) setAppPreferenceSaveBusy(false);
     }
   }
 
-  async function migrateLegacyAppPreferences(next: AppPreferences) {
+  async function migrateLegacyAppPreferences(next: AppPreferencesView) {
     if (legacyPreferencesMigrationAttempted) {
       return next;
     }
@@ -560,27 +592,38 @@ export function useMainShellController() {
     const legacyOpacity = readFloatingOpacity();
     const legacySoundData = readStoredLocalStorageValue(customAlertSoundDataKey);
     const legacySoundName = readLocalStorageValue(customAlertSoundNameKey);
-    const migrated = {
-      ...next,
-      themeId: legacyTheme.implemented ? legacyTheme.id : next.themeId,
-      visualIntensity: legacyVisual,
-      motionIntensity: legacyMotion,
-      density: legacyDensity,
-      floatingOpacity: legacyOpacity,
-      customAlertSoundData: legacySoundData || next.customAlertSoundData,
-      customAlertSoundName: legacySoundData ? legacySoundName : next.customAlertSoundName,
-    };
-    applyAppPreferences(migrated);
+    const appearancePatch: AppPreferencesPatch = {};
+    if (legacyValues[0] !== null && legacyTheme.implemented) appearancePatch.themeId = legacyTheme.id;
+    if (legacyValues[1] !== null) appearancePatch.visualIntensity = legacyVisual;
+    if (legacyValues[2] !== null) appearancePatch.motionIntensity = legacyMotion;
+    if (legacyValues[3] !== null) appearancePatch.density = legacyDensity;
+    if (legacyValues[4] !== null) appearancePatch.floatingOpacity = legacyOpacity;
     try {
-      const saved = await updateAppPreferences(migrated);
+      let saved = next;
+      if (Object.keys(appearancePatch).length > 0) {
+        saved = await updateAppPreferences(appearancePatch);
+        applyAppPreferencesView(saved);
+      }
+      if (legacySoundData) {
+        const savedAudio = await updateCustomAlertAudio(legacySoundName, legacySoundData);
+        setCustomAlertSoundName(savedAudio.name);
+        setCustomAlertSoundData(legacySoundData);
+        saved = {
+          ...saved,
+          customAlertSoundName: savedAudio.name,
+          hasCustomAlertSound: savedAudio.hasCustomAlertSound,
+        };
+      }
       [themeStorageKey, visualIntensityKey, motionIntensityKey, densityKey, floatingOpacityKey, customAlertSoundDataKey, customAlertSoundNameKey]
         .forEach(removeLocalStorageValue);
       writeLocalStorageValue("focused-moment.preferences-v3-migrated", "1");
       return saved;
     } catch (error) {
-      setFailedAppPreferenceSnapshot(migrated);
+      if (Object.keys(appearancePatch).length > 0) {
+        setFailedAppPreferenceSnapshot({ snapshot: currentAppPreferences(), patch: appearancePatch });
+      }
       setAppPreferenceSaveError(`旧版外观设置迁移失败：${getErrorMessage(error)}`);
-      return migrated;
+      return next;
     }
   }
 
@@ -800,31 +843,6 @@ export function useMainShellController() {
     }
   }
 
-  function applyAppStateSnapshot(next: AppStateSyncPayload) {
-    applyTimerSnapshot(next.timer);
-    if (editingTodo() !== null || editingRecord() !== null) {
-      return;
-    }
-    setTodos(next.todos);
-    setRecords(next.records);
-    setAnalytics(next.analytics);
-    setTimerPreferences(next.timerPreferences);
-    setFocusPlan(next.focusPlan);
-    if (pendingAppPreferenceSnapshot === null && !appPreferenceSaveBusy() && !failedAppPreferenceSnapshot()) {
-      applyAppPreferences({
-        schemaVersion: next.appPreferencesView.schemaVersion,
-        themeId: next.appPreferencesView.themeId,
-        visualIntensity: next.appPreferencesView.visualIntensity,
-        motionIntensity: next.appPreferencesView.motionIntensity,
-        density: next.appPreferencesView.density,
-        floatingOpacity: next.appPreferencesView.floatingOpacity,
-        autoMiniOnStart: next.appPreferencesView.autoMiniOnStart,
-        customAlertSoundName: next.appPreferencesView.customAlertSoundName,
-        customAlertSoundData: customAlertSoundData(),
-      });
-    }
-  }
-
   function alertIsVisible() {
     return Boolean(timer().alertTitle && timerPreferences().toastReminderEnabled);
   }
@@ -851,107 +869,317 @@ export function useMainShellController() {
     }
   }
 
-  function invalidateRefreshes() {
-    refreshVersion += 1;
-    timerRefreshVersion += 1;
+  function domainsForCurrentWindow() {
+    return currentWindowLabel === "main" ? allBusinessDomains : floatingBusinessDomains;
   }
 
-  async function refresh(force = false) {
-    const requestVersion = ++refreshVersion;
-    const timerRequestVersion = ++timerRefreshVersion;
-    const appPreferencesVersionAtReadStart = appPreferenceSaveVersion;
-    const [nextTimer, nextTodos, nextRecords, nextAnalytics, nextPreferences, nextAppPreferences, nextFocusPlan] = await Promise.all([
-      getTimerSnapshot(),
-      getTodoItems(),
-      getFocusRecords(),
-      getAnalyticsSnapshot(),
-      getTimerPreferences(),
-      getAppPreferences(),
-      getFocusPlan(),
-    ]);
-
+  function isDomainBlocked(domain: SyncDomain, force: boolean) {
+    if (force) return false;
+    if (busy()) return true;
+    if (domain === "todos" && editingTodo() !== null) return true;
+    if (domain === "records" && editingRecord() !== null) return true;
     if (
-      requestVersion !== refreshVersion ||
-      timerRequestVersion !== timerRefreshVersion ||
-      (!force && busy())
-    ) {
-      return false;
-    }
+      domain === "appPreferences" &&
+      (pendingAppPreferenceSnapshot !== null || appPreferenceSaveBusy() || failedAppPreferenceSnapshot() !== null || failedCustomAlertAudio() !== null)
+    ) return true;
+    return false;
+  }
 
-    applyTimerSnapshot(nextTimer);
-    if (!force && (editingTodo() !== null || editingRecord() !== null)) {
-      return false;
+  function pendingSyncIsBlocked() {
+    return [...pendingSyncDomains].every((domain) =>
+      isDomainBlocked(domain, forcedSyncDomains.has(domain)),
+    );
+  }
+
+  function snapshotIsCurrentForDomain(domain: SyncDomain, revisions: DataRevisions) {
+    const latest = observedRevisions;
+    if (!latest || latest.processId !== revisions.processId) return false;
+    if (domain === "todos" || domain === "analytics") {
+      if (revisions.todoRevision < latest.todoRevision) return false;
     }
-    setTodos(nextTodos);
-    setRecords(nextRecords);
-    setAnalytics(nextAnalytics);
-    if (nextPreferences) {
-      setTimerPreferences(nextPreferences);
+    if (domain === "records" || domain === "analytics") {
+      if (revisions.recordRevision < latest.recordRevision) return false;
     }
-    let resolvedAppPreferences = currentAppPreferences();
-    if (
-      appPreferencesVersionAtReadStart === appPreferenceSaveVersion &&
-      pendingAppPreferenceSnapshot === null &&
-      !appPreferenceSaveBusy() &&
-      !failedAppPreferenceSnapshot()
-    ) {
-      const migratedAppPreferences = await migrateLegacyAppPreferences(nextAppPreferences);
-      if (
-        appPreferencesVersionAtReadStart === appPreferenceSaveVersion &&
-        pendingAppPreferenceSnapshot === null &&
-        !appPreferenceSaveBusy() &&
-        !failedAppPreferenceSnapshot()
-      ) {
-        resolvedAppPreferences = migratedAppPreferences;
-        applyAppPreferences(resolvedAppPreferences);
-      } else {
-        resolvedAppPreferences = currentAppPreferences();
+    if (domain === "appPreferences" && revisions.appPreferencesRevision < latest.appPreferencesRevision) return false;
+    if (domain === "timerPreferences" && revisions.timerPreferencesRevision < latest.timerPreferencesRevision) return false;
+    if (domain === "focusPlan" && revisions.focusPlanRevision < latest.focusPlanRevision) return false;
+    return true;
+  }
+
+  async function applySyncDomain(domain: SyncDomain, snapshot: SyncSnapshot) {
+    if (domain === "todos" && snapshot.todos) setTodos(snapshot.todos);
+    if (domain === "records" && snapshot.records) setRecords(snapshot.records);
+    if (domain === "analytics" && snapshot.analytics) setAnalytics(snapshot.analytics);
+    if (domain === "timerPreferences" && snapshot.timerPreferences) setTimerPreferences(snapshot.timerPreferences);
+    if (domain === "focusPlan" && snapshot.focusPlan) setFocusPlan(snapshot.focusPlan);
+    if (domain === "appPreferences" && snapshot.appPreferences) {
+      let next = snapshot.appPreferences;
+      if (!legacyPreferencesMigrationAttempted && currentWindowLabel === "main") {
+        next = await migrateLegacyAppPreferences(next);
       }
+      applyAppPreferencesView(next);
     }
-    setFocusPlan(nextFocusPlan);
-    if (currentWindowLabel === "main") {
-      void emit<AppStateSyncPayload>(appStateSyncEvent, {
-        timer: nextTimer,
-        todos: nextTodos,
-        records: nextRecords,
-        analytics: nextAnalytics,
-        timerPreferences: nextPreferences,
-        appPreferencesView: {
-          schemaVersion: resolvedAppPreferences.schemaVersion,
-          themeId: resolvedAppPreferences.themeId,
-          visualIntensity: resolvedAppPreferences.visualIntensity,
-          motionIntensity: resolvedAppPreferences.motionIntensity,
-          density: resolvedAppPreferences.density,
-          floatingOpacity: resolvedAppPreferences.floatingOpacity,
-          autoMiniOnStart: resolvedAppPreferences.autoMiniOnStart,
-          customAlertSoundName: resolvedAppPreferences.customAlertSoundName,
-          hasCustomAlertSound: Boolean(resolvedAppPreferences.customAlertSoundData),
-        },
-        focusPlan: nextFocusPlan,
-      }).catch(() => undefined);
+  }
+
+  function scheduleSyncRetry() {
+    if (syncRetryTimer !== undefined) return;
+    const delays = [1_000, 2_000, 5_000, 10_000, 30_000];
+    const delay = delays[Math.min(syncRetryAttempt, delays.length - 1)];
+    syncRetryAttempt += 1;
+    syncRetryTimer = window.setTimeout(() => {
+      syncRetryTimer = undefined;
+      if (pendingSyncDomains.size > 0) {
+        void requestBusinessSync([], false).catch(() => undefined);
+      }
+      if (calibrationPending) void calibrateDataRevisions();
+      if (audioReadPending) {
+        void requestCustomAlertAudioSync().catch(() => undefined);
+      }
+    }, delay);
+  }
+
+  function clearSyncRetryIfIdle() {
+    if (pendingSyncDomains.size > 0 || calibrationPending || audioReadPending) return;
+    if (syncRetryTimer !== undefined) {
+      window.clearTimeout(syncRetryTimer);
+      syncRetryTimer = undefined;
     }
+    syncRetryAttempt = 0;
+    setSyncError("");
+  }
+
+  function requestBusinessSync(domains: SyncDomain[], force = false): Promise<void> {
+    for (const domain of domains) {
+      if (!domainsForCurrentWindow().includes(domain)) continue;
+      pendingSyncDomains.add(domain);
+      if (force) forcedSyncDomains.add(domain);
+    }
+    if (syncDrainPromise) return syncDrainPromise;
+    const eligible = [...pendingSyncDomains].some((domain) =>
+      !isDomainBlocked(domain, forcedSyncDomains.has(domain)),
+    );
+    if (!eligible) return Promise.resolve();
+
+    const task = (async () => {
+      try {
+        while (true) {
+          const requested = [...pendingSyncDomains].filter((domain) =>
+            !isDomainBlocked(domain, forcedSyncDomains.has(domain)),
+          );
+          if (requested.length === 0) break;
+          const forced = new Set(requested.filter((domain) => forcedSyncDomains.has(domain)));
+          for (const domain of requested) {
+            pendingSyncDomains.delete(domain);
+            forcedSyncDomains.delete(domain);
+          }
+
+          try {
+            const snapshot = await getSyncSnapshot(requested, requested.includes("analytics"));
+            handleObservedRevisions(snapshot.revisions, requested);
+            for (const domain of requested) {
+              if (!snapshotIsCurrentForDomain(domain, snapshot.revisions)) {
+                pendingSyncDomains.add(domain);
+                if (forced.has(domain)) forcedSyncDomains.add(domain);
+                continue;
+              }
+              if (isDomainBlocked(domain, forced.has(domain))) {
+                pendingSyncDomains.add(domain);
+                if (forced.has(domain)) forcedSyncDomains.add(domain);
+                continue;
+              }
+              await applySyncDomain(domain, snapshot);
+            }
+          } catch (error) {
+            for (const domain of requested) {
+              pendingSyncDomains.add(domain);
+              if (forced.has(domain)) forcedSyncDomains.add(domain);
+            }
+            throw error;
+          }
+        }
+
+        if (pendingSyncDomains.size === 0) {
+          clearSyncRetryIfIdle();
+          if (loadState() === "error" && !recoveryBlockReason()) {
+            setLoadState("ready");
+            setLoadError("");
+          }
+        }
+      } catch (error) {
+        const message = getErrorMessage(error);
+        setSyncError(message);
+        scheduleSyncRetry();
+        throw error;
+      } finally {
+        syncDrainPromise = null;
+      }
+    })();
+    syncDrainPromise = task;
+    return task;
+  }
+
+  function mergeObservedRevisions(next: DataRevisions) {
+    const previous = observedRevisions;
+    if (!previous || previous.processId !== next.processId) {
+      observedRevisions = { ...next };
+      for (const domain of domainsForCurrentWindow()) pendingSyncDomains.add(domain);
+      if (currentWindowLabel === "main") {
+        audioRevision = 0;
+        audioProcessId = 0;
+        audioReadPending = true;
+      }
+      timerProcessId = 0;
+      timerSampleSequence = 0;
+      return { processChanged: true, todos: true, records: true, appPreferences: true, timerPreferences: true, focusPlan: true, timerOperation: true, audio: true };
+    }
+
+    const merged: DataRevisions = {
+      processId: next.processId,
+      todoRevision: Math.max(previous.todoRevision, next.todoRevision),
+      recordRevision: Math.max(previous.recordRevision, next.recordRevision),
+      appPreferencesRevision: Math.max(previous.appPreferencesRevision, next.appPreferencesRevision),
+      timerPreferencesRevision: Math.max(previous.timerPreferencesRevision, next.timerPreferencesRevision),
+      focusPlanRevision: Math.max(previous.focusPlanRevision, next.focusPlanRevision),
+      audioRevision: Math.max(previous.audioRevision, next.audioRevision),
+      timerOperationRevision: Math.max(previous.timerOperationRevision, next.timerOperationRevision),
+    };
+    observedRevisions = merged;
+    const changed = {
+      processChanged: false,
+      todos: merged.todoRevision > previous.todoRevision,
+      records: merged.recordRevision > previous.recordRevision,
+      appPreferences: merged.appPreferencesRevision > previous.appPreferencesRevision,
+      timerPreferences: merged.timerPreferencesRevision > previous.timerPreferencesRevision,
+      focusPlan: merged.focusPlanRevision > previous.focusPlanRevision,
+      audio: merged.audioRevision > previous.audioRevision,
+      timerOperation: merged.timerOperationRevision > previous.timerOperationRevision,
+    };
+    const supportedDomains = domainsForCurrentWindow();
+    if (changed.todos && supportedDomains.includes("todos")) pendingSyncDomains.add("todos");
+    if (changed.records && supportedDomains.includes("records")) pendingSyncDomains.add("records");
+    if ((changed.todos || changed.records) && supportedDomains.includes("analytics")) pendingSyncDomains.add("analytics");
+    if (changed.appPreferences && supportedDomains.includes("appPreferences")) pendingSyncDomains.add("appPreferences");
+    if (changed.timerPreferences && supportedDomains.includes("timerPreferences")) pendingSyncDomains.add("timerPreferences");
+    if (changed.focusPlan && supportedDomains.includes("focusPlan")) pendingSyncDomains.add("focusPlan");
+    return changed;
+  }
+
+  function handleObservedRevisions(next: DataRevisions, coveredDomains: SyncDomain[] = []) {
+    const changed = mergeObservedRevisions(next);
+    if (changed.processChanged) {
+      for (const domain of coveredDomains) pendingSyncDomains.delete(domain);
+    }
+    if (changed.audio && currentWindowLabel === "main") {
+      audioReadPending = true;
+      void requestCustomAlertAudioSync().catch(() => undefined);
+    }
+    if (changed.timerOperation) {
+      void refreshTimerSyncSnapshot(currentWindowLabel === "main").catch(() => undefined);
+    }
+    if ([...pendingSyncDomains].some((domain) => !isDomainBlocked(domain, forcedSyncDomains.has(domain)))) {
+      void requestBusinessSync([], false).catch(() => undefined);
+    }
+  }
+
+  let audioReadPending = false;
+  let audioSyncPromise: Promise<void> | null = null;
+
+  function requestCustomAlertAudioSync(): Promise<void> {
+    if (currentWindowLabel !== "main") return Promise.resolve();
+    audioReadPending = true;
+    if (audioSyncPromise) return audioSyncPromise;
+    const task = (async () => {
+      try {
+        while (audioReadPending) {
+          audioReadPending = false;
+          const next: CustomAlertAudio = await getCustomAlertAudio();
+          const desired = observedRevisions;
+          if (desired && (next.processId !== desired.processId || next.revision < desired.audioRevision)) {
+            audioReadPending = true;
+            break;
+          }
+          if (next.processId !== audioProcessId || next.revision >= audioRevision) {
+            audioProcessId = next.processId;
+            audioRevision = next.revision;
+            setCustomAlertSoundName(next.name);
+            setCustomAlertSoundData(next.data);
+          }
+        }
+      } catch (error) {
+        audioReadPending = true;
+        setSyncError(getErrorMessage(error));
+        scheduleSyncRetry();
+        throw error;
+      } finally {
+        audioSyncPromise = null;
+      }
+      if (audioReadPending) {
+        return requestCustomAlertAudioSync();
+      }
+      clearSyncRetryIfIdle();
+    })();
+    audioSyncPromise = task;
+    return task;
+  }
+
+  function queueTimerSample(next: TimerSyncSnapshot, fromMain: boolean) {
+    if (fromMain) lastMainTimerSampleAt = Date.now();
+    if (timerProcessId !== next.processId) {
+      timerProcessId = next.processId;
+      timerSampleSequence = 0;
+    }
+    if (next.sampleSequence <= timerSampleSequence) return false;
+    timerSampleSequence = next.sampleSequence;
+    applyTimerSnapshot(next.timer);
     return true;
   }
 
-  async function refreshTimerSnapshot(force = false) {
-    const requestVersion = ++timerRefreshVersion;
-    const nextTimer = await getTimerSnapshot();
-
-    if (requestVersion !== timerRefreshVersion || (!force && busy())) {
+  async function refreshTimerSyncSnapshot(broadcast: boolean) {
+    if (timerSampleInFlight) return false;
+    timerSampleInFlight = true;
+    try {
+      const next = await getTimerSyncSnapshot();
+      queueTimerSample(next, broadcast && currentWindowLabel === "main");
+      if (broadcast && currentWindowLabel === "main") {
+        await emit(timerSyncSampleEvent, next);
+      }
+      return true;
+    } catch (error) {
+      setSyncError(getErrorMessage(error));
       return false;
+    } finally {
+      timerSampleInFlight = false;
     }
+  }
 
-    applyTimerSnapshot(nextTimer);
-    return true;
+  async function calibrateDataRevisions() {
+    try {
+      handleObservedRevisions(await getDataRevisions());
+      calibrationPending = false;
+      clearSyncRetryIfIdle();
+    } catch (error) {
+      calibrationPending = true;
+      setSyncError(getErrorMessage(error));
+      scheduleSyncRetry();
+    }
   }
 
   async function loadFromStorage() {
     setLoadState("loading");
     setLoadError("");
     try {
-      await refresh(true);
+      await requestBusinessSync(domainsForCurrentWindow(), true);
+      await refreshTimerSyncSnapshot(currentWindowLabel === "main");
+      if (currentWindowLabel === "main") {
+        if (audioProcessId !== (observedRevisions?.processId ?? 0) || audioRevision < (observedRevisions?.audioRevision ?? 0)) {
+          try {
+          await requestCustomAlertAudioSync();
+          } catch {
+            // The main window remains usable while the separate audio read retries.
+          }
+        }
+      }
       setLoadState("ready");
-      setSyncError("");
       setRecoveryBlockReason("");
     } catch (error) {
       const text = getErrorMessage(error);
@@ -974,13 +1202,11 @@ export function useMainShellController() {
       return { status: "busy" };
     }
 
-    invalidateRefreshes();
     setBusy(true);
     setBusyLabel(actionLabel);
     clearMessage();
     try {
       const value = await action();
-      await emitAppStateSync();
       return { status: "success", value };
     } catch (error) {
       const message = getErrorMessage(error);
@@ -990,6 +1216,9 @@ export function useMainShellController() {
     } finally {
       setBusy(false);
       setBusyLabel("");
+      if (pendingSyncDomains.size > 0) {
+        void requestBusinessSync([], false).catch(() => undefined);
+      }
       if (currentWindowLabel === "main") void refreshPendingBookmarkPrompt();
     }
   }
@@ -1041,7 +1270,7 @@ export function useMainShellController() {
 
   async function refreshAnalyticsAfterSave() {
     await followUp("analytics", "记录已保存，统计暂未刷新。", async () => {
-      setAnalytics(await getAnalyticsSnapshot());
+      await requestBusinessSync(["analytics"], true);
     });
   }
 
@@ -1122,9 +1351,9 @@ export function useMainShellController() {
 
     if (result.status === "failed") {
       try {
-        const latest = await getTimerSnapshot();
-        applyTimerSnapshot(latest);
-        if (latest.sessionId !== sessionId && resetConfirmation()?.sessionId === sessionId) {
+        const latest = await getTimerSyncSnapshot();
+        queueTimerSample(latest, false);
+        if (latest.timer.sessionId !== sessionId && resetConfirmation()?.sessionId === sessionId) {
           setResetConfirmation(null);
           showMessage("本轮已在其他窗口发生变化，请检查当前状态后重新操作。", "info");
         }
@@ -1261,12 +1490,9 @@ export function useMainShellController() {
     }
 
     try {
-      const refreshed = await refresh(true);
-      if (refreshed) {
-        setLoadState("ready");
-        setLoadError("");
-        setSyncError("");
-      }
+      await requestBusinessSync(floatingBusinessDomains, true);
+      setLoadState("ready");
+      setLoadError("");
     } catch (error) {
       setSyncError(getErrorMessage(error));
     }
@@ -1472,12 +1698,12 @@ export function useMainShellController() {
       return;
     }
 
-    scheduleAppPreferencesSave({ customAlertSoundName: file.name, customAlertSoundData: dataUrl });
+    void persistCustomAlertAudio(file.name, dataUrl);
     await saveTimerPreferences({ alertSoundKey: "custom" }, "自定义音效已启用。");
   }
 
   async function clearCustomAlertSound() {
-    scheduleAppPreferencesSave({ customAlertSoundName: "", customAlertSoundData: null });
+    void persistCustomAlertAudio("", null);
     await saveTimerPreferences({ alertSoundKey: "soft_chime" }, "已恢复为柔和铃音。");
   }
 
@@ -1893,24 +2119,37 @@ export function useMainShellController() {
     handleNewTimerAlert();
   });
 
+  createEffect(() => {
+    if (pendingSyncDomains.size === 0) return;
+    if (!pendingSyncIsBlocked()) {
+      void requestBusinessSync([], false).catch(() => undefined);
+    }
+  });
+
   onMount(() => {
     if (isFloatingWindow || isUnlockWindow || isFocusFloatingWindow || isFocusUnlockWindow) {
       document.documentElement.classList.add("floating-window");
     }
 
-    let interval: number | undefined;
+    let timerInterval: number | undefined;
+    let calibrationInterval: number | undefined;
+    let localDayInterval: number | undefined;
     let floatingSyncActive = true;
     let floatingSyncUnlisten: (() => void) | undefined;
-    let appStateSyncActive = true;
-    let appStateSyncUnlisten: (() => void) | undefined;
+    let coreSyncActive = true;
+    let dataRevisionUnlisten: (() => void) | undefined;
+    let timerSampleUnlisten: (() => void) | undefined;
     let trayNavigationActive = true;
     let trayNavigationUnlisten: (() => void) | undefined;
     let bookmarkSyncActive = true;
     let pendingBookmarkUnlisten: (() => void) | undefined;
     let mainWindowShownUnlisten: (() => void) | undefined;
-    const onMainWindowFocus = () => void refreshPendingBookmarkPrompt();
+    const onMainWindowFocus = () => {
+      if (currentWindowLabel === "main") void refreshPendingBookmarkPrompt();
+      void calibrateDataRevisions();
+    };
     const onMainWindowVisibility = () => {
-      if (document.visibilityState === "visible") void refreshPendingBookmarkPrompt();
+      if (document.visibilityState === "visible") onMainWindowFocus();
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.isComposing || event.keyCode === 229 || event.defaultPrevented) return;
@@ -1976,29 +2215,11 @@ export function useMainShellController() {
     }
 
     if (currentWindowLabel === "main" || isFloatingWindow || isFocusFloatingWindow) {
-      void listen<AppStateSyncPayload>(appStateSyncEvent, ({ payload }) => {
-        if (busy() || editingTodo() !== null || editingRecord() !== null) {
-          return;
-        }
-        applyAppStateSnapshot(payload);
-        setLoadState("ready");
-        setLoadError("");
-        setSyncError("");
-        if (currentWindowLabel === "main") void refreshPendingBookmarkPrompt();
-      })
-        .then((unlisten) => {
-          if (appStateSyncActive) {
-            appStateSyncUnlisten = unlisten;
-          } else {
-            void unlisten();
-          }
-        })
-        .catch(() => undefined);
+      window.addEventListener("focus", onMainWindowFocus);
+      document.addEventListener("visibilitychange", onMainWindowVisibility);
     }
 
     if (currentWindowLabel === "main") {
-      window.addEventListener("focus", onMainWindowFocus);
-      document.addEventListener("visibilitychange", onMainWindowVisibility);
       void listen("pending-bookmark-notice", onMainWindowFocus)
         .then((unlisten) => {
           if (bookmarkSyncActive) {
@@ -2036,51 +2257,71 @@ export function useMainShellController() {
     }
 
     if (currentWindowLabel === "main" || isFloatingWindow || isFocusFloatingWindow) {
-      void loadFromStorage()
-        .then(() => refreshPendingBookmarkPrompt())
-        .catch((error) => {
-          showMessage(getErrorMessage(error), "error");
-        });
+      localRevisionUnsubscribe = subscribeToLocalRevisionChanges(handleObservedRevisions);
+      void (async () => {
+        try {
+          dataRevisionUnlisten = await listen<DataRevisions>(dataRevisionsChangedEvent, ({ payload }) => {
+            handleObservedRevisions(payload);
+            if (currentWindowLabel === "main") void refreshPendingBookmarkPrompt();
+          });
+        } catch (error) {
+          setSyncError(`版本事件监听失败，将使用定时校准：${getErrorMessage(error)}`);
+        }
+        if ((isFloatingWindow || isFocusFloatingWindow) && coreSyncActive) {
+          try {
+            timerSampleUnlisten = await listen<TimerSyncSnapshot>(timerSyncSampleEvent, ({ payload }) => {
+              queueTimerSample(payload, true);
+            });
+          } catch (error) {
+            setSyncError(`计时同步监听失败，将使用轻量轮询：${getErrorMessage(error)}`);
+          }
+        }
+        if (!coreSyncActive) {
+          if (dataRevisionUnlisten) void dataRevisionUnlisten();
+          if (timerSampleUnlisten) void timerSampleUnlisten();
+          return;
+        }
 
-      if (currentWindowLabel === "main") {
-        interval = window.setInterval(
-          () => {
-            if (loadState() === "error") {
-              return;
+        void loadFromStorage()
+          .then(() => refreshPendingBookmarkPrompt())
+          .catch((error) => showMessage(getErrorMessage(error), "error"));
+
+        if (currentWindowLabel === "main") {
+          timerInterval = window.setInterval(() => {
+            void refreshTimerSyncSnapshot(true);
+          }, 1000);
+          calibrationInterval = window.setInterval(() => {
+            void calibrateDataRevisions();
+          }, 30_000);
+          localDayInterval = window.setInterval(() => {
+            const nextDay = getToday();
+            if (nextDay !== lastLocalDay) {
+              lastLocalDay = nextDay;
+              void requestBusinessSync(["analytics"], false).catch(() => undefined);
             }
-
-            const shouldRefreshBusiness = !busy() && editingTodo() === null && editingRecord() === null;
-            const hadSyncError = Boolean(syncError());
-            const refreshTask = shouldRefreshBusiness ? refresh() : refreshTimerSnapshot();
-            void refreshTask
-              .then((refreshed) => {
-                if (!refreshed) {
-                  return;
-                }
-                setLoadState("ready");
-                setLoadError("");
-                setSyncError("");
-                if (hadSyncError && messageKind() === "error") {
-                  clearMessage();
-                }
-              })
-              .catch((error) => {
-                const text = getErrorMessage(error);
-                setSyncError(text);
-                if (!hadSyncError && followUpTasks().length === 0) {
-                  showMessage("本地数据刷新失败，请稍后重试。", "error");
-                }
-              });
-          },
-          1000,
-        );
-      }
+          }, 15_000);
+        } else {
+          timerInterval = window.setInterval(() => {
+            if (Date.now() - lastMainTimerSampleAt > 2500) {
+              void refreshTimerSyncSnapshot(false);
+            }
+          }, 1000);
+          calibrationInterval = window.setInterval(() => {
+            void calibrateDataRevisions();
+          }, 30_000);
+        }
+      })();
     }
 
     onCleanup(() => {
-      if (interval !== undefined) {
-        window.clearInterval(interval);
-      }
+      coreSyncActive = false;
+      if (timerInterval !== undefined) window.clearInterval(timerInterval);
+      if (calibrationInterval !== undefined) window.clearInterval(calibrationInterval);
+      if (localDayInterval !== undefined) window.clearInterval(localDayInterval);
+      if (syncRetryTimer !== undefined) window.clearTimeout(syncRetryTimer);
+      if (localRevisionUnsubscribe) localRevisionUnsubscribe();
+      if (dataRevisionUnlisten) void dataRevisionUnlisten();
+      if (timerSampleUnlisten) void timerSampleUnlisten();
       if (floatingResizeFrame !== undefined) {
         window.cancelAnimationFrame(floatingResizeFrame);
         floatingResizeFrame = undefined;
@@ -2088,10 +2329,6 @@ export function useMainShellController() {
       floatingSyncActive = false;
       if (floatingSyncUnlisten) {
         void floatingSyncUnlisten();
-      }
-      appStateSyncActive = false;
-      if (appStateSyncUnlisten) {
-        void appStateSyncUnlisten();
       }
       trayNavigationActive = false;
       if (trayNavigationUnlisten) {

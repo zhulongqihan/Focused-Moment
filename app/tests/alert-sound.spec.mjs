@@ -14,9 +14,8 @@ async function observeAudio(page) {
 async function triggerAlert(page, sequence) {
   await page.evaluate(async (alertSequence) => {
     window.__replaceTimer({ alertSequence, alertKey: "stopwatch_target", alertTitle: "专注提醒", alertMessage: "已到提醒时间" });
-    await window.__TAURI_INTERNALS__.invoke("plugin:event|emit", {
-      event: "app-state-sync", payload: window.__getAppStateSyncPayload(),
-    });
+    const revisions = window.__getDataRevisions();
+    window.__setDataRevisions({ timerOperationRevision: revisions.timerOperationRevision + 1 });
   }, sequence);
 }
 
@@ -54,7 +53,7 @@ test("restored preferences supply custom audio without a legacy localStorage key
   await bootWithTauriMock(page);
   await page.evaluate(async () => {
     const invoke = window.__TAURI_INTERNALS__.invoke;
-    await invoke("update_app_preferences", { preferences: { ...await invoke("get_app_preferences"), customAlertSoundName: "restored.wav", customAlertSoundData: "data:audio/wav;base64,UkVTVE9SRUQ=" } });
+    await invoke("update_custom_alert_audio", { name: "restored.wav", data: "data:audio/wav;base64,UkVTVE9SRUQ=" });
     await invoke("update_timer_preferences", { preferences: { ...await invoke("get_timer_preferences"), alertSoundKey: "custom" } });
   });
   await page.getByRole("button", { name: "设置", exact: true }).click();
@@ -73,7 +72,7 @@ test("floating windows display the same alert without playing a second sound", a
     await target.evaluate(async () => {
       const invoke = window.__TAURI_INTERNALS__.invoke;
       await invoke("update_timer_preferences", { preferences: { ...await invoke("get_timer_preferences"), alertSoundKey: "custom" } });
-      await invoke("update_app_preferences", { preferences: { ...await invoke("get_app_preferences"), customAlertSoundName: "shared.wav", customAlertSoundData: "data:audio/wav;base64,U0hBUkVE" } });
+      await invoke("update_custom_alert_audio", { name: "shared.wav", data: "data:audio/wav;base64,U0hBUkVE" });
     });
   }
   await page.getByRole("button", { name: "设置", exact: true }).click();

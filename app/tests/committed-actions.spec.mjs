@@ -35,7 +35,7 @@ test("a committed manual record closes once even when analytics fail; retry only
   await page.getByRole("button", { name: "补录专注" }).click();
   const dialog = page.getByRole("dialog", { name: "补录一段专注" });
   await dialog.getByRole("textbox", { name: "标题" }).fill("只应保存一次");
-  await failCommands(page, ["get_analytics_snapshot"]);
+  await failCommands(page, ["get_sync_snapshot"]);
   await dialog.getByRole("button", { name: "补录记录" }).click();
   await expect(dialog).toBeHidden();
   await expect(page.getByText("记录已保存，统计暂未刷新。", { exact: true })).toBeVisible();
@@ -67,7 +67,7 @@ test("a failed manual write retains its draft and can be submitted after recover
 test("finishing applies the committed timer before analytics can fail", async ({ page }) => {
   await bootWithTauriMock(page, { pausedFocus: true });
   await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: "计时", exact: true }).click();
-  await failCommands(page, ["get_analytics_snapshot"]);
+  await failCommands(page, ["get_sync_snapshot"]);
   await page.getByRole("button", { name: "完成并记录", exact: true }).click();
   await expect(page.getByText("记录已保存，统计暂未刷新。", { exact: true })).toBeVisible();
   await expect(page.getByRole("timer", { name: "这次专注计时" })).toContainText("保存成功");
@@ -84,7 +84,7 @@ test("a committed record edit closes even when its analytics refresh fails", asy
   await page.getByRole("button", { name: "详细编辑" }).first().click();
   const dialog = page.getByRole("dialog", { name: "编辑专注记录" });
   await dialog.getByRole("textbox", { name: "标题" }).fill("修改已提交");
-  await failCommands(page, ["get_analytics_snapshot"]);
+  await failCommands(page, ["get_sync_snapshot"]);
   await dialog.getByRole("button", { name: "保存修改" }).click();
   await expect(dialog).toBeHidden();
   await expect(page.getByText("记录已保存，统计暂未刷新。", { exact: true })).toBeVisible();
@@ -98,8 +98,8 @@ test("a committed portable import retries only the replacement read after refres
   await page.getByRole("button", { name: "预览", exact: true }).click();
   await expect(page.getByText("2.12.1", { exact: true })).toBeVisible();
 
-  await failCommands(page, ["get_todo_items"]);
-  await countCommands(page, ["import_app_backup_path", "get_todo_items"]);
+  await failCommands(page, ["get_sync_snapshot"]);
+  await countCommands(page, ["import_app_backup_path", "get_sync_snapshot"]);
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "确认导入并生成回滚" }).click();
 
@@ -107,21 +107,21 @@ test("a committed portable import retries only the replacement read after refres
   const notice = page.getByText(noticeText, { exact: true });
   await expect(notice).toBeVisible();
   expect(await page.evaluate(() => window.__commandCalls.import_app_backup_path)).toBe(1);
-  const failedReadCount = await page.evaluate(() => window.__commandCalls.get_todo_items);
+  const failedReadCount = await page.evaluate(() => window.__commandCalls.get_sync_snapshot);
 
   await page.evaluate(() => { window.__failingCommands = []; });
   await page.getByRole("button", { name: "重试后续步骤" }).click();
   await expect(notice).toBeHidden();
   expect(await page.evaluate(() => window.__commandCalls.import_app_backup_path)).toBe(1);
-  expect(await page.evaluate(() => window.__commandCalls.get_todo_items)).toBeGreaterThan(failedReadCount);
+  expect(await page.evaluate(() => window.__commandCalls.get_sync_snapshot)).toBeGreaterThan(failedReadCount);
 });
 
 test("a committed data clear retries only the replacement read after refresh fails", async ({ page }) => {
   await bootWithTauriMock(page, { includeRecords: true });
   await openSettings(page);
 
-  await failCommands(page, ["get_todo_items"]);
-  await countCommands(page, ["clear_app_data", "get_todo_items"]);
+  await failCommands(page, ["get_sync_snapshot"]);
+  await countCommands(page, ["clear_app_data", "get_sync_snapshot"]);
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "清空当前数据", exact: true }).click();
 
@@ -130,13 +130,13 @@ test("a committed data clear retries only the replacement read after refresh fai
   await expect(notice).toBeVisible();
   expect(await page.evaluate(() => window.__clearAppDataCalls)).toBe(1);
   expect(await page.evaluate(() => window.__commandCalls.clear_app_data)).toBe(1);
-  const failedReadCount = await page.evaluate(() => window.__commandCalls.get_todo_items);
+  const failedReadCount = await page.evaluate(() => window.__commandCalls.get_sync_snapshot);
 
   await page.evaluate(() => { window.__failingCommands = []; });
   await page.getByRole("button", { name: "重试后续步骤" }).click();
   await expect(notice).toBeHidden();
   expect(await page.evaluate(() => window.__commandCalls.clear_app_data)).toBe(1);
-  expect(await page.evaluate(() => window.__commandCalls.get_todo_items)).toBeGreaterThan(failedReadCount);
+  expect(await page.evaluate(() => window.__commandCalls.get_sync_snapshot)).toBeGreaterThan(failedReadCount);
   expect(await page.evaluate(async () => (await window.__TAURI_INTERNALS__.invoke("get_todo_items")).length)).toBe(0);
   expect(await page.evaluate(async () => (await window.__TAURI_INTERNALS__.invoke("get_focus_records")).length)).toBe(0);
 });

@@ -377,7 +377,8 @@ pub(crate) fn toggle_timer_from_tray(app: &AppHandle) -> Result<(), String> {
     };
 
     state.persist_runtime()?;
-    transaction.commit();
+    let revisions = transaction.commit(RevisionChanges::TIMER_OPERATION);
+    publish_data_revisions(app, revisions);
     refresh_system_tray_menu(&snapshot);
     Ok(())
 }
@@ -779,7 +780,7 @@ pub(crate) fn quit_application(app: tauri::AppHandle) -> Result<(), String> {
     if let Some(state) = app.try_state::<TimerEngineState>() {
         let transaction = state.begin_transaction(OperationScope::Runtime)?;
         state.persist_runtime()?;
-        transaction.commit();
+        transaction.commit(RevisionChanges::NONE);
     }
     if let Some(state) = app.try_state::<AppLifecycleState>() {
         state.mark_quitting();

@@ -154,7 +154,7 @@ if (-not (Test-Path -LiteralPath $sourceExecutable -PathType Leaf)) {
   throw "Native smoke executable not found: $sourceExecutable"
 }
 
-$existingProcesses = @(Get-Process -Name "focused-moment" -ErrorAction SilentlyContinue)
+$existingProcesses = @(Get-Process -Name @("Focused Moment", "focused-moment") -ErrorAction SilentlyContinue)
 if ($existingProcesses.Count -gt 0) {
   throw "Refusing native smoke while a Focused Moment process is already running; no user process was terminated."
 }

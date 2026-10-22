@@ -62,8 +62,14 @@ $result = Publish-LocalExecutable @publishParameters
 
 Write-Host "Local executable delivery succeeded."
 Write-Host (" - build ID: {0}" -f $result.buildId)
-Write-Host (" - root executable: {0}" -f $result.rootExecutablePath)
-Write-Host (" - SHA-256: {0}" -f $result.sha256)
+Write-Host (" - Release candidate: {0}" -f $result.candidatePath)
+Write-Host (" - candidate SHA-256: {0}" -f $result.sha256)
+if ($result.rootUpdated) {
+  Write-Host (" - root executable updated: {0}" -f $result.rootExecutablePath)
+} else {
+  Write-Host (" - root executable unchanged while a Focused Moment process is running: {0}" -f $result.rootExecutablePath)
+  Write-Host (" - preserved candidate copy: {0}" -f $result.stagedCandidatePath)
+}
 Write-Host (" - file version: {0}" -f $result.versionInfo.fileVersion)
 Write-Host (" - product version: {0}" -f $result.versionInfo.productVersion)
 Write-Host (" - manifest: {0}" -f $result.manifestPath)

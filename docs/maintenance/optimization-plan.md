@@ -8,7 +8,7 @@
 - A 批首次交付的根入口为 2.13.9（SHA-256 `3542369B271858EDEAC71F70AF56F79EB9CEE55F98991498EA153BD1522A63B3`）；之后由 B、C 批依次替换。当前根目录 `Focused Moment.exe` 为 C 批 2.14.0，SHA-256 `8FB3E4A468C52A6745A4DD1F164B9CB76DDB8969358A3A23E3BA34B670646F4C`，build ID `local-20261015-194816-ff963e39a1`。
 - B 批 2.13.10 本地验收已完成：四个应用/验收提交先快进推送至 `d1976da7669e55e979c24bdd319054a529f3d918`，后续文档提交 `589beec2a89cc967cccfe21e1dc52b1cc67203a6` 与发布说明指针校正 `0084a05` 也已推送。B 批相关实现、Release 候选和 Windows 原生验收证据见下方对应工作单元。
 - C 批 2.14.0 已完成源码提交推送、匹配 Release EXE 交付、代码级验证及 Windows 原生交互闭环。真实隔离 UI 验收了浮窗完成、主窗书签提示、跳过/保存和待办保持未完成；证据分层及未实测分支见下方 2026-10-22 工作单元。当前根入口 SHA-256 为 `8FB3E4A468C52A6745A4DD1F164B9CB76DDB8969358A3A23E3BA34B670646F4C`，build ID `local-20261015-194816-ff963e39a1`。
-- D 批 2.14.1 已进入只读调用链审计与设计阶段；尚未修改应用源码或构建输入。初步审计发现主窗空闲时每秒执行七域全量读取并广播完整状态，且会重复读取自定义音频；准确 D 方案与验收项见下方最新工作单元。
+- D 批 2.14.1 的增量同步实现、219/219 浏览器 mock、Rust/静态验证和 Release 候选构建已完成。候选 build ID 为 `local-20261022-175851-0138254e16`，SHA-256 `A4F08A49C44A054C81A62881419B44EC6C806429AC484810813959FDEED72D9C`；根入口仍为 2.14.0，PID 43308 正在运行。单实例保护已阻止同候选 Windows smoke 并行启动；根替换和同候选 Windows 原生验收未完成，因此 D 尚未退出、E 尚未开始。
 - 未另外核验远程 CI；未做 GitHub Release、tag、安装器或资产上传。`PROJECT_PLAN.md` 仍受只读保护，当前 SHA-256 为 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`。
 
 ## 本轮原始基线（2026-10-11）
@@ -27,7 +27,7 @@
 | A 交付已有可靠性修复 | 2.13.9 | 已完成 | 来源匹配的 Release EXE 已交付；pnpm verify、生产构建、完整浏览器 178/178、官方 Windows 冒烟、原生交互及进程级声音峰值观测通过。 |
 | B 保证保存与重置安全 | 2.13.10 | 本地验收完成并已推送 | 源码、Rust/浏览器回归、匹配 Release EXE、官方 Windows 隔离冒烟、原生重置 UIAutomation 和活跃写入强退后的启动回滚均通过。四个提交已推送至确认分支；未检查远程 CI，未创建正式 Release。 |
 | C 统一日常操作 | 2.14.0 | 已完成 | 源码提交推送、Release EXE 交付、Rust/浏览器回归及真实 Windows 浮窗与书签交互验收完成；主窗恢复失败未在原生运行中注入，另有 mock 用例覆盖。 |
-| D 降低持续运行开销 | 2.14.1 | 进行中：调用链审计 | C 已完成；正在以业务域修订号、原子选择性快照、每窗单次在途、轻量计时样本和独立音频读取替代每秒全量同步。完成条件仍为本计划中的定量验收及匹配 Windows Release 交付。 |
+| D 降低持续运行开销 | 2.14.1 | 进行中：本地代码验收通过，Windows Release 待验收 | 增量同步已实现，浏览器 mock 219/219、Rust 57 passed/0 failed/1 ignored、默认 Release 候选与输入 provenance 已核对。候选因根 2.14.0 进程占用而仅保存到 `artifacts/builds/local/local-20261022-175851-0138254e16/`；同实例插件要求先关闭当前进程，才能更新根入口并对匹配候选运行隔离 Windows smoke。 |
 | E 降低启动负担并完成总验收 | 2.14.2 | 未开始 | 主题按需加载、预览衍生图、性能比较、Windows 原生专项和最终交接完成。 |
 
 ## 批次 0 证据
@@ -155,3 +155,13 @@
 - **实现边界**：D 目标是每窗口一个在途业务快照请求、按域合并变化、响应应用后再追赶待处理域；主窗与浮窗使用独立的轻量计时同步；音频仅主窗初始化或音源版本变化时读取。读取失败保留当前 UI 与待处理域，按 1/2/5/10/30 秒退避，不重放写命令；30 秒版本校准、可见/焦点与午夜检查补偿漏事件。
 - **量化验收**：稳定无变化 60 秒周期业务全量读/广播/音频重读均为 0；1.5–3 秒注入延迟时每窗最多一个业务请求且不饥饿；漏事件由 30 秒校准后的实际请求收敛；无变化流量与记录量/音频大小无关。浏览器 mock、Rust、Windows Release 三类证据分别记录；当前尚未执行 D 实现和验证。
 - **当前唯一下一步**：继续逐项映射 `commands.rs` / `runtime.rs` 的成功写事务到五个业务域及音源版本，确定不在读路径引入大数据遍历的快照锁边界，然后实现版本 API 与同步协调器。`PROJECT_PLAN.md` SHA-256 保持 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`。
+
+### 2026-10-22 D 批 2.14.1 实现与候选交付检查点
+
+- **实现范围**：原生事务成功提交后按域增加 `DataRevisions` 并发布精确变化；新增轻量版本读取、按域同步快照、计时样本和独立音频接口。应用偏好改用字段补丁。前端每窗单飞、合并待处理域、拒绝旧版本覆盖，30 秒校准并在可见/焦点恢复时补偿；主窗每秒只拉轻量计时样本并有序通知浮窗，浮窗样本超过 2.5 秒才回退读取；音频不再随普通偏好快照传输。
+- **完整浏览器 mock**：219/219 passed，4 workers、0 retries。唯一运行目录：`artifacts/qa/frontend/d-full-final-20261022-inv-mvjc8w2z-39320-e1a77ce2-8473-4f43-917b-704f3fca9e30/`。其中 60 秒稳态为 0 周期业务读取、0 完整业务广播、0 音频重读；另覆盖慢快照单飞、漏事件校准、固定修订载荷、音频重试和浮窗有序计时样本。
+- **静态/Rust 验证**：最终 `pnpm verify` 退出码 0，日志 `artifacts/qa/verify/d-batch-20261022-final/pnpm-verify.log`；原生契约 63 命令/6 事件、结构和本地交付脚本用例通过。Rust `fmt/check/test` 通过，57 passed、0 failed、1 ignored。保留已有未使用导入/死代码 warning。Vite 生产构建由默认 Release 打包触发，转换 2,097 个模块；入口 JS 939.27 kB、CSS 919.04 kB，Vite 仍提示大 chunk，留给 E 批。
+- **交付脚本修复**：发现 Windows 对正在运行的 `Focused Moment.exe` 不允许复制，且此前 smoke 只检查 Cargo 目标名，漏掉了实际带空格的进程名。交付流程现在在备份/替换前识别两种进程名；进程运行时保存已校验候选、记录 candidate-only manifest/journal、保留根文件并明确不声称存在备份。Windows smoke 对相同两种名称拒绝并行启动，回归验证覆盖此保护。
+- **Release 候选**：默认 `pnpm package:local` 构建成功。build ID `local-20261022-175851-0138254e16`，候选文件 `artifacts/builds/local/local-20261022-175851-0138254e16/Focused Moment.exe.candidate`，FileVersion/ProductVersion 均为 2.14.1，SHA-256 `A4F08A49C44A054C81A62881419B44EC6C806429AC484810813959FDEED72D9C`。196 个构建输入前后和 manifest digest 均为 `4C6F9BBE033BE43D027E351CD46C149B49F7AE318B9B00329480B884B29EA1D7`。完整 provenance 为 `artifacts/builds/local/local-20261022-175851-0138254e16/manifest.json`，打包日志为 `artifacts/qa/build/d-batch-20261022/pnpm-package-local-final.log`。
+- **根入口及原生阻塞**：当前根 `Focused Moment.exe` 仍为 2.14.0，SHA-256 `8FB3E4A468C52A6745A4DD1F164B9CB76DDB8969358A3A23E3BA34B670646F4C`；PID 43308 的窗口可见且响应中。因 Windows 文件锁，根入口未被替换，旧入口无法复制，provenance 的 `previousRoot.backupPath` 为 `null`，`delivery.rootReplacementCompleted=false`。对同一 2.14.1 候选调用 `pnpm native:windows -ExecutablePath <candidate>`，已被修正后的单实例守卫拒绝；日志 `artifacts/qa/native/windows-native-d-process-guard-20261022/native-smoke-attempt.log`。没有把该结果记作 Windows 原生通过，也没有终止用户进程。
+- **工作区保护及下一步**：`PROJECT_PLAN.md` SHA-256 仍为 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`。等待用户手动关闭根目录 2.14.0 窗口；之后使用默认 `pnpm package:local` 更新根入口，再对匹配的 2.14.1 候选运行 `pnpm native:windows`。D 退出条件通过后再开始 E，当前未做正式 GitHub Release、tag、安装器或上传。

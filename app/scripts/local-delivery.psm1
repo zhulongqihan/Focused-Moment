@@ -291,6 +291,10 @@ function Publish-LocalExecutable {
     [string]$RootExecutablePath,
     [string]$LocalRecordDirectory,
     [string]$ArchiveDirectory,
+    [switch]$PreserveRootExecutable,
+    [scriptblock]$RootProcessProbe = {
+      @(Get-Process -Name @("Focused Moment", "focused-moment") -ErrorAction SilentlyContinue).Count -gt 0
+    },
     [scriptblock]$CopyAction = {
       param($sourcePath, $destinationPath)
       Copy-Item -LiteralPath $sourcePath -Destination $destinationPath -Force
@@ -368,6 +372,10 @@ function Publish-LocalExecutable {
   $rootExisted = Test-Path -LiteralPath $rootExecutable -PathType Leaf
   $previousRootHash = if ($rootExisted) { Get-LocalDeliveryFileHash -Path $rootExecutable } else { $null }
   $repositoryState = if ($InputFingerprint) { Get-LocalDeliveryRepositoryState -AppRoot $appRoot -InputFingerprint $InputFingerprint } else { $null }
+  if (-not $PreserveRootExecutable) {
+    $PreserveRootExecutable = [bool](& $RootProcessProbe)
+  }
+  $rootBackupCreated = $false
 
   $journal = [ordered]@{
     schemaVersion = 1
@@ -380,7 +388,8 @@ function Publish-LocalExecutable {
     rootPath = ConvertTo-LocalDeliveryRelativePath -Path $rootExecutable -Root $workspaceRoot
     rootExisted = $rootExisted
     previousRootSha256 = $previousRootHash
-    backupPath = ConvertTo-LocalDeliveryRelativePath -Path $backupPath -Root $workspaceRoot
+    rootReplacementDeferred = [bool]$PreserveRootExecutable
+    backupPath = if ($rootExisted -and -not $PreserveRootExecutable) { ConvertTo-LocalDeliveryRelativePath -Path $backupPath -Root $workspaceRoot } else { $null }
     manifestPath = ConvertTo-LocalDeliveryRelativePath -Path $manifestPath -Root $workspaceRoot
     startedAt = (Get-Date).ToUniversalTime().ToString("o")
   }
@@ -402,12 +411,13 @@ function Publish-LocalExecutable {
   }
 
   try {
-    if ($rootExisted) {
+    if ($rootExisted -and -not $PreserveRootExecutable) {
       Invoke-LocalDeliveryCopy -CopyAction $CopyAction -Source $rootExecutable -Destination $backupPath
       $backupHash = Get-LocalDeliveryFileHash -Path $backupPath
       if ($backupHash -ne $previousRootHash) {
         throw "Previous root backup hash mismatch. Expected $previousRootHash, got $backupHash."
       }
+      $rootBackupCreated = $true
     }
     $journal.phase = "root-backed-up"
     Write-LocalDeliveryJson -Path $journalPath -Value $journal
@@ -420,12 +430,32 @@ function Publish-LocalExecutable {
     $journal.phase = "candidate-staged"
     Write-LocalDeliveryJson -Path $journalPath -Value $journal
 
-    Invoke-LocalDeliveryCopy -CopyAction $CopyAction -Source $stagedCandidatePath -Destination $rootExecutable
-    $rootHash = Get-LocalDeliveryFileHash -Path $rootExecutable
-    if ($rootHash -ne $candidateHash) {
-      throw "Root executable hash mismatch. Expected $candidateHash, got $rootHash."
+    if (-not $PreserveRootExecutable) {
+      $rootProcessRunning = [bool](& $RootProcessProbe)
+      if ($rootProcessRunning) {
+        $PreserveRootExecutable = $true
+        $journal.rootReplacementDeferred = $true
+      }
     }
-    $journal.phase = "root-replaced"
+
+    if ($PreserveRootExecutable) {
+      $rootHash = if ($rootExisted) { Get-LocalDeliveryFileHash -Path $rootExecutable } else { $null }
+      if ($rootExisted -and $rootHash -ne $previousRootHash) {
+        throw "Root executable changed while delivery was being prepared. Expected $previousRootHash, got $rootHash."
+      }
+      $deliveryStatus = "candidate-only-root-in-use"
+      $journal.phase = "candidate-preserved-root-in-use"
+      $journal.rootReplacementDeferred = $true
+    } else {
+      Invoke-LocalDeliveryCopy -CopyAction $CopyAction -Source $stagedCandidatePath -Destination $rootExecutable
+      $rootHash = Get-LocalDeliveryFileHash -Path $rootExecutable
+      if ($rootHash -ne $candidateHash) {
+        throw "Root executable hash mismatch. Expected $candidateHash, got $rootHash."
+      }
+      $deliveryStatus = "root-replaced"
+      $journal.phase = "root-replaced"
+    }
+
     Write-LocalDeliveryJson -Path $journalPath -Value $journal
 
     $manifest = [ordered]@{
@@ -448,14 +478,20 @@ function Publish-LocalExecutable {
       previousRoot = [ordered]@{
         existed = $rootExisted
         sha256 = $previousRootHash
-        backupPath = if ($rootExisted) { ConvertTo-LocalDeliveryRelativePath -Path $backupPath -Root $workspaceRoot } else { $null }
+        backupPath = if ($rootBackupCreated) { ConvertTo-LocalDeliveryRelativePath -Path $backupPath -Root $workspaceRoot } else { $null }
       }
       source = $repositoryState
       buildInputFingerprint = $InputFingerprint
       recovery = [ordered]@{
         journalPath = ConvertTo-LocalDeliveryRelativePath -Path $journalPath -Root $workspaceRoot
-        backupPath = if ($rootExisted) { ConvertTo-LocalDeliveryRelativePath -Path $backupPath -Root $workspaceRoot } else { $null }
-        rollbackSupported = $true
+        backupPath = if ($rootBackupCreated) { ConvertTo-LocalDeliveryRelativePath -Path $backupPath -Root $workspaceRoot } else { $null }
+        rollbackSupported = $rootBackupCreated -or -not $rootExisted
+        rootEntryPreserved = [bool]$PreserveRootExecutable
+      }
+      delivery = [ordered]@{
+        status = $deliveryStatus
+        rootReplacementCompleted = -not [bool]$PreserveRootExecutable
+        reason = if ($PreserveRootExecutable) { "focused-moment-process-running" } else { $null }
       }
     }
 
@@ -464,8 +500,8 @@ function Publish-LocalExecutable {
       throw "Manifest writer completed without creating the manifest: $manifestPath"
     }
     $writtenManifest = Get-Content -Raw -LiteralPath $manifestPath | ConvertFrom-Json
-    if ($writtenManifest.rootExecutable.sha256 -ne $candidateHash -or $writtenManifest.candidate.sha256 -ne $candidateHash) {
-      throw "Delivery manifest does not match the delivered executable hash."
+    if ($writtenManifest.rootExecutable.sha256 -ne $rootHash -or $writtenManifest.candidate.sha256 -ne $candidateHash) {
+      throw "Delivery manifest does not match the candidate and root executable hashes."
     }
 
     $journal.phase = "delivered"
@@ -475,20 +511,29 @@ function Publish-LocalExecutable {
       buildId = $BuildId
       manifestPath = $manifestPath
       journalPath = $journalPath
-      archivePath = if ($rootExisted) { $backupPath } else { $null }
+      archivePath = if ($rootBackupCreated) { $backupPath } else { $null }
       candidatePath = $candidate
+      stagedCandidatePath = $stagedCandidatePath
       rootExecutablePath = $rootExecutable
+      rootUpdated = -not [bool]$PreserveRootExecutable
       sha256 = $candidateHash
       versionInfo = $candidateVersionInfo
-      phase = "delivered"
+      phase = $deliveryStatus
     }
   } catch {
     $originalError = $_.Exception.Message
     $journal.phase = "delivery-failed"
     $journal.error = $originalError
     try {
-      & $restoreRoot
-      $journal.recovery = "previous-root-restored"
+      if ($PreserveRootExecutable) {
+        if ($rootExisted -and (Get-LocalDeliveryFileHash -Path $rootExecutable) -ne $previousRootHash) {
+          throw "Root executable changed while candidate-only delivery was being finalized."
+        }
+        $journal.recovery = "root-entry-left-unchanged"
+      } else {
+        & $restoreRoot
+        $journal.recovery = "previous-root-restored"
+      }
     } catch {
       $journal.recovery = "restore-failed: $($_.Exception.Message)"
     }
