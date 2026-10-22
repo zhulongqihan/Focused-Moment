@@ -651,6 +651,7 @@ test("All five themes restore distinct Today compositions without changing the f
       await expect(page.locator(".cc-home-court")).toContainText("整理研究资料");
     } else {
       await expect(page.locator(themeLayouts[themeId].today)).toContainText("02:15:00");
+      await expect(page.locator(".daily-focus-line")).not.toHaveAttribute("data-copy-id", "loading");
       const copyId = await page.locator(".daily-focus-line").getAttribute("data-copy-id");
       expect(copyId).toBeTruthy();
       focusLines.push(copyId);

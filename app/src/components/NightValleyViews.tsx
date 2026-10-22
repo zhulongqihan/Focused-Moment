@@ -1,4 +1,4 @@
-import { For, Show, createMemo, createSignal } from "solid-js";
+import { For, Show, createMemo, createSignal, lazy } from "solid-js";
 import {
   ArrowUpRight,
   CircleCheck,
@@ -21,9 +21,12 @@ import type {
   TodoSurfaceProps,
 } from "../lib/theme-contracts";
 import { themes } from "../lib/themes";
-import { TodoDateGroupList } from "../features/todos/TodoDateGroupList";
 import { groupTodosByDate } from "../features/todos/todo-groups";
 import { NightValleyDateStamp } from "./NightValleyDateStamp";
+
+const TodoDateGroupList = lazy(async () => ({
+  default: (await import("../features/todos/TodoDateGroupList")).TodoDateGroupList,
+}));
 
 function currentDateLabel() {
   return new Date()
@@ -775,7 +778,7 @@ export function NightValleySettings(props: SettingsSurfaceProps) {
           <section id="nv-appearance" class="settings-section nv-settings-panel nv-settings-panel--appearance">
             <div class="settings-section__heading"><span class="nv-section-kicker">APPEARANCE / 01</span><h2>外观</h2><p>选择一个工作氛围，切换会立即生效并自动保存。</p></div>
             <div class="nv-theme-grid" aria-label="主题选择">
-              <For each={themes}>{(theme) => <button type="button" classList={{ "nv-theme-card": true, "is-selected": props.themeId() === theme.id, "is-disabled": !theme.implemented }} disabled={!theme.implemented} aria-pressed={props.themeId() === theme.id} title={theme.implemented ? `使用${theme.name}主题` : `${theme.name}主题尚未实现`} onClick={() => props.onThemeSelect(theme.id)}><img src={theme.preview} alt={`${theme.englishName} 概念预览`} /><span class="nv-theme-card__shade" /><strong>{theme.name}</strong><small>{theme.implemented ? "已实现" : "尚未实现"}</small></button>}</For>
+              <For each={themes}>{(theme) => <button type="button" classList={{ "nv-theme-card": true, "is-selected": props.themeId() === theme.id, "is-disabled": !theme.implemented }} disabled={!theme.implemented} aria-pressed={props.themeId() === theme.id} title={theme.implemented ? `使用${theme.name}主题` : `${theme.name}主题尚未实现`} onClick={() => props.onThemeSelect(theme.id)}><img src={theme.preview} alt={`${theme.englishName} 概念预览`} width={640} height={455} loading="lazy" decoding="async" /><span class="nv-theme-card__shade" /><strong>{theme.name}</strong><small>{theme.implemented ? "已实现" : "尚未实现"}</small></button>}</For>
             </div>
           </section>
 

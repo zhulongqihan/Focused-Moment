@@ -36,7 +36,7 @@
 
 .minimal-app.minimal-app--cinematic[data-theme="botanical-library"] .minimal-nav {
   position: sticky !important;
-  top: 0 !important;
+  top: 72px !important;
   z-index: 30;
   display: flex !important;
   flex-direction: column;
@@ -2285,7 +2285,7 @@
   }
   .minimal-app.minimal-app--cinematic[data-theme="botanical-library"] .minimal-nav {
     position: sticky !important;
-    top: 0 !important;
+    top: 72px !important;
     display: grid !important;
     grid-template-columns: repeat(5, minmax(0, 1fr));
     width: 100%;

@@ -21,7 +21,7 @@ export default function ThemePicker(props: ThemePickerProps) {
             title={`使用${theme.name}主题`}
             onClick={() => props.onChange(theme.id)}
           >
-            <img src={theme.preview} alt={`${theme.englishName} 主题预览`} />
+            <img src={theme.preview} alt={`${theme.englishName} 主题预览`} width={640} height={455} loading="lazy" decoding="async" />
             <span>{theme.name}</span>
           </button>
         )}

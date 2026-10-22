@@ -1,53 +1,6 @@
-import { Match, Show, Switch, createMemo } from "solid-js";
-import TodayDashboard from "./TodayDashboard";
-import {
-  EditorialPaperFocus,
-  EditorialPaperRecords,
-  EditorialPaperSettings,
-  EditorialPaperToday,
-  EditorialPaperTodos,
-} from "./EditorialPaperViews";
-import {
-  AuroraOceanFocus,
-  AuroraOceanRecords,
-  AuroraOceanSettings,
-  AuroraOceanToday,
-  AuroraOceanTodos,
-} from "./AuroraOceanViews";
-import {
-  BotanicalLibraryFocus,
-  BotanicalLibraryRecords,
-  BotanicalLibrarySettings,
-  BotanicalLibraryToday,
-  BotanicalLibraryTodos,
-} from "./BotanicalLibraryViews";
-import {
-  GraphiteConsoleFocus,
-  GraphiteConsoleRecords,
-  GraphiteConsoleSettings,
-  GraphiteConsoleToday,
-  GraphiteConsoleTodos,
-} from "./GraphiteConsoleViews";
-import {
-  MetroPulseFocus,
-  MetroPulseRecords,
-  MetroPulseSettings,
-  MetroPulseToday,
-  MetroPulseTodos,
-} from "./MetroPulseViews";
-import {
-  ClutchCourtFocus,
-  ClutchCourtRecords,
-  ClutchCourtSettings,
-  ClutchCourtToday,
-  ClutchCourtTodos,
-} from "./ClutchCourtViews";
-import {
-  NightValleyFocus,
-  NightValleyRecords,
-  NightValleySettings,
-  NightValleyTodo,
-} from "./NightValleyViews";
+import { Show, Suspense, createEffect, createMemo, createSignal, onCleanup, untrack } from "solid-js";
+import { Dynamic } from "solid-js/web";
+import type { Component } from "solid-js";
 import type {
   FocusSurfaceProps,
   RecordsSurfaceProps,
@@ -55,6 +8,7 @@ import type {
   TodaySurfaceProps,
   TodoSurfaceProps,
 } from "../lib/theme-contracts";
+import { loadThemeModule, type ThemeModule, type ThemeModuleId } from "../lib/theme-module-loader";
 import { getTheme, type ThemeId } from "../lib/themes";
 import LegacyThemeShelf from "./LegacyThemeShelf";
 import "./ThemeSurface.css";
@@ -71,98 +25,176 @@ export interface ThemeSurfaceProps {
   settings: SettingsSurfaceProps;
 }
 
-type ThemeImplementation =
-  | "night-valley"
-  | "editorial-paper"
-  | "graphite-console"
-  | "metro-pulse"
-  | "clutch-court"
-  | "aurora-ocean"
-  | "botanical-library";
+interface LoadedTheme {
+  id: ThemeId;
+  implementation: ThemeModuleId;
+  module: ThemeModule;
+}
 
-function resolveThemeImplementation(themeId: ThemeId): ThemeImplementation {
+interface ThemeLoadError {
+  themeId: ThemeId;
+  initial: boolean;
+}
+
+type SurfaceComponent = Component<any>;
+
+function resolveThemeImplementation(themeId: ThemeId): ThemeModuleId {
   if (themeId === "legacy-aurora-ocean") return "aurora-ocean";
   if (themeId === "legacy-botanical-library") return "botanical-library";
-
-  switch (getTheme(themeId).id) {
-    case "night-valley":
-      return "night-valley";
-    case "editorial-paper":
-      return "editorial-paper";
-    case "graphite-console":
-      return "graphite-console";
-    case "metro-pulse":
-      return "metro-pulse";
-    case "clutch-court":
-      return "clutch-court";
-    default:
-      return "night-valley";
-  }
+  return getTheme(themeId).id as ThemeModuleId;
 }
 
 /**
  * The shell owns data and actions; this boundary owns which visual surface renders them.
- * A future theme can replace the implementation behind this boundary without copying the
- * timer, storage, or navigation orchestration from MainShell.
+ * Theme modules are loaded only when selected. A pending selection never replaces the
+ * currently rendered module, and a stale load cannot commit over a newer selection.
  */
 export default function ThemeSurface(props: ThemeSurfaceProps) {
-  const themeImplementation = createMemo(() => resolveThemeImplementation(props.themeId()));
+  const [loadedTheme, setLoadedTheme] = createSignal<LoadedTheme>();
+  const [loadingThemeId, setLoadingThemeId] = createSignal<ThemeId | null>(null);
+  const [loadError, setLoadError] = createSignal<ThemeLoadError | null>(null);
+  let requestSequence = 0;
+  let disposed = false;
+
+  onCleanup(() => {
+    disposed = true;
+    requestSequence += 1;
+  });
+
+  function loadCurrentTheme(themeId: ThemeId) {
+    const implementation = resolveThemeImplementation(themeId);
+    if (untrack(() => loadedTheme()?.implementation === implementation)) return;
+
+    const requestId = ++requestSequence;
+    setLoadingThemeId(themeId);
+    setLoadError(null);
+
+    void loadThemeModule(implementation).then(
+      (module) => {
+        if (disposed || requestId !== requestSequence || props.themeId() !== themeId) return;
+        setLoadedTheme({ id: themeId, implementation, module });
+        setLoadingThemeId(null);
+      },
+      () => {
+        if (disposed || requestId !== requestSequence || props.themeId() !== themeId) return;
+        const initial = untrack(() => loadedTheme() === undefined);
+        setLoadingThemeId(null);
+        setLoadError({ themeId, initial });
+      },
+    );
+  }
+
+  createEffect(() => loadCurrentTheme(props.themeId()));
+
+  async function requestThemeSelection(themeId: ThemeId) {
+    const implementation = resolveThemeImplementation(themeId);
+    const existing = loadedTheme();
+    if (themeId === props.themeId() && existing?.implementation === implementation) {
+      requestSequence += 1;
+      setLoadingThemeId(null);
+      setLoadError(null);
+      return;
+    }
+
+    const requestId = ++requestSequence;
+    setLoadingThemeId(themeId);
+    setLoadError(null);
+    try {
+      const module = await loadThemeModule(implementation);
+      if (disposed || requestId !== requestSequence) return;
+      setLoadedTheme({ id: themeId, implementation, module });
+      setLoadingThemeId(null);
+      props.settings.onThemeSelect(themeId);
+    } catch {
+      if (disposed || requestId !== requestSequence) return;
+      setLoadingThemeId(null);
+      setLoadError({ themeId, initial: loadedTheme() === undefined });
+    }
+  }
+
+  function dismissLoadError() {
+    const current = loadedTheme();
+    const failure = loadError();
+    requestSequence += 1;
+    setLoadingThemeId(null);
+    setLoadError(null);
+    if (current) {
+      if (current.id !== props.themeId()) props.settings.onThemeSelect(current.id);
+      return;
+    }
+    if (failure && failure.themeId !== "night-valley") {
+      void requestThemeSelection("night-valley");
+    }
+  }
+
+  const activeComponent = createMemo<SurfaceComponent | undefined>(() => {
+    const module = loadedTheme()?.module;
+    if (!module) return undefined;
+    switch (props.activeView()) {
+      case "today": return module.today;
+      case "focus": return module.focus;
+      case "todos": return module.todos;
+      case "records": return module.records;
+      case "settings": return module.settings;
+    }
+  });
+
+  const activeProps = createMemo(() => {
+    switch (props.activeView()) {
+      case "today": return props.today;
+      case "focus": return props.focus;
+      case "todos": return props.todos;
+      case "records": return props.records;
+      case "settings": return { ...props.settings, onThemeSelect: requestThemeSelection };
+    }
+  });
+
+  const loadingThemeName = createMemo(() => {
+    const themeId = loadingThemeId();
+    return themeId ? getTheme(themeId).name : "";
+  });
+
+  const failedThemeName = createMemo(() => {
+    const themeId = loadError()?.themeId;
+    return themeId ? getTheme(themeId).name : "";
+  });
 
   return (
     <>
-      <Switch fallback={<section class="theme-surface-unavailable" role="status">当前主题暂不可用，已回退到可用主题。</section>}>
-      <Match when={themeImplementation() === "night-valley"}>
-        <Show when={props.activeView() === "today"}><TodayDashboard {...props.today} /></Show>
-        <Show when={props.activeView() === "focus"}><NightValleyFocus {...props.focus} /></Show>
-        <Show when={props.activeView() === "todos"}><NightValleyTodo {...props.todos} /></Show>
-        <Show when={props.activeView() === "records"}><NightValleyRecords {...props.records} /></Show>
-        <Show when={props.activeView() === "settings"}><NightValleySettings {...props.settings} /></Show>
-      </Match>
-      <Match when={themeImplementation() === "editorial-paper"}>
-        <Show when={props.activeView() === "today"}><EditorialPaperToday {...props.today} /></Show>
-        <Show when={props.activeView() === "focus"}><EditorialPaperFocus {...props.focus} /></Show>
-        <Show when={props.activeView() === "todos"}><EditorialPaperTodos {...props.todos} /></Show>
-        <Show when={props.activeView() === "records"}><EditorialPaperRecords {...props.records} /></Show>
-        <Show when={props.activeView() === "settings"}><EditorialPaperSettings {...props.settings} /></Show>
-      </Match>
-      <Match when={themeImplementation() === "graphite-console"}>
-        <Show when={props.activeView() === "today"}><GraphiteConsoleToday {...props.today} /></Show>
-        <Show when={props.activeView() === "focus"}><GraphiteConsoleFocus {...props.focus} /></Show>
-        <Show when={props.activeView() === "todos"}><GraphiteConsoleTodos {...props.todos} /></Show>
-        <Show when={props.activeView() === "records"}><GraphiteConsoleRecords {...props.records} /></Show>
-        <Show when={props.activeView() === "settings"}><GraphiteConsoleSettings {...props.settings} /></Show>
-      </Match>
-      <Match when={themeImplementation() === "metro-pulse"}>
-        <Show when={props.activeView() === "today"}><MetroPulseToday {...props.today} /></Show>
-        <Show when={props.activeView() === "focus"}><MetroPulseFocus {...props.focus} /></Show>
-        <Show when={props.activeView() === "todos"}><MetroPulseTodos {...props.todos} /></Show>
-        <Show when={props.activeView() === "records"}><MetroPulseRecords {...props.records} /></Show>
-        <Show when={props.activeView() === "settings"}><MetroPulseSettings {...props.settings} /></Show>
-      </Match>
-      <Match when={themeImplementation() === "clutch-court"}>
-        <Show when={props.activeView() === "today"}><ClutchCourtToday {...props.today} /></Show>
-        <Show when={props.activeView() === "focus"}><ClutchCourtFocus {...props.focus} /></Show>
-        <Show when={props.activeView() === "todos"}><ClutchCourtTodos {...props.todos} /></Show>
-        <Show when={props.activeView() === "records"}><ClutchCourtRecords {...props.records} /></Show>
-        <Show when={props.activeView() === "settings"}><ClutchCourtSettings {...props.settings} /></Show>
-      </Match>
-      <Match when={themeImplementation() === "aurora-ocean"}>
-        <Show when={props.activeView() === "today"}><AuroraOceanToday {...props.today} /></Show>
-        <Show when={props.activeView() === "focus"}><AuroraOceanFocus {...props.focus} /></Show>
-        <Show when={props.activeView() === "todos"}><AuroraOceanTodos {...props.todos} /></Show>
-        <Show when={props.activeView() === "records"}><AuroraOceanRecords {...props.records} /></Show>
-        <Show when={props.activeView() === "settings"}><AuroraOceanSettings {...props.settings} /></Show>
-      </Match>
-      <Match when={themeImplementation() === "botanical-library"}>
-        <Show when={props.activeView() === "today"}><BotanicalLibraryToday {...props.today} /></Show>
-        <Show when={props.activeView() === "focus"}><BotanicalLibraryFocus {...props.focus} /></Show>
-        <Show when={props.activeView() === "todos"}><BotanicalLibraryTodos {...props.todos} /></Show>
-        <Show when={props.activeView() === "records"}><BotanicalLibraryRecords {...props.records} /></Show>
-        <Show when={props.activeView() === "settings"}><BotanicalLibrarySettings {...props.settings} /></Show>
-      </Match>
-      </Switch>
+      <Show
+        when={activeComponent()}
+        fallback={<section class="theme-surface-unavailable" role="status">正在准备主题界面…</section>}
+      >
+        {(component) => (
+          <Suspense fallback={<section class="theme-surface-unavailable" role="status">正在准备当前页面…</section>}>
+            <Dynamic component={component()} {...activeProps()} />
+          </Suspense>
+        )}
+      </Show>
       <Show when={props.activeView() === "settings"}>
-        <LegacyThemeShelf themeId={props.settings.themeId} onThemeSelect={props.settings.onThemeSelect} />
+        <LegacyThemeShelf themeId={props.settings.themeId} onThemeSelect={requestThemeSelection} />
+      </Show>
+      <Show when={loadingThemeId()}>
+        <p class="theme-load-feedback theme-load-status" role="status" aria-live="polite">
+          正在加载{loadingThemeName()}主题，当前界面仍可操作。
+        </p>
+      </Show>
+      <Show when={loadError()}>
+        <div class="theme-load-feedback theme-load-error" role="alert" aria-live="assertive">
+          <strong>{failedThemeName()}主题暂时无法加载</strong>
+          <span>当前主题仍可使用。可以重试加载，或返回当前主题。</span>
+          <div class="theme-load-error__actions">
+            <button type="button" class="secondary-button" onClick={() => {
+              const failure = loadError();
+              if (failure) void requestThemeSelection(failure.themeId);
+            }}>
+              重试加载
+            </button>
+            <button type="button" class="text-button" onClick={dismissLoadError}>
+              {loadedTheme() || loadError()?.themeId === "night-valley" ? "返回当前主题" : "使用夜谷主题"}
+            </button>
+          </div>
+        </div>
       </Show>
     </>
   );

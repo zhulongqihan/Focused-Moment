@@ -32,7 +32,7 @@ export default function LegacyThemeShelf(props: LegacyThemeShelfProps) {
                   aria-pressed={selected()}
                   onClick={() => props.onThemeSelect(theme.id)}
                 >
-                  <img src={theme.preview} alt="" loading="lazy" />
+                  <img src={theme.preview} alt="" width={640} height={455} loading="lazy" decoding="async" />
                   <span class="legacy-theme-shelf__copy">
                     <strong>{theme.name}</strong>
                     <small>{theme.description}</small>

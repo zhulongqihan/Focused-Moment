@@ -64,8 +64,8 @@ use storage::{
 };
 use tauri::{Emitter, Manager, WindowEvent};
 
-const APP_VERSION: &str = "2.14.1";
-const APP_MILESTONE: &str = "v2.14.1 incremental synchronization and lower idle traffic";
+const APP_VERSION: &str = "2.14.2";
+const APP_MILESTONE: &str = "v2.14.2 theme lazy loading and lighter startup";
 const APP_BACKUP_KIND: &str = "focused-moment-backup";
 const APP_BACKUP_FORMAT_VERSION: u64 = 3;
 const FLOATING_WORKSPACE_SYNC_EVENT: &str = "floating-workspace-sync";
