@@ -270,3 +270,11 @@
 - **交互验收限制**：C Release 的 CDP 页面 target 为空，`Page.enable` 超时；2.13.10 对照在同一隔离参数下结果相同，B 对照的 `Runtime.evaluate` 也超时。UIA helper 默认句柄指向输入法覆盖窗；显式目标 Tauri 主窗后 UIA 仅返回单一 Pane。本轮没有执行浮窗完成、主窗书签保存/跳过或恢复重试流程。诊断路径见 `artifacts/qa/native/windows-native-cdp-fast-20261015121729-77777032-1/`、`artifacts/qa/native/windows-native-control-cdp-fast-20261015121843-e34492f6-9/`、`artifacts/qa/native/windows-native-control-runtime-cdp-20261015122038-bf3ae320-d/`。
 - **最新隔离启动复核**：run `c-interaction-20261015-203553-02c2f272` 使用与根候选相同 SHA-256 的 QA 副本，并将应用数据和 WebView2 profile 指向唯一目录。PID 36660 在 session 1 保持响应且创建了隔离存储，但无主 HWND、候选 PID 没有顶层窗口、当前前台 HWND 为 0。未运行 UIA/业务操作；只保留 `launch.json` 与 `report.md`，QA EXE 和隔离 profile 已清理。报告：`artifacts/qa/native/c-interaction-20261015-203553-02c2f272/report.md`。
 - **唯一下一步**：从实际登录的 Windows 桌面 PowerShell 按 `artifacts/qa/native/c-interaction-desktop-20261015-204411-8a33c5cf/README.md` 启动隔离的 2.14.0 同哈希候选。获得候选自有的可见 HWND 后，完成浮窗记录提交、主窗保存/跳过书签、恢复重试不重复写入；随后关闭 C 批验收并开始 D。当前自动化会话无窗口，不启动 D 应用改动。
+
+## 2026-10-22 C 批 2.14.0 Windows 原生交互验收闭环
+
+- 依据 build ID `local-20261015-194816-ff963e39a1`，根入口与隔离运行副本 SHA-256 均为 `8FB3E4A468C52A6745A4DD1F164B9CB76DDB8969358A3A23E3BA34B670646F4C`。此次运行使用独立 QA 目录重定向用户数据、WebView2、临时目录和用户配置，没有读取或修改真实用户数据。
+- 真实 Release 页面完成：合成待办 → 主窗开始计时 → 打开候选所有的迷你工作台 → 在浮窗完成并记录 → 主窗恢复并显示书签提示 → 主窗分别执行“暂不记录”和保存书签。两次浮窗提交后记录数准确为 1、2，ID 唯一；关联待办保持未完成；保存的“从第三段的例子开始”写入隔离状态，提示关闭。
+- Windows UI 证据及截图：`artifacts/qa/native/c-interaction-desktop-20261015-204411-8a33c5cf/report.md`、`report.json` 和同目录 PNG。浮窗完成时旧浮窗 HWND 随窗口关闭失效；之后按仍有效的主窗/候选窗口状态核验，没有重复提交。
+- 主窗恢复失败后的重试分支未在此真实运行中故意注入；浏览器 mock 用例明确断言恢复失败后仅重试主窗恢复、完成命令仍为一次，包含在先前完整 212/212 套件结果中。不同证据类别保持分开。
+- C 批已完成，可以开始 D 批 2.14.1。根 EXE 未修改或重建；`PROJECT_PLAN.md` 保持只读，SHA-256 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`。

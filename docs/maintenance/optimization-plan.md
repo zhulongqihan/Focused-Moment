@@ -136,3 +136,11 @@
 - **交互验收限制**：C 候选 WebView2 CDP target 的 title/URL 为空，`Page.enable` 超时；UIA helper 默认读取到 40×40 输入法覆盖窗，显式主窗句柄只见到单一 Pane。用同一 profile 参数对 B 版 2.13.10 复测，CDP target 与 `Page.enable` 超时相同，另一次 `Runtime.evaluate` 也超时。当前 Windows 会话 `GetForegroundWindow` 返回空句柄；本轮未执行 C 业务按钮交互，不记录为通过。C/B 诊断分别位于 `artifacts/qa/native/windows-native-cdp-fast-20261015121729-77777032-1/`、`artifacts/qa/native/windows-native-control-cdp-fast-20261015121843-e34492f6-9/` 和 `artifacts/qa/native/windows-native-control-runtime-cdp-20261015122038-bf3ae320-d/`。
 - **交互会话复核**：在 `c-interaction-20261015-203553-02c2f272` 中，以 root 候选同哈希副本和独立 `LOCALAPPDATA`/`APPDATA`/`TEMP`/`USERPROFILE`/WebView2 目录启动。进程在 session 1 保持响应，隔离存储和 WebView2 目录已创建，但 `MainWindowHandle=0`、候选 PID 的 `EnumWindows` 顶层窗口数为 0、`GetForegroundWindow=0`；未执行 UIA 或业务交互。进程、候选副本和隔离数据已清理，报告保留于 `artifacts/qa/native/c-interaction-20261015-203553-02c2f272/report.md`。这是当前自动化会话缺少可操作桌面的新证据，不作为产品回归或交互通过。
 - **状态/唯一下一步**：本地 2.14.0 Release 候选已交付且来源可追溯；C 批交互退出条件仍待验。请从实际登录的 Windows 桌面 PowerShell 按 `artifacts/qa/native/c-interaction-desktop-20261015-204411-8a33c5cf/README.md` 运行隔离启动器；它复核候选哈希并只在找到候选自有的可见 HWND 时保留进程。窗口可见后用 UIA 完成上述三项原生交互，再进入 D。当前自动化会话无窗口，不启动 D 应用改动。
+
+### 2026-10-22 C 批 Windows Release 交互验收关闭
+
+- **真实候选**：隔离启动器核对根 `Focused Moment.exe` 并运行同哈希 QA 副本；build ID `local-20261015-194816-ff963e39a1`，SHA-256 `8FB3E4A468C52A6745A4DD1F164B9CB76DDB8969358A3A23E3BA34B670646F4C`。存储、WebView2、临时目录和用户配置均限定在 `artifacts/qa/native/c-interaction-desktop-20261015-204411-8a33c5cf/`。
+- **Windows UI**：真实主页创建合成待办，带入专注并启动计时；候选所有的浮窗显示相同任务，浮窗完成后写入一条关联记录、保留待办未完成，主窗恢复并读出书签提示。主窗明确跳过一次、保存一次；提示均按预期移除，书签保存到隔离状态。
+- **结果核对**：最终两条记录 ID 为 `0`、`1`，时长分别为 91,893 ms 和 1,873 ms；待办仍未完成，停笔书签为“从第三段的例子开始”。详细报告及截图见 `artifacts/qa/native/c-interaction-desktop-20261015-204411-8a33c5cf/report.md`。
+- **证据分层**：这是 Windows Release 原生 UI 证据。未在此运行强制制造主窗恢复失败；浏览器 mock 的 `floating completion queues one notice and retrying main restoration never saves again` 用例和此前完整 212/212 记录覆盖该分支。此前 53 passed/0 failed/1 ignored 的 Rust 验证与 212/212 浏览器验证保持各自证据类别，不由本次 UI 结果替代。未验收托盘、音频或隐藏窗口提醒。
+- **状态与下一步**：C 批退出条件完成；根入口仍是来源可追溯的 2.14.0 Release，未重建。现在可以进入 D 批 2.14.1 增量同步工作。`PROJECT_PLAN.md` 继续只读保护，SHA-256 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`。
