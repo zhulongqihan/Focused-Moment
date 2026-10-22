@@ -5,11 +5,11 @@
 ## 当前交付状态
 
 - A 批 2.13.9 已完成源码提交推送、Release EXE 交付和最终候选的隔离 Windows 验收；其交付源码提交为 `ef6fc5fc19f0f5cb11c29169ab4d32cff9060b01`。
-- A 批首次交付的根入口为 2.13.9（SHA-256 `3542369B271858EDEAC71F70AF56F79EB9CEE55F98991498EA153BD1522A63B3`）；之后由 B、C、D 批依次替换。当前根目录 `Focused Moment.exe` 为 D 批 2.14.1，SHA-256 `71F0E8B24E1B3F99B51F39E57F6BFE42B24BDE22596608A7E22DAD5CFEA834C5`，build ID `local-20261022-183356-2a14d0298d`。
+- A 批首次交付的根入口为 2.13.9（SHA-256 `3542369B271858EDEAC71F70AF56F79EB9CEE55F98991498EA153BD1522A63B3`）；之后由 B、C、D、E 批依次替换。当前根目录 `Focused Moment.exe` 为 E 批 2.14.2，SHA-256 `B65F646ACAF733C40EA3BB9F48574197A88113CEC6994C7338DF7469604C4997`，build ID `local-20261023-014338-12e750d843`。
 - B 批 2.13.10 本地验收已完成：四个应用/验收提交先快进推送至 `d1976da7669e55e979c24bdd319054a529f3d918`，后续文档提交 `589beec2a89cc967cccfe21e1dc52b1cc67203a6` 与发布说明指针校正 `0084a05` 也已推送。B 批相关实现、Release 候选和 Windows 原生验收证据见下方对应工作单元。
 - C 批 2.14.0 已完成源码提交推送、匹配 Release EXE 交付、代码级验证及 Windows 原生交互闭环。真实隔离 UI 验收了浮窗完成、主窗书签提示、跳过/保存和待办保持未完成；证据分层及未实测分支见下方 2026-10-22 工作单元。当前根入口 SHA-256 为 `8FB3E4A468C52A6745A4DD1F164B9CB76DDB8969358A3A23E3BA34B670646F4C`，build ID `local-20261015-194816-ff963e39a1`。
 - D 批 2.14.1 已完成实现、浏览器/Rust/静态验证、源码推送、Release EXE 替换和隔离 Windows smoke。实现提交为 `0da9bc39bfab27b645cd3e941d566bfea038a2e7`；最终构建来源 HEAD `639a852f15aec1c15483a48bd214ff2cbbfad8a6` 与远端一致。根入口 build ID `local-20261022-183356-2a14d0298d`，SHA-256 `71F0E8B24E1B3F99B51F39E57F6BFE42B24BDE22596608A7E22DAD5CFEA834C5`。隔离 smoke run `windows-native-20261022-183531-3160ffc11a` 通过；其范围为可见启动、隔离用户目录/WebView2、旧路径防护和合成迁移，不涵盖浮窗/托盘/声音交互。
-- E 批 2.14.2 主题按需加载、预览 WebP 和首屏非关键模块延后已实现；源码提交 `563d9d069a8e8559de971b3b58b5190fe6666153` 已推送。完整浏览器 `224/224`、`pnpm verify` 通过，首屏可操作前 JS 为 228,261 bytes（相对 C 批 934,750 bytes 减少 75.58%），七张 WebP 共 266,706 bytes。当前根入口仍为 D 批 2.14.1；E Release 打包、Windows smoke 与原生性能对照待完成。
+- E 批 2.14.2 已完成实现、源码推送、静态/Rust/浏览器验证、匹配 Release EXE 交付、Windows smoke 和同机性能对照。源码提交 `563d9d069a8e8559de971b3b58b5190fe6666153` 已推送；完整浏览器 `224/224`、`pnpm verify` 通过。首页可操作前 JS 为 228,261 bytes（相对 C 批 934,750 bytes 减少 75.58%），七张 WebP 共 266,706 bytes。当前根入口 2.14.2，build ID `local-20261023-014338-12e750d843`，SHA-256 `B65F646ACAF733C40EA3BB9F48574197A88113CEC6994C7338DF7469604C4997`；同候选 Windows smoke 与 42 项性能矩阵均通过，详见下方最终交付记录。
 - 未另外核验远程 CI；未做 GitHub Release、tag、安装器或资产上传。`PROJECT_PLAN.md` 仍受只读保护，当前 SHA-256 为 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`。
 
 ## 本轮原始基线（2026-10-11）
@@ -29,9 +29,9 @@
 | B 保证保存与重置安全 | 2.13.10 | 本地验收完成并已推送 | 源码、Rust/浏览器回归、匹配 Release EXE、官方 Windows 隔离冒烟、原生重置 UIAutomation 和活跃写入强退后的启动回滚均通过。四个提交已推送至确认分支；未检查远程 CI，未创建正式 Release。 |
 | C 统一日常操作 | 2.14.0 | 已完成 | 源码提交推送、Release EXE 交付、Rust/浏览器回归及真实 Windows 浮窗与书签交互验收完成；主窗恢复失败未在原生运行中注入，另有 mock 用例覆盖。 |
 | D 降低持续运行开销 | 2.14.1 | 已完成 | 增量同步已实现；浏览器 mock 219/219、Rust 57 passed/0 failed/1 ignored、`pnpm verify` 通过；源码已推送。最终 Release build ID `local-20261022-183356-2a14d0298d` 的候选/根入口 SHA-256 同为 `71F0E8B24E1B3F99B51F39E57F6BFE42B24BDE22596608A7E22DAD5CFEA834C5`，旧 2.14.0 入口已按原哈希归档；同候选隔离 Windows smoke 通过。交互范围和证据路径见下方最终交付记录。 |
-| E 降低启动负担并完成总验收 | 2.14.2 | 进行中：实现、首屏量化、静态/Rust 和完整浏览器验收已完成；Release/native 性能交付待完成 | 制作来源匹配的 Release EXE；对同一候选完成隔离 Windows smoke 与全矩阵性能对照；更新 README 与最终交接。 |
+| E 降低启动负担并完成总验收 | 2.14.2 | 已完成 | 源码提交已推送；`pnpm verify`、Rust 57 passed/0 failed/1 ignored、浏览器 224/224 通过；默认首页 JS 减少 75.58%；匹配 Release EXE 已替换根入口，同候选 Windows smoke 通过；C 基线与 E 候选的 42 项原生矩阵完成，README 和最终交接已更新。 |
 
-- **当前批次**：E 批 2.14.2 实现与代码级验收已完成；C 批未优化 Release 的同机性能基线和 E 首屏 JS 浏览器网络基线均已记录。下一步在推送源码上制作本地 Release，验证同一候选并完成同机原生性能比较。正式 GitHub Release、tag、安装器和资产上传仍不在授权范围内。`PROJECT_PLAN.md` 继续只读保护，SHA-256 为 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`。
+- **当前批次**：批次 0、A、B、C、D、E 均按计划完成；E 的源码、验证、Windows Release 入口、隔离 smoke、性能矩阵、README 和维护交接均已闭环。后续不存在本目标内未完成的批次。正式 GitHub Release、tag、安装器和资产上传未执行；远程 CI 未另外核验。`PROJECT_PLAN.md` 继续只读保护，SHA-256 为 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`。
 
 ## 批次 0 证据
 
@@ -213,3 +213,33 @@
 - **浏览器 mock**：主题切换专项 `1/1` 通过，目录 `artifacts/qa/frontend/e-archived-theme-sticky-nav-fix-inv-mvjtjji4-35940-e27587be-af52-42aa-8f42-ea925f6a9098/`；最终完整 Playwright `224/224`、4 workers、0 retries，目录 `artifacts/qa/frontend/e-full-20261023-inv-mvjtl7ds-26928-2744cf7d-a4ac-4541-ad92-13f34dd59643/`。本次覆盖主题重试/竞态/后台业务可用、七主题页面、预览属性及整体回归。
 - **源码提交**：`563d9d069a8e8559de971b3b58b5190fe6666153` 已推送至 `origin/codex/focused-moment-continuity`，分支远端指针与 HEAD 一致。未提交 `PROJECT_PLAN.md`、本机性能和 Windows 辅助脚本、`div`、旧摘要及 `app/artifacts/`。
 - **交付状态/唯一下一步**：根目录当前仍是 D 批 2.14.1，build ID `local-20261022-183356-2a14d0298d`。从已推送 E 源码运行默认 `pnpm package:local`，确认输入冻结、候选与根入口版本/哈希及恢复副本；对同一候选运行 Windows smoke 与全 42 样本性能矩阵。完成后更新 README 的公开稳定版/本地开发版说明并补最终 provenance、交接与剩余范围。正式 GitHub Release、tag、安装器及上传仍不在本轮授权内。
+
+## 2026-10-23 E 批 2.14.2 Release 与总验收完成
+
+- **源码与根入口**：E 应用变更提交 `563d9d069a8e8559de971b3b58b5190fe6666153` 已推送；本地 Release 从同分支的来源 HEAD `b7d8d0e3f3dcc29a6be4d3c304779a916a0710d9` 构建，PE FileVersion/ProductVersion 均为 2.14.2。build ID 为 `local-20261023-014338-12e750d843`；候选 `app/src-tauri/target/release/focused-moment.exe` 与根 `Focused Moment.exe` 的 SHA-256 均为 `B65F646ACAF733C40EA3BB9F48574197A88113CEC6994C7338DF7469604C4997`。Provenance：`artifacts/builds/local/local-20261023-014338-12e750d843/manifest.json`；旧 2.14.1 根入口 SHA-256 `71F0E8B24E1B3F99B51F39E57F6BFE42B24BDE22596608A7E22DAD5CFEA834C5` 已保存于 manifest 指定的 archive 恢复路径。Manifest 记录 206 个文件的构建指纹 `CEBF98A79479E44D4A141FEF39F827FD4E0A16C3199772BA16D31E8E12A9C226`，并保留受保护辅助脚本等工作区差异的 dirty 状态。
+- **Windows Release smoke**：同一候选 run `windows-native-20261023-014556-6c8b41024e` 通过；来源与隔离 QA 副本 SHA-256 完全一致。报告 `artifacts/qa/native/windows-native-20261023-014556-6c8b41024e/report.md` 记录可见原生窗口、隔离 LOCALAPPDATA/WebView2、旧存储路径防护、合成旧格式迁移和受控清理通过。范围不包含计时按钮、托盘、浮窗、备份 UI、声音、通知或用户主动退出交互；该 smoke 仅证明报告所列的隔离启动与迁移行为。
+- **生产浏览器和代码检查**：首页首次可操作前实际加载 JS `228,261` bytes，相对 C 批 `934,750` bytes 减少 `75.58%`；完整稳定页面后总量 `671,876` bytes，进入待办页再增加 `6,223` bytes。探针 JSON：`artifacts/qa/frontend/e-default-home-js-1792675404960-5807248a/e-production-load-probe-re-1175b-vaScript-before-interaction/default-home-js.json`。`pnpm verify` 退出码 0；Rust `57 passed / 0 failed / 1 ignored`；完整 Playwright `224/224`、4 workers、0 retries。构建、验证和逐项回归证据见上方 E 实现检查点。
+- **同机原生性能矩阵**：C 基线 `release-performance-20261022T110303321Z-7d8e220b` 与 E 候选 `release-performance-20261022T174619719Z-9d2629ed` 均为 42 个 60 秒样本、18 次隔离启动和 14 组汇总；候选状态 `completed`、脚本 exit 0、无残留 Focused Moment 进程。每样本预热 15 秒，四种合成数据集（空、1,000 条、10,000 条、10,000 条加静音 5 MB 音频）分别覆盖 idle-visible、running-visible、running-hidden，各三轮；首页动效 0%/100% 另外各三轮。Windows 10.0.26200、Ryzen 9 7940H/16 逻辑 CPU、16 GB、同一平衡电源模式和在线电源状态。这里比较的是 C 基线到 E 完整候选，包含 D/E 两批累计变化，不把结果单独归因于 E 的主题代码。
+
+| 数据集 / 状态 | CPU 单核中位数 C → E（变化） | 私有内存中位数 C → E（变化，MiB） |
+| --- | ---: | ---: |
+| 空 / idle-visible | 4.38% → 3.33%（−23.8%） | 296.1 → 275.1（−7.1%） |
+| 空 / running-visible | 5.91% → 0.89%（−85.0%） | 310.1 → 294.7（−5.0%） |
+| 空 / running-hidden | 6.07% → 0.86%（−85.8%） | 309.7 → 292.1（−5.7%） |
+| 1,000 / idle-visible | 10.57% → 3.57%（−66.2%） | 305.1 → 279.2（−8.5%） |
+| 1,000 / running-visible | 12.91% → 3.98%（−69.1%） | 390.0 → 303.0（−22.3%） |
+| 1,000 / running-hidden | 11.56% → 2.53%（−78.2%） | 459.0 → 303.3（−33.9%） |
+| 10,000 / idle-visible | 46.89% → 5.86%（−87.5%） | 468.8 → 288.4（−38.5%） |
+| 10,000 / running-visible | 59.47% → 5.23%（−91.2%） | 1,290.4 → 306.7（−76.2%） |
+| 10,000 / running-hidden | 51.12% → 4.51%（−91.2%） | 2,369.3 → 307.2（−87.0%） |
+| 10,000 + 5 MB 音频 / idle-visible | 60.95% → 5.86%（−90.4%） | 490.4 → 298.4（−39.2%） |
+| 10,000 + 5 MB 音频 / running-visible | 67.70% → 5.08%（−92.5%） | 1,299.8 → 321.8（−75.2%） |
+| 10,000 + 5 MB 音频 / running-hidden | 68.11% → 4.43%（−93.5%） | 3,489.1 → 315.1（−91.0%） |
+
+| 首页动效 | CPU 单核中位数 C → E（变化） | 私有内存中位数 C → E（变化，MiB） |
+| --- | ---: | ---: |
+| 0% | 6.22% → 2.71%（−56.5%） | 553.0 → 531.3（−3.9%） |
+| 100% | 165.66% → 169.22%（+2.1%） | 723.6 → 722.0（−0.2%） |
+
+12 次数据矩阵启动的可见原生窗口时间中位数为 `905.8 ms`（`657.0–1,302.7`）→ `729.0 ms`（`691.8–1,014.3`）；UIAutomation 控件就绪时间中位数为 `2,112.1 ms`（`1,670.6–3,070.4`）→ `1,886.0 ms`（`1,656.9–2,286.0`）。100% 动效的 CPU 中位数比基线高 `2.1%`，两次三轮范围接近，私有内存中位数基本不变；记录为小幅波动，不宣称该项下降。完整原始测量与计算值见两份 `matrix-report.json`。
+- **README、保护边界与交接**：README 现列五套常用主题，将 Aurora Ocean/Botanical Library 标为设置中的旧版主题，并分开说明公开稳定版 v2.11.10 与本地开发验收版 2.14.2。仅 README 与维护文档变更；未修改 `PROJECT_PLAN.md`，其 SHA-256 仍为 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`；受保护脚本、`div`、旧 context summaries 和 `app/artifacts/` 未纳入提交。文档改动不影响应用输入，未重建；根入口保持上述 E 批候选。

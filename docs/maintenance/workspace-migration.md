@@ -318,3 +318,13 @@
 - **源码提交**：E 实现、测试、版本文件、七张 WebP 及 `docs/v2.14.2/RELEASE_NOTES.md` 已由 `563d9d069a8e8559de971b3b58b5190fe6666153` 提交并推送到 `origin/codex/focused-moment-continuity`。仅按本批白名单暂存；`PROJECT_PLAN.md`、本机辅助脚本、旧摘要、`div` 与 `app/artifacts/` 保持未纳入。
 - **状态审计/保护例外**：`audit_project_state.py` 对当前 canonical 与工作区交接无缺失、解析错误或更新事件冲突；仅因受保护的 `PROJECT_PLAN.md` 时间早于规范执行单而报告 `derived_older_than_canonical`。按本轮只读保护要求，不重写该文件；本执行单与本交接记录承载当前事实，项目计划 SHA-256 仍为 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`。
 - **唯一下一步**：在确认没有运行中的用户应用后，从已推送源码执行默认 `pnpm package:local`，核对真实 PE 版本、源提交、输入指纹、旧入口恢复副本和候选/根哈希；对同一候选运行隔离 Windows smoke 与 42 样本同机性能矩阵。其后更新 README 的公开稳定版/本地开发版分界，并把最终交付证据写入规范执行单与本报告。当前根入口仍为 D 批 2.14.1；`PROJECT_PLAN.md` SHA-256 为 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`。
+
+## 2026-10-23 E 批 2.14.2 最终交付与保护复核
+
+- **工作区与来源**：E 应用提交 `563d9d069a8e8559de971b3b58b5190fe6666153` 已推送；Release manifest 记录来源 HEAD `b7d8d0e3f3dcc29a6be4d3c304779a916a0710d9`。当前最终说明只改 README 与两份维护文档，不改应用构建输入；因此没有重建，根入口保持 2.14.2。
+- **Windows 本地 Release**：build ID `local-20261023-014338-12e750d843`，候选和根 `Focused Moment.exe` SHA-256 均为 `B65F646ACAF733C40EA3BB9F48574197A88113CEC6994C7338DF7469604C4997`，实际 PE FileVersion/ProductVersion 均为 2.14.2。输入指纹、旧根入口 SHA-256 `71F0E8B24E1B3F99B51F39E57F6BFE42B24BDE22596608A7E22DAD5CFEA834C5` 的恢复副本路径及 dirty 工作区信息见 `artifacts/builds/local/local-20261023-014338-12e750d843/manifest.json`。
+- **同候选 Windows smoke**：run `windows-native-20261023-014556-6c8b41024e` 通过，来源/QA 副本 SHA 匹配；报告 `artifacts/qa/native/windows-native-20261023-014556-6c8b41024e/report.md`。它覆盖可见窗口、隔离存储与 WebView2、旧路径防护、合成迁移和受控清理，不替代计时、托盘、浮窗、声音或通知交互验收。
+- **原生性能对照**：C 基线和 E 候选各 42 个 60 秒样本、18 次隔离启动，均使用同一 Windows 10.0.26200 / Ryzen 9 7940H / 平衡电源环境。候选主数据状态 CPU 单核中位数下降 23.8%–93.5%，私有内存下降 5.0%–91.0%；可见窗口启动中位数从 905.8 ms 降至 729.0 ms。首页动效 100% 的 CPU 中位数 +2.1%、私有内存 −0.2%，如实记录为近基线波动。完整 C/E 证据路径及每个数据状态明细见 `docs/maintenance/optimization-plan.md` 与对应 `matrix-report.json`。
+- **README 与本地/公开版本**：五套常用主题预览改为 Metro Pulse、Clutch Court 等当前主题；Aurora Ocean、Botanical Library 留在旧版主题说明中。下载说明仍将公开稳定版固定为 v2.11.10，并单列本机 2.14.2 验收入口和来源信息；它没有被表述成公开 Release。
+- **用户文件保护**：`PROJECT_PLAN.md` 未修改、未暂存、未提交，SHA-256 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`。`app/artifacts/`、四份本机辅助脚本、`div` 和五份旧 context summary 保持未暂存/未提交。项目状态审计如提示 `derived_older_than_canonical`，原因仅为受保护的 `PROJECT_PLAN.md` 时间早于本轮 canonical；按授权不重写该计划。
+- **发布边界**：未检查远程 CI；未建 tag、GitHub Release、安装器或上传资产。性能脚本已正常退出且最终未发现残留 Focused Moment 进程。

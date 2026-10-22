@@ -11,7 +11,7 @@ Focused Moment 适合不想用复杂项目管理系统、但又想把事情做�
 
 ## 预览
 
-五套主题使用同一套待办、计时、记录和本地数据，只改变呈现方式。你可以根据当天的工作状态选择更安静、清晰或沉浸的界面。
+五套常用主题使用同一套待办、计时、记录和本地数据，只改变呈现方式。你可以根据当天的工作状态选择更安静、清晰或沉浸的界面。
 
 <table>
   <tr>
@@ -24,18 +24,18 @@ Focused Moment 适合不想用复杂项目管理系统、但又想把事情做�
   </tr>
   <tr>
     <td width="50%"><img src="./app/public/theme-previews/03-graphite-console.png" alt="石墨控制台主题：今日节奏" /></td>
-    <td width="50%"><img src="./app/public/theme-previews/04-aurora-ocean.png" alt="极光海面主题：今日轨迹" /></td>
+    <td width="50%"><img src="./app/public/theme-previews/06-metro-pulse.png" alt="今日班次主题：站台与出发" /></td>
   </tr>
   <tr>
     <td align="center">石墨控制台 · Graphite Console</td>
-    <td align="center">极光海面 · Aurora Ocean</td>
+    <td align="center">今日班次 · Metro Pulse</td>
   </tr>
   <tr>
-    <td width="50%"><img src="./app/public/theme-previews/05-botanical-library.png" alt="植物书房主题：今日生长" /></td>
+    <td width="50%"><img src="./app/public/theme-previews/07-clutch-court.png" alt="今日赛场主题：战术与比赛" /></td>
     <td></td>
   </tr>
   <tr>
-    <td align="center">植物书房 · Botanical Library</td>
+    <td align="center">今日赛场 · Clutch Court</td>
     <td></td>
   </tr>
 </table>
@@ -53,13 +53,15 @@ Focused Moment 适合不想用复杂项目管理系统、但又想把事情做�
 | **Windows 托盘** | 从通知区域查看当前计时和事项，暂停/继续计时，打开悬浮工作台，或直接跳转到今日、计时、待办、记录和设置。 |
 | **本地优先** | 待办、记录、未完成计时状态、设置和备份都保存在本机；支持导出、导入和旧格式迁移。 |
 
-## 五套主题
+## 五套常用主题
 
 - **夜谷 · Night Valley**：深夜山谷、金色路径与薄荷色状态。
 - **编辑纸页 · Editorial Paper**：纸张、铅字与可读性的工作界面。
 - **石墨控制台 · Graphite Console**：铆钉、信号灯与可执行序列的深色控制台。
-- **极光海面 · Aurora Ocean**：潮汐、极光与流动节奏的专注光场。
-- **植物书房 · Botanical Library**：植物年轮、木质书架与安静生长的专注空间。
+- **今日班次 · Metro Pulse**：蓝白交通导视、清晰站台与准点出发。
+- **今日赛场 · Clutch Court**：篮球场、战术回合与关键时刻。
+
+设置页的“旧版主题”区域还保留 **极光海面 · Aurora Ocean** 和 **植物书房 · Botanical Library**，可按需切换；它们不计入常用五套主题。
 
 ## 下载
 
@@ -72,6 +74,19 @@ Focused Moment 适合不想用复杂项目管理系统、但又想把事情做�
 | `Focused Moment_2.11.10_x64_en-US.msi` | 适合企业部署或习惯使用 Windows Installer 的用户。 |
 
 安装包已经包含前端资源和 Rust 核心。普通用户不需要安装 Node.js、Rust、pnpm 或下载源码。
+
+### 本地 Windows 开发验收入口
+
+本机工作区根目录的 `Focused Moment.exe` 当前是 **2.14.2**，用于 E 批开发验收，不是 GitHub Release 下载资产；公开稳定版仍为上方的 **v2.11.10**。
+
+| 项目 | 当前值 |
+| --- | --- |
+| Build ID | `local-20261023-014338-12e750d843` |
+| 源码提交 | `b7d8d0e3f3dcc29a6be4d3c304779a916a0710d9` |
+| SHA-256 | `B65F646ACAF733C40EA3BB9F48574197A88113CEC6994C7338DF7469604C4997` |
+| 本机 provenance | `artifacts/builds/local/local-20261023-014338-12e750d843/manifest.json` |
+
+候选与根入口具有相同 SHA-256；本机 Release 交付记录了旧入口恢复副本和构建输入指纹。
 
 当前 macOS 官方发布暂时冻结；源码仍保留跨平台构建配置。需要 macOS 资产时，可以查看此前最后一个包含 Universal DMG 的 [v2.10.11 Release](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.10.11)，或按照下方说明在 macOS 上从源码构建。
 
