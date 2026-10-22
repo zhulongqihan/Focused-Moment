@@ -309,3 +309,12 @@
 - C 批生产构建日志显示单入口 JS 934.75 kB（gzip 195.69 kB），作为 Vite 输出舍入精度下的首屏字节参考。E 对照必须用同一浏览器请求跟踪汇总交互前所有实际加载 JS 的原始字节；不可只比较入口 chunk。
 - 当前规范状态：D 已交付；E 正在进行但应用改动尚未开始。已核实 `ThemeSurface.tsx` 静态导入七种实现；`ThemePicker`、`ThemeSettings` 与 `LegacyThemeShelf` 共用 `/theme-previews/*.png`，七张源 PNG 合计 14,287,645 bytes。所有源图需保留，只增添经过视觉检查的 WebP 衍生图。CSS 由 `MainShell.tsx` 按既有顺序全局导入，E 不调整级联次序。
 - 续作唯一下一步：将 `ThemeSurface` 的七个实现改为 success-cache / reject-retryable 按需模块加载，加载中的主题切换不更改当前 `themeId`；成功且仍为最新选择时才应用并保存。加入失败重试、返回当前主题、竞态切换和业务交互不中断回归，再生成 640px WebP 与尺寸/lazy 图片属性。`PROJECT_PLAN.md` 保持只读，SHA-256 仍为 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`；受保护的用户未跟踪脚本、`div` 和旧摘要未暂存或提交。
+
+## 2026-10-23 E 批实现与源码推送检查点
+
+- **断点确认**：C 批 2.14.0 的浮窗/主窗书签交接已于 2026-10-22 实际桌面验收关闭；D 批 2.14.1 的源码、Release 和隔离 Windows smoke 已交付。当前进行 E 批 2.14.2。
+- **实现与量化**：主题模块按需加载，加载中保留当前界面，失败可重试，竞态由最新选择保护；首页主要交互在模块加载期间仍可用。生产网络探针显示首页首次可操作前加载 228,261 bytes JS，对比 C 批基线 934,750 bytes 减少 75.58%；延迟加载语料与待办列表模块都未计入首屏。七张 640×455 WebP 共 266,706 bytes；PNG 原图保留。旧主题导航被粘性标题栏遮挡的根因为侧栏 `top:0` 与零顶部工作区布局冲突，Aurora Ocean / Botanical Library 已调整到 `top:72px`。
+- **代码验证**：`pnpm verify` 退出码 0，Rust 57 passed / 0 failed / 1 ignored；完整浏览器套件 `224/224`、4 workers、0 retries。具体 run、输出与计算口径记录于 `docs/maintenance/optimization-plan.md` 的 E 实现检查点。
+- **源码提交**：E 实现、测试、版本文件、七张 WebP 及 `docs/v2.14.2/RELEASE_NOTES.md` 已由 `563d9d069a8e8559de971b3b58b5190fe6666153` 提交并推送到 `origin/codex/focused-moment-continuity`。仅按本批白名单暂存；`PROJECT_PLAN.md`、本机辅助脚本、旧摘要、`div` 与 `app/artifacts/` 保持未纳入。
+- **状态审计/保护例外**：`audit_project_state.py` 对当前 canonical 与工作区交接无缺失、解析错误或更新事件冲突；仅因受保护的 `PROJECT_PLAN.md` 时间早于规范执行单而报告 `derived_older_than_canonical`。按本轮只读保护要求，不重写该文件；本执行单与本交接记录承载当前事实，项目计划 SHA-256 仍为 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`。
+- **唯一下一步**：在确认没有运行中的用户应用后，从已推送源码执行默认 `pnpm package:local`，核对真实 PE 版本、源提交、输入指纹、旧入口恢复副本和候选/根哈希；对同一候选运行隔离 Windows smoke 与 42 样本同机性能矩阵。其后更新 README 的公开稳定版/本地开发版分界，并把最终交付证据写入规范执行单与本报告。当前根入口仍为 D 批 2.14.1；`PROJECT_PLAN.md` SHA-256 为 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`。

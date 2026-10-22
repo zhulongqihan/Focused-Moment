@@ -1,6 +1,6 @@
 # Focused Moment 分阶段优化执行
 
-更新时间：2026-10-22（Asia/Shanghai）
+更新时间：2026-10-23（Asia/Shanghai）
 
 ## 当前交付状态
 
@@ -9,6 +9,7 @@
 - B 批 2.13.10 本地验收已完成：四个应用/验收提交先快进推送至 `d1976da7669e55e979c24bdd319054a529f3d918`，后续文档提交 `589beec2a89cc967cccfe21e1dc52b1cc67203a6` 与发布说明指针校正 `0084a05` 也已推送。B 批相关实现、Release 候选和 Windows 原生验收证据见下方对应工作单元。
 - C 批 2.14.0 已完成源码提交推送、匹配 Release EXE 交付、代码级验证及 Windows 原生交互闭环。真实隔离 UI 验收了浮窗完成、主窗书签提示、跳过/保存和待办保持未完成；证据分层及未实测分支见下方 2026-10-22 工作单元。当前根入口 SHA-256 为 `8FB3E4A468C52A6745A4DD1F164B9CB76DDB8969358A3A23E3BA34B670646F4C`，build ID `local-20261015-194816-ff963e39a1`。
 - D 批 2.14.1 已完成实现、浏览器/Rust/静态验证、源码推送、Release EXE 替换和隔离 Windows smoke。实现提交为 `0da9bc39bfab27b645cd3e941d566bfea038a2e7`；最终构建来源 HEAD `639a852f15aec1c15483a48bd214ff2cbbfad8a6` 与远端一致。根入口 build ID `local-20261022-183356-2a14d0298d`，SHA-256 `71F0E8B24E1B3F99B51F39E57F6BFE42B24BDE22596608A7E22DAD5CFEA834C5`。隔离 smoke run `windows-native-20261022-183531-3160ffc11a` 通过；其范围为可见启动、隔离用户目录/WebView2、旧路径防护和合成迁移，不涵盖浮窗/托盘/声音交互。
+- E 批 2.14.2 主题按需加载、预览 WebP 和首屏非关键模块延后已实现；源码提交 `563d9d069a8e8559de971b3b58b5190fe6666153` 已推送。完整浏览器 `224/224`、`pnpm verify` 通过，首屏可操作前 JS 为 228,261 bytes（相对 C 批 934,750 bytes 减少 75.58%），七张 WebP 共 266,706 bytes。当前根入口仍为 D 批 2.14.1；E Release 打包、Windows smoke 与原生性能对照待完成。
 - 未另外核验远程 CI；未做 GitHub Release、tag、安装器或资产上传。`PROJECT_PLAN.md` 仍受只读保护，当前 SHA-256 为 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`。
 
 ## 本轮原始基线（2026-10-11）
@@ -28,9 +29,9 @@
 | B 保证保存与重置安全 | 2.13.10 | 本地验收完成并已推送 | 源码、Rust/浏览器回归、匹配 Release EXE、官方 Windows 隔离冒烟、原生重置 UIAutomation 和活跃写入强退后的启动回滚均通过。四个提交已推送至确认分支；未检查远程 CI，未创建正式 Release。 |
 | C 统一日常操作 | 2.14.0 | 已完成 | 源码提交推送、Release EXE 交付、Rust/浏览器回归及真实 Windows 浮窗与书签交互验收完成；主窗恢复失败未在原生运行中注入，另有 mock 用例覆盖。 |
 | D 降低持续运行开销 | 2.14.1 | 已完成 | 增量同步已实现；浏览器 mock 219/219、Rust 57 passed/0 failed/1 ignored、`pnpm verify` 通过；源码已推送。最终 Release build ID `local-20261022-183356-2a14d0298d` 的候选/根入口 SHA-256 同为 `71F0E8B24E1B3F99B51F39E57F6BFE42B24BDE22596608A7E22DAD5CFEA834C5`，旧 2.14.0 入口已按原哈希归档；同候选隔离 Windows smoke 通过。交互范围和证据路径见下方最终交付记录。 |
-| E 降低启动负担并完成总验收 | 2.14.2 | 进行中：C 批 Release 性能基线已完成；主题懒加载与 WebP 尚未实现 | 主题按需加载、预览衍生图、性能比较、Windows 原生专项和最终交接完成。 |
+| E 降低启动负担并完成总验收 | 2.14.2 | 进行中：实现、首屏量化、静态/Rust 和完整浏览器验收已完成；Release/native 性能交付待完成 | 制作来源匹配的 Release EXE；对同一候选完成隔离 Windows smoke 与全矩阵性能对照；更新 README 与最终交接。 |
 
-- **当前批次**：E 批 2.14.2 已开始。C 批未优化 Release 的同机性能基线已采集并记录；应用改动尚未开始。正式 GitHub Release、tag、安装器和资产上传仍不在授权范围内。`PROJECT_PLAN.md` 继续只读保护，SHA-256 为 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`。
+- **当前批次**：E 批 2.14.2 实现与代码级验收已完成；C 批未优化 Release 的同机性能基线和 E 首屏 JS 浏览器网络基线均已记录。下一步在推送源码上制作本地 Release，验证同一候选并完成同机原生性能比较。正式 GitHub Release、tag、安装器和资产上传仍不在授权范围内。`PROJECT_PLAN.md` 继续只读保护，SHA-256 为 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`。
 
 ## 批次 0 证据
 
@@ -203,3 +204,12 @@
 - **同候选 Windows smoke**：`pnpm native:windows -ExecutablePath <candidate>` 退出码 0，run `windows-native-20261022-183531-3160ffc11a`；候选与隔离副本 SHA-256 均为 `71F0E8B24E1B3F99B51F39E57F6BFE42B24BDE22596608A7E22DAD5CFEA834C5`。可见启动、隔离 `LOCALAPPDATA`/`APPDATA`/`TEMP`/`USERPROFILE` 和 WebView2 目录、旧工作目录路径防护、有效合成旧数据迁移与备份均通过；只清理了隔离子进程。报告：`artifacts/qa/native/windows-native-20261022-183531-3160ffc11a/report.md`；命令日志：`artifacts/qa/native/d-release-smoke-20261022-183530-354/native-windows.log`。
 - **原生范围边界**：该 smoke 不覆盖计时按钮、托盘动作、浮窗/解锁窗、备份 UI、声音、通知或用户主动退出交互。D 的持续同步量化结果来自先前 219/219 浏览器 mock 与 Rust/静态验证；不把自动 smoke 描述为这些界面的 UI 验收。
 - **最终状态**：D 退出条件已满足，E 批 2.14.2 可以开始。`pnpm verify`、Rust 与完整浏览器证据见本节上方 D 检查点；未另外核验远程 CI，未创建 GitHub Release/tag/安装器或上传资产。`PROJECT_PLAN.md` 未修改，SHA-256 仍为 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`。
+
+### 2026-10-23 E 批实现与代码级验收检查点
+
+- **实现**：版本已同步至 2.14.2。七个主题通过独立模块按需加载，成功模块缓存、失败后可重试；切换期间保留当前页面，迟到响应不能覆盖最近选择。首页主要操作与草稿在主题加载期间保持可用。每日一句语料和夜谷待办分组改为非阻塞延迟加载。七张主题预览已新增 640×455 WebP 衍生图，设置图片声明尺寸、异步解码并延迟加载；PNG 原图保留。发现 Aurora Ocean 与 Botanical Library 侧栏从应用顶部 `top:0` 吸顶并被窗口标题栏覆盖；修正为 `top:72px`，没有使用强制点击或放宽断言。
+- **量化与生产浏览器探针**：默认首页可操作前实际加载 JavaScript `228,261` bytes，C 批基线为 `934,750` bytes，减少 `75.58%`；当时每日一句 `copy-library` 与 `TodoDateGroupList` 均未加载。之后非阻塞语料会加载；完整稳定页面总量为 `671,876` bytes，进入待办页再增加 `6,223` bytes。探针：`artifacts/qa/frontend/e-default-home-js-1792675404960-5807248a/e-production-load-probe-re-1175b-vaScript-before-interaction/default-home-js.json`。七张 WebP 合计 `266,706` bytes。
+- **静态/Rust 验证**：`pnpm verify` 退出码 0，记录 `artifacts/qa/verify/e-verify-20261023-ea896c53/pnpm-verify.log`；Rust `57 passed, 0 failed, 1 ignored`。保留既有 unused-import/dead-code warning。
+- **浏览器 mock**：主题切换专项 `1/1` 通过，目录 `artifacts/qa/frontend/e-archived-theme-sticky-nav-fix-inv-mvjtjji4-35940-e27587be-af52-42aa-8f42-ea925f6a9098/`；最终完整 Playwright `224/224`、4 workers、0 retries，目录 `artifacts/qa/frontend/e-full-20261023-inv-mvjtl7ds-26928-2744cf7d-a4ac-4541-ad92-13f34dd59643/`。本次覆盖主题重试/竞态/后台业务可用、七主题页面、预览属性及整体回归。
+- **源码提交**：`563d9d069a8e8559de971b3b58b5190fe6666153` 已推送至 `origin/codex/focused-moment-continuity`，分支远端指针与 HEAD 一致。未提交 `PROJECT_PLAN.md`、本机性能和 Windows 辅助脚本、`div`、旧摘要及 `app/artifacts/`。
+- **交付状态/唯一下一步**：根目录当前仍是 D 批 2.14.1，build ID `local-20261022-183356-2a14d0298d`。从已推送 E 源码运行默认 `pnpm package:local`，确认输入冻结、候选与根入口版本/哈希及恢复副本；对同一候选运行 Windows smoke 与全 42 样本性能矩阵。完成后更新 README 的公开稳定版/本地开发版说明并补最终 provenance、交接与剩余范围。正式 GitHub Release、tag、安装器及上传仍不在本轮授权内。
