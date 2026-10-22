@@ -5,10 +5,10 @@
 ## 当前交付状态
 
 - A 批 2.13.9 已完成源码提交推送、Release EXE 交付和最终候选的隔离 Windows 验收；其交付源码提交为 `ef6fc5fc19f0f5cb11c29169ab4d32cff9060b01`。
-- A 批首次交付的根入口为 2.13.9（SHA-256 `3542369B271858EDEAC71F70AF56F79EB9CEE55F98991498EA153BD1522A63B3`）；之后由 B、C 批依次替换。当前根目录 `Focused Moment.exe` 为 C 批 2.14.0，SHA-256 `8FB3E4A468C52A6745A4DD1F164B9CB76DDB8969358A3A23E3BA34B670646F4C`，build ID `local-20261015-194816-ff963e39a1`。
+- A 批首次交付的根入口为 2.13.9（SHA-256 `3542369B271858EDEAC71F70AF56F79EB9CEE55F98991498EA153BD1522A63B3`）；之后由 B、C、D 批依次替换。当前根目录 `Focused Moment.exe` 为 D 批 2.14.1，SHA-256 `71F0E8B24E1B3F99B51F39E57F6BFE42B24BDE22596608A7E22DAD5CFEA834C5`，build ID `local-20261022-183356-2a14d0298d`。
 - B 批 2.13.10 本地验收已完成：四个应用/验收提交先快进推送至 `d1976da7669e55e979c24bdd319054a529f3d918`，后续文档提交 `589beec2a89cc967cccfe21e1dc52b1cc67203a6` 与发布说明指针校正 `0084a05` 也已推送。B 批相关实现、Release 候选和 Windows 原生验收证据见下方对应工作单元。
 - C 批 2.14.0 已完成源码提交推送、匹配 Release EXE 交付、代码级验证及 Windows 原生交互闭环。真实隔离 UI 验收了浮窗完成、主窗书签提示、跳过/保存和待办保持未完成；证据分层及未实测分支见下方 2026-10-22 工作单元。当前根入口 SHA-256 为 `8FB3E4A468C52A6745A4DD1F164B9CB76DDB8969358A3A23E3BA34B670646F4C`，build ID `local-20261015-194816-ff963e39a1`。
-- D 批 2.14.1 的增量同步实现、219/219 浏览器 mock、Rust/静态验证和 Release 候选构建已完成；源码提交 `0da9bc39bfab27b645cd3e941d566bfea038a2e7` 已快进推送到确认分支。候选 build ID 为 `local-20261022-175851-0138254e16`，SHA-256 `A4F08A49C44A054C81A62881419B44EC6C806429AC484810813959FDEED72D9C`；根入口仍为 2.14.0，PID 43308 正在运行。单实例保护已阻止同候选 Windows smoke 并行启动；根替换和同候选 Windows 原生验收未完成，因此 D 尚未退出、E 尚未开始。
+- D 批 2.14.1 已完成实现、浏览器/Rust/静态验证、源码推送、Release EXE 替换和隔离 Windows smoke。实现提交为 `0da9bc39bfab27b645cd3e941d566bfea038a2e7`；最终构建来源 HEAD `639a852f15aec1c15483a48bd214ff2cbbfad8a6` 与远端一致。根入口 build ID `local-20261022-183356-2a14d0298d`，SHA-256 `71F0E8B24E1B3F99B51F39E57F6BFE42B24BDE22596608A7E22DAD5CFEA834C5`。隔离 smoke run `windows-native-20261022-183531-3160ffc11a` 通过；其范围为可见启动、隔离用户目录/WebView2、旧路径防护和合成迁移，不涵盖浮窗/托盘/声音交互。
 - 未另外核验远程 CI；未做 GitHub Release、tag、安装器或资产上传。`PROJECT_PLAN.md` 仍受只读保护，当前 SHA-256 为 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`。
 
 ## 本轮原始基线（2026-10-11）
@@ -27,8 +27,10 @@
 | A 交付已有可靠性修复 | 2.13.9 | 已完成 | 来源匹配的 Release EXE 已交付；pnpm verify、生产构建、完整浏览器 178/178、官方 Windows 冒烟、原生交互及进程级声音峰值观测通过。 |
 | B 保证保存与重置安全 | 2.13.10 | 本地验收完成并已推送 | 源码、Rust/浏览器回归、匹配 Release EXE、官方 Windows 隔离冒烟、原生重置 UIAutomation 和活跃写入强退后的启动回滚均通过。四个提交已推送至确认分支；未检查远程 CI，未创建正式 Release。 |
 | C 统一日常操作 | 2.14.0 | 已完成 | 源码提交推送、Release EXE 交付、Rust/浏览器回归及真实 Windows 浮窗与书签交互验收完成；主窗恢复失败未在原生运行中注入，另有 mock 用例覆盖。 |
-| D 降低持续运行开销 | 2.14.1 | 进行中：本地代码验收通过，Windows Release 待验收 | 增量同步已实现，浏览器 mock 219/219、Rust 57 passed/0 failed/1 ignored、默认 Release 候选与输入 provenance 已核对。候选因根 2.14.0 进程占用而仅保存到 `artifacts/builds/local/local-20261022-175851-0138254e16/`；同实例插件要求先关闭当前进程，才能更新根入口并对匹配候选运行隔离 Windows smoke。 |
+| D 降低持续运行开销 | 2.14.1 | 已完成 | 增量同步已实现；浏览器 mock 219/219、Rust 57 passed/0 failed/1 ignored、`pnpm verify` 通过；源码已推送。最终 Release build ID `local-20261022-183356-2a14d0298d` 的候选/根入口 SHA-256 同为 `71F0E8B24E1B3F99B51F39E57F6BFE42B24BDE22596608A7E22DAD5CFEA834C5`，旧 2.14.0 入口已按原哈希归档；同候选隔离 Windows smoke 通过。交互范围和证据路径见下方最终交付记录。 |
 | E 降低启动负担并完成总验收 | 2.14.2 | 未开始 | 主题按需加载、预览衍生图、性能比较、Windows 原生专项和最终交接完成。 |
+
+- **当前下一批**：D 已完成；可开始 E 批 2.14.2。正式 GitHub Release、tag、安装器和资产上传仍不在授权范围内。`PROJECT_PLAN.md` 继续只读保护，SHA-256 为 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`。
 
 ## 批次 0 证据
 
@@ -165,3 +167,12 @@
 - **Release 候选**：默认 `pnpm package:local` 构建成功。build ID `local-20261022-175851-0138254e16`，候选文件 `artifacts/builds/local/local-20261022-175851-0138254e16/Focused Moment.exe.candidate`，FileVersion/ProductVersion 均为 2.14.1，SHA-256 `A4F08A49C44A054C81A62881419B44EC6C806429AC484810813959FDEED72D9C`。196 个构建输入前后和 manifest digest 均为 `4C6F9BBE033BE43D027E351CD46C149B49F7AE318B9B00329480B884B29EA1D7`。完整 provenance 为 `artifacts/builds/local/local-20261022-175851-0138254e16/manifest.json`，打包日志为 `artifacts/qa/build/d-batch-20261022/pnpm-package-local-final.log`。
 - **根入口及原生阻塞**：当前根 `Focused Moment.exe` 仍为 2.14.0，SHA-256 `8FB3E4A468C52A6745A4DD1F164B9CB76DDB8969358A3A23E3BA34B670646F4C`；PID 43308 的窗口可见且响应中。因 Windows 文件锁，根入口未被替换，旧入口无法复制，provenance 的 `previousRoot.backupPath` 为 `null`，`delivery.rootReplacementCompleted=false`。对同一 2.14.1 候选调用 `pnpm native:windows -ExecutablePath <candidate>`，已被修正后的单实例守卫拒绝；日志 `artifacts/qa/native/windows-native-d-process-guard-20261022/native-smoke-attempt.log`。没有把该结果记作 Windows 原生通过，也没有终止用户进程。
 - **工作区保护及下一步**：源码提交 `0da9bc39bfab27b645cd3e941d566bfea038a2e7` 已推送，`git ls-remote` 指针一致。当前候选在提交前由同一工作树输入构建，manifest 如实记录 HEAD `00058bf5addf62a1bc3e4b9eabdab436bb3fae27` 和 dirty source；关闭旧实例后需重新使用默认 `pnpm package:local`，生成以已推送源码为来源的最终候选、更新根入口，再对匹配候选运行 `pnpm native:windows`。`PROJECT_PLAN.md` SHA-256 仍为 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`。D 退出条件通过后再开始 E，当前未做正式 GitHub Release、tag、安装器或上传。
+
+### 2026-10-22 D 批 2.14.1 Release 交付闭环
+
+- **构建与 provenance**：默认 `pnpm package:local` 成功，build ID `local-20261022-183356-2a14d0298d`；源 HEAD `639a852f15aec1c15483a48bd214ff2cbbfad8a6`、分支 `codex/focused-moment-continuity`，远端指针相同。候选与根 `Focused Moment.exe` SHA-256 均为 `71F0E8B24E1B3F99B51F39E57F6BFE42B24BDE22596608A7E22DAD5CFEA834C5`，PE FileVersion/ProductVersion 均为 2.14.1；manifest 标记 `root-replaced` 且根替换完成。
+- **输入与恢复**：196 项构建输入摘要为 `4C6F9BBE033BE43D027E351CD46C149B49F7AE318B9B00329480B884B29EA1D7`，默认打包期间前后校验通过。旧 2.14.0 根入口 SHA-256 `8FB3E4A468C52A6745A4DD1F164B9CB76DDB8969358A3A23E3BA34B670646F4C` 已保存至 `archive/executables/local/local-20261022-183356-2a14d0298d/Focused Moment.exe`，且与 manifest 中旧入口哈希一致。完整 manifest/journal 在 `artifacts/builds/local/local-20261022-183356-2a14d0298d/`；打包日志为 `artifacts/qa/build/d-root-delivery-20261022-183355-746/package-local.log`。
+- **来源工作区说明**：manifest 的 `source.dirty=true`，只包含受保护的 `PROJECT_PLAN.md`、用户已有未跟踪文件及三份本机 QA/性能辅助脚本；未提交这些文件。三份 `app/scripts/` 辅助文件按交付脚本规则计入 provenance 指纹，但不是本次 Vite/Tauri 代码编译内容。最终源码 HEAD 本身已推送。
+- **同候选 Windows smoke**：`pnpm native:windows -ExecutablePath <candidate>` 退出码 0，run `windows-native-20261022-183531-3160ffc11a`；候选与隔离副本 SHA-256 均为 `71F0E8B24E1B3F99B51F39E57F6BFE42B24BDE22596608A7E22DAD5CFEA834C5`。可见启动、隔离 `LOCALAPPDATA`/`APPDATA`/`TEMP`/`USERPROFILE` 和 WebView2 目录、旧工作目录路径防护、有效合成旧数据迁移与备份均通过；只清理了隔离子进程。报告：`artifacts/qa/native/windows-native-20261022-183531-3160ffc11a/report.md`；命令日志：`artifacts/qa/native/d-release-smoke-20261022-183530-354/native-windows.log`。
+- **原生范围边界**：该 smoke 不覆盖计时按钮、托盘动作、浮窗/解锁窗、备份 UI、声音、通知或用户主动退出交互。D 的持续同步量化结果来自先前 219/219 浏览器 mock 与 Rust/静态验证；不把自动 smoke 描述为这些界面的 UI 验收。
+- **最终状态**：D 退出条件已满足，E 批 2.14.2 可以开始。`pnpm verify`、Rust 与完整浏览器证据见本节上方 D 检查点；未另外核验远程 CI，未创建 GitHub Release/tag/安装器或上传资产。`PROJECT_PLAN.md` 未修改，SHA-256 仍为 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`。
