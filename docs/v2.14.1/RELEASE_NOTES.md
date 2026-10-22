@@ -16,6 +16,7 @@
 - 完整浏览器 mock：219/219 passed，4 workers、0 retries。目录：`artifacts/qa/frontend/d-full-final-20261022-inv-mvjc8w2z-39320-e1a77ce2-8473-4f43-917b-704f3fca9e30/`。
 - `pnpm verify` 通过；Rust `fmt/check/test` 通过，57 passed、0 failed、1 ignored。日志：`artifacts/qa/verify/d-batch-20261022-final/pnpm-verify.log`。默认 Release 构建转换 2,097 个模块，Vite 提示入口 chunk 大于 500 kB，留给 2.14.2 优化。
 - 默认 `pnpm package:local` 生成 2.14.1 候选，build ID `local-20261022-175851-0138254e16`，SHA-256 `A4F08A49C44A054C81A62881419B44EC6C806429AC484810813959FDEED72D9C`，FileVersion/ProductVersion 均为 2.14.1。196 个构建输入前后 digest 均为 `4C6F9BBE033BE43D027E351CD46C149B49F7AE318B9B00329480B884B29EA1D7`。候选与源码 provenance：`artifacts/builds/local/local-20261022-175851-0138254e16/manifest.json`；打包日志：`artifacts/qa/build/d-batch-20261022/pnpm-package-local-final.log`。
+- 实现提交 `0da9bc39bfab27b645cd3e941d566bfea038a2e7` 已推送到 `codex/focused-moment-continuity`，远端分支指针已核对一致。上述候选是在该提交前从同一工作树输入构建的，manifest 保留构建时 HEAD 与 dirty paths；旧实例退出后需要再次默认打包，以便最终交付 provenance 指向已推送提交。
 - 根目录入口仍为 2.14.0（SHA-256 `8FB3E4A468C52A6745A4DD1F164B9CB76DDB8969358A3A23E3BA34B670646F4C`），PID 43308 正在运行；为保护用户进程，候选仅保存到 provenance 目录，未替换根入口。文件锁也使旧入口归档副本无法安全复制，manifest 明确记录 `previousRoot.backupPath=null` 和 `delivery.rootReplacementCompleted=false`。
 - 对同一候选的 `pnpm native:windows` 尝试被单实例进程守卫拒绝，日志：`artifacts/qa/native/windows-native-d-process-guard-20261022/native-smoke-attempt.log`。该项尚未通过，不能将 D 标记完成；用户关闭当前 2.14.0 窗口后，需重新默认打包、更新根入口并对匹配候选重跑隔离 Windows smoke。
 - 本说明记录的是本地候选，不代表正式 GitHub Release、tag、安装器或资产上传。
