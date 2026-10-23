@@ -2479,6 +2479,7 @@ test("CC-01 home remains complete at tablet and phone widths", async ({ page }) 
     });
     const surface = page.locator(".cc-today-page");
     await expect(surface).toBeVisible();
+    await page.locator(".cc-butler-card--featured img").evaluate((image) => image.decode());
     await expect(page.locator(".cc-round-markers > .cc-round-marker")).toHaveCount(6);
     await expect(page.locator(".cc-home-court .cc-center-clock > strong")).toHaveText("45:00");
     if (width <= 700) {

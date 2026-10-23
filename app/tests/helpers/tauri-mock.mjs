@@ -500,6 +500,9 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
         }
 
         switch (command) {
+          case "plugin:dialog|message":
+            if (args.buttons !== "OkCancel") throw new Error("Unsupported mock dialog buttons");
+            return await window.confirm(args.message) ? "Ok" : "Cancel";
           case "plugin:event|listen": {
             const listeners = eventListeners.get(args.event) ?? new Set();
             listeners.add(args.handler);

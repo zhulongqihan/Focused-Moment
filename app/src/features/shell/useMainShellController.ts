@@ -1,7 +1,7 @@
 import { batch, createEffect, createMemo, createSignal, onCleanup, onMount } from "solid-js";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import { emit, listen } from "@tauri-apps/api/event";
-import { save } from "@tauri-apps/plugin-dialog";
+import { confirm, save } from "@tauri-apps/plugin-dialog";
 import type {
   AppPreferences,
   AppPreferencesPatch,
@@ -1790,11 +1790,9 @@ export function useMainShellController() {
       showMessage("请先选择一份备份。", "error");
       return;
     }
-    if (!window.confirm("导入备份会替换当前待办、记录和计时状态，是否继续？")) {
-      return;
-    }
-
     await run(async () => {
+      // Use the supported async API; the legacy window.confirm bridge is not reliable.
+      if (!(await confirm("导入备份会替换当前待办、记录和计时状态，是否继续？"))) return;
       const result = await importAppBackup(fileName);
       await refreshAfterReplacement();
       showMessage(
@@ -1834,15 +1832,14 @@ export function useMainShellController() {
   async function importPortableBackup() {
     const path = portableBackupPath().trim();
     const preview = portableBackupPreview();
-    if (!path || !preview) {
+    if (!path || !preview || preview.sourcePath !== path) {
       showMessage("请先预览一份有效备份，再导入。", "error");
       return;
     }
-    if (!window.confirm("导入会替换当前待办、记录和计时状态，是否继续？")) {
-      return;
-    }
+    const restoreAppPreferences = restorePortableAppPreferences();
     await run(async () => {
-      const result = await importAppBackupPath(path, { restoreAppPreferences: restorePortableAppPreferences() });
+      if (!(await confirm("导入会替换当前待办、记录和计时状态，是否继续？"))) return;
+      const result = await importAppBackupPath(path, { restoreAppPreferences });
       setPortableBackupPreview(null);
       await refreshAfterReplacement();
       showMessage(`已恢复 ${result.todoCount} 项待办和 ${result.focusRecordCount} 条记录${result.migratedFromFormatVersion ? "，并完成旧版迁移" : ""}。`, "success");
@@ -1850,11 +1847,8 @@ export function useMainShellController() {
   }
 
   async function clearAllData() {
-    if (!window.confirm("这会清空当前待办、专注记录和未完成计时，但不会删除备份。是否继续？")) {
-      return;
-    }
-
     await run(async () => {
+      if (!(await confirm("这会清空当前待办、专注记录和未完成计时，但不会删除备份。是否继续？"))) return;
       await clearAppData();
       await refreshAfterReplacement();
       showMessage("本地数据已清空，已有备份仍然保留。", "success");
