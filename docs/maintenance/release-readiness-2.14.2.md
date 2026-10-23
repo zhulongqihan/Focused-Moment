@@ -1,8 +1,8 @@
 # Focused Moment 2.14.2 发布收口
 
-as_of: 2026-10-23 17:38（Asia/Shanghai）
+as_of: 2026-10-23 17:51（Asia/Shanghai）
 
-> **当前状态**：确认缺陷已修复并重建，最终候选为 9299…CCFA，前端完整 229/229、静态/Rust 和最终原生备份流程通过。托盘、浮窗、公开旧版升级、隐藏声音也已通过；最小化任务栏提醒未捕获预期事件，继续诊断，尚未发布。下方 B65 原生与资产检查保留为旧候选事实，不代表最终发布通过。
+> **当前状态**：确认缺陷已修复并重建，最终候选为 9299…CCFA；229/229 浏览器 mock、静态/Rust、六个 Windows 原生交互、规定隔离 smoke 与 15 秒确认待决全部通过。源码修复已推送，最后的 QA 前提修正和证据整理待提交并完成远程 CI，随后合并发布。下方 B65 检查仅保留历史事实，不作为最终证据。
 
 ## 授权与基线
 
@@ -17,7 +17,7 @@ as_of: 2026-10-23 17:38（Asia/Shanghai）
 | --- | --- | --- |
 | 初始错误恢复 | 已提交推送 | `a236df5`；完整 mock 225/225、静态/Rust 通过、审查后定向 2/2；远程 Checks 39925626053 成功 |
 | 数据确认与预览绑定 | 代码与原生验收通过 | 官方异步确认接口，待决/取消/失败不写入，预览路径绑定；新候选 9299…CCFA 的完整备份流程 10 项断言通过 |
-| 最终 Windows 原生验收 | 进行中 | 同一候选下托盘、隐藏提醒/音效、浮窗与书签、备份恢复及公开旧版升级；隔离数据与进程，记录实际覆盖 |
+| 最终 Windows 原生验收 | 全部通过 | 同一 9299 候选六场景、隔离 smoke、15 秒确认待决；证据索引与范围见下方 |
 | PR、合并、Windows 发布 | 待验收 | 最终范围/版本/源提交/资产来源一致，远程检查通过，资产 digest 核对 |
 | 多人真实试用 | 按用户要求跳过 | 由用户本人使用，不虚构反馈或观察结果 |
 
@@ -85,7 +85,7 @@ as_of: 2026-10-23 17:38（Asia/Shanghai）
 - 全量首次运行 228/229，唯一失败为 CC-01 图片未解码即采样。受控挂起图片响应确定性复现后，只补 `image.decode()` 等待，所有原断言保留；受控延迟验证和最终 CC-01 定向 4/4 通过。
 - 最终完整浏览器 mock **229/229**，4 workers、0 retries、5.9 分钟。目录 `artifacts/qa/frontend/release-final-full-20261023-171414-a82523e5-inv-mvkr6utl-29420-f6251456-05b1-42dc-bcf0-90b0c8ca1a5a/`，`.last-run.json` 为 passed / failedTests=[]；命令日志 `artifacts/qa/verification/release-final-full-20261023-171414-a82523e5/playwright.log`。
 - 新 Setup/MSI 已从该 Release candidate 生成。只解压检查，包内 EXE 除 Tauri 固定 UNK → NSS/MSI 三字节标记外，与 portable 完全一致；MSI ProductVersion 和两种 EXE 版本均为 2.14.2。证据 `artifacts/qa/release/release-final-2.14.2-20261023-171233-f4ce110d/`，未运行安装器。
-- 最终三资产目录 `artifacts/builds/releases/v2.14.2-20261023-171448-097d3e7f/`。其 manifest 暂标记不可发布，待最终原生验收与源提交 CI 完成。
+- 最终三资产目录 `artifacts/builds/releases/v2.14.2-20261023-171448-097d3e7f/`。其 manifest 暂标记不可发布，待最终源提交 CI 完成。
 
 | 最终资产 | SHA-256 |
 | --- | --- |
@@ -101,8 +101,23 @@ as_of: 2026-10-23 17:38（Asia/Shanghai）
 | 托盘暂停/继续 | 通过，`release-acceptance-tray-20261023T093011648Z-7fffcc87`；自有托盘菜单暂停/继续计时，记录数保持零 |
 | 浮窗与书签 | 通过，`release-acceptance-floating-20261023T093047902Z-a5b326ed`；跳过和保存两轮后为两条唯一记录，书签正确，待办未完成 |
 | 公开旧版升级 | 通过，`release-acceptance-upgrade-20261023T093136575Z-21140caf`；真实 v2.11.10 资产核验哈希，旧版 UI 产生数据，再升级并重启，记录和待办保留 |
-| 隐藏窗口声音 | 通过声音/保持隐藏/恢复后提示；该次未观察到 HSHELL_FLASH，不将旧 B65 的事件作为替代证据 |
-| 最小化任务栏提醒 | 未通过，`release-acceptance-minimized-attention-20261023T093324818Z-ac660ddc`；目标 HWND 事件为空，正在校准观察器并追踪触发条件，原断言未削弱 |
+| 隐藏窗口声音与提醒 | 通过，`release-acceptance-hidden-audio-20261023T094405961Z-331d7b97`；保持隐藏且真正处于后台，6 条候选 FLASH 事件，10 个非零音峰样本，恢复后显示完成提示 |
+| 最小化任务栏提醒 | 通过，`release-acceptance-minimized-attention-20261023T094512664Z-7ea0b582`；保持最小化且真正处于后台，6 条候选 FLASH 事件，14 个非零音峰样本，恢复后显示完成提示 |
 
 - 最新冻结脚本的语法与完整 `pnpm verify` 再次通过，Rust 57 passed / 1 ignored；日志 `artifacts/qa/verification/release-final-verify-20261023-173158-c4e21e55/verify.log`。
-- 旧 091410 备份失败中确认框消失的原因未定；该次保留失败，不归因为外界输入。新完整动作轨迹显示触发只执行一次 UIA Invoke，约四秒后才单独执行原生取消/确定；追加持续待决探针验证更长的未操作窗口。
+- 旧 091410 备份失败中确认框消失的原因未定；该次保留失败，不归因为外界输入。新完整动作轨迹显示触发只执行一次 UIA Invoke，约四秒后才单独执行原生取消/确定；追加持续待决探针实际等待 15.293 秒，10 次无输入观察中同一确认窗可见、完整 state 与备份集合不变，取消后仍有两条记录；证据 `release-acceptance-probe-20261023T093805997Z-e43e1921`。
+
+## 最终验收结论与来源核对
+
+- 六场景证据索引：`artifacts/qa/native/release-acceptance-audit-20261023-1735-9299/acceptance-index.json`，说明同目录 `README.md`。所有 report 与实际隔离 EXE 均匹配 9299…CCFA。规定原生 smoke：`artifacts/qa/native/windows-native-20261023-173645-07ac872328/report.md`。
+- 任务栏首次失败来自测试前置条件缺失：`release-acceptance-probe-20261023T093959822Z-6315868a` 的 544/544 采样中候选仍是 foreground，其中 435 次同时 minimized；应用使用 TIMERNOFG，此时不会闪烁。单独 helper 正控收到事件，证明观察器有效。随后只将前景切给自有 QA helper，应用本身触发的候选事件即出现。
+- 正式 QA 因此增加“候选确实处于后台”的握手与断言，观察器从不对候选调用 FlashWindowEx。隐藏与最小化两场景均要求非空候选事件、事件发生时 Foreground=false；未放宽断言、增加重试或改产品。新脚本语法、结构和 Playwright 输出 guardrail 均通过，独立审查无必须修的问题。
+- 声音证据是候选进程树的 CoreAudio 峰值；任务栏证据是 Windows Shell 事件，不代表人耳听感、每帧动画或系统通知 toast。安装包只做解包和版本/内核校验，未执行安装器。
+- 源码核对 `candidate-source-audit.json` 位于最终 release 证据目录：174 项应用构建树文件与原 build manifest 字节一致，其中 170 项受控源码与提交 `048590fbf50ba37e30ff177c54e2bce0d382c236` 的 Git blob 一致，另外 4 项是未跟踪的 Tauri 生成 schema。构建后差异仅为独立 QA 脚本；原 manifest 的 source/dirty 信息保持真实，不伪造新的构建来源。
+- 此后只改 QA/文档，不改变应用输入；not rebuilt; entry unchanged。根 EXE、三项发布资产和用户计划哈希保持原值。最后等待精确源提交的远程 CI，再合并 PR #1 与发布 v2.14.2。
+
+## 最终构建首屏字节复核
+
+确认修复增加了公共入口代码，最终生产浏览器探针重新测得首页首次主操作可见、启用且可点击时实际加载 JavaScript **228,594 bytes**，较 C 批 934,750 bytes 减少 **75.54%**。MutationObserver 首可用快照与首个 requestAnimationFrame 快照一致，包含九个实际资源；没有阻塞或模拟 JavaScript 请求。后续语料加载后稳定总量为 672,209 bytes。该值替代本版本公开说明中的旧 B65 228,261 / 75.58%，历史测量不改写。
+
+该单项生产探针 1/1 通过（1 worker、0 retries）；证据 `artifacts/qa/frontend/current-home-js-20261023T095357373Z-e058fb9a/results/first-home-current-product-2088c-st-available-primary-action/default-home-js.json`。使用当前 app/dist，未重建或改应用源；它是生产资源加载量证据，不是 Rust/WebView2 原生启动时间。

@@ -112,16 +112,21 @@ public sealed class ReleaseQaAttentionWatcher : NativeWindow, IDisposable {
  [DllImport("user32.dll")]static extern bool DeregisterShellHookWindow(IntPtr h);
  [DllImport("user32.dll",CharSet=CharSet.Unicode)]static extern uint RegisterWindowMessage(string message);
  [DllImport("user32.dll")]static extern bool IsWindowVisible(IntPtr h);
- public sealed class Entry {public double Seconds;public long WindowHandle;public bool Visible;public int ShellEvent;}
+ [DllImport("user32.dll")]static extern bool ShowWindow(IntPtr h,int command);
+ [DllImport("user32.dll")]static extern bool SetForegroundWindow(IntPtr h);
+ [DllImport("user32.dll")]static extern IntPtr GetForegroundWindow();
+ public sealed class Entry {public double Seconds;public long WindowHandle;public bool Visible,Foreground;public int ShellEvent;}
+ public sealed class BackgroundState {public long HelperHandle;public bool HelperForeground,CandidateForeground;}
  public readonly List<Entry> Events=new List<Entry>();
- private readonly IntPtr target;private readonly uint message;private readonly DateTime started=DateTime.UtcNow;
+ private readonly IntPtr target;private readonly uint message;private readonly DateTime started=DateTime.UtcNow;private NativeWindow background;
  public ReleaseQaAttentionWatcher(IntPtr h){target=h;message=RegisterWindowMessage("SHELLHOOK");CreateHandle(new CreateParams{Caption="Focused Moment isolated QA attention observer"});if(!RegisterShellHookWindow(Handle))throw new Exception("Windows rejected the shell attention observer.");}
- protected override void WndProc(ref Message m){if(m.Msg==message && m.LParam==target && m.WParam.ToInt64()==0x8006)Events.Add(new Entry{Seconds=(DateTime.UtcNow-started).TotalSeconds,WindowHandle=target.ToInt64(),Visible=IsWindowVisible(target),ShellEvent=0x8006});base.WndProc(ref m);}
- public void Dispose(){DeregisterShellHookWindow(Handle);DestroyHandle();}
+ public BackgroundState ActivateBackground(){background=new NativeWindow();background.CreateHandle(new CreateParams{Caption="Focused Moment QA background window",Style=0x00CF0000,ExStyle=0x00040000,X=100,Y=100,Width=320,Height=160});ShowWindow(background.Handle,5);SetForegroundWindow(background.Handle);return new BackgroundState{HelperHandle=background.Handle.ToInt64(),HelperForeground=GetForegroundWindow()==background.Handle,CandidateForeground=GetForegroundWindow()==target};}
+ protected override void WndProc(ref Message m){if(m.Msg==message && m.LParam==target && m.WParam.ToInt64()==0x8006)Events.Add(new Entry{Seconds=(DateTime.UtcNow-started).TotalSeconds,WindowHandle=target.ToInt64(),Visible=IsWindowVisible(target),Foreground=GetForegroundWindow()==target,ShellEvent=0x8006});base.WndProc(ref m);}
+ public void Dispose(){DeregisterShellHookWindow(Handle);if(background!=null)background.DestroyHandle();DestroyHandle();}
 }
 '@
  $watcher=[ReleaseQaAttentionWatcher]::new($handle)
- try {Write-Output 'READY';$deadline=[DateTime]::UtcNow.AddSeconds($Seconds);while([DateTime]::UtcNow -lt $deadline){[Windows.Forms.Application]::DoEvents();Start-Sleep -Milliseconds 25};[pscustomobject]@{pid=$ProcessId;windowHandle=$WindowHandle;events=@($watcher.Events.ToArray());method='Windows HSHELL_FLASH notifications filtered to the isolated main HWND';limitation='Observes Windows shell attention events, not human perception or every taskbar animation frame.'}|ConvertTo-Json -Depth 5|Set-Content -LiteralPath $output -Encoding UTF8}finally{$watcher.Dispose()};exit 0
+ try {Write-Output 'READY';$deadline=[DateTime]::UtcNow.AddSeconds($Seconds);$backgroundState=$null;while([DateTime]::UtcNow -lt $deadline){[Windows.Forms.Application]::DoEvents();if($null -eq $backgroundState -and (Test-Path -LiteralPath ($output+'.background'))){$backgroundState=$watcher.ActivateBackground();$backgroundState|ConvertTo-Json -Compress|Set-Content -LiteralPath ($output+'.background-ready.json') -Encoding UTF8};Start-Sleep -Milliseconds 25};[pscustomobject]@{pid=$ProcessId;windowHandle=$WindowHandle;background=$backgroundState;events=@($watcher.Events.ToArray());method='Windows HSHELL_FLASH notifications filtered to the isolated main HWND';limitation='Observes Windows shell attention events, not human perception or every taskbar animation frame. A separate owned QA helper holds foreground; the observer never calls FlashWindowEx on the candidate.'}|ConvertTo-Json -Depth 5|Set-Content -LiteralPath $output -Encoding UTF8}finally{$watcher.Dispose()};exit 0
 }
 $root=[Windows.Automation.AutomationElement]::FromHandle($handle)
 switch($Action){
