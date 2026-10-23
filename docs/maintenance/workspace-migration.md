@@ -376,3 +376,16 @@
 - 此单元只有 QA 和维护说明变化，not rebuilt; entry unchanged。根与资产仍为9299最终候选；`PROJECT_PLAN.md` 及17项受保护用户文件通过最终 release 证据目录的hash清单复核。最终发布等待最后源提交远程CI通过。
 
 - 最终字节复核补充：当前dist默认首页首次主操作可用时实测228,594 bytes JS，相对C基线减少75.54%，较旧B65多333 bytes。版本说明已更新；单项生产浏览器探针1/1通过，使用test.info().outputPath隔离证据，不改源码、不重建入口。
+
+## 2026-10-23 最终 CI 复核与续作（18:18，Asia/Shanghai）
+
+- 当前分支与远端仍为 `1911db4`，PR #1 OPEN。展开 Checks `39935465675` 原始日志后发现实际为 223 passed / 6 flaky；总状态 success 不足以宣称稳定通过，已暂停合并与发布。公开最新版仍是 v2.11.10，没有创建 v2.14.2 tag 或 Release。
+- `delivery_audit` 继续受控诊断六个首页动作测试的主题准备超时，`native_resume` 已完成原生验收并只读复核发布说明与资产。两种延迟实验均没有证实生产同步缺陷；后续修复必须保留完整业务断言，不增加超时或重试来掩盖问题。
+- PROJECT_PLAN、根 EXE、runtime.rs 与 17 项受保护用户文件的字节及原计划 patch 均与保存基线一致。断点保存到 `docs/context_summary_20261023_1818.md`；未改应用输入，not rebuilt; entry unchanged。
+
+## 2026-10-23 主题测试准备修正验收（18:38，Asia/Shanghai）
+
+- 只在 `home-actions.spec.mjs` 的主题 helper 中等待默认首页主按钮 enabled，保证初始同步结束再发起直接 IPC 主题设置；其余主题显示和业务断言未改。初始化与模块加载分别延迟 3 秒的同条件对照为旧失败/新通过；单因子实验没有复现主题永久丢失，远端缺少时序证据，保留原因范围限制。
+- 撤出全部诊断 hook 后，首页定向 23/23，完整 229/229（4 workers、0 retries、4.1 分钟）通过；原始日志、唯一 run 目录和受控实验源码见 `release-readiness-2.14.2.md`。没有增加超时、重试或弱化原断言。
+- 发布交叉审查修正 README 的托盘入口说明，并细化构建源码等价证据：174 项构建原始字节相同；170 项受控源码中 139 项 Git blob 字节相同，31 项只含 CRLF/LF 差异，无其它差异。原 dirty manifest 未改。
+- 本单元只有测试/文档变化，not rebuilt; entry unchanged；计划及用户文件保持保护。下一步推送新提交、核对远端完整 CI，再合并与发布。

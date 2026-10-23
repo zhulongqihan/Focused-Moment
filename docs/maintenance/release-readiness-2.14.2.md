@@ -1,6 +1,6 @@
 # Focused Moment 2.14.2 发布收口
 
-as_of: 2026-10-23 17:51（Asia/Shanghai）
+as_of: 2026-10-23 18:38（Asia/Shanghai）
 
 > **当前状态**：确认缺陷已修复并重建，最终候选为 9299…CCFA；229/229 浏览器 mock、静态/Rust、六个 Windows 原生交互、规定隔离 smoke 与 15 秒确认待决全部通过。源码修复已推送，最后的 QA 前提修正和证据整理待提交并完成远程 CI，随后合并发布。下方 B65 检查仅保留历史事实，不作为最终证据。
 
@@ -18,7 +18,7 @@ as_of: 2026-10-23 17:51（Asia/Shanghai）
 | 初始错误恢复 | 已提交推送 | `a236df5`；完整 mock 225/225、静态/Rust 通过、审查后定向 2/2；远程 Checks 39925626053 成功 |
 | 数据确认与预览绑定 | 代码与原生验收通过 | 官方异步确认接口，待决/取消/失败不写入，预览路径绑定；新候选 9299…CCFA 的完整备份流程 10 项断言通过 |
 | 最终 Windows 原生验收 | 全部通过 | 同一 9299 候选六场景、隔离 smoke、15 秒确认待决；证据索引与范围见下方 |
-| PR、合并、Windows 发布 | 待验收 | 最终范围/版本/源提交/资产来源一致，远程检查通过，资产 digest 核对 |
+| PR、合并、Windows 发布 | 测试修正通过，待远端验收 | 1911db4 的 CI 为 223 passed / 6 flaky；主题测试准备修正后本地 229/229 零重试通过，待新 HEAD 远端稳定验证后合并与核对资产 digest |
 | 多人真实试用 | 按用户要求跳过 | 由用户本人使用，不虚构反馈或观察结果 |
 
 ## 原生验收发现的数据确认缺陷
@@ -113,7 +113,7 @@ as_of: 2026-10-23 17:51（Asia/Shanghai）
 - 任务栏首次失败来自测试前置条件缺失：`release-acceptance-probe-20261023T093959822Z-6315868a` 的 544/544 采样中候选仍是 foreground，其中 435 次同时 minimized；应用使用 TIMERNOFG，此时不会闪烁。单独 helper 正控收到事件，证明观察器有效。随后只将前景切给自有 QA helper，应用本身触发的候选事件即出现。
 - 正式 QA 因此增加“候选确实处于后台”的握手与断言，观察器从不对候选调用 FlashWindowEx。隐藏与最小化两场景均要求非空候选事件、事件发生时 Foreground=false；未放宽断言、增加重试或改产品。新脚本语法、结构和 Playwright 输出 guardrail 均通过，独立审查无必须修的问题。
 - 声音证据是候选进程树的 CoreAudio 峰值；任务栏证据是 Windows Shell 事件，不代表人耳听感、每帧动画或系统通知 toast。安装包只做解包和版本/内核校验，未执行安装器。
-- 源码核对 `candidate-source-audit.json` 位于最终 release 证据目录：174 项应用构建树文件与原 build manifest 字节一致，其中 170 项受控源码与提交 `048590fbf50ba37e30ff177c54e2bce0d382c236` 的 Git blob 一致，另外 4 项是未跟踪的 Tauri 生成 schema。构建后差异仅为独立 QA 脚本；原 manifest 的 source/dirty 信息保持真实，不伪造新的构建来源。
+- 源码核对 `candidate-source-audit.json` 位于最终 release 证据目录：174 项应用构建树文件与原 build manifest 原始字节一致，其中 170 项受控源码经 Git 行尾规范化后与提交 `048590fbf50ba37e30ff177c54e2bce0d382c236` 一致，另外 4 项是未跟踪的 Tauri 生成 schema。独立复核 `1911db4` 的相同构建树进一步区分：139 项与 Git blob 原始字节相同，31 项只含 CRLF/LF 差异，其它差异为零；不将规范化内容等价描述为全部原始字节相同。构建后差异仅为独立 QA 脚本；原 manifest 的 source/dirty 信息保持真实，不伪造新的构建来源。
 - 此后只改 QA/文档，不改变应用输入；not rebuilt; entry unchanged。根 EXE、三项发布资产和用户计划哈希保持原值。最后等待精确源提交的远程 CI，再合并 PR #1 与发布 v2.14.2。
 
 ## 最终构建首屏字节复核
@@ -121,3 +121,17 @@ as_of: 2026-10-23 17:51（Asia/Shanghai）
 确认修复增加了公共入口代码，最终生产浏览器探针重新测得首页首次主操作可见、启用且可点击时实际加载 JavaScript **228,594 bytes**，较 C 批 934,750 bytes 减少 **75.54%**。MutationObserver 首可用快照与首个 requestAnimationFrame 快照一致，包含九个实际资源；没有阻塞或模拟 JavaScript 请求。后续语料加载后稳定总量为 672,209 bytes。该值替代本版本公开说明中的旧 B65 228,261 / 75.58%，历史测量不改写。
 
 该单项生产探针 1/1 通过（1 worker、0 retries）；证据 `artifacts/qa/frontend/current-home-js-20261023T095357373Z-e058fb9a/results/first-home-current-product-2088c-st-available-primary-action/default-home-js.json`。使用当前 app/dist，未重建或改应用源；它是生产资源加载量证据，不是 Rust/WebView2 原生启动时间。
+
+## 发布前 CI 原始日志复核（18:18）
+
+- `048590f` 的 Checks `39933462857` 为 229 passed；`1911db4` 的 Checks `39935465675` 总状态虽为 success，实际却是 **223 passed / 6 flaky**。后者六项都停在 `home-actions.spec.mjs` 的目标主题页面可见性断言，重试后通过。原日志保存在最终 release 证据目录 `final-ci.log`，未以总体状态代替稳定验收。
+- 已暂停 PR 合并、tag 与发布；资产 manifest 保持 publishable=false，PR 说明同步此事实。原生六场景和同一 EXE 的验收不受影响。
+- 受控延迟事件监听、延迟首个业务快照返回均未重现永久丢失主题更新；两次应用都读取了最新偏好。目前不能把这些 CI 超时归因为生产同步缺陷。继续调整首页动作测试的场景准备并定向验证，原业务断言与专门的主题切换测试保留。
+
+## 首页动作测试准备修正
+
+- 默认标题早于初始业务同步显示。测试原来看到标题就直接调用 IPC 改主题，随后在同一个 5 秒断言中等待初始化和动态主题模块。改为先等待默认首页主按钮 enabled；其 disabled 包含 `!ready`，ready 仅在 `loadState === ready` 时成立，因此这一步等待真实可操作状态。随后原 IPC、目标主题断言和全部首页业务断言保持不变。
+- 受控实验将事件监听/初始化和真实 Editorial 模块请求分别延迟 3 秒，旧 helper 在原目标页面断言失败，新 helper 同条件通过。RED：`artifacts/qa/frontend/theme-setup-phases-red-20261023-inv-mvkts1eh-36316-de56cf95-85d1-4d00-a22b-7cf5510762b6/`；GREEN：`artifacts/qa/frontend/theme-setup-phases-green-20261023-inv-mvkttbjl-54352-e025b5dc-583f-4a2f-8bf8-a9f49d485bd7/`，其中保存 `probe-source.mjs` 与 `probe-reproduction.txt`。远端没有逐阶段时序证据，此实验重现同类准备阶段问题，不证明它是六个 flaky 的唯一原因。
+- 最终测试仅保留注释和 `toBeEnabled()` 两行；所有诊断 hook 已移除，未增加 timeout/retries。首页 23/23 通过（2 workers、0 retries、43.1 秒），目录 `artifacts/qa/frontend/home-actions-ready-final-20261023-inv-mvktymfq-48476-840835e9-89e3-4db5-865f-25d8a90047e0/`。
+- 修正后的完整浏览器 mock **229/229** 通过，4 workers、0 retries、4.1 分钟，exit 0，`.last-run.json` 为 passed / failedTests=[]。目录 `artifacts/qa/frontend/home-actions-ready-full-20261023-inv-mvku0ip1-14140-954b2f46-ed21-4198-97f2-f9e230ff2c15/`；完整日志 `artifacts/qa/verification/home-actions-ready-full-f6d45035b3fc45e581c9b6af2e1a73d7/playwright.log`。测试语法、路径限定 diff check 与 Playwright 输出 guardrail 通过。
+- 发布交叉审查修正 README 多写的托盘“设置”入口；实际支持今日、计时、待办、记录。源码等价审计补充 139 项 Git 原始字节一致、31 项仅 CRLF/LF 差异。均不改变应用输入，not rebuilt; entry unchanged。

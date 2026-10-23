@@ -13,6 +13,8 @@ const themes = [
 ];
 
 async function selectTheme(page, themeId, surface) {
+  // The heading renders before initial sync; wait for application readiness before changing themes.
+  await expect(page.locator(".trail-page [data-home-focus-primary]")).toBeEnabled();
   await page.evaluate(async (id) => {
     const invoke = window.__TAURI_INTERNALS__.invoke;
     const preferences = await invoke("get_app_preferences");
