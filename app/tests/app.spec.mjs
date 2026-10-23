@@ -160,19 +160,60 @@ test("native tray navigation event switches the main window view", async ({ page
 });
 
 test("initial data errors stay visible and recover through the retry action", async ({ page }) => {
-  await bootWithTauriMock(page, { initialLoadError: true });
+  const now = new Date();
+  await page.clock.install({ time: new Date(now.getTime() - 60_000) });
+  await page.clock.pauseAt(now);
+  await bootWithTauriMock(page, { initialLoadError: true, persistInitialLoadError: true });
 
   const loadError = page.getByRole("alert");
   await expect(loadError).toContainText("暂时无法读取本地数据");
   await expect(loadError).toContainText("模拟本地数据读取失败");
   const retry = loadError.getByRole("button", { name: "重试读取" });
   await expect(retry).toBeVisible();
+  expect(await page.evaluate(() => window.__syncReadAttempts)).toBe(1);
+
+  // A persistent read failure must remain actionable after automatic and manual retries.
+  await page.clock.runFor(1_000);
+  await expect.poll(() => page.evaluate(() => window.__syncReadAttempts)).toBe(2);
+  await expect(loadError).toContainText("模拟本地数据读取失败");
+  await retry.click();
+  await expect(page.locator(".app-message")).toContainText("模拟本地数据读取失败");
+  await expect(loadError).toBeVisible();
+  await expect(retry).toBeEnabled();
+  await expect.poll(() => page.evaluate(() => window.__syncReadAttempts)).toBeGreaterThan(2);
+  const failedReadAttempts = await page.evaluate(() => window.__syncReadAttempts);
+
+  // Hold the clock while the user retries so background recovery cannot win this branch.
+  await page.evaluate(() => { window.__holdInitialLoadError = false; });
   await retry.click();
 
   await expect(page.getByRole("heading", { name: "今天，从一件事开始" })).toBeVisible();
   await expect(loadError).toBeHidden();
   await expect(page.getByRole("heading", { name: "今日概览", exact: true })).toBeVisible();
   await expect(page.locator(".trail-node--current")).toContainText("写完产品复盘");
+  await expect.poll(() => page.evaluate(() => window.__syncReadAttempts)).toBe(failedReadAttempts + 1);
+  await page.clock.runFor(5_000);
+  expect(await page.evaluate(() => window.__syncReadAttempts)).toBe(failedReadAttempts + 1);
+});
+
+test("initial data errors recover automatically without a retry click", async ({ page }) => {
+  const now = new Date();
+  await page.clock.install({ time: new Date(now.getTime() - 60_000) });
+  await page.clock.pauseAt(now);
+  await bootWithTauriMock(page, { initialLoadError: true });
+
+  const loadError = page.getByRole("alert");
+  await expect(loadError).toContainText("模拟本地数据读取失败");
+  await expect(loadError.getByRole("button", { name: "重试读取" })).toBeVisible();
+  expect(await page.evaluate(() => window.__syncReadAttempts)).toBe(1);
+
+  await page.clock.runFor(1_000);
+  await expect.poll(() => page.evaluate(() => window.__syncReadAttempts)).toBe(2);
+  await expect(loadError).toBeHidden();
+  await expect(page.getByRole("heading", { name: "今日概览", exact: true })).toBeVisible();
+  await expect(page.locator(".trail-node--current")).toContainText("写完产品复盘");
+  await page.clock.runFor(5_000);
+  expect(await page.evaluate(() => window.__syncReadAttempts)).toBe(2);
 });
 
 test("Today overview keeps timing work in the focus page", async ({ page }) => {

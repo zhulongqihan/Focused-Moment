@@ -328,3 +328,19 @@
 - **README 与本地/公开版本**：五套常用主题预览改为 Metro Pulse、Clutch Court 等当前主题；Aurora Ocean、Botanical Library 留在旧版主题说明中。下载说明仍将公开稳定版固定为 v2.11.10，并单列本机 2.14.2 验收入口和来源信息；它没有被表述成公开 Release。
 - **用户文件保护**：`PROJECT_PLAN.md` 未修改、未暂存、未提交，SHA-256 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`。`app/artifacts/`、四份本机辅助脚本、`div` 和五份旧 context summary 保持未暂存/未提交。项目状态审计如提示 `derived_older_than_canonical`，原因仅为受保护的 `PROJECT_PLAN.md` 时间早于本轮 canonical；按授权不重写该计划。
 - **发布边界**：未检查远程 CI；未建 tag、GitHub Release、安装器或上传资产。性能脚本已正常退出且最终未发现残留 Focused Moment 进程。
+
+## 2026-10-23 下一阶段分析与状态核对（02:58，Asia/Shanghai）
+
+- A～E 原优化目标保持完成；本机 2.14.2 根 EXE 的版本与 SHA-256 已再次只读核对，匹配 `local-20261023-014338-12e750d843`。
+- 新核验的 GitHub 事实已先补入 canonical `docs/maintenance/optimization-plan.md`：开发分支 `47131be` 领先 `main` 52 个提交；公开最新版本 v2.11.10；PR #1 仍为 2.12.0 标题。E 源码 CI 曾有 1 项初始错误恢复失败，同应用代码后续检查为 224 passed，最新 HEAD 的检查仍在运行。
+- 下一步建议先定向调查约 1 秒后台自动恢复与手动重试用例的竞态，再补最终候选关键原生交互和旧版升级验证，最后整理 PR/对外发布说明。根因解释目前是代码和日志支持的假设，本次未运行测试或修复。
+- 历史摘要按用户协议另存于 `docs/context_summary_20261023_0258.md`；旧摘要未覆盖。没有直接读取全部历史聊天，依据是持久化交接及源码/远端事实。
+- `PROJECT_PLAN.md` 不修改、不暂存、不提交，预期 SHA-256 保持 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`。用户既有未跟踪文件保留。仅更新文档；not rebuilt; entry unchanged。本次不提交、不推送，不合并 PR，不做正式发布。
+
+## 2026-10-23 发布收口与中断续作（16:35，Asia/Shanghai）
+
+- 用户已授权执行上一节全部收口工作，包含 PR 合并与 Windows 发布；另明确跳过多人试用，由本人使用。上一节“仅分析、不提交”的限制只描述当时状态，已被后续授权取代。
+- 恢复用例根因是一次故障在 1 秒后台重试后自动成功，错误区在测试点击前卸载。生产逻辑无需更改；将自动恢复和持续故障后的手动恢复分别覆盖，检查失败后仍可操作、恢复数据显示和成功后停止重试。
+- 浏览器 mock 完整 225/225（4 workers、0 retries）、`pnpm verify`（Rust 57 passed / 1 ignored）及审查后定向 2/2 通过。准确证据路径见 `release-readiness-2.14.2.md`；此次恢复核对了保存日志与最终测试状态。
+- 原三子任务已停止。现重新安排最终候选原生验收和独立发布审查；原生局部成功仍不等于整场景通过，未完成项继续执行。
+- 本单元只改测试和文档；not rebuilt; entry unchanged。根 EXE 哈希仍为 `B65F646ACAF733C40EA3BB9F48574197A88113CEC6994C7338DF7469604C4997`。PROJECT_PLAN 原字节与既有 diff 保持不变，其他用户文件未暂存。断点另存 `docs/context_summary_20261023_1633.md`。

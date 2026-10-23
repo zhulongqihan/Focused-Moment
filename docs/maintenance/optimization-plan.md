@@ -10,7 +10,7 @@
 - C 批 2.14.0 已完成源码提交推送、匹配 Release EXE 交付、代码级验证及 Windows 原生交互闭环。真实隔离 UI 验收了浮窗完成、主窗书签提示、跳过/保存和待办保持未完成；证据分层及未实测分支见下方 2026-10-22 工作单元。当前根入口 SHA-256 为 `8FB3E4A468C52A6745A4DD1F164B9CB76DDB8969358A3A23E3BA34B670646F4C`，build ID `local-20261015-194816-ff963e39a1`。
 - D 批 2.14.1 已完成实现、浏览器/Rust/静态验证、源码推送、Release EXE 替换和隔离 Windows smoke。实现提交为 `0da9bc39bfab27b645cd3e941d566bfea038a2e7`；最终构建来源 HEAD `639a852f15aec1c15483a48bd214ff2cbbfad8a6` 与远端一致。根入口 build ID `local-20261022-183356-2a14d0298d`，SHA-256 `71F0E8B24E1B3F99B51F39E57F6BFE42B24BDE22596608A7E22DAD5CFEA834C5`。隔离 smoke run `windows-native-20261022-183531-3160ffc11a` 通过；其范围为可见启动、隔离用户目录/WebView2、旧路径防护和合成迁移，不涵盖浮窗/托盘/声音交互。
 - E 批 2.14.2 已完成实现、源码推送、静态/Rust/浏览器验证、匹配 Release EXE 交付、Windows smoke 和同机性能对照。源码提交 `563d9d069a8e8559de971b3b58b5190fe6666153` 已推送；完整浏览器 `224/224`、`pnpm verify` 通过。首页可操作前 JS 为 228,261 bytes（相对 C 批 934,750 bytes 减少 75.58%），七张 WebP 共 266,706 bytes。当前根入口 2.14.2，build ID `local-20261023-014338-12e750d843`，SHA-256 `B65F646ACAF733C40EA3BB9F48574197A88113CEC6994C7338DF7469604C4997`；同候选 Windows smoke 与 42 项性能矩阵均通过，详见下方最终交付记录。
-- 未另外核验远程 CI；未做 GitHub Release、tag、安装器或资产上传。`PROJECT_PLAN.md` 仍受只读保护，当前 SHA-256 为 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`。
+- 2026-10-23 16:35（Asia/Shanghai）续作核验：`47131be` 的远程 Checks 已成功；初始读取失败后的自动恢复与手动点击竞态已通过测试时钟和持久故障夹具分开覆盖，本地完整 mock 225/225、静态/Rust 检查通过、审查后定向 2/2。用户已授权发布收口与 Windows 发布，跳过多人试用；原生最终验收继续中。详细状态见 `release-readiness-2.14.2.md`。尚未合并、tag 或发布。`PROJECT_PLAN.md` 仍受只读保护，SHA-256 为 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`。
 
 ## 本轮原始基线（2026-10-11）
 
@@ -31,7 +31,7 @@
 | D 降低持续运行开销 | 2.14.1 | 已完成 | 增量同步已实现；浏览器 mock 219/219、Rust 57 passed/0 failed/1 ignored、`pnpm verify` 通过；源码已推送。最终 Release build ID `local-20261022-183356-2a14d0298d` 的候选/根入口 SHA-256 同为 `71F0E8B24E1B3F99B51F39E57F6BFE42B24BDE22596608A7E22DAD5CFEA834C5`，旧 2.14.0 入口已按原哈希归档；同候选隔离 Windows smoke 通过。交互范围和证据路径见下方最终交付记录。 |
 | E 降低启动负担并完成总验收 | 2.14.2 | 已完成 | 源码提交已推送；`pnpm verify`、Rust 57 passed/0 failed/1 ignored、浏览器 224/224 通过；默认首页 JS 减少 75.58%；匹配 Release EXE 已替换根入口，同候选 Windows smoke 通过；C 基线与 E 候选的 42 项原生矩阵完成，README 和最终交接已更新。 |
 
-- **当前批次**：批次 0、A、B、C、D、E 均按计划完成；E 的源码、验证、Windows Release 入口、隔离 smoke、性能矩阵、README 和维护交接均已闭环。后续不存在本目标内未完成的批次。正式 GitHub Release、tag、安装器和资产上传未执行；远程 CI 未另外核验。`PROJECT_PLAN.md` 继续只读保护，SHA-256 为 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`。
+- **当前批次**：批次 0、A、B、C、D、E 均按原计划完成，不重开已关闭批次。用户已授权执行发布前收口及 Windows 发布：恢复测试本地通过，最终候选关键原生交互与升级验证继续中；随后整理 PR、合并并发布。多人试用按用户要求跳过。正式 GitHub Release、tag、安装器和资产上传未执行。`PROJECT_PLAN.md` 继续只读保护，SHA-256 为 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`。
 
 ## 批次 0 证据
 
@@ -243,3 +243,15 @@
 
 12 次数据矩阵启动的可见原生窗口时间中位数为 `905.8 ms`（`657.0–1,302.7`）→ `729.0 ms`（`691.8–1,014.3`）；UIAutomation 控件就绪时间中位数为 `2,112.1 ms`（`1,670.6–3,070.4`）→ `1,886.0 ms`（`1,656.9–2,286.0`）。100% 动效的 CPU 中位数比基线高 `2.1%`，两次三轮范围接近，私有内存中位数基本不变；记录为小幅波动，不宣称该项下降。完整原始测量与计算值见两份 `matrix-report.json`。
 - **README、保护边界与交接**：README 现列五套常用主题，将 Aurora Ocean/Botanical Library 标为设置中的旧版主题，并分开说明公开稳定版 v2.11.10 与本地开发验收版 2.14.2。仅 README 与维护文档变更；未修改 `PROJECT_PLAN.md`，其 SHA-256 仍为 `E65E6C5C8942B349A44C649F00E29997EBFBDB068DD027A88F3429B909F72604`；受保护脚本、`div`、旧 context summaries 和 `app/artifacts/` 未纳入提交。文档改动不影响应用输入，未重建；根入口保持上述 E 批候选。
+
+## 2026-10-23 下一阶段盘点（02:58，Asia/Shanghai）
+
+- **事实来源**：当前源码、受保护旧计划、批次交接、根 EXE、provenance、Git refs、GitHub PR/Release/Actions。本次没有可用的跨聊天读取工具，未把这些材料描述成完整历史聊天记录。
+- **当前基线**：本地与远端开发分支均为 `47131be585654aaf95596b512889161affec7e4c`；`main` 为 `ec8ed2549380b074a9d12ebc9ae11d148dece977`，开发分支领先 52 个提交且不落后。本地源码和根入口均为 2.14.2，根哈希与 E 交付 manifest 匹配。公开最新 Release 仍为 v2.11.10。
+- **远程验证新事实**：[39824785630](https://github.com/zhulongqihan/Focused-Moment/actions/runs/39824785630) 在 `app/tests/app.spec.mjs:162` 的初始读取错误恢复用例失败，223 passed / 1 failed；三次尝试均在点击“重试读取”时遇到按钮不稳定或 DOM 脱离。[39825169688](https://github.com/zhulongqihan/Focused-Moment/actions/runs/39825169688) 为 224 passed，Rust 57 passed / 1 ignored；[39834931822](https://github.com/zhulongqihan/Focused-Moment/actions/runs/39834931822) 在本次核验时仍运行。应用和 CI 配置在上述三个提交间无差异。
+- **代码支持的待验证解释**：fixture 只让首个 `get_sync_snapshot` 失败；控制器 `scheduleSyncRetry()` 在约 1 秒后自动重试，`requestBusinessSync()` 成功后会把初始错误改为 ready 并卸载错误区。旧测试要求点到该错误区的手动重试，存在与自动恢复竞争的时间窗口。本次未定向复现，不能据此宣称已确认生产缺陷或已修复。建议分别固定“持续失败后的手动恢复”和“一次失败后的自动恢复”两类契约，不增加重试、延长超时或放宽断言来掩盖问题。
+- **原生证据边界**：E 的 smoke 只覆盖其报告中的启动/隔离/迁移；`windows-native-smoke.ps1` 仍以非零 `MainWindowHandle` 判断窗口存在，没有 HWND 所属/可见性与 UIA 可交互性的独立核验。已有 C/A 的原生交互仍有效，但不是最终 2.14.2 候选所有交互的证明。
+- **建议的下一单元**：完成上述恢复竞态的定向诊断及相应契约校正；以最终候选补托盘暂停/继续、隐藏窗口提醒和自定义音效、浮窗完成与书签交接、备份导入与公开旧版升级路径。重点核验同一状态跨窗口一致、记录只提交一次、重启/升级后合成数据完整。先处理明确缺口，不重跑没有变更理由的全量性能矩阵。
+- **发布汇总**：[PR #1](https://github.com/zhulongqihan/Focused-Moment/pull/1) 可合并但检查状态为 UNSTABLE，标题仍为“2.12.0 Release Candidate”。建议在收口后改写为最终交付范围，并准备汇总 v2.11.10 以来功能、数据格式与迁移变化的说明；最终合并、tag、Release 和资产上传保持独立动作。本次未执行。
+- **后续产品工作建议**：候选稳定后开展 3–5 名用户、约一周的实际使用观察，验证“5 秒知道下一步、3 个主要操作开始专注”，记录失败、卡点和再次使用情况。100% 动效仍约占 1.69 个 CPU 核心的性能点留作后续节能候选；其相对 C 基线仅 +2.1%，不能据此称新回归。不因历史前端队列重开主题设计。
+- **本轮范围**：只读调查及文档更新，没有应用变更、测试执行、构建、提交、推送或发布；not rebuilt; entry unchanged。`PROJECT_PLAN.md` 按保护要求保持原字节。上述队列是建议，未把它标成用户已批准的新功能目标。

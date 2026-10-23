@@ -9,8 +9,8 @@ function localDate() {
 }
 
 
-export async function bootWithTauriMock(page, { includeOverdue = false, includeRecords = false, windowLabel = "main", pausedFocus = false, runningFocus = false, completedCountdown = false, initialLoadError = false, autoMiniOnStart = false, delayAppPreferences = false, todayRecordCount = includeRecords ? 1 : 0, todayTodoCount = 1, futureTodoCount = 0, completedTodoCount = 0, historyDayCount = 0, freshTodoSnapshots = false, freshRecordSnapshots = false, initialPendingBookmarkNotices = [] } = {}) {
-  await page.addInitScript(({ today, includeOverdue, includeRecords, windowLabel, pausedFocus, runningFocus, completedCountdown, initialLoadError, autoMiniOnStart, delayAppPreferences, todayRecordCount, todayTodoCount, futureTodoCount, completedTodoCount, historyDayCount, freshTodoSnapshots, freshRecordSnapshots, initialPendingBookmarkNotices }) => {
+export async function bootWithTauriMock(page, { includeOverdue = false, includeRecords = false, windowLabel = "main", pausedFocus = false, runningFocus = false, completedCountdown = false, initialLoadError = false, persistInitialLoadError = false, autoMiniOnStart = false, delayAppPreferences = false, todayRecordCount = includeRecords ? 1 : 0, todayTodoCount = 1, futureTodoCount = 0, completedTodoCount = 0, historyDayCount = 0, freshTodoSnapshots = false, freshRecordSnapshots = false, initialPendingBookmarkNotices = [] } = {}) {
+  await page.addInitScript(({ today, includeOverdue, includeRecords, windowLabel, pausedFocus, runningFocus, completedCountdown, initialLoadError, persistInitialLoadError, autoMiniOnStart, delayAppPreferences, todayRecordCount, todayTodoCount, futureTodoCount, completedTodoCount, historyDayCount, freshTodoSnapshots, freshRecordSnapshots, initialPendingBookmarkNotices }) => {
     const yesterday = new Date(`${today}T00:00:00`);
     yesterday.setDate(yesterday.getDate() - 1);
     const dateKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -213,6 +213,8 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
     window.__releaseNextAppPreferencesRead = null;
     window.__delayedAppPreferenceReadsCompleted = 0;
     let initialLoadFailures = initialLoadError ? 1 : 0;
+    window.__holdInitialLoadError = persistInitialLoadError;
+    window.__syncReadAttempts = 0;
     const eventCallbacks = new Map();
     const eventListeners = new Map();
     const emitMockEvent = (event, payload = null) => {
@@ -489,9 +491,12 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
         return callbackId;
       },
       invoke: async (command, args = {}) => {
-        if (initialLoadFailures > 0 && ["get_sync_snapshot"].includes(command)) {
-          initialLoadFailures -= 1;
-          throw new Error("模拟本地数据读取失败");
+        if (command === "get_sync_snapshot") {
+          window.__syncReadAttempts += 1;
+          if (initialLoadFailures > 0 || window.__holdInitialLoadError) {
+            initialLoadFailures = Math.max(0, initialLoadFailures - 1);
+            throw new Error("模拟本地数据读取失败");
+          }
         }
 
         switch (command) {
@@ -955,7 +960,7 @@ export async function bootWithTauriMock(page, { includeOverdue = false, includeR
         }
       },
     };
-  }, { today: localDate(), includeOverdue, includeRecords, windowLabel, pausedFocus, runningFocus, completedCountdown, initialLoadError, autoMiniOnStart, delayAppPreferences, todayRecordCount, todayTodoCount, futureTodoCount, completedTodoCount, historyDayCount, freshTodoSnapshots, freshRecordSnapshots, initialPendingBookmarkNotices });
+  }, { today: localDate(), includeOverdue, includeRecords, windowLabel, pausedFocus, runningFocus, completedCountdown, initialLoadError, persistInitialLoadError, autoMiniOnStart, delayAppPreferences, todayRecordCount, todayTodoCount, futureTodoCount, completedTodoCount, historyDayCount, freshTodoSnapshots, freshRecordSnapshots, initialPendingBookmarkNotices });
 
   await page.goto("/");
   if (windowLabel === "main") {
