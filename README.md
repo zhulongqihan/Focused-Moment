@@ -11,7 +11,7 @@ Focused Moment 适合不想用复杂项目管理系统、但又想把事情做�
 
 ## 预览
 
-五套主题使用同一套待办、计时、记录和本地数据，只改变呈现方式。你可以根据当天的工作状态选择更安静、清晰或沉浸的界面。
+五套常用主题使用同一套待办、计时、记录和本地数据，只改变呈现方式。你可以根据当天的工作状态选择更安静、清晰或沉浸的界面。
 
 <table>
   <tr>
@@ -24,18 +24,18 @@ Focused Moment 适合不想用复杂项目管理系统、但又想把事情做�
   </tr>
   <tr>
     <td width="50%"><img src="./app/public/theme-previews/03-graphite-console.png" alt="石墨控制台主题：今日节奏" /></td>
-    <td width="50%"><img src="./app/public/theme-previews/04-aurora-ocean.png" alt="极光海面主题：今日轨迹" /></td>
+    <td width="50%"><img src="./app/public/theme-previews/06-metro-pulse.png" alt="今日班次主题：站台与出发" /></td>
   </tr>
   <tr>
     <td align="center">石墨控制台 · Graphite Console</td>
-    <td align="center">极光海面 · Aurora Ocean</td>
+    <td align="center">今日班次 · Metro Pulse</td>
   </tr>
   <tr>
-    <td width="50%"><img src="./app/public/theme-previews/05-botanical-library.png" alt="植物书房主题：今日生长" /></td>
+    <td width="50%"><img src="./app/public/theme-previews/07-clutch-court.png" alt="今日赛场主题：战术与比赛" /></td>
     <td></td>
   </tr>
   <tr>
-    <td align="center">植物书房 · Botanical Library</td>
+    <td align="center">今日赛场 · Clutch Court</td>
     <td></td>
   </tr>
 </table>
@@ -44,34 +44,49 @@ Focused Moment 适合不想用复杂项目管理系统、但又想把事情做�
 
 | 模块 | 能做什么 |
 | --- | --- |
-| **今日** | 集中查看当前状态、下一件待办、当天完成情况和最近的专注进展。每日一句从本地语料库按日期稳定选择，切换主题不会改变当天内容。 |
-| **待办** | 创建带日期、时间和重要程度的事项；按日期分组查看，编辑、完成、撤销、删除，或直接带入专注。 |
+| **今日** | 选定当前事项和最多 3 个今日精选，直接开始、暂停、继续或完成专注；查看当天投入和最近进展。每日一句从本地语料库按日期稳定选择。 |
+| **待办** | 快速记下未安排事项，再补日期、时间和重要程度；支持编辑、完成、撤销、删除和直接带入专注。保存停笔书签，下次继续时找到上次的位置。 |
 | **计时** | 在正向计时和倒计时之间切换；倒计时支持 1–720 分钟。可以开始、暂停、继续、重置，并在完成后保存专注记录。 |
-| **专注记录** | 按日期回看所有已保存的专注，查看连续天数、活跃天数、累计时长、最佳单日和最近节奏，并可修改记录标题。 |
+| **专注记录** | 按日期回看投入和最近节奏；支持手动补录，以及标题、时长、完成时间和关联待办的修正。 |
 | **悬浮工作台** | 将待办或当前计时放到桌面置顶窗口；支持拖动、待办/计时切换、透明度调节、锁定与鼠标穿透，专注时可以隐藏主窗口。 |
 | **提醒与声音** | 支持应用内弹窗、任务栏提醒、多个内置提示音和自定义音效导入；提醒行为与声音设置会保存在本机。 |
-| **Windows 托盘** | 从通知区域查看当前计时和事项，暂停/继续计时，打开悬浮工作台，或直接跳转到今日、计时、待办、记录和设置。 |
+| **Windows 托盘** | 从通知区域查看当前计时和事项，暂停/继续计时，打开悬浮工作台，或直接跳转到今日、计时、待办和记录。 |
 | **本地优先** | 待办、记录、未完成计时状态、设置和备份都保存在本机；支持导出、导入和旧格式迁移。 |
 
-## 五套主题
+## 五套常用主题
 
 - **夜谷 · Night Valley**：深夜山谷、金色路径与薄荷色状态。
 - **编辑纸页 · Editorial Paper**：纸张、铅字与可读性的工作界面。
 - **石墨控制台 · Graphite Console**：铆钉、信号灯与可执行序列的深色控制台。
-- **极光海面 · Aurora Ocean**：潮汐、极光与流动节奏的专注光场。
-- **植物书房 · Botanical Library**：植物年轮、木质书架与安静生长的专注空间。
+- **今日班次 · Metro Pulse**：蓝白交通导视、清晰站台与准点出发。
+- **今日赛场 · Clutch Court**：篮球场、战术回合与关键时刻。
+
+设置页的“旧版主题”区域还保留 **极光海面 · Aurora Ocean** 和 **植物书房 · Botanical Library**，可按需切换；它们不计入常用五套主题。
 
 ## 下载
 
-当前公开稳定版本是 [v2.11.10](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.11.10)（2026-09-16），提供 Windows x64 资产：
+[Windows v2.14.2](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.14.2) 提供以下 x64 资产。升级内容见[版本说明](./docs/v2.14.2/RELEASE_NOTES.md)。
 
 | 文件 | 建议 |
 | --- | --- |
-| `Focused Moment Setup v2.11.10.exe` | 推荐大多数用户使用的标准安装程序。 |
-| `Focused Moment v2.11.10.exe` | 便携版，下载后可直接运行，不需要安装。 |
-| `Focused Moment_2.11.10_x64_en-US.msi` | 适合企业部署或习惯使用 Windows Installer 的用户。 |
+| [Setup 安装版](https://github.com/zhulongqihan/Focused-Moment/releases/download/v2.14.2/Focused.Moment.Setup.v2.14.2.exe) | 推荐大多数用户使用的标准安装程序。 |
+| [便携版 EXE](https://github.com/zhulongqihan/Focused-Moment/releases/download/v2.14.2/Focused.Moment.v2.14.2.exe) | 下载后可直接运行，不需要安装。 |
+| [MSI 安装包](https://github.com/zhulongqihan/Focused-Moment/releases/download/v2.14.2/Focused.Moment_2.14.2_x64_en-US.msi) | 适合企业部署或习惯使用 Windows Installer 的用户。 |
 
 安装包已经包含前端资源和 Rust 核心。普通用户不需要安装 Node.js、Rust、pnpm 或下载源码。
+
+### 本地 Windows 入口与来源
+
+本机工作区根目录的 `Focused Moment.exe` 为 **2.14.2**，与本版本便携资产使用同一份程序。
+
+| 项目 | 当前值 |
+| --- | --- |
+| Build ID | `local-20261023-170710-9bdc15b316` |
+| 构建时源码基点 | `a236df56f653d3abb9b0c65900f61faa43a90332`，含 manifest 记录的工作区修复 |
+| SHA-256 | `9299A959D72C8CF81B5B751D1A61149A681E8C022E761F889574AA1B0A9BCCFA` |
+| 本机 provenance | `artifacts/builds/local/local-20261023-170710-9bdc15b316/manifest.json` |
+
+候选、根入口与便携资产具有相同 SHA-256；本机 Release 交付记录了旧入口恢复副本和构建输入指纹。最终源提交与包内容核对见[发布验收记录](./docs/maintenance/release-readiness-2.14.2.md)。
 
 当前 macOS 官方发布暂时冻结；源码仍保留跨平台构建配置。需要 macOS 资产时，可以查看此前最后一个包含 Universal DMG 的 [v2.10.11 Release](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.10.11)，或按照下方说明在 macOS 上从源码构建。
 
@@ -79,11 +94,11 @@ Focused Moment 适合不想用复杂项目管理系统、但又想把事情做�
 
 ## 快速开始
 
-1. 在“待办”写下要做的事，可选填写日期、时间和重要程度。
-2. 打开“计时”，选择正向计时或倒计时，写下本轮专注内容；也可以从待办直接进入。
-3. 点击“开始”，需要停下时选择“暂停”，准备好后继续。
-4. 完成后点击“完成并记录”，这段投入就会出现在“记录”和“今日”中。
-5. 需要桌面陪伴时打开“悬浮工作台”，在待办和当前计时之间切换。
+1. 快速记下要做的事，不填日期的事项会进入收件箱；选定当前事项或加入今日精选。
+2. 在“今日”开始专注；需要选择正向计时或倒计时时，打开“计时”设置。
+3. 需要停下时选择“暂停”，准备好后继续；需要桌面陪伴时打开“悬浮工作台”。
+4. 点击“完成并记录”保存本轮投入。待办会保留，直到你主动标记完成。
+5. 可保存停笔书签，下次继续时找到上次的位置；也可以跳过书签直接结束。
 
 ## 数据、备份与隐私
 
@@ -96,11 +111,11 @@ Focused Moment 当前没有账号体系和云同步，核心数据只保存在�
 
 应用内备份建议这样使用：
 
-1. 在“设置”中选择“导出备份”。
-2. 将生成的 JSON 备份复制到安全位置或新电脑。
-3. 在新设备安装应用后，从“设置”选择备份并导入。
+1. 在“设置”的“完整备份与恢复”中选择导出位置，再导出 JSON。
+2. 将备份复制到安全位置或新电脑，并保留原始数据。
+3. 选择 JSON 文件并预览，核对内容后确认导入；需要恢复主题和自定义音效时，勾选对应选项。
 
-导入前应用会保留回滚备份，并支持旧格式迁移。迁移或恢复前建议先复制一份原始 JSON，不要直接手动修改备份文件。
+导入会替换当前数据，并先生成回滚备份。当前格式为 v3，支持旧格式迁移；升级前保留旧版备份，便于回退。详细范围、限制与操作见[数据备份与换机](./docs/data-portability.md)。
 
 ## 从源码运行
 
@@ -150,7 +165,7 @@ cd app
 pnpm package:local
 ```
 
-该命令只执行真实 `tauri build --no-bundle`，验收精确的 `app/src-tauri/target/release/focused-moment.exe`，再安全更新根目录 `Focused Moment.exe`，并将输入指纹、源码 HEAD、候选与最终 SHA-256 和恢复信息写入 `artifacts/builds/local/<build-id>/`，旧入口恢复副本写入 `archive/executables/local/<build-id>/`。`pnpm package:release`、`pnpm release:github` 和 `pnpm release:ship` 是需要单独授权的发布/安装包流程，本轮不调用。
+该命令只执行真实 `tauri build --no-bundle`，验收精确的 `app/src-tauri/target/release/focused-moment.exe`，再安全更新根目录 `Focused Moment.exe`，并将输入指纹、源码 HEAD、候选与最终 SHA-256 和恢复信息写入 `artifacts/builds/local/<build-id>/`，旧入口恢复副本写入 `archive/executables/local/<build-id>/`。它不会创建 tag、发布 GitHub Release 或上传资产。
 
 ### 构建 Windows 安装包
 
@@ -158,10 +173,11 @@ pnpm package:local
 
 ```bash
 cd app
-pnpm package:release
+pnpm package:local
+pnpm tauri bundle --bundles "nsis,msi" --ci
 ```
 
-Tauri 构建结果位于 `app/src-tauri/target/release/bundle/`，版本化的 portable、Setup 和 MSI 文件会由导出脚本写入 `artifacts/builds/exports/release/`，不会散落到工作区根目录。
+第二条命令将刚构建的 Release 程序封装为安装包。当前版本的确定输出为 `app/src-tauri/target/release/bundle/nsis/Focused Moment_2.14.2_x64-setup.exe` 和 `app/src-tauri/target/release/bundle/msi/Focused Moment_2.14.2_x64_en-US.msi`。发布前核对版本、源提交和 SHA-256，并将三项资产保存到独立目录；安装包生成不会自动发布。
 
 ### 构建 macOS Universal 包
 

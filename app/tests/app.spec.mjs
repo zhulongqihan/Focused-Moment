@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 import { testOutputPath } from "./helpers/test-output.mjs";
+import { bootWithTauriMock } from "./helpers/tauri-mock.mjs";
 
 function localDate() {
   const now = new Date();
@@ -10,495 +11,52 @@ function localDate() {
   return `${year}-${month}-${day}`;
 }
 
-async function bootWithTauriMock(page, { includeOverdue = false, includeRecords = false, windowLabel = "main", pausedFocus = false, completedCountdown = false, initialLoadError = false, todayRecordCount = includeRecords ? 1 : 0, todayTodoCount = 1, futureTodoCount = 0, completedTodoCount = 0, historyDayCount = 0, freshTodoSnapshots = false, freshRecordSnapshots = false } = {}) {
-  await page.addInitScript(({ today, includeOverdue, includeRecords, windowLabel, pausedFocus, completedCountdown, initialLoadError, todayRecordCount, todayTodoCount, futureTodoCount, completedTodoCount, historyDayCount, freshTodoSnapshots, freshRecordSnapshots }) => {
-    const yesterday = new Date(`${today}T00:00:00`);
-    yesterday.setDate(yesterday.getDate() - 1);
-    const dateKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-    const yesterdayDate = dateKey(yesterday);
-    const overdueDate = yesterdayDate;
-    let todos = [
-      {
-        id: 1,
-        title: "写完产品复盘",
-        isCompleted: false,
-        scheduledDate: today,
-        scheduledTime: "10:00",
-        importanceKey: "high",
-      },
-    ];
-    if (includeOverdue) {
-      todos.push({
-        id: 2,
-        title: "过期事项",
-        isCompleted: false,
-        scheduledDate: overdueDate,
-        scheduledTime: "",
-        importanceKey: "medium",
-      });
-    }
-    if (todayTodoCount === 0) {
-      todos = todos.filter((item) => item.scheduledDate !== today);
-    }
-    let focusRecords = includeRecords ? [
-      {
-        id: 3,
-        title: "完成产品复盘",
-        durationMs: 45 * 60 * 1000,
-        durationLabel: "00:45:00",
-        modeKey: "stopwatch",
-        modeLabel: "正向计时",
-        phaseLabel: "正向计时",
-        linkedTodoId: 1,
-        linkedTodoTitle: "写完产品复盘",
-        completedAt: `${today}T11:30:00`,
-        completedDate: today,
-        completedTime: "11:30",
-      },
-      {
-        id: 2,
-        title: "整理研究资料",
-        durationMs: 30 * 60 * 1000,
-        durationLabel: "00:30:00",
-        modeKey: "countdown",
-        modeLabel: "倒计时",
-        phaseLabel: "倒计时",
-        linkedTodoId: null,
-        linkedTodoTitle: null,
-        completedAt: `${yesterdayDate}T22:40:00`,
-        completedDate: yesterdayDate,
-        completedTime: "22:40",
-      },
-      {
-        id: 1,
-        title: "阅读行业报告",
-        durationMs: 15 * 60 * 1000,
-        durationLabel: "00:15:00",
-        modeKey: "stopwatch",
-        modeLabel: "正向计时",
-        phaseLabel: "正向计时",
-        linkedTodoId: null,
-        linkedTodoTitle: null,
-        completedAt: `${yesterdayDate}T21:10:00`,
-        completedDate: yesterdayDate,
-        completedTime: "21:10",
-      },
-    ] : [];
-    const existingTodayRecordCount = focusRecords.filter((record) => record.completedDate === today).length;
-    for (let index = existingTodayRecordCount; index < todayRecordCount; index += 1) {
-      const hour = String(12 + index).padStart(2, "0");
-      focusRecords.push({
-        id: 100 + index,
-        title: `专注段 ${index + 1}`,
-        durationMs: 45 * 60 * 1000,
-        durationLabel: "00:45:00",
-        modeKey: "stopwatch",
-        modeLabel: "正向计时",
-        phaseLabel: "正向计时",
-        linkedTodoId: null,
-        linkedTodoTitle: `路线节点 ${index + 1}`,
-        completedAt: `${today}T${hour}:00:00`,
-        completedDate: today,
-        completedTime: `${hour}:00`,
-      });
-    }
-    for (let index = 0; index < historyDayCount; index += 1) {
-      const historyDate = new Date(`${today}T00:00:00`);
-      historyDate.setDate(historyDate.getDate() - index - 2);
-      const historyDateKey = dateKey(historyDate);
-      focusRecords.push({
-        id: 5000 + index,
-        title: `历史归档 ${index + 1}`,
-        durationMs: 30 * 60 * 1000,
-        durationLabel: "00:30:00",
-        modeKey: "stopwatch",
-        modeLabel: "正向计时",
-        phaseLabel: "正向计时",
-        linkedTodoId: null,
-        linkedTodoTitle: null,
-        completedAt: `${historyDateKey}T09:00:00`,
-        completedDate: historyDateKey,
-        completedTime: "09:00",
-      });
-    }
-    const existingTodayTodoCount = todos.filter((item) => item.scheduledDate === today).length;
-    for (let index = existingTodayTodoCount; index < todayTodoCount; index += 1) {
-      todos.push({
-        id: 300 + index,
-        title: `额外时段 ${index + 1}`,
-        isCompleted: false,
-        scheduledDate: today,
-        scheduledTime: `${String(15 + Math.floor(index / 2)).padStart(2, "0")}:${index % 2 ? "30" : "00"}`,
-        importanceKey: "medium",
-      });
-    }
-    for (let index = 0; index < futureTodoCount; index += 1) {
-      const futureDate = new Date(`${today}T00:00:00`);
-      futureDate.setDate(futureDate.getDate() + 1 + Math.floor(index / 2));
-      todos.push({
-        id: 800 + index,
-        title: `未来事项 ${index + 1}`,
-        isCompleted: false,
-        scheduledDate: dateKey(futureDate),
-        scheduledTime: `${String(9 + index).padStart(2, "0")}:00`,
-        importanceKey: "medium",
-      });
-    }
-    for (let index = 0; index < completedTodoCount; index += 1) {
-      todos.push({
-        id: 600 + index,
-        title: `已完成事项 ${index + 1}`,
-        isCompleted: true,
-        scheduledDate: today,
-        scheduledTime: "",
-        importanceKey: "medium",
-      });
-    }
-    window.__todoItemsCalls = 0;
-    window.__focusRecordCalls = 0;
-    window.__timerSnapshotCalls = 0;
-    window.__focusFloatingShown = false;
-    window.__floatingTodosShown = false;
-    window.__focusFloatingUnlocked = false;
-    window.__mainWindowDragged = false;
-    window.__minimizeMainWindowCalls = 0;
-    window.__toggleMaximizeMainWindowCalls = 0;
-    window.__closeMainWindowCalls = 0;
-    window.__flashMainWindowAttention = false;
-    window.__completedFocusCalls = 0;
-    window.__resetTimerCalls = 0;
-    let initialLoadFailures = initialLoadError ? 1 : 0;
-    const eventCallbacks = new Map();
-    const eventListeners = new Map();
-    let nextEventCallbackId = 1;
-    window.__appStateSyncReady = false;
-    window.__TAURI_EVENT_PLUGIN_INTERNALS__ = {
-      unregisterListener: (event, eventId) => {
-        eventListeners.get(event)?.delete(eventId);
-        eventCallbacks.delete(eventId);
-      },
-    };
-    let timerPreferences = {
-      pomodoroFocusMinutes: 25,
-      pomodoroBreakMinutes: 5,
-      stopwatchReminderMinutes: 25,
-      toastReminderEnabled: true,
-      windowAttentionReminderEnabled: true,
-      soundReminderEnabled: true,
-      alertSoundKey: "soft_chime",
-    };
-    let timer = {
-      modeKey: completedCountdown ? "countdown" : "stopwatch",
-      phaseKey: completedCountdown ? "countdown" : "stopwatch",
-      mode: completedCountdown ? "倒计时" : "正向计时",
-      phaseLabel: completedCountdown ? "倒计时" : "正向计时",
-      status: completedCountdown ? "已结束" : "待开始",
-      isRunning: false,
-      elapsedMs: completedCountdown ? 60 * 60 * 1000 : pausedFocus ? 30_000 : 0,
-      elapsedLabel: completedCountdown ? "00:00:00" : pausedFocus ? "00:00:30" : "00:00:00",
-      targetDurationMs: completedCountdown ? 60 * 60 * 1000 : 25 * 60 * 1000,
-      remainingMs: completedCountdown ? 0 : null,
-      secondaryLabel: completedCountdown ? "本轮剩余时间" : "已累计时长",
-      canCompleteSession: true,
-      hasUnsubmittedProgress: completedCountdown || pausedFocus,
-      activeTaskTitle: pausedFocus ? "写完产品复盘" : "",
-      linkedTodoId: null,
-      completeLinkedTodoOnFinish: false,
-      currentRound: 1,
-      completedFocusCount: 0,
-      completedBreakCount: 0,
-      recoveredFromLastSession: false,
-      modeSwitchLocked: false,
-      modeSwitchHint: null,
-      alertSequence: 0,
-      alertKey: completedCountdown ? "countdown_complete" : null,
-      alertTitle: completedCountdown ? "倒计时已结束" : null,
-      alertMessage: completedCountdown ? "倒计时已完成，已累计专注 60 分钟。点击“保存并记录”后写入专注记录。" : null,
-    };
-    window.__replaceTimer = (patch) => {
-      timer = { ...timer, ...patch };
-      timer.hasUnsubmittedProgress = Boolean(
-        timer.isRunning || timer.elapsedMs > 0 || timer.recoveredFromLastSession
-      );
-    };
-    const formatDuration = (durationMs) => {
-      const totalSeconds = Math.round(Math.max(0, durationMs) / 1000);
-      const hours = Math.floor(totalSeconds / 3600);
-      const minutes = Math.floor((totalSeconds % 3600) / 60);
-      const seconds = totalSeconds % 60;
-      return [hours, minutes, seconds].map((part) => String(part).padStart(2, "0")).join(":");
-    };
-    const recordsByDate = new Map();
-    for (const record of focusRecords) {
-      const current = recordsByDate.get(record.completedDate) ?? {
-        date: record.completedDate,
-        totalDurationMs: 0,
-        sessionCount: 0,
-        linkedSessionCount: 0,
-        independentSessionCount: 0,
-      };
-      current.totalDurationMs += record.durationMs;
-      current.sessionCount += 1;
-      if (record.linkedTodoId === null) {
-        current.independentSessionCount += 1;
-      } else {
-        current.linkedSessionCount += 1;
-      }
-      recordsByDate.set(record.completedDate, current);
-    }
-    const dailyBreakdown = Array.from(recordsByDate.values())
-      .sort((left, right) => left.date.localeCompare(right.date))
-      .map((day) => ({ ...day, totalDurationLabel: formatDuration(day.totalDurationMs) }));
-    const totalFocusDurationMs = focusRecords.reduce((total, record) => total + record.durationMs, 0);
-    const activeDays = dailyBreakdown.filter((day) => day.totalDurationMs > 0).length;
-    const todayRecords = focusRecords.filter((record) => record.completedDate === today);
-    const todayFocusDurationMs = todayRecords.reduce((total, record) => total + record.durationMs, 0);
-    const bestDay = dailyBreakdown.reduce((best, day) => !best || day.totalDurationMs > best.totalDurationMs ? day : best, null);
-    const analytics = {
-      totalFocusDurationMs,
-      totalFocusDurationLabel: totalFocusDurationMs > 0 ? formatDuration(totalFocusDurationMs) : "0 分钟",
-      sessionCount: focusRecords.length,
-      linkedSessionCount: focusRecords.filter((record) => record.linkedTodoId !== null).length,
-      independentSessionCount: focusRecords.filter((record) => record.linkedTodoId === null).length,
-      pendingTodoCount: todos.length,
-      completedTodoCount: 0,
-      activeDays,
-      averageDailyDurationLabel: activeDays > 0 ? formatDuration(totalFocusDurationMs / activeDays) : "0 分钟",
-      todayFocusDurationLabel: todayFocusDurationMs > 0 ? formatDuration(todayFocusDurationMs) : "0 分钟",
-      todaySessionCount: todayRecords.length,
-      currentStreakDays: activeDays > 0 ? Math.min(activeDays, historyDayCount + (includeRecords ? 2 : 0)) : 0,
-      bestFocusDate: bestDay?.date ?? null,
-      bestFocusDurationLabel: bestDay?.totalDurationLabel ?? null,
-      dailyBreakdown,
-    };
-    window.__getAppStateSyncPayload = () => ({
-      timer,
-      todos,
-      records: focusRecords,
-      analytics,
-      timerPreferences,
-    });
 
-    window.__TAURI_INTERNALS__ = {
-      metadata: {
-        currentWindow: { label: windowLabel },
-        currentWebview: { label: windowLabel },
-      },
-      transformCallback: (callback) => {
-        const callbackId = nextEventCallbackId;
-        nextEventCallbackId += 1;
-        eventCallbacks.set(callbackId, callback);
-        if (windowLabel === "main") {
-          window.__trayNavigationCallback = callback;
-        } else {
-          window.__floatingWorkspaceEventCallback = callback;
-        }
-        return callbackId;
-      },
-      invoke: async (command, args = {}) => {
-        if (initialLoadFailures > 0 && ["get_timer_snapshot", "get_timer_preferences", "get_todo_items", "get_focus_records", "get_analytics_snapshot"].includes(command)) {
-          initialLoadFailures -= 1;
-          throw new Error("模拟本地数据读取失败");
-        }
-
-        switch (command) {
-          case "plugin:event|listen": {
-            const listeners = eventListeners.get(args.event) ?? new Set();
-            listeners.add(args.handler);
-            eventListeners.set(args.event, listeners);
-            if (args.event === "app-state-sync") {
-              window.__appStateSyncReady = true;
-            }
-            return args.handler;
-          }
-          case "plugin:event|unlisten":
-            return null;
-          case "plugin:event|emit": {
-            for (const callbackId of eventListeners.get(args.event) ?? []) {
-              eventCallbacks.get(callbackId)?.({
-                event: args.event,
-                id: callbackId,
-                payload: args.payload,
-              });
-            }
-            return null;
-          }
-          case "get_timer_snapshot":
-            window.__timerSnapshotCalls += 1;
-            return timer;
-          case "get_timer_preferences":
-            return timerPreferences;
-          case "get_todo_items":
-            window.__todoItemsCalls += 1;
-            return freshTodoSnapshots ? todos.map((item) => ({ ...item })) : todos;
-          case "get_focus_records":
-            window.__focusRecordCalls += 1;
-            return freshRecordSnapshots ? focusRecords.map((record) => ({ ...record })) : focusRecords;
-          case "update_focus_record_title":
-            focusRecords = focusRecords.map((record) => record.id === args.id
-              ? { ...record, title: args.title }
-              : record);
-            return focusRecords;
-          case "get_analytics_snapshot":
-            return analytics;
-          case "update_todo_item":
-            todos = todos.map((item) => item.id === args.id
-              ? {
-                  ...item,
-                  title: args.title,
-                  scheduledDate: args.scheduledDate,
-                  scheduledTime: args.scheduledTime,
-                  importanceKey: args.importanceKey,
-                }
-              : item);
-            return todos;
-          case "toggle_todo_item":
-            todos = todos.map((item) => item.id === args.id
-              ? { ...item, isCompleted: !item.isCompleted }
-              : item);
-            return todos;
-          case "list_app_backups":
-            return [];
-          case "complete_focus_session": {
-            window.__completedFocusCalls += 1;
-            const durationMs = timer.elapsedMs || 0;
-            const totalSeconds = Math.round(durationMs / 1000);
-            const hours = Math.floor(totalSeconds / 3600);
-            const minutes = Math.floor((totalSeconds % 3600) / 60);
-            const seconds = totalSeconds % 60;
-            const durationLabel = [hours, minutes, seconds].map((part) => String(part).padStart(2, "0")).join(":");
-            if (timer.completeLinkedTodoOnFinish && timer.linkedTodoId !== null) {
-              todos = todos.map((item) => item.id === timer.linkedTodoId ? { ...item, isCompleted: true } : item);
-            }
-            focusRecords = [...focusRecords, {
-              id: 1000 + focusRecords.length,
-              title: args.title,
-              durationMs,
-              durationLabel,
-              modeKey: timer.modeKey,
-              modeLabel: timer.mode,
-              phaseLabel: timer.phaseLabel,
-              linkedTodoId: timer.linkedTodoId,
-              linkedTodoTitle: timer.linkedTodoId === null ? null : todos.find((item) => item.id === timer.linkedTodoId)?.title ?? null,
-              completedAt: `${today}T12:00:00`,
-              completedDate: today,
-              completedTime: "12:00",
-            }];
-            timer = {
-              ...timer,
-              status: "未开始",
-              isRunning: false,
-              elapsedMs: 0,
-              elapsedLabel: "00:00:00",
-              hasUnsubmittedProgress: false,
-              remainingMs: timer.modeKey === "countdown" ? timer.targetDurationMs : null,
-              activeTaskTitle: "",
-              linkedTodoId: null,
-              completeLinkedTodoOnFinish: false,
-              alertKey: null,
-              alertTitle: null,
-              alertMessage: null,
-              recoveredFromLastSession: false,
-            };
-            return { timerSnapshot: timer, records: focusRecords, todoItems: todos };
-          }
-          case "start_timer":
-            timer = { ...timer, isRunning: true, hasUnsubmittedProgress: true, status: "正向计时中" };
-            return timer;
-          case "show_focus_floating":
-            window.__focusFloatingShown = true;
-            return null;
-          case "show_floating_todos":
-            window.__floatingTodosShown = true;
-            return null;
-          case "unlock_focus_floating":
-            window.__focusFloatingUnlocked = true;
-            return null;
-          case "start_dragging_main_window":
-            window.__mainWindowDragged = true;
-            return null;
-          case "minimize_main_window":
-            window.__minimizeMainWindowCalls += 1;
-            return null;
-          case "toggle_maximize_main_window":
-            window.__toggleMaximizeMainWindowCalls += 1;
-            return false;
-          case "close_main_window":
-            window.__closeMainWindowCalls += 1;
-            return null;
-          case "flash_main_window_attention":
-            window.__flashMainWindowAttention = true;
-            return null;
-          case "update_timer_preferences":
-            timerPreferences = args.preferences;
-            return timerPreferences;
-          case "pause_timer":
-            timer = { ...timer, isRunning: false, status: "已暂停" };
-            return timer;
-          case "reset_timer":
-            window.__resetTimerCalls += 1;
-            timer = {
-              ...timer,
-              status: "待开始",
-              isRunning: false,
-              elapsedMs: 0,
-              elapsedLabel: "00:00:00",
-              hasUnsubmittedProgress: false,
-              remainingMs: timer.modeKey === "countdown" ? timer.targetDurationMs : null,
-              activeTaskTitle: "",
-              linkedTodoId: null,
-              completeLinkedTodoOnFinish: false,
-              recoveredFromLastSession: false,
-              alertKey: null,
-              alertTitle: null,
-              alertMessage: null,
-            };
-            return timer;
-          case "update_timer_context":
-            return timer;
-          case "switch_timer_mode":
-            timer = {
-              ...timer,
-              modeKey: args.mode,
-              mode: args.mode === "countdown" ? "倒计时" : "正向计时",
-              phaseKey: args.mode,
-              phaseLabel: args.mode === "countdown" ? "倒计时" : "正向计时",
-              targetDurationMs: args.mode === "countdown" ? 25 * 60 * 1000 : null,
-              remainingMs: args.mode === "countdown" ? 25 * 60 * 1000 : null,
-            };
-            return timer;
-          case "set_countdown_minutes":
-            timer = {
-              ...timer,
-              targetDurationMs: Number(args.minutes) * 60 * 1000,
-              remainingMs: Number(args.minutes) * 60 * 1000,
-            };
-            return timer;
-          default:
-            return null;
-        }
-      },
-    };
-  }, { today: localDate(), includeOverdue, includeRecords, windowLabel, pausedFocus, completedCountdown, initialLoadError, todayRecordCount, todayTodoCount, futureTodoCount, completedTodoCount, historyDayCount, freshTodoSnapshots, freshRecordSnapshots });
-
-  await page.goto("/");
-  if (windowLabel === "main") {
-    await expect(page.getByRole("heading", { name: "今天，从一件事开始" })).toBeVisible();
-  } else if (windowLabel === "todo-unlock" || windowLabel === "focus-unlock") {
-    await expect(page.getByRole("button", { name: /解除.*锁定/ })).toBeVisible();
-  } else {
-    await expect(page.getByRole("button", { name: "返回" })).toBeVisible();
-  }
+async function openQuickCaptureFromPalette(page) {
+  await page.keyboard.press("Control+K");
+  await page.getByRole("searchbox", { name: "搜索命令" }).fill("快速收进收件箱");
+  await page.getByRole("option", { name: "快速收进收件箱 记下一件事，不填日期也可以", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "你想做什么？" })).toBeHidden();
+  await expect(page.getByRole("dialog", { name: "先记下来，稍后再整理" })).toBeVisible();
 }
+
+async function openRestoredFocusPlan(page) {
+  await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: /^待办/ }).click();
+  const details = page.locator("details.restored-focus-plan");
+  await expect(details).not.toHaveAttribute("open");
+  await expect(details.locator(".focus-plan-controls")).toBeHidden();
+  await details.locator("summary").filter({ hasText: "当前事项和今日精选" }).click();
+  await expect(details).toHaveAttribute("open", "");
+  const plan = details.getByRole("region", { name: "当前事项和今日精选" });
+  await expect(plan).toBeVisible();
+  return plan;
+}
+
+async function startRestoredCurrentTodo(page) {
+  const plan = await openRestoredFocusPlan(page);
+  const current = plan.locator(".focus-plan-controls__row.is-current");
+  await expect(current).toContainText("写完产品复盘");
+  await current.getByRole("button", { name: "开始专注", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => window.__startTimerCalls)).toBe(1);
+  await expect.poll(() => page.evaluate(async () => {
+    const timer = await window.__TAURI_INTERNALS__.invoke("get_timer_snapshot");
+    return { running: timer.isRunning, title: timer.activeTaskTitle, linkedTodoId: timer.linkedTodoId };
+  })).toEqual({ running: true, title: "写完产品复盘", linkedTodoId: 1 });
+  await expect(page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: /^待办/ })).toHaveClass(/active/);
+}
+
 
 test("Today cockpit exposes the overview and command palette", async ({ page }) => {
   await bootWithTauriMock(page);
 
   await expect(page.getByText("写完产品复盘").first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "今天，从一件事开始", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "今日概览", exact: true })).toBeVisible();
-  await expect(page.getByText("0 / 1", { exact: true })).toBeVisible();
+  await expect(page.locator(".trail-overview-progress-heading strong")).toHaveText("0 / 1");
+  await expect(page.locator(".unified-today-page, .continuity-board, .today-continuity-grid")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "查看计时", exact: true })).toHaveCount(0);
-  await expect(page.locator(".minimal-app--trail .command-trigger")).toBeHidden();
+  await expect(page.locator(".trail-node")).toHaveCount(1);
+  await expect(page.locator(".trail-node--current")).toContainText("写完产品复盘");
 
   await page.keyboard.press("Control+K");
   await expect(page.getByRole("dialog", { name: "你想做什么？" })).toBeVisible();
@@ -551,12 +109,40 @@ test("command palette keeps keyboard focus inside the dialog and executes the ac
   await expect(page.getByRole("button", { name: "计时", exact: true })).toBeFocused();
 });
 
+test("command palette searches task and record history and focuses records by task", async ({ page }) => {
+  await bootWithTauriMock(page, { includeRecords: true, todayRecordCount: 1 });
+
+  await page.keyboard.press("Control+K");
+  const search = page.getByRole("searchbox", { name: "搜索命令" });
+  await search.fill("产品复盘");
+
+  const taskResult = page.getByRole("option").filter({ hasText: "任务：写完产品复盘" });
+  const recordResult = page.getByRole("option").filter({ hasText: "记录：完成产品复盘" });
+  await expect(taskResult).toBeVisible();
+  await expect(recordResult).toBeVisible();
+
+  await taskResult.click();
+  await expect(page.getByRole("heading", { name: "专注记录" })).toBeVisible();
+  await expect(page.locator(".records-task-filter")).toContainText("写完产品复盘");
+  await expect(page.getByText("完成产品复盘", { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "清除任务筛选" }).click();
+  await expect(page.locator(".records-task-filter")).toHaveCount(0);
+
+  await page.keyboard.press("Control+K");
+  await search.fill(localDate());
+  const dateResult = page.getByRole("option").filter({ hasText: `日期：${localDate()}` });
+  await expect(dateResult).toBeVisible();
+  await dateResult.click();
+  await expect(page.locator(".app-message")).toContainText("已定位到日期归档");
+});
+
 test("command palette can open the floating workspace", async ({ page }) => {
   await bootWithTauriMock(page);
 
   await page.keyboard.press("Control+K");
-  await page.getByRole("searchbox", { name: "搜索命令" }).fill("悬浮工作台");
-  await expect(page.getByRole("option", { name: "打开悬浮工作台" })).toBeVisible();
+  await page.getByRole("searchbox", { name: "搜索命令" }).fill("迷你工作台");
+  await expect(page.getByRole("option", { name: "打开迷你工作台" })).toBeVisible();
   await page.keyboard.press("Enter");
 
   await expect.poll(() => page.evaluate(() => window.__floatingTodosShown)).toBe(true);
@@ -574,23 +160,66 @@ test("native tray navigation event switches the main window view", async ({ page
 });
 
 test("initial data errors stay visible and recover through the retry action", async ({ page }) => {
-  await bootWithTauriMock(page, { initialLoadError: true });
+  const now = new Date();
+  await page.clock.install({ time: new Date(now.getTime() - 60_000) });
+  await page.clock.pauseAt(now);
+  await bootWithTauriMock(page, { initialLoadError: true, persistInitialLoadError: true });
 
   const loadError = page.getByRole("alert");
   await expect(loadError).toContainText("暂时无法读取本地数据");
   await expect(loadError).toContainText("模拟本地数据读取失败");
   const retry = loadError.getByRole("button", { name: "重试读取" });
   await expect(retry).toBeVisible();
+  expect(await page.evaluate(() => window.__syncReadAttempts)).toBe(1);
+
+  // A persistent read failure must remain actionable after automatic and manual retries.
+  await page.clock.runFor(1_000);
+  await expect.poll(() => page.evaluate(() => window.__syncReadAttempts)).toBe(2);
+  await expect(loadError).toContainText("模拟本地数据读取失败");
+  await retry.click();
+  await expect(page.locator(".app-message")).toContainText("模拟本地数据读取失败");
+  await expect(loadError).toBeVisible();
+  await expect(retry).toBeEnabled();
+  await expect.poll(() => page.evaluate(() => window.__syncReadAttempts)).toBeGreaterThan(2);
+  const failedReadAttempts = await page.evaluate(() => window.__syncReadAttempts);
+
+  // Hold the clock while the user retries so background recovery cannot win this branch.
+  await page.evaluate(() => { window.__holdInitialLoadError = false; });
   await retry.click();
 
   await expect(page.getByRole("heading", { name: "今天，从一件事开始" })).toBeVisible();
   await expect(loadError).toBeHidden();
   await expect(page.getByRole("heading", { name: "今日概览", exact: true })).toBeVisible();
+  await expect(page.locator(".trail-node--current")).toContainText("写完产品复盘");
+  await expect.poll(() => page.evaluate(() => window.__syncReadAttempts)).toBe(failedReadAttempts + 1);
+  await page.clock.runFor(5_000);
+  expect(await page.evaluate(() => window.__syncReadAttempts)).toBe(failedReadAttempts + 1);
+});
+
+test("initial data errors recover automatically without a retry click", async ({ page }) => {
+  const now = new Date();
+  await page.clock.install({ time: new Date(now.getTime() - 60_000) });
+  await page.clock.pauseAt(now);
+  await bootWithTauriMock(page, { initialLoadError: true });
+
+  const loadError = page.getByRole("alert");
+  await expect(loadError).toContainText("模拟本地数据读取失败");
+  await expect(loadError.getByRole("button", { name: "重试读取" })).toBeVisible();
+  expect(await page.evaluate(() => window.__syncReadAttempts)).toBe(1);
+
+  await page.clock.runFor(1_000);
+  await expect.poll(() => page.evaluate(() => window.__syncReadAttempts)).toBe(2);
+  await expect(loadError).toBeHidden();
+  await expect(page.getByRole("heading", { name: "今日概览", exact: true })).toBeVisible();
+  await expect(page.locator(".trail-node--current")).toContainText("写完产品复盘");
+  await page.clock.runFor(5_000);
+  expect(await page.evaluate(() => window.__syncReadAttempts)).toBe(2);
 });
 
 test("Today overview keeps timing work in the focus page", async ({ page }) => {
   await bootWithTauriMock(page);
 
+  await expect(page.getByRole("heading", { name: "今天，从一件事开始", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "今日概览", exact: true })).toBeVisible();
   await expect(page.locator(".trail-timer")).toHaveCount(0);
   await page.getByRole("button", { name: "计时", exact: true }).click();
@@ -602,19 +231,17 @@ test("Today overview keeps timing work in the focus page", async ({ page }) => {
 
 test("Today trail expands into a scrollable route beyond five segments", async ({ page }) => {
   await bootWithTauriMock(page, { includeRecords: true, todayRecordCount: 7, todayTodoCount: 6 });
-
   await expect(page.locator(".trail-node")).toHaveCount(13);
+  await expect(page.locator(".trail-node--done")).toHaveCount(7);
+  await expect(page.getByRole("heading", { name: "今天，从一件事开始", exact: true })).toBeVisible();
   const dimensions = await page.locator(".trail-map__viewport").evaluate((element) => ({
     clientWidth: element.clientWidth,
     scrollWidth: element.scrollWidth,
-    canvasWidth: element.querySelector(".trail-map__canvas")?.getBoundingClientRect().width ?? 0,
+    canvasWidth: element.querySelector(".trail-map__canvas").getBoundingClientRect().width,
   }));
   expect(dimensions.canvasWidth).toBeGreaterThan(dimensions.clientWidth);
   expect(dimensions.scrollWidth).toBeGreaterThan(dimensions.clientWidth);
-
-  await page.locator(".trail-map__viewport").evaluate((element) => {
-    element.scrollLeft = element.scrollWidth;
-  });
+  await page.locator(".trail-map__viewport").evaluate((element) => { element.scrollLeft = element.scrollWidth; });
   await expect(page.getByRole("button", { name: /^13\./ })).toBeVisible();
 });
 
@@ -622,13 +249,14 @@ test("Today trail does not invent tasks when there are no todos", async ({ page 
   await bootWithTauriMock(page, { todayTodoCount: 0 });
 
   await expect(page.locator(".trail-node")).toHaveCount(1);
-  await expect(page.getByRole("heading", { name: "今日概览", exact: true })).toBeVisible();
-  await expect(page.locator(".trail-node__meta").first()).toContainText("今天的第一段");
+  await expect(page.locator(".trail-node--done")).toHaveCount(0);
+  await expect(page.locator(".trail-node__meta")).toContainText("今天的第一段");
+  await expect(page.getByRole("heading", { name: "今天，从一件事开始", exact: true })).toBeVisible();
   await expect(page.getByText("今天还没有安排待办", { exact: true })).toBeVisible();
+  await expect(page.locator(".trail-map__footer strong")).toHaveText("今天的第一段，从这里开始");
   await expect(page.getByText("本段任务", { exact: true })).toHaveCount(0);
   await expect(page.getByText("整理今天的会议笔记", { exact: true })).toHaveCount(0);
-  await expect(page.locator(".trail-map__footer strong")).toHaveText("今天的第一段，从这里开始");
-  await expect(page.locator(".trail-map__footer strong")).not.toContainText("/");
+  await expect(page.getByText("OPEN SLOT", { exact: true })).toHaveCount(0);
 });
 
 test("main window keeps its top bar available while scrolling and exposes a drag surface", async ({ page }) => {
@@ -693,7 +321,7 @@ test("countdown duration keeps the user value while timer snapshots refresh", as
   await expect(page.locator(".timer-readout strong")).toHaveText("01:00:00");
 });
 
-test("starting a countdown opens the floating workspace", async ({ page }) => {
+test("starting a countdown stays in the current page by default", async ({ page }) => {
   await bootWithTauriMock(page);
 
   await page.getByRole("button", { name: "计时", exact: true }).click();
@@ -702,7 +330,20 @@ test("starting a countdown opens the floating workspace", async ({ page }) => {
   await page.locator('input[name="sessionTitle"]').fill("完成季度复盘");
   await page.getByRole("button", { name: "开始", exact: true }).click();
 
-  await expect.poll(() => page.evaluate(() => window.__focusFloatingShown)).toBe(true);
+  await expect.poll(() => page.evaluate(() => window.__startTimerCalls)).toBe(1);
+  await expect.poll(() => page.evaluate(() => window.__miniWorkspaceShown)).toBe(false);
+  await expect(page.getByRole("heading", { name: "专注计时", exact: true })).toBeVisible();
+});
+
+test("auto mini preference opens the mini workspace only after a real start", async ({ page }) => {
+  await bootWithTauriMock(page, { autoMiniOnStart: true });
+
+  await page.getByRole("button", { name: "计时", exact: true }).click();
+  await page.locator('input[name="sessionTitle"]').fill("自动打开工作台测试");
+  await page.getByRole("button", { name: "开始", exact: true }).click();
+
+  await expect.poll(() => page.evaluate(() => window.__startTimerCalls)).toBe(1);
+  await expect.poll(() => page.evaluate(() => window.__miniWorkspaceShown)).toBe(true);
 });
 
 test("floating workspace switches between todos and the active timer", async ({ page }) => {
@@ -740,28 +381,24 @@ test("floating workspace can adjust and remember its opacity", async ({ page }) 
   await slider.fill("62");
   await expect(slider).toHaveValue("62");
   await expect(page.locator(".floating-todo")).toHaveCSS("opacity", "0.62");
-  await expect.poll(() => page.evaluate(() => localStorage.getItem("focused-moment.floating-window.opacity"))).toBe("62");
+  await expect.poll(() => page.evaluate(() => window.__TAURI_INTERNALS__.invoke("get_app_preferences"))).toMatchObject({ floatingOpacity: 62 });
 });
 
 test("floating timer receives main-window state sync without polling", async ({ page }) => {
   await bootWithTauriMock(page, { windowLabel: "todo-float", pausedFocus: true });
 
-  const initialCalls = await page.evaluate(() => window.__timerSnapshotCalls);
-  await expect.poll(() => page.evaluate(() => window.__appStateSyncReady)).toBe(true);
-  await page.evaluate(() => {
-    window.__replaceTimer({
-      elapsedMs: 42_000,
-      elapsedLabel: "00:00:42",
-      status: "已暂停",
-    });
-    return window.__TAURI_INTERNALS__.invoke("plugin:event|emit", {
-      event: "app-state-sync",
-      payload: window.__getAppStateSyncPayload(),
-    });
-  });
+  const initialCalls = await page.evaluate(() => window.__timerSyncSnapshotCalls);
+  const businessCalls = await page.evaluate(() => window.__businessSyncCalls);
+  await expect.poll(() => page.evaluate(() => window.__timerSyncSampleReady)).toBe(true);
+  await page.evaluate(() => window.__emitTimerSample({
+    elapsedMs: 42_000,
+    elapsedLabel: "00:00:42",
+    status: "已暂停",
+  }));
   await expect(page.getByText("00:00:42", { exact: true })).toBeVisible();
   await page.waitForTimeout(1500);
-  await expect.poll(() => page.evaluate(() => window.__timerSnapshotCalls)).toBe(initialCalls);
+  expect(await page.evaluate(() => window.__timerSyncSnapshotCalls)).toBe(initialCalls);
+  expect(await page.evaluate(() => window.__businessSyncCalls)).toBe(businessCalls);
 });
 
 test("floating workspace only shows todos when there is no active timer", async ({ page }) => {
@@ -794,13 +431,9 @@ test("reminder settings expose popup, taskbar and a palette of sound controls", 
   await expect(page.getByRole("checkbox", { name: /应用内弹窗/ })).toBeChecked();
   await expect(page.getByRole("checkbox", { name: /任务栏闪烁/ })).toBeChecked();
   await expect(page.getByRole("checkbox", { name: /声音提醒/ })).toBeChecked();
-  await expect(page.locator(".nv-sound-option")).toHaveCount(7);
+  await expect(page.locator(".nv-sound-option")).toHaveCount(6);
   await expect(page.locator(".nv-sound-option.is-selected")).toHaveCount(1);
-  await expect(page.getByRole("button", { name: /老牧师原声/ })).toBeVisible();
-  await page.getByRole("button", { name: /老牧师原声/ }).click();
-  await expect.poll(() => page.evaluate(() => window.__TAURI_INTERNALS__.invoke("get_timer_preferences"))).toMatchObject({
-    alertSoundKey: "viral_quote",
-  });
+  await expect(page.getByRole("button", { name: /老牧师原声/ })).toHaveCount(0);
 
   await page.getByRole("checkbox", { name: /任务栏闪烁/ }).uncheck();
   await expect.poll(() => page.evaluate(() => window.__TAURI_INTERNALS__.invoke("get_timer_preferences"))).toMatchObject({
@@ -830,14 +463,14 @@ test("records page turns a long history into a selectable archive trail", async 
 
   const recordDays = page.locator(".record-day");
   await expect(recordDays).toHaveCount(2);
-  await expect(recordDays.first()).toHaveAttribute("open", "");
-  await expect(recordDays.nth(1)).toHaveAttribute("open", "");
+  await expect(recordDays.first().locator(".record-day__summary")).toHaveAttribute("aria-expanded", "true");
+  await expect(recordDays.nth(1).locator(".record-day__summary")).toHaveAttribute("aria-expanded", "true");
   await expect(recordDays.nth(1).locator(".record-row").first()).toBeVisible();
 
-  await recordDays.nth(1).locator("summary").click();
+  await recordDays.nth(1).locator(".record-day__summary").click();
   await expect(recordDays.nth(1).locator(".record-row").first()).toBeHidden();
 
-  await recordDays.nth(1).locator("summary").click();
+  await recordDays.nth(1).locator(".record-day__summary").click();
   await expect(recordDays.nth(1).locator(".record-row").first()).toBeVisible();
 
   const dimensions = await page.evaluate(() => ({
@@ -871,11 +504,11 @@ test("records page keeps a long archive inside a bounded history viewport", asyn
   await historyList.evaluate((element) => {
     element.scrollTop = element.scrollHeight;
   });
-  await recordDays.last().locator("summary").scrollIntoViewIfNeeded();
+  await recordDays.last().locator(".record-day__summary").scrollIntoViewIfNeeded();
   await expect(recordDays.last().locator(".record-row").first()).toBeVisible();
-  await recordDays.last().locator("summary").evaluate((element) => element.click());
+  await recordDays.last().locator(".record-day__summary").evaluate((element) => element.click());
   await expect(recordDays.last().locator(".record-row").first()).toBeHidden();
-  await recordDays.last().locator("summary").evaluate((element) => element.click());
+  await recordDays.last().locator(".record-day__summary").evaluate((element) => element.click());
   await expect(recordDays.last().locator(".record-row")).toBeVisible();
   await expect(recordDays.last()).toContainText("历史归档 28");
 });
@@ -886,14 +519,17 @@ test("record day keeps its collapsed state during background refresh", async ({ 
   await page.getByRole("button", { name: "记录", exact: true }).click();
 
   const recordDays = page.locator(".record-day");
-  await recordDays.nth(1).locator("summary").click();
+  await recordDays.nth(1).locator(".record-day__summary").click();
   await expect(recordDays.nth(1).locator(".record-row").first()).toBeHidden();
 
-  const callsBeforeRefresh = await page.evaluate(() => window.__focusRecordCalls);
-  await expect.poll(() => page.evaluate(() => window.__focusRecordCalls), { timeout: 3000 })
-    .toBeGreaterThan(callsBeforeRefresh);
+  await page.evaluate(() => {
+    const revisions = window.__getDataRevisions();
+    window.__setDataRevisions({ recordRevision: revisions.recordRevision + 1 });
+  });
+  await expect.poll(() => page.evaluate(() => window.__businessSyncCalls), { timeout: 3000 })
+    .toBeGreaterThan(1);
   await expect(recordDays.nth(1).locator(".record-row").first()).toBeHidden();
-  await expect(recordDays.nth(1)).not.toHaveAttribute("open", "");
+  await expect(recordDays.nth(1).locator(".record-day__summary")).toHaveAttribute("aria-expanded", "false");
 });
 
 test("records page aligns route points and explains focus hours", async ({ page }) => {
@@ -964,7 +600,7 @@ test("records page keeps empty seven-day data at zero", async ({ page }) => {
 test("record title can be edited and saved without changing its duration", async ({ page }) => {
   await bootWithTauriMock(page, { includeRecords: true });
 
-  await page.getByRole("button", { name: "记录", exact: true }).click();
+  await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: "记录", exact: true }).click();
 
   const record = page.locator(".record-row").first();
   await record.getByRole("button", { name: "编辑记录“完成产品复盘”" }).click();
@@ -977,7 +613,7 @@ test("record title can be edited and saved without changing its duration", async
   await expect(record).toContainText("完成季度复盘");
   await expect(record).toContainText("00:45:00");
   await expect(record).not.toContainText("完成产品复盘");
-  await expect(page.locator(".app-message")).toContainText("专注记录名称已更新");
+  await expect(page.locator(".app-message")).toContainText("专注记录已更新");
 });
 
 test("timer snapshots keep refreshing while a record draft is open", async ({ page }) => {
@@ -990,8 +626,8 @@ test("timer snapshots keep refreshing while a record draft is open", async ({ pa
 
   const input = record.locator('input[name="editRecordTitle-3"]');
   await input.fill("仍在编辑中的草稿");
-  const timerCallsBefore = await page.evaluate(() => window.__timerSnapshotCalls);
-  const todoCallsBefore = await page.evaluate(() => window.__todoItemsCalls);
+  const timerCallsBefore = await page.evaluate(() => window.__timerSyncSnapshotCalls);
+  const businessCallsBefore = await page.evaluate(() => window.__businessSyncCalls);
   await page.evaluate(() => window.__replaceTimer({
     status: "运行中",
     isRunning: true,
@@ -999,16 +635,15 @@ test("timer snapshots keep refreshing while a record draft is open", async ({ pa
     elapsedLabel: "00:00:31",
   }));
 
-  await expect.poll(() => page.evaluate(() => window.__timerSnapshotCalls), { timeout: 2500 })
+  await expect.poll(() => page.evaluate(() => window.__timerSyncSnapshotCalls), { timeout: 2500 })
     .toBeGreaterThan(timerCallsBefore);
-  await expect.poll(() => page.evaluate(() => window.__todoItemsCalls), { timeout: 2500 })
-    .toBe(todoCallsBefore);
+  expect(await page.evaluate(() => window.__businessSyncCalls)).toBe(businessCallsBefore);
   await expect(input).toHaveValue("仍在编辑中的草稿");
 
   await page.waitForTimeout(30_000);
-  await expect.poll(() => page.evaluate(() => window.__timerSnapshotCalls), { timeout: 5000 })
+  await expect.poll(() => page.evaluate(() => window.__timerSyncSnapshotCalls), { timeout: 5000 })
     .toBeGreaterThan(timerCallsBefore + 20);
-  expect(await page.evaluate(() => window.__todoItemsCalls)).toBe(todoCallsBefore);
+  expect(await page.evaluate(() => window.__businessSyncCalls)).toBe(businessCallsBefore);
   await expect(input).toHaveValue("仍在编辑中的草稿");
 
   await page.getByRole("button", { name: "计时", exact: true }).click();
@@ -1063,6 +698,129 @@ test("timer workspace keeps only actionable controls and state copy", async ({ p
   await expect.poll(() => page.evaluate(() => window.__resetTimerCalls)).toBe(1);
 });
 
+for (const scenario of [
+  { name: "running", options: { runningFocus: true } },
+  { name: "expired", options: { completedCountdown: true } },
+]) {
+  test(`reset confirmation protects ${scenario.name} session progress`, async ({ page }) => {
+    await bootWithTauriMock(page, scenario.options);
+    await page.getByRole("button", { name: "计时", exact: true }).click();
+    await page.getByRole("button", { name: "重置本次专注", exact: true }).click();
+
+    const dialog = page.getByRole("dialog", { name: "重置本轮计时？" });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "保留本轮" })).toBeFocused();
+    await dialog.getByRole("button", { name: "保留本轮" }).click();
+    await expect(dialog).toBeHidden();
+    await expect.poll(() => page.evaluate(() => window.__resetTimerCalls)).toBe(0);
+    await expect.poll(() => page.evaluate(() => window.__getAppStateSyncPayload().timer.hasUnsubmittedProgress)).toBe(true);
+  });
+}
+
+test("reset confirmation shows the current session and can be cancelled without losing progress", async ({ page }) => {
+  await bootWithTauriMock(page, { pausedFocus: true });
+  await page.getByRole("button", { name: "计时", exact: true }).click();
+  const resetButton = page.getByRole("button", { name: "重置本次专注", exact: true });
+  await resetButton.click();
+
+  let dialog = page.getByRole("dialog", { name: "重置本轮计时？" });
+  await expect(dialog).toContainText("写完产品复盘");
+  await expect(dialog).toContainText("00:00:30");
+  await expect(dialog.getByRole("button", { name: "保留本轮" })).toBeFocused();
+  await page.screenshot({ path: testOutputPath("screenshots", "reset-session-confirmation.png"), animations: "disabled" });
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect.poll(() => page.evaluate(() => window.__resetTimerCalls)).toBe(0);
+  await expect.poll(() => page.evaluate(() => window.__getAppStateSyncPayload().timer.elapsedMs)).toBe(30_000);
+
+  await resetButton.click();
+  dialog = page.getByRole("dialog", { name: "重置本轮计时？" });
+  await expect(dialog).toBeVisible();
+  await page.locator(".workflow-dialog-backdrop").dispatchEvent("mousedown");
+  await expect(dialog).toBeHidden();
+  await expect.poll(() => page.evaluate(() => window.__resetTimerCalls)).toBe(0);
+  await expect.poll(() => page.evaluate(() => window.__getAppStateSyncPayload().timer.hasUnsubmittedProgress)).toBe(true);
+});
+
+test("reset confirmation sends its captured session id and commits only once", async ({ page }) => {
+  await bootWithTauriMock(page, { pausedFocus: true });
+  await page.getByRole("button", { name: "计时", exact: true }).click();
+  await page.getByRole("button", { name: "重置本次专注", exact: true }).click();
+
+  const dialog = page.getByRole("dialog", { name: "重置本轮计时？" });
+  await page.evaluate(() => { window.__holdNextResetTimer = true; });
+  const confirmButton = dialog.getByRole("button", { name: "确认重置" });
+  await confirmButton.click();
+  await expect.poll(() => page.evaluate(() => window.__resetTimerCalls)).toBe(1);
+  const busyButton = dialog.getByRole("button", { name: "正在重置…" });
+  await expect(busyButton).toBeDisabled();
+  await busyButton.dispatchEvent("click");
+  await page.evaluate(() => window.__releaseResetTimer?.());
+
+  await expect(dialog).toBeHidden();
+  await expect.poll(() => page.evaluate(() => window.__resetTimerCalls)).toBe(1);
+  await expect.poll(() => page.evaluate(() => window.__resetTimerArgs)).toEqual([{ sessionId: "mock-session-1" }]);
+  await expect.poll(() => page.evaluate(() => window.__getAppStateSyncPayload().timer.hasUnsubmittedProgress)).toBe(false);
+});
+
+test("failed reset keeps progress for retry and a stale confirmation cannot clear a new session", async ({ page }) => {
+  await bootWithTauriMock(page, { pausedFocus: true });
+  await page.getByRole("button", { name: "计时", exact: true }).click();
+  await page.getByRole("button", { name: "重置本次专注", exact: true }).click();
+
+  let dialog = page.getByRole("dialog", { name: "重置本轮计时？" });
+  await page.evaluate(() => { window.__failResetTimer = true; });
+  await dialog.getByRole("button", { name: "确认重置" }).click();
+  await expect.poll(() => page.evaluate(() => window.__resetTimerCalls)).toBe(1);
+  await expect(dialog).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.__getAppStateSyncPayload().timer.elapsedMs)).toBe(30_000);
+  await dialog.getByRole("button", { name: "确认重置" }).click();
+  await expect(dialog).toBeHidden();
+  await expect.poll(() => page.evaluate(() => window.__resetTimerCalls)).toBe(2);
+  await expect.poll(() => page.evaluate(() => window.__resetTimerSuccessCalls)).toBe(1);
+  await expect.poll(() => page.evaluate(() => window.__resetTimerArgs)).toEqual([
+    { sessionId: "mock-session-1" },
+    { sessionId: "mock-session-1" },
+  ]);
+
+  await page.evaluate(() => {
+    window.__replaceTimer({
+      sessionId: "other-window-session",
+      elapsedMs: 90_000,
+      elapsedLabel: "00:01:30",
+      activeTaskTitle: "新一轮事项",
+      isRunning: false,
+      status: "已暂停",
+      hasUnsubmittedProgress: true,
+    });
+    const revisions = window.__getDataRevisions();
+    window.__setDataRevisions({ timerOperationRevision: revisions.timerOperationRevision + 1 });
+  });
+  await expect(page.locator(".timer-readout")).toContainText("00:01:30");
+  await page.getByRole("button", { name: "重置本次专注", exact: true }).click();
+  dialog = page.getByRole("dialog", { name: "重置本轮计时？" });
+  await expect(dialog).toContainText("新一轮事项");
+  await page.evaluate(() => {
+    window.__replaceTimer({
+      sessionId: "newer-window-session",
+      elapsedMs: 120_000,
+      elapsedLabel: "00:02:00",
+      activeTaskTitle: "更新后的事项",
+      isRunning: false,
+      status: "已暂停",
+      hasUnsubmittedProgress: true,
+    });
+    const revisions = window.__getDataRevisions();
+    window.__setDataRevisions({ timerOperationRevision: revisions.timerOperationRevision + 1 });
+  });
+  await expect(page.locator(".timer-readout")).toContainText("00:02:00");
+  await dialog.getByRole("button", { name: "确认重置" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByText("本轮已在其他窗口发生变化，请检查当前状态后重新操作。")).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.__resetTimerSuccessCalls)).toBe(1);
+  await expect.poll(() => page.evaluate(() => window.__getAppStateSyncPayload().timer.elapsedMs)).toBe(120_000);
+});
+
 test("timer workspace distinguishes a completed countdown", async ({ page }) => {
   await bootWithTauriMock(page, { completedCountdown: true });
 
@@ -1093,8 +851,11 @@ test("timer workspace offers quick durations and a usable pre-start reset", asyn
   await expect(page.locator(".nv-mode-switcher button.active")).toHaveText("倒计时");
   await expect(page.locator(".timer-readout")).toContainText("45:00");
 
+  const idleSessionId = await page.evaluate(() => window.__getAppStateSyncPayload().timer.sessionId);
   await page.getByRole("button", { name: "清空设置", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "重置本轮计时？" })).toHaveCount(0);
   await expect.poll(() => page.evaluate(() => window.__resetTimerCalls)).toBe(1);
+  await expect.poll(() => page.evaluate(() => window.__resetTimerArgs[0])).toEqual({ sessionId: idleSessionId });
 });
 
 test("timer page can reopen the focus floating window after returning to main", async ({ page }) => {
@@ -1102,14 +863,14 @@ test("timer page can reopen the focus floating window after returning to main", 
 
   await page.getByRole("button", { name: "计时", exact: true }).click();
 
-  const floatingButton = page.getByRole("button", { name: "进入悬浮窗", exact: true });
+  const floatingButton = page.getByRole("button", { name: "打开迷你工作台", exact: true });
   await expect(floatingButton).toBeVisible();
   await expect(floatingButton).toBeEnabled();
   await expect(floatingButton).toBeInViewport();
 
   await floatingButton.click();
 
-  await expect.poll(() => page.evaluate(() => window.__focusFloatingShown)).toBe(true);
+  await expect.poll(() => page.evaluate(() => window.__floatingTodosShown)).toBe(true);
 });
 
 test("paused focus floating window can continue without returning to the main window", async ({ page }) => {
@@ -1159,9 +920,9 @@ test("todo editor saves a date selected from the native date picker", async ({ p
   await page.getByRole("button", { name: /^待办/ }).click();
   await page.getByRole("button", { name: "编辑" }).click();
 
-  const todoItemsCallsBeforeWaiting = await page.evaluate(() => window.__todoItemsCalls);
+  const businessSyncCallsBeforeWaiting = await page.evaluate(() => window.__businessSyncCalls);
   await page.waitForTimeout(1200);
-  expect(await page.evaluate(() => window.__todoItemsCalls)).toBe(todoItemsCallsBeforeWaiting);
+  expect(await page.evaluate(() => window.__businessSyncCalls)).toBe(businessSyncCallsBeforeWaiting);
 
   const dateInput = page.locator('input[name="editTodoDate-1"]');
   const geometry = await page.evaluate(() => {
@@ -1363,13 +1124,17 @@ test("todo date group keeps its scroll position during background refresh", asyn
   await page.getByRole("button", { name: /^待办/ }).click();
 
   const items = page.locator(".nv-todo-date-group").first().locator(".nv-todo-date-group__items");
-  const callsBeforeScroll = await page.evaluate(() => window.__todoItemsCalls);
+  const callsBeforeScroll = await page.evaluate(() => window.__businessSyncCalls);
   await items.evaluate((element) => {
     element.scrollTop = element.scrollHeight;
   });
   expect(await items.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
 
-  await expect.poll(() => page.evaluate(() => window.__todoItemsCalls), { timeout: 3000 })
+  await page.evaluate(() => {
+    const revisions = window.__getDataRevisions();
+    window.__setDataRevisions({ todoRevision: revisions.todoRevision + 1 });
+  });
+  await expect.poll(() => page.evaluate(() => window.__businessSyncCalls), { timeout: 3000 })
     .toBeGreaterThan(callsBeforeScroll);
   expect(await items.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
 });
@@ -1415,5 +1180,167 @@ test("Today cockpit remains usable on a narrow window", async ({ page }) => {
     scrollWidth: document.documentElement.scrollWidth,
   }));
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.viewport);
-  await expect(page.getByRole("heading", { name: "今日概览", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "今天，从一件事开始", exact: true })).toBeVisible();
+});
+
+test("quick capture creates an inbox item and keeps the current page", async ({ page }) => {
+  await bootWithTauriMock(page);
+
+  await openQuickCaptureFromPalette(page);
+  const dialog = page.getByRole("dialog", { name: "先记下来，稍后再整理" });
+  await dialog.getByRole("textbox").fill("临时想到的开头");
+  await dialog.getByRole("button", { name: "放入收件箱" }).click();
+
+  await expect.poll(() => page.evaluate(() => window.__quickCaptureCalls)).toBe(1);
+  await expect(page.getByRole("heading", { name: "今天，从一件事开始" })).toBeVisible();
+  await expect(page.getByText("已放入收件箱，稍后整理。", { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: /^待办/ }).click();
+  const inbox = page.locator(".nv-todo-date-group").filter({ hasText: "收件箱 · 未安排" });
+  await expect(inbox).toContainText("临时想到的开头");
+  await expect(inbox).not.toContainText("已过期");
+});
+
+test("quick capture during a running timer does not pause or navigate", async ({ page }) => {
+  await bootWithTauriMock(page);
+
+  await startRestoredCurrentTodo(page);
+  await page.getByRole("button", { name: "今日", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => window.__startTimerCalls)).toBe(1);
+  await expect(page.getByRole("heading", { name: "今天，从一件事开始" })).toBeVisible();
+
+  await openQuickCaptureFromPalette(page);
+  const dialog = page.getByRole("dialog", { name: "先记下来，稍后再整理" });
+  await dialog.getByRole("textbox").fill("计时中想到的补充");
+  await dialog.getByRole("button", { name: "放入收件箱" }).click();
+
+  await expect.poll(() => page.evaluate(() => window.__quickCaptureCalls)).toBe(1);
+  expect(await page.evaluate(() => window.__pauseTimerCalls)).toBe(0);
+  await expect.poll(() => page.evaluate(async () => (await window.__TAURI_INTERNALS__.invoke("get_timer_snapshot")).isRunning)).toBe(true);
+  await expect.poll(() => page.evaluate(() => window.__startTimerCalls)).toBe(1);
+  await expect(page.getByRole("heading", { name: "今天，从一件事开始" })).toBeVisible();
+});
+
+test("current item and today picks stay user-controlled with a three-item limit", async ({ page }) => {
+  await bootWithTauriMock(page, { todayTodoCount: 4 });
+
+  const plan = await openRestoredFocusPlan(page);
+  await expect(plan.getByRole("button", { name: "移出精选" })).toHaveCount(3);
+  await expect(plan.getByRole("button", { name: "加入精选" })).toBeDisabled();
+
+  await plan.getByRole("button", { name: "移出精选" }).first().click();
+  await expect(plan.getByRole("button", { name: "加入精选" }).first()).toBeEnabled();
+  await plan.getByRole("button", { name: "加入精选" }).first().click();
+  await expect(plan.getByRole("button", { name: "移出精选" })).toHaveCount(3);
+
+  await plan.getByRole("button", { name: "设为当前" }).first().click();
+  await expect(plan.getByRole("button", { name: "取消当前" }).first()).toBeVisible();
+  await plan.getByRole("button", { name: "取消当前", exact: true }).click();
+  await expect(plan.getByRole("button", { name: "取消当前", exact: true })).toHaveCount(0);
+  await expect.poll(() => page.evaluate(async () => (await window.__TAURI_INTERNALS__.invoke("get_focus_plan")).currentTodoId)).toBeNull();
+});
+
+test("finishing a linked round keeps the todo open and saves a continuation bookmark", async ({ page }) => {
+  await bootWithTauriMock(page);
+
+  await startRestoredCurrentTodo(page);
+  await page.getByRole("button", { name: "计时", exact: true }).click();
+  const finish = page.getByRole("button", { name: "完成并记录", exact: true });
+  await expect(finish).toBeEnabled();
+  await finish.click();
+
+  const prompt = page.getByRole("dialog", { name: "保存停笔书签" });
+  await expect(prompt).toBeVisible();
+  await prompt.getByRole("textbox").fill("从第三段的例子继续");
+  await prompt.getByRole("button", { name: "保存下次位置" }).click();
+
+  await expect.poll(() => page.evaluate(() => window.__bookmarkSaveCalls)).toBe(1);
+  await expect(prompt).toBeHidden();
+  const plan = await openRestoredFocusPlan(page);
+  await expect(plan.getByText("下次继续：从第三段的例子继续", { exact: true })).toBeVisible();
+  await expect(page.locator(".todo-row").filter({ hasText: "写完产品复盘" })).toBeVisible();
+  await expect(page.locator(".completed-row").filter({ hasText: "写完产品复盘" })).toHaveCount(0);
+  await expect.poll(() => page.evaluate(async () => {
+    const records = await window.__TAURI_INTERNALS__.invoke("get_focus_records");
+    const todos = await window.__TAURI_INTERNALS__.invoke("get_todo_items");
+    const todo = todos.find((item) => item.id === 1);
+    return { rounds: records.filter((record) => record.linkedTodoId === 1).length, completed: todo.isCompleted, note: todo.continuationNote };
+  })).toEqual({ rounds: 1, completed: false, note: "从第三段的例子继续" });
+});
+
+test("records support manual entry and detailed correction", async ({ page }) => {
+  await bootWithTauriMock(page, { includeRecords: true });
+  await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: "记录", exact: true }).click();
+
+  await page.getByRole("button", { name: "补录专注" }).click();
+  const manual = page.getByRole("dialog", { name: "补录一段专注" });
+  await manual.getByRole("textbox", { name: "标题" }).fill("手动回顾一段工作");
+  await manual.getByRole("spinbutton", { name: "时长（分钟）" }).fill("35");
+  await manual.getByRole("button", { name: "补录记录" }).click();
+  await expect.poll(() => page.evaluate(() => window.__manualRecordCalls)).toBe(1);
+  const manualRecord = page.locator(".record-row").filter({ hasText: "手动回顾一段工作" });
+  await expect(manualRecord).toContainText("手动补录");
+
+  const record = manualRecord;
+  await record.getByRole("button", { name: "详细编辑" }).click();
+  const editor = page.getByRole("dialog", { name: "编辑专注记录" });
+  await editor.getByRole("spinbutton", { name: "时长（分钟）" }).fill("40");
+  await editor.getByRole("button", { name: "保存修改" }).click();
+  await expect.poll(() => page.evaluate(() => window.__recordUpdateCalls)).toBe(1);
+  await expect(record).toContainText("00:40:00");
+  await expect(record).toContainText("已修正");
+});
+
+test("portable backup preview and import expose the v3 restore choice", async ({ page }) => {
+  await bootWithTauriMock(page);
+  await page.getByRole("button", { name: "设置", exact: true }).click();
+
+  const path = page.getByRole("textbox", { name: "外部备份文件路径" });
+  await path.fill("C:\\Users\\test\\focused-moment-backup.json");
+  await page.getByRole("button", { name: "预览", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => window.__backupPreviewCalls)).toBe(1);
+  await expect(page.locator(".portable-backup-panel__preview")).toContainText("v3 / v3");
+  await expect(page.getByRole("checkbox", { name: "同时恢复主题、视觉设置和自定义音效" })).not.toBeChecked();
+
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "确认导入并生成回滚" }).click();
+  await expect.poll(() => page.evaluate(() => window.__backupImportCalls)).toBe(1);
+});
+
+test("settings cannot overwrite loaded preferences while the initial snapshot is pending", async ({ page }) => {
+  await bootWithTauriMock(page, { delayAppPreferences: true });
+  await page.getByRole("button", { name: "设置", exact: true }).click();
+
+  const content = page.locator(".minimal-content");
+  const themeChoice = page.locator(".nv-theme-card").filter({ hasText: "编辑纸页" });
+  const chooseTheme = themeChoice.click({ timeout: 10_000 });
+  await expect(content).toHaveJSProperty("inert", true);
+  await expect.poll(() => page.evaluate(() => typeof window.__releaseAppPreferencesLoad)).toBe("function");
+  await page.evaluate(() => window.__releaseAppPreferencesLoad?.());
+  await chooseTheme;
+
+  await expect(content).toHaveJSProperty("inert", false);
+  await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "editorial-paper");
+});
+
+test("failed appearance persistence keeps the live change and offers retry", async ({ page }) => {
+  await bootWithTauriMock(page);
+  await page.getByRole("button", { name: "设置", exact: true }).click();
+  await expect(page.locator(".minimal-content")).toHaveJSProperty("inert", false);
+  const initialRevisionEvents = await page.evaluate(() => window.__revisionEventEmits);
+  await page.evaluate(() => {
+    window.__failAppPreferenceSave = true;
+  });
+  await page.locator(".nv-theme-card").filter({ hasText: "编辑纸页" }).click();
+
+  await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "editorial-paper");
+  const error = page.locator(".restored-settings-compatibility").getByRole("alert").filter({ hasText: "外观设置保存失败" });
+  await expect(error).toBeVisible({ timeout: 3000 });
+  expect(await page.evaluate(() => window.__revisionEventEmits)).toBe(initialRevisionEvents);
+  await expect(page.locator(".minimal-app")).toHaveAttribute("data-theme", "editorial-paper");
+  await page.evaluate(() => { window.__failAppPreferenceSave = false; });
+  await error.getByRole("button", { name: "重试保存" }).click();
+  await expect(error).toBeHidden({ timeout: 3000 });
+  await expect.poll(() => page.evaluate(() => window.__appPreferenceUpdateCalls)).toBeGreaterThan(1);
+  await expect.poll(() => page.evaluate(async () => (await window.__TAURI_INTERNALS__.invoke("get_app_preferences")).themeId)).toBe("editorial-paper");
 });

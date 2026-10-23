@@ -67,6 +67,7 @@ pub(crate) fn show_main_window(app: &AppHandle) -> Result<(), String> {
 
     window.show().map_err(|error| error.to_string())?;
     window.set_focus().map_err(|error| error.to_string())?;
+    let _ = app.emit_to("main", MAIN_WINDOW_SHOWN_EVENT, ());
     Ok(())
 }
 
@@ -121,7 +122,7 @@ pub(crate) fn ensure_todo_floating_window(app: &AppHandle) -> Result<tauri::Webv
             build_floating_window(
                 app,
                 "todo-float",
-                "Focused Moment 悬浮工作台",
+                "Focused Moment 迷你工作台",
                 360.0,
                 340.0,
                 280.0,
@@ -177,6 +178,7 @@ pub(crate) fn hide_main_window(window: &Window) -> Result<(), String> {
 }
 
 pub(crate) fn snapshot_from_timer_state(state: &TimerEngineState) -> Result<TimerSnapshot, String> {
+    let _operation = state.read_operation()?;
     state.ensure_ready()?;
     let mut engine = state
         .timer
@@ -298,7 +300,7 @@ pub(crate) fn build_windows_tray_menu(app: &AppHandle) -> Result<Menu<Wry>, Stri
         .enabled(timer_action_enabled)
         .build(app)
         .map_err(|error| error.to_string())?;
-    let focus_floating_item = MenuItemBuilder::with_id(TRAY_FOCUS_FLOATING_ID, "打开专注悬浮窗")
+    let focus_floating_item = MenuItemBuilder::with_id(TRAY_FOCUS_FLOATING_ID, "打开迷你工作台")
         .enabled(tray_has_progress(&snapshot))
         .build(app)
         .map_err(|error| error.to_string())?;
@@ -356,6 +358,7 @@ pub(crate) fn toggle_timer_from_tray(app: &AppHandle) -> Result<(), String> {
     let state = app
         .try_state::<TimerEngineState>()
         .ok_or_else(|| "找不到计时状态".to_string())?;
+    let transaction = state.begin_transaction(OperationScope::Runtime)?;
     let snapshot = {
         state.ensure_ready()?;
         let mut engine = state
@@ -374,6 +377,8 @@ pub(crate) fn toggle_timer_from_tray(app: &AppHandle) -> Result<(), String> {
     };
 
     state.persist_runtime()?;
+    let revisions = transaction.commit(RevisionChanges::TIMER_OPERATION);
+    publish_data_revisions(app, revisions);
     refresh_system_tray_menu(&snapshot);
     Ok(())
 }
@@ -465,10 +470,9 @@ pub(crate) fn build_system_tray(app: &AppHandle) -> Result<(), String> {
                 }
             }
             TRAY_QUIT_ID => {
-                if let Some(state) = app.try_state::<AppLifecycleState>() {
-                    state.mark_quitting();
+                if let Err(error) = quit_application(app.clone()) {
+                    eprintln!("FOCUSED_MOMENT_TRAY_QUIT=error:{error}");
                 }
-                app.exit(0);
             }
             _ => {}
         })
@@ -629,7 +633,7 @@ pub(crate) async fn show_floating_todos(app: tauri::AppHandle) -> Result<(), Str
 pub(crate) async fn lock_floating_todos(app: tauri::AppHandle) -> Result<(), String> {
     let floating_window = app
         .get_webview_window("todo-float")
-        .ok_or_else(|| "找不到悬浮待办窗口".to_string())?;
+        .ok_or_else(|| "找不到迷你工作台".to_string())?;
     let unlock_window = ensure_todo_unlock_window(&app)?;
 
     let floating_position = floating_window
@@ -662,7 +666,7 @@ pub(crate) async fn lock_floating_todos(app: tauri::AppHandle) -> Result<(), Str
 pub(crate) fn unlock_floating_todos(app: tauri::AppHandle) -> Result<(), String> {
     let floating_window = app
         .get_webview_window("todo-float")
-        .ok_or_else(|| "找不到悬浮待办窗口".to_string())?;
+        .ok_or_else(|| "找不到迷你工作台".to_string())?;
 
     // Restore interaction before closing the fallback unlock window. If a
     // native focus/show call is delayed, the user must still have a visible
@@ -705,7 +709,7 @@ pub(crate) async fn show_focus_floating(app: tauri::AppHandle) -> Result<(), Str
 pub(crate) async fn lock_focus_floating(app: tauri::AppHandle) -> Result<(), String> {
     let focus_window = app
         .get_webview_window("focus-float")
-        .ok_or_else(|| "找不到专注小窗".to_string())?;
+        .ok_or_else(|| "找不到迷你工作台".to_string())?;
     let unlock_window = ensure_focus_unlock_window(&app)?;
 
     let floating_position = focus_window
@@ -736,7 +740,7 @@ pub(crate) async fn lock_focus_floating(app: tauri::AppHandle) -> Result<(), Str
 pub(crate) fn unlock_focus_floating(app: tauri::AppHandle) -> Result<(), String> {
     let focus_window = app
         .get_webview_window("focus-float")
-        .ok_or_else(|| "找不到专注小窗".to_string())?;
+        .ok_or_else(|| "找不到迷你工作台".to_string())?;
     // Keep the fallback unlock window alive until the floating window is
     // visible, interactive, and focused. Hiding it first can strand the
     // floating window in click-through mode when Windows delays a focus call.
@@ -773,6 +777,11 @@ pub(crate) fn restore_main_from_floating_todos(app: tauri::AppHandle) -> Result<
 
 #[tauri::command]
 pub(crate) fn quit_application(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(state) = app.try_state::<TimerEngineState>() {
+        let transaction = state.begin_transaction(OperationScope::Runtime)?;
+        state.persist_runtime()?;
+        transaction.commit(RevisionChanges::NONE);
+    }
     if let Some(state) = app.try_state::<AppLifecycleState>() {
         state.mark_quitting();
     }

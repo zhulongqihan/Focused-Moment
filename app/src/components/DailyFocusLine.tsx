@@ -1,10 +1,5 @@
-import { Show, createMemo } from "solid-js";
-import {
-  getCopyAttribution,
-  getCopyDisplayText,
-  getCopyOriginalText,
-  getDailyCopy,
-} from "../lib/copy-library";
+import { Show, createEffect, createMemo, createSignal, onCleanup } from "solid-js";
+import type { CopyLibraryItem } from "../lib/copy-library";
 
 export type DailyFocusTheme =
   | "night-valley"
@@ -32,15 +27,40 @@ export interface DailyFocusLineProps {
 }
 
 export default function DailyFocusLine(props: DailyFocusLineProps) {
-  const copy = createMemo(() => getDailyCopy(props.date));
-  const displayText = createMemo(() => getCopyDisplayText(copy()));
-  const originalText = createMemo(() => getCopyOriginalText(copy()));
+  const [copy, setCopy] = createSignal<CopyLibraryItem>();
+  createEffect(() => {
+    const date = props.date;
+    let stale = false;
+    let firstFrame = 0;
+    let secondFrame = 0;
+    firstFrame = requestAnimationFrame(() => {
+      secondFrame = requestAnimationFrame(() => {
+        void import("../lib/copy-library").then((library) => {
+          if (!stale) setCopy(library.getDailyCopy(date));
+        });
+      });
+    });
+    onCleanup(() => {
+      stale = true;
+      cancelAnimationFrame(firstFrame);
+      cancelAnimationFrame(secondFrame);
+    });
+  });
+  const displayText = createMemo(() => {
+    const item = copy();
+    return item ? getCopyDisplayText(item) : "正在准备今日一句…";
+  });
+  const originalText = createMemo(() => {
+    const item = copy();
+    return item ? getCopyOriginalText(item) : "";
+  });
   const meta = () => themeMeta[props.theme];
 
   return (
     <aside
       class={"daily-focus-line daily-focus-line--" + props.theme}
-      data-copy-id={copy().id}
+      data-copy-id={copy()?.id ?? "loading"}
+      aria-busy={!copy()}
       aria-label={"今日一句 · " + meta().context}
     >
       <div class="daily-focus-line__head">
@@ -51,7 +71,19 @@ export default function DailyFocusLine(props: DailyFocusLineProps) {
       <Show when={originalText().length > 0}>
         <span class="daily-focus-line__original">{originalText()}</span>
       </Show>
-      <cite class="daily-focus-line__attribution">— {getCopyAttribution(copy())}</cite>
+      <cite class="daily-focus-line__attribution">— {copy() ? getCopyAttribution(copy()!) : "今日摘录"}</cite>
     </aside>
   );
+}
+
+function getCopyDisplayText(copy: CopyLibraryItem) {
+  return copy.language === "en" ? copy.translationZh ?? copy.original : copy.original;
+}
+
+function getCopyOriginalText(copy: CopyLibraryItem) {
+  return copy.language === "en" ? copy.original : "";
+}
+
+function getCopyAttribution(copy: CopyLibraryItem) {
+  return copy.author ? `${copy.author} · ${copy.work}` : copy.work;
 }

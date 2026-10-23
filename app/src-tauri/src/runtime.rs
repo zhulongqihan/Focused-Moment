@@ -5,13 +5,19 @@ mod storage;
 mod timer_engine;
 
 pub(crate) use commands::{
-    acknowledge_timer_alert, bootstrap_shell, clear_app_data, complete_focus_session,
-    create_todo_item, delete_focus_record, delete_focus_records, delete_todo_item,
-    export_app_backup, get_analytics_snapshot, get_focus_records, get_timer_preferences,
-    get_timer_snapshot, get_todo_items, import_app_backup, list_app_backups,
-    open_app_backup_folder, pause_timer, reset_timer, restore_focus_record, restore_todo_item,
-    set_countdown_minutes, start_timer, switch_timer_mode, toggle_todo_item,
-    update_focus_record_title, update_timer_context, update_timer_preferences, update_todo_item,
+    acknowledge_pending_bookmark_notice, acknowledge_timer_alert, bootstrap_shell, clear_app_data,
+    complete_focus_session, create_manual_focus_record, create_todo_item, delete_focus_record,
+    delete_focus_records, delete_todo_item, export_app_backup, export_app_backup_to_path,
+    export_recovery_material, get_analytics_snapshot, get_app_preferences, get_custom_alert_audio,
+    get_data_revisions, get_focus_plan, get_focus_records, get_pending_bookmark_notices,
+    get_sync_snapshot, get_timer_preferences, get_timer_snapshot, get_timer_sync_snapshot,
+    get_todo_items, import_app_backup, import_app_backup_path, list_app_backups,
+    open_app_backup_folder, pause_timer, preview_app_backup_path, reset_timer,
+    restore_focus_record, restore_todo_item, save_continuation_bookmark, set_countdown_minutes,
+    start_timer, switch_timer_mode, toggle_todo_item, update_app_preferences,
+    update_custom_alert_audio, update_focus_plan, update_focus_record, update_focus_record_title,
+    update_timer_context, update_timer_preferences, update_todo_continuation_note,
+    update_todo_item,
 };
 #[cfg(target_os = "macos")]
 pub(crate) use desktop::trigger_native_smoke_tray_click;
@@ -41,11 +47,12 @@ pub(crate) use timer_engine::{
     elapsed_since_anchor_ms, elapsed_since_anchor_ms_at, format_duration_ms,
     normalize_countdown_duration_ms, parse_alert_key_value, parse_mode, parse_mode_key_value,
     parse_phase_key_value, system_time_to_epoch_ms, with_timer_engine, CompletedSession,
-    PersistedBundle, RunAnchor, TimerEngine, TimerEngineState,
+    OperationScope, PersistedBundle, RevisionChanges, RunAnchor, TimerEngine, TimerEngineState,
 };
 
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, HashSet};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -55,14 +62,307 @@ use storage::{
     AppBackupFile, PersistedRuntimeState, PersistedState, PersistenceStore,
     CURRENT_STORAGE_SCHEMA_VERSION,
 };
-use tauri::{Manager, WindowEvent};
+use tauri::{Emitter, Manager, WindowEvent};
 
-const APP_VERSION: &str = "2.11.10";
-const APP_MILESTONE: &str =
-    "v2.11.10 Editorial Paper rail, archive, and workspace settings refinements; Windows-only release";
+const APP_VERSION: &str = "2.14.2";
+const APP_MILESTONE: &str = "v2.14.2 theme lazy loading and lighter startup";
 const APP_BACKUP_KIND: &str = "focused-moment-backup";
-const APP_BACKUP_FORMAT_VERSION: u64 = 2;
+const APP_BACKUP_FORMAT_VERSION: u64 = 3;
 const FLOATING_WORKSPACE_SYNC_EVENT: &str = "floating-workspace-sync";
+pub(crate) const DATA_REVISIONS_CHANGED_EVENT: &str = "data-revisions-changed";
+pub(crate) const PENDING_BOOKMARK_NOTICE_EVENT: &str = "pending-bookmark-notice";
+pub(crate) const MAIN_WINDOW_SHOWN_EVENT: &str = "main-window-shown";
+
+pub(crate) fn publish_data_revisions(app: &tauri::AppHandle, revisions: DataRevisions) {
+    if let Err(error) = app.emit(DATA_REVISIONS_CHANGED_EVENT, revisions) {
+        eprintln!("FOCUSED_MOMENT_DATA_REVISION_EVENT_FAILED={error}");
+    }
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct RevisionedResult<T> {
+    revisions: DataRevisions,
+    value: T,
+}
+
+pub(crate) fn revisioned_result<T>(
+    app: &tauri::AppHandle,
+    revisions: DataRevisions,
+    value: T,
+) -> RevisionedResult<T> {
+    publish_data_revisions(app, revisions);
+    RevisionedResult { revisions, value }
+}
+
+const DEFAULT_THEME_ID: &str = "night-valley";
+const DEFAULT_VISUAL_INTENSITY: u8 = 72;
+const DEFAULT_MOTION_INTENSITY: u8 = 44;
+const DEFAULT_FLOATING_OPACITY: u8 = 100;
+const MIN_FLOATING_OPACITY: u8 = 45;
+// A 5 MiB audio file expands to roughly 6.7 MiB when encoded as a data URL.
+// Keep the persisted representation bounded to the equivalent of the UI's
+// 5 MiB file limit while leaving room for the MIME header.
+const MAX_CUSTOM_ALERT_SOUND_DATA_CHARS: usize = 7 * 1024 * 1024;
+
+fn legacy_schema_version() -> u64 {
+    1
+}
+
+fn default_theme_id() -> String {
+    DEFAULT_THEME_ID.to_string()
+}
+
+fn default_visual_intensity() -> u8 {
+    DEFAULT_VISUAL_INTENSITY
+}
+
+fn default_motion_intensity() -> u8 {
+    DEFAULT_MOTION_INTENSITY
+}
+
+fn default_floating_opacity() -> u8 {
+    DEFAULT_FLOATING_OPACITY
+}
+
+fn default_density() -> String {
+    "roomy".to_string()
+}
+
+fn default_record_source() -> String {
+    "timer".to_string()
+}
+
+fn default_record_time_basis() -> String {
+    "completion_day".to_string()
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AppPreferences {
+    #[serde(default = "legacy_schema_version")]
+    schema_version: u64,
+    #[serde(default = "default_theme_id")]
+    theme_id: String,
+    #[serde(default = "default_visual_intensity")]
+    visual_intensity: u8,
+    #[serde(default = "default_motion_intensity")]
+    motion_intensity: u8,
+    #[serde(default = "default_density")]
+    density: String,
+    #[serde(default = "default_floating_opacity")]
+    floating_opacity: u8,
+    #[serde(default)]
+    auto_mini_on_start: bool,
+    #[serde(default)]
+    custom_alert_sound_name: String,
+    #[serde(default)]
+    custom_alert_sound_data: Option<String>,
+}
+
+impl Default for AppPreferences {
+    fn default() -> Self {
+        Self {
+            schema_version: CURRENT_STORAGE_SCHEMA_VERSION,
+            theme_id: default_theme_id(),
+            visual_intensity: DEFAULT_VISUAL_INTENSITY,
+            motion_intensity: DEFAULT_MOTION_INTENSITY,
+            density: default_density(),
+            floating_opacity: DEFAULT_FLOATING_OPACITY,
+            auto_mini_on_start: false,
+            custom_alert_sound_name: String::new(),
+            custom_alert_sound_data: None,
+        }
+    }
+}
+
+impl AppPreferences {
+    fn normalized(mut self) -> Result<Self, String> {
+        self.schema_version = CURRENT_STORAGE_SCHEMA_VERSION;
+        self.visual_intensity = self.visual_intensity.min(100);
+        self.motion_intensity = self.motion_intensity.min(100);
+        self.floating_opacity = self
+            .floating_opacity
+            .clamp(MIN_FLOATING_OPACITY, DEFAULT_FLOATING_OPACITY);
+        if self.theme_id.trim().is_empty() {
+            self.theme_id = default_theme_id();
+        }
+        self.theme_id = match self.theme_id.as_str() {
+            "aurora-ocean" => "metro-pulse".to_string(),
+            "botanical-library" => "clutch-court".to_string(),
+            _ => self.theme_id,
+        };
+        self.density = if self.density == "compact" {
+            "compact".to_string()
+        } else {
+            default_density()
+        };
+        if self.custom_alert_sound_name.chars().count() > 255 {
+            return Err("自定义音效名称过长，无法保存。".to_string());
+        }
+        if let Some(data) = &self.custom_alert_sound_data {
+            if data.chars().count() > MAX_CUSTOM_ALERT_SOUND_DATA_CHARS {
+                return Err("自定义音效数据超过 5MB，无法保存。".to_string());
+            }
+        }
+        if self.custom_alert_sound_data.is_none() {
+            self.custom_alert_sound_name.clear();
+        }
+        Ok(self)
+    }
+
+    fn view(&self) -> AppPreferencesView {
+        AppPreferencesView {
+            schema_version: self.schema_version,
+            theme_id: self.theme_id.clone(),
+            visual_intensity: self.visual_intensity,
+            motion_intensity: self.motion_intensity,
+            density: self.density.clone(),
+            floating_opacity: self.floating_opacity,
+            auto_mini_on_start: self.auto_mini_on_start,
+            custom_alert_sound_name: self.custom_alert_sound_name.clone(),
+            has_custom_alert_sound: self.custom_alert_sound_data.is_some(),
+        }
+    }
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct AppPreferencesView {
+    schema_version: u64,
+    theme_id: String,
+    visual_intensity: u8,
+    motion_intensity: u8,
+    density: String,
+    floating_opacity: u8,
+    auto_mini_on_start: bool,
+    custom_alert_sound_name: String,
+    has_custom_alert_sound: bool,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct AppPreferencesPatch {
+    theme_id: Option<String>,
+    visual_intensity: Option<u8>,
+    motion_intensity: Option<u8>,
+    density: Option<String>,
+    floating_opacity: Option<u8>,
+    auto_mini_on_start: Option<bool>,
+}
+
+impl AppPreferencesPatch {
+    fn apply(self, current: &mut AppPreferences) -> Result<(), String> {
+        if let Some(value) = self.theme_id {
+            current.theme_id = value;
+        }
+        if let Some(value) = self.visual_intensity {
+            current.visual_intensity = value;
+        }
+        if let Some(value) = self.motion_intensity {
+            current.motion_intensity = value;
+        }
+        if let Some(value) = self.density {
+            current.density = value;
+        }
+        if let Some(value) = self.floating_opacity {
+            current.floating_opacity = value;
+        }
+        if let Some(value) = self.auto_mini_on_start {
+            current.auto_mini_on_start = value;
+        }
+        current.schema_version = CURRENT_STORAGE_SCHEMA_VERSION;
+        *current = current.clone().normalized()?;
+        Ok(())
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct DataRevisions {
+    process_id: u32,
+    todo_revision: u64,
+    record_revision: u64,
+    app_preferences_revision: u64,
+    timer_preferences_revision: u64,
+    focus_plan_revision: u64,
+    audio_revision: u64,
+    timer_operation_revision: u64,
+}
+
+impl DataRevisions {
+    fn new() -> Self {
+        Self {
+            process_id: std::process::id(),
+            ..Self::default()
+        }
+    }
+}
+
+#[derive(Clone, Copy, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum SyncDomain {
+    Todos,
+    Records,
+    AppPreferences,
+    TimerPreferences,
+    FocusPlan,
+    Analytics,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SyncSnapshot {
+    revisions: DataRevisions,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    todos: Option<Vec<TodoItem>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    records: Option<Vec<FocusRecord>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    analytics: Option<AnalyticsSnapshot>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    app_preferences: Option<AppPreferencesView>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    timer_preferences: Option<TimerPreferencesSnapshot>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    focus_plan: Option<FocusPlanState>,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CustomAlertAudio {
+    process_id: u32,
+    revision: u64,
+    name: String,
+    data: Option<String>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CustomAlertAudioMetadata {
+    process_id: u32,
+    revision: u64,
+    name: String,
+    has_custom_alert_sound: bool,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct TimerSyncSnapshot {
+    process_id: u32,
+    sample_sequence: u64,
+    timer_operation_revision: u64,
+    timer: TimerSnapshot,
+}
+
+#[derive(Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct FocusPlanState {
+    #[serde(default)]
+    current_todo_id: Option<u64>,
+    #[serde(default)]
+    today_pick_ids: Vec<u64>,
+}
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -111,6 +411,7 @@ impl AppLifecycleState {
 #[serde(rename_all = "camelCase")]
 struct TimerSnapshot {
     mode_key: &'static str,
+    session_id: String,
     phase_key: &'static str,
     mode: &'static str,
     phase_label: &'static str,
@@ -156,6 +457,12 @@ struct FocusRecord {
     completed_date: String,
     #[serde(default)]
     completed_time: String,
+    #[serde(default = "default_record_source")]
+    source: String,
+    #[serde(default = "default_record_time_basis")]
+    time_basis: String,
+    #[serde(default)]
+    edited_at: Option<String>,
 }
 
 #[derive(Clone, Serialize)]
@@ -197,6 +504,7 @@ struct BackupImportResult {
     todo_count: usize,
     restored_runtime_session: bool,
     migrated_from_format_version: Option<u64>,
+    restored_app_preferences: bool,
 }
 
 #[derive(Clone, Serialize)]
@@ -239,6 +547,139 @@ struct TodoItem {
     scheduled_date: String,
     scheduled_time: String,
     importance_key: String,
+    #[serde(default)]
+    continuation_note: String,
+    #[serde(default)]
+    continuation_updated_at: Option<String>,
+}
+
+#[derive(Clone, Serialize, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PendingBookmarkNotice {
+    pub(crate) record_id: u64,
+    pub(crate) todo_id: u64,
+    pub(crate) title: String,
+}
+
+#[derive(Clone, Default)]
+pub(crate) struct PendingBookmarkQueue {
+    notices: Vec<PendingBookmarkNotice>,
+}
+
+impl PendingBookmarkQueue {
+    pub(crate) fn enqueue(&mut self, notice: PendingBookmarkNotice) -> bool {
+        if self
+            .notices
+            .iter()
+            .any(|pending| pending.record_id == notice.record_id)
+        {
+            return false;
+        }
+        self.notices.push(notice);
+        true
+    }
+
+    pub(crate) fn acknowledge(&mut self, record_id: u64) {
+        self.notices.retain(|notice| notice.record_id != record_id);
+    }
+
+    pub(crate) fn contains(&self, record_id: u64, todo_id: u64) -> bool {
+        self.notices
+            .iter()
+            .any(|notice| notice.record_id == record_id && notice.todo_id == todo_id)
+    }
+
+    pub(crate) fn acknowledge_for(&mut self, record_id: u64, todo_id: u64) -> bool {
+        if !self.contains(record_id, todo_id) {
+            return false;
+        }
+        self.acknowledge(record_id);
+        true
+    }
+
+    pub(crate) fn clear(&mut self) {
+        self.notices.clear();
+    }
+
+    pub(crate) fn available_for(&mut self, todos: &[TodoItem]) -> Vec<PendingBookmarkNotice> {
+        self.notices.retain_mut(|notice| {
+            let Some(todo) = todos.iter().find(|todo| todo.id == notice.todo_id) else {
+                return false;
+            };
+            if todo.is_completed {
+                return false;
+            }
+            notice.title.clone_from(&todo.title);
+            true
+        });
+        self.notices.clone()
+    }
+}
+
+#[cfg(test)]
+mod pending_bookmark_queue_tests {
+    use super::*;
+
+    fn todo(id: u64, title: &str, is_completed: bool) -> TodoItem {
+        TodoItem {
+            id,
+            title: title.to_string(),
+            is_completed,
+            scheduled_date: String::new(),
+            scheduled_time: String::new(),
+            importance_key: "medium".to_string(),
+            continuation_note: String::new(),
+            continuation_updated_at: None,
+        }
+    }
+
+    fn notice(record_id: u64, todo_id: u64, title: &str) -> PendingBookmarkNotice {
+        PendingBookmarkNotice {
+            record_id,
+            todo_id,
+            title: title.to_string(),
+        }
+    }
+
+    #[test]
+    fn pending_notices_are_deduplicated_and_acknowledged_by_record_id() {
+        let mut queue = PendingBookmarkQueue::default();
+        assert!(queue.enqueue(notice(20, 1, "事项")));
+        assert!(!queue.enqueue(notice(20, 1, "重复")));
+        assert!(queue.enqueue(notice(21, 1, "事项")));
+
+        queue.acknowledge(20);
+        let pending = queue.available_for(&[todo(1, "事项", false)]);
+
+        assert_eq!(pending, vec![notice(21, 1, "事项")]);
+    }
+
+    #[test]
+    fn completed_or_deleted_todos_remove_stale_bookmark_notices() {
+        let mut queue = PendingBookmarkQueue::default();
+        queue.enqueue(notice(30, 1, "旧标题"));
+        queue.enqueue(notice(31, 2, "已完成"));
+        queue.enqueue(notice(32, 3, "已删除"));
+
+        let pending =
+            queue.available_for(&[todo(1, "更新后的标题", false), todo(2, "已完成", true)]);
+
+        assert_eq!(pending, vec![notice(30, 1, "更新后的标题")]);
+        assert_eq!(queue.notices, pending);
+    }
+
+    #[test]
+    fn bookmark_acknowledgement_requires_the_matching_todo() {
+        let mut queue = PendingBookmarkQueue::default();
+        queue.enqueue(notice(40, 7, "事项"));
+
+        assert!(queue.contains(40, 7));
+        assert!(!queue.contains(40, 8));
+        assert!(!queue.acknowledge_for(40, 8));
+        assert_eq!(queue.notices, vec![notice(40, 7, "事项")]);
+        assert!(queue.acknowledge_for(40, 7));
+        assert!(queue.notices.is_empty());
+    }
 }
 
 #[derive(Clone, Copy, Default, Eq, PartialEq)]
@@ -299,6 +740,9 @@ fn normalize_focus_record_title(title: &str) -> Result<String, String> {
 
 fn normalize_scheduled_date(value: &str) -> Result<String, String> {
     let normalized = value.trim();
+    if normalized.is_empty() {
+        return Ok(String::new());
+    }
     let is_valid = normalized.len() == 10
         && normalized
             .chars()
@@ -313,6 +757,14 @@ fn normalize_scheduled_date(value: &str) -> Result<String, String> {
     } else {
         Err("\u{8bf7}\u{9009}\u{62e9}\u{6709}\u{6548}\u{7684}\u{65e5}\u{671f}".to_string())
     }
+}
+
+fn normalize_continuation_note(value: &str) -> Result<String, String> {
+    let normalized = value.trim();
+    if normalized.chars().count() > 1000 {
+        return Err("停笔书签不能超过 1000 个字。".to_string());
+    }
+    Ok(normalized.to_string())
 }
 
 fn normalize_scheduled_time(value: &str) -> Result<String, String> {
@@ -425,54 +877,7 @@ fn split_record_duration_by_date(record: &FocusRecord) -> Vec<(String, u64)> {
     } else {
         record.completed_date.clone()
     };
-
-    let Some(completed_at) = record_completed_at(record) else {
-        return vec![(fallback_date, record.duration_ms)];
-    };
-
-    let Ok(duration_ms) = i64::try_from(record.duration_ms) else {
-        return vec![(fallback_date, record.duration_ms)];
-    };
-
-    let started_at = completed_at - ChronoDuration::milliseconds(duration_ms);
-    let mut segments = Vec::new();
-    let mut date = started_at.date();
-
-    while date <= completed_at.date() {
-        let day_start = date.and_time(NaiveTime::MIN);
-        let next_day_start = date
-            .succ_opt()
-            .map(|next_date| next_date.and_time(NaiveTime::MIN))
-            .unwrap_or(completed_at);
-        let segment_start = if started_at > day_start {
-            started_at
-        } else {
-            day_start
-        };
-        let segment_end = if completed_at < next_day_start {
-            completed_at
-        } else {
-            next_day_start
-        };
-
-        if segment_end > segment_start {
-            segments.push((
-                date.to_string(),
-                (segment_end - segment_start).num_milliseconds() as u64,
-            ));
-        }
-
-        let Some(next_date) = date.succ_opt() else {
-            break;
-        };
-        date = next_date;
-    }
-
-    if segments.is_empty() {
-        vec![(fallback_date, record.duration_ms)]
-    } else {
-        segments
-    }
+    vec![(fallback_date, record.duration_ms)]
 }
 
 fn analytics_snapshot(records: &[FocusRecord], todo_items: &[TodoItem]) -> AnalyticsSnapshot {
@@ -577,7 +982,9 @@ fn analytics_snapshot(records: &[FocusRecord], todo_items: &[TodoItem]) -> Analy
     }
 }
 
-fn migrate_backup_file(mut backup: AppBackupFile) -> Result<(AppBackupFile, Option<u64>), String> {
+pub(crate) fn migrate_backup_file(
+    mut backup: AppBackupFile,
+) -> Result<(AppBackupFile, Option<u64>), String> {
     if backup.kind != APP_BACKUP_KIND {
         return Err("这不是 Focused Moment 的完整备份文件。".to_string());
     }
@@ -590,13 +997,14 @@ fn migrate_backup_file(mut backup: AppBackupFile) -> Result<(AppBackupFile, Opti
         return Err("这份备份来自更新版本，当前版本无法安全恢复。".to_string());
     }
 
-    match backup.format_version {
-        1 => {
+    let original_format_version = backup.format_version;
+    match original_format_version {
+        1 | 2 => {
             backup.format_version = APP_BACKUP_FORMAT_VERSION;
             backup.schema_version = CURRENT_STORAGE_SCHEMA_VERSION;
             backup.state.schema_version = CURRENT_STORAGE_SCHEMA_VERSION;
             backup.runtime.schema_version = CURRENT_STORAGE_SCHEMA_VERSION;
-            Ok((backup, Some(1)))
+            Ok((backup, Some(original_format_version)))
         }
         APP_BACKUP_FORMAT_VERSION => {
             backup.schema_version = CURRENT_STORAGE_SCHEMA_VERSION;
@@ -676,6 +1084,193 @@ mod tests {
     use super::*;
 
     #[test]
+    fn committed_revision_changes_only_advance_the_marked_domains() {
+        let root = isolated_root();
+        let store = PersistenceStore::for_test(&root).expect("create revision fixture store");
+        let state = state_with_store(store, 0, 0);
+        let before = state.revision_snapshot();
+
+        let transaction = state
+            .begin_transaction(OperationScope::State)
+            .expect("begin revision transaction");
+        let after =
+            transaction.commit(RevisionChanges::APP_PREFERENCES.with(RevisionChanges::AUDIO));
+
+        assert_eq!(after.process_id, before.process_id);
+        assert_eq!(after.todo_revision, before.todo_revision);
+        assert_eq!(after.record_revision, before.record_revision);
+        assert_eq!(
+            after.app_preferences_revision,
+            before.app_preferences_revision + 1
+        );
+        assert_eq!(
+            after.timer_preferences_revision,
+            before.timer_preferences_revision
+        );
+        assert_eq!(after.focus_plan_revision, before.focus_plan_revision);
+        assert_eq!(after.audio_revision, before.audio_revision + 1);
+        assert_eq!(
+            after.timer_operation_revision,
+            before.timer_operation_revision
+        );
+
+        drop(state);
+        cleanup_isolated_root(&root);
+    }
+
+    #[test]
+    fn dropping_a_failed_transaction_restores_data_without_advancing_revisions() {
+        let root = isolated_root();
+        let store = PersistenceStore::for_test(&root).expect("create rollback fixture store");
+        let state = state_with_store(store, 0, 0);
+        let before = state.revision_snapshot();
+
+        {
+            let _transaction = state
+                .begin_transaction(OperationScope::State)
+                .expect("begin rollback transaction");
+            state
+                .todo_items
+                .lock()
+                .expect("lock todo fixture")
+                .push(test_todo("未提交待办", 1));
+        }
+
+        assert!(state
+            .todo_items
+            .lock()
+            .expect("lock restored todos")
+            .is_empty());
+        assert_eq!(state.revision_snapshot(), before);
+
+        drop(state);
+        cleanup_isolated_root(&root);
+    }
+
+    #[test]
+    fn app_preference_patch_preserves_unmentioned_fields_and_custom_audio() {
+        let mut current = AppPreferences {
+            theme_id: "night-valley".to_string(),
+            visual_intensity: 61,
+            motion_intensity: 37,
+            density: "compact".to_string(),
+            floating_opacity: 73,
+            auto_mini_on_start: true,
+            custom_alert_sound_name: "私有提醒.wav".to_string(),
+            custom_alert_sound_data: Some("data:audio/wav;base64,AA==".to_string()),
+            ..AppPreferences::default()
+        };
+        let patch: AppPreferencesPatch = serde_json::from_str(r#"{"themeId":"metro-pulse"}"#)
+            .expect("deserialize appearance patch");
+
+        patch.apply(&mut current).expect("apply appearance patch");
+
+        assert_eq!(current.theme_id, "metro-pulse");
+        assert_eq!(current.visual_intensity, 61);
+        assert_eq!(current.motion_intensity, 37);
+        assert_eq!(current.density, "compact");
+        assert_eq!(current.floating_opacity, 73);
+        assert!(current.auto_mini_on_start);
+        assert_eq!(current.custom_alert_sound_name, "私有提醒.wav");
+        assert_eq!(
+            current.custom_alert_sound_data.as_deref(),
+            Some("data:audio/wav;base64,AA==")
+        );
+    }
+
+    #[test]
+    fn revision_only_sync_snapshot_serializes_a_fixed_metadata_shape() {
+        let snapshot = SyncSnapshot {
+            revisions: DataRevisions::new(),
+            todos: None,
+            records: None,
+            analytics: None,
+            app_preferences: None,
+            timer_preferences: None,
+            focus_plan: None,
+        };
+
+        let value = serde_json::to_value(snapshot).expect("serialize revision-only snapshot");
+        let snapshot_fields = value.as_object().expect("snapshot is an object");
+        assert_eq!(snapshot_fields.len(), 1);
+        let revisions = snapshot_fields
+            .get("revisions")
+            .and_then(serde_json::Value::as_object)
+            .expect("snapshot contains revision metadata");
+        assert_eq!(revisions.len(), 8);
+        assert!(!value.to_string().contains("records"));
+        assert!(!value.to_string().contains("customAlertSoundData"));
+    }
+
+    #[test]
+    fn legacy_ids_migrate_and_archived_theme_ids_survive_preferences_and_backups() {
+        let metro = AppPreferences {
+            theme_id: "aurora-ocean".to_string(),
+            ..AppPreferences::default()
+        }
+        .normalized()
+        .expect("legacy fourth theme normalizes");
+        let clutch = AppPreferences {
+            theme_id: "botanical-library".to_string(),
+            ..AppPreferences::default()
+        }
+        .normalized()
+        .expect("legacy fifth theme normalizes");
+
+        assert_eq!(metro.theme_id, "metro-pulse");
+        assert_eq!(clutch.theme_id, "clutch-court");
+        for archived_id in ["legacy-aurora-ocean", "legacy-botanical-library"] {
+            let archived = AppPreferences {
+                theme_id: archived_id.to_string(),
+                ..AppPreferences::default()
+            }
+            .normalized()
+            .expect("archived theme remains selectable");
+            assert_eq!(archived.theme_id, archived_id);
+        }
+
+        let root = isolated_root();
+        let store = PersistenceStore::for_test(&root).expect("create backup migration store");
+        let state = state_with_store(store, 0, 0);
+        for (legacy_id, expected_id) in [
+            ("aurora-ocean", "metro-pulse"),
+            ("botanical-library", "clutch-court"),
+            ("legacy-aurora-ocean", "legacy-aurora-ocean"),
+            ("legacy-botanical-library", "legacy-botanical-library"),
+        ] {
+            let backup = AppBackupFile {
+                kind: APP_BACKUP_KIND.to_string(),
+                format_version: APP_BACKUP_FORMAT_VERSION,
+                schema_version: CURRENT_STORAGE_SCHEMA_VERSION,
+                app_version: APP_VERSION.to_string(),
+                exported_at: "2026-09-24T12:00:00+08:00".to_string(),
+                state: PersistedState {
+                    schema_version: CURRENT_STORAGE_SCHEMA_VERSION,
+                    app_preferences: AppPreferences {
+                        theme_id: legacy_id.to_string(),
+                        ..AppPreferences::default()
+                    },
+                    ..PersistedState::default()
+                },
+                runtime: PersistedRuntimeState {
+                    schema_version: CURRENT_STORAGE_SCHEMA_VERSION,
+                    ..PersistedRuntimeState::default()
+                },
+            };
+
+            state
+                .apply_backup_file_with_options(backup, true)
+                .expect("restore legacy theme preference from backup");
+            let restored = state
+                .snapshot_state()
+                .expect("snapshot restored preferences")
+                .app_preferences;
+            assert_eq!(restored.theme_id, expected_id);
+        }
+        cleanup_isolated_root(&root);
+    }
+
+    #[test]
     fn alert_sound_keys_round_trip_through_runtime_preferences() {
         for raw_key in [
             "soft_chime",
@@ -695,6 +1290,52 @@ mod tests {
                 format!("\"{raw_key}\"")
             );
         }
+
+        let normalized = TimerPreferences {
+            alert_sound_key: AlertSoundKey::ViralQuote,
+            ..TimerPreferences::default()
+        }
+        .normalized()
+        .expect("legacy sound key is accepted");
+        assert!(matches!(
+            normalized.alert_sound_key,
+            AlertSoundKey::SoftChime
+        ));
+    }
+
+    #[test]
+    fn empty_scheduled_date_is_a_valid_inbox_value() {
+        assert_eq!(
+            normalize_scheduled_date("").expect("empty date is inbox"),
+            ""
+        );
+        assert_eq!(
+            normalize_scheduled_date("  ").expect("whitespace date is inbox"),
+            ""
+        );
+        assert!(normalize_scheduled_date("2026-02-30").is_err());
+    }
+
+    #[test]
+    fn legacy_focus_record_defaults_keep_completion_day_attribution() {
+        let legacy = r#"{
+            "id": 7,
+            "title": "旧记录",
+            "durationMs": 60000,
+            "durationLabel": "00:01:00",
+            "modeKey": "stopwatch",
+            "modeLabel": "正向计时",
+            "phaseLabel": "正向计时",
+            "linkedTodoId": null,
+            "linkedTodoTitle": null,
+            "completedAt": "2026-09-05 12:00:00",
+            "completedDate": "2026-09-05",
+            "completedTime": "12:00"
+        }"#;
+        let record: FocusRecord = serde_json::from_str(legacy).expect("legacy record parses");
+        assert_eq!(record.source, "timer");
+        assert_eq!(record.time_basis, "completion_day");
+        assert_eq!(record.edited_at, None);
     }
 
     #[cfg(windows)]
@@ -776,18 +1417,211 @@ mod tests {
         stopwatch_elapsed_ms: u64,
     ) -> TimerEngineState {
         TimerEngineState {
+            operation_lock: Mutex::new(()),
+            revisions: Mutex::new(DataRevisions::new()),
+            timer_sample_sequence: AtomicU64::new(0),
             timer: Mutex::new(TimerEngine {
                 stopwatch_elapsed_ms,
                 ..TimerEngine::default()
             }),
             timer_preferences: Mutex::new(TimerPreferences::default()),
+            app_preferences: Mutex::new(AppPreferences::default()),
+            focus_plan: Mutex::new(FocusPlanState::default()),
             focus_records: Mutex::new(Vec::new()),
+            pending_bookmark_notices: Mutex::new(PendingBookmarkQueue::default()),
             next_record_id: Mutex::new(next_record_id),
             todo_items: Mutex::new(Vec::new()),
             next_todo_id: Mutex::new(0),
             persistence: Some(store),
             startup_error: None,
         }
+    }
+
+    fn test_todo(title: &str, id: u64) -> TodoItem {
+        TodoItem {
+            id,
+            title: title.to_string(),
+            is_completed: false,
+            scheduled_date: String::new(),
+            scheduled_time: String::new(),
+            importance_key: "medium".to_string(),
+            continuation_note: String::new(),
+            continuation_updated_at: None,
+        }
+    }
+
+    #[test]
+    fn session_id_survives_pause_resume_and_rejects_stale_reset() {
+        let mut engine = TimerEngine::default();
+        let idle_session = engine.snapshot().session_id;
+        engine.start();
+        let started_session = engine.snapshot().session_id;
+        assert_ne!(started_session, idle_session);
+
+        engine.pause();
+        assert!(engine.session_id.matches(&started_session));
+        engine.start();
+        assert!(engine.session_id.matches(&started_session));
+
+        engine
+            .reset_for_session(&started_session)
+            .expect("confirm reset for current session");
+        assert!(!engine.session_id.matches(&started_session));
+        engine.start();
+        engine.stopwatch_elapsed_ms = 4_000;
+        let next_session = engine.snapshot().session_id;
+        assert_ne!(next_session, started_session);
+        let stale_error = engine
+            .reset_for_session(&started_session)
+            .expect_err("stale reset confirmation must be rejected");
+        assert!(stale_error.contains("其他窗口"));
+        assert_eq!(engine.stopwatch_elapsed_ms, 4_000);
+        assert!(engine.session_id.matches(&next_session));
+    }
+
+    #[test]
+    fn completing_or_replacing_context_invalidates_the_previous_session_id() {
+        let mut engine = TimerEngine::default();
+        engine.start();
+        engine.stopwatch_elapsed_ms = 1_000;
+        let current_id = engine.snapshot().session_id;
+        engine
+            .complete_focus_session()
+            .expect("complete a non-empty stopwatch session");
+        assert!(!engine.session_id.matches(&current_id));
+
+        let completed_id = engine.snapshot().session_id;
+        engine.update_context("新事项".to_string(), Some(7), false);
+        assert!(!engine.session_id.matches(&completed_id));
+    }
+
+    #[test]
+    fn operation_gate_hides_uncommitted_changes_from_snapshots() {
+        let root = isolated_root();
+        seed_persisted_bundle(&root);
+        let state = state_with_store(
+            PersistenceStore::for_test(&root).expect("create operation fixture store"),
+            1,
+            1_000,
+        );
+        let (writer_ready_tx, writer_ready_rx) = std::sync::mpsc::channel();
+        let (release_writer_tx, release_writer_rx) = std::sync::mpsc::channel();
+        let (reader_started_tx, reader_started_rx) = std::sync::mpsc::channel();
+        let (reader_result_tx, reader_result_rx) = std::sync::mpsc::channel();
+
+        std::thread::scope(|scope| {
+            let writer_state = &state;
+            scope.spawn(move || {
+                let transaction = writer_state
+                    .begin_transaction(OperationScope::State)
+                    .expect("begin writer transaction");
+                writer_state
+                    .todo_items
+                    .lock()
+                    .unwrap()
+                    .push(test_todo("暂存事项", 0));
+                writer_ready_tx.send(()).unwrap();
+                release_writer_rx.recv().unwrap();
+                writer_state.persist().expect("persist writer transaction");
+                transaction.commit(RevisionChanges::TODOS);
+            });
+
+            writer_ready_rx
+                .recv()
+                .expect("writer reached uncommitted state");
+            let reader_state = &state;
+            scope.spawn(move || {
+                reader_started_tx.send(()).unwrap();
+                let _operation = reader_state
+                    .read_operation()
+                    .expect("acquire snapshot gate");
+                let snapshot = reader_state
+                    .snapshot_state()
+                    .expect("read committed snapshot");
+                reader_result_tx
+                    .send(
+                        snapshot
+                            .todo_items
+                            .iter()
+                            .map(|item| item.title.clone())
+                            .collect::<Vec<_>>(),
+                    )
+                    .unwrap();
+            });
+            reader_started_rx.recv().expect("reader started");
+            assert!(reader_result_rx
+                .recv_timeout(Duration::from_millis(100))
+                .is_err());
+            release_writer_tx.send(()).unwrap();
+            let observed = reader_result_rx
+                .recv_timeout(Duration::from_secs(5))
+                .expect("reader proceeds after commit");
+            assert_eq!(observed, vec!["暂存事项"]);
+        });
+
+        cleanup_isolated_root(&root);
+    }
+
+    #[test]
+    fn failed_writer_rollback_cannot_overwrite_a_later_success() {
+        let root = isolated_root();
+        seed_persisted_bundle(&root);
+        let faulty_store =
+            PersistenceStore::for_test_with_failure(&root, storage::SaveStage::PromoteNew)
+                .expect("create one-shot faulty store");
+        let state = state_with_store(faulty_store, 1, 1_000);
+        let (failed_writer_ready_tx, failed_writer_ready_rx) = std::sync::mpsc::channel();
+        let (release_failed_writer_tx, release_failed_writer_rx) = std::sync::mpsc::channel();
+        let (successful_writer_started_tx, successful_writer_started_rx) =
+            std::sync::mpsc::channel();
+
+        std::thread::scope(|scope| {
+            let failed_state = &state;
+            scope.spawn(move || {
+                let transaction = failed_state
+                    .begin_transaction(OperationScope::State)
+                    .expect("begin failing transaction");
+                failed_state
+                    .todo_items
+                    .lock()
+                    .unwrap()
+                    .push(test_todo("失败事项", 0));
+                failed_writer_ready_tx.send(()).unwrap();
+                release_failed_writer_rx.recv().unwrap();
+                assert!(failed_state.persist().is_err());
+                drop(transaction);
+            });
+
+            failed_writer_ready_rx.recv().expect("failing writer ready");
+            let successful_state = &state;
+            scope.spawn(move || {
+                successful_writer_started_tx.send(()).unwrap();
+                let transaction = successful_state
+                    .begin_transaction(OperationScope::State)
+                    .expect("begin successful transaction after rollback");
+                successful_state
+                    .todo_items
+                    .lock()
+                    .unwrap()
+                    .push(test_todo("成功事项", 0));
+                successful_state
+                    .persist()
+                    .expect("persist successful transaction");
+                transaction.commit(RevisionChanges::TODOS);
+            });
+            successful_writer_started_rx
+                .recv()
+                .expect("second writer started");
+            release_failed_writer_tx.send(()).unwrap();
+        });
+
+        let items = state.todo_items.lock().unwrap().clone();
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].title, "成功事项");
+        let saved = state.persistence_store().unwrap().load().unwrap();
+        assert_eq!(saved.todo_items.len(), 1);
+        assert_eq!(saved.todo_items[0].title, "成功事项");
+        cleanup_isolated_root(&root);
     }
 
     fn seed_persisted_bundle(root: &std::path::Path) {
@@ -812,9 +1646,15 @@ mod tests {
     #[test]
     fn persistence_failure_is_not_reported_as_success() {
         let state = TimerEngineState {
+            operation_lock: Mutex::new(()),
+            revisions: Mutex::new(DataRevisions::new()),
+            timer_sample_sequence: AtomicU64::new(0),
             timer: Mutex::new(TimerEngine::default()),
             timer_preferences: Mutex::new(TimerPreferences::default()),
+            app_preferences: Mutex::new(AppPreferences::default()),
+            focus_plan: Mutex::new(FocusPlanState::default()),
             focus_records: Mutex::new(Vec::new()),
+            pending_bookmark_notices: Mutex::new(PendingBookmarkQueue::default()),
             next_record_id: Mutex::new(0),
             todo_items: Mutex::new(Vec::new()),
             next_todo_id: Mutex::new(0),
@@ -835,24 +1675,28 @@ mod tests {
             PersistenceStore::for_test_with_failure(&root, storage::SaveStage::RuntimePromoteNew)
                 .expect("create faulty store");
         let state = state_with_store(faulty_store, 2, 2_000);
+        let transaction = state
+            .begin_transaction(OperationScope::All)
+            .expect("begin state transaction");
 
         let error = state
             .persist_all()
             .expect_err("runtime commit failure must be reported");
-        assert!(error.contains("保存本地状态与运行态失败"));
+        assert!(error.contains("注入存储故障"));
+        drop(transaction);
         assert_eq!(
             state
                 .snapshot_state()
                 .expect("snapshot state")
                 .next_record_id,
-            1
+            2
         );
         assert_eq!(
             state
                 .snapshot_runtime_state()
                 .expect("snapshot runtime")
                 .stopwatch_elapsed_ms,
-            1_000
+            2_000
         );
 
         let recovered_store = PersistenceStore::for_test(&root).expect("reopen recovered store");
@@ -881,6 +1725,19 @@ mod tests {
             PersistenceStore::for_test_with_failure(&root, storage::SaveStage::RuntimePromoteNew)
                 .expect("create faulty store");
         let state = state_with_store(faulty_store, 1, 1_000);
+        let previous_notice = PendingBookmarkNotice {
+            record_id: 17,
+            todo_id: 8,
+            title: "仍待保存的事项".to_string(),
+        };
+        state
+            .pending_bookmark_notices
+            .lock()
+            .expect("lock pending bookmark queue")
+            .enqueue(previous_notice.clone());
+        let transaction = state
+            .begin_transaction(OperationScope::All)
+            .expect("begin backup import transaction");
         let backup = AppBackupFile {
             kind: APP_BACKUP_KIND.to_string(),
             format_version: APP_BACKUP_FORMAT_VERSION,
@@ -901,6 +1758,7 @@ mod tests {
         };
 
         assert!(state.apply_backup_file(backup).is_err());
+        drop(transaction);
         assert_eq!(
             state
                 .snapshot_state()
@@ -915,6 +1773,98 @@ mod tests {
                 .stopwatch_elapsed_ms,
             1_000
         );
+        assert_eq!(
+            state
+                .pending_bookmark_notices
+                .lock()
+                .expect("lock restored bookmark queue")
+                .notices,
+            vec![previous_notice]
+        );
+        cleanup_isolated_root(&root);
+    }
+
+    #[test]
+    fn clearing_and_importing_data_purge_pending_bookmarks() {
+        let root = isolated_root();
+        let store = PersistenceStore::for_test(&root).expect("create bookmark lifecycle store");
+        let state = state_with_store(store, 0, 0);
+        let notice = PendingBookmarkNotice {
+            record_id: 21,
+            todo_id: 7,
+            title: "旧事项".to_string(),
+        };
+
+        state
+            .pending_bookmark_notices
+            .lock()
+            .expect("lock pending bookmark queue")
+            .enqueue(notice.clone());
+        let clear_transaction = state
+            .begin_transaction(OperationScope::All)
+            .expect("begin clear transaction");
+        state.clear_all().expect("clear application data");
+        clear_transaction.commit(
+            RevisionChanges::RECORDS
+                .with(RevisionChanges::TODOS)
+                .with(RevisionChanges::TIMER_PREFERENCES)
+                .with(RevisionChanges::FOCUS_PLAN)
+                .with(RevisionChanges::TIMER_OPERATION),
+        );
+        assert!(state
+            .pending_bookmark_notices
+            .lock()
+            .expect("lock cleared bookmark queue")
+            .notices
+            .is_empty());
+
+        state
+            .todo_items
+            .lock()
+            .expect("lock imported todos")
+            .push(test_todo("新事项", 7));
+        state
+            .pending_bookmark_notices
+            .lock()
+            .expect("lock pending bookmark queue")
+            .enqueue(notice);
+        let backup = AppBackupFile {
+            kind: APP_BACKUP_KIND.to_string(),
+            format_version: APP_BACKUP_FORMAT_VERSION,
+            schema_version: CURRENT_STORAGE_SCHEMA_VERSION,
+            app_version: APP_VERSION.to_string(),
+            exported_at: "2026-10-15T12:00:00+08:00".to_string(),
+            state: PersistedState {
+                schema_version: CURRENT_STORAGE_SCHEMA_VERSION,
+                todo_items: vec![test_todo("导入后的同 ID 事项", 7)],
+                next_todo_id: 8,
+                ..PersistedState::default()
+            },
+            runtime: PersistedRuntimeState {
+                schema_version: CURRENT_STORAGE_SCHEMA_VERSION,
+                ..PersistedRuntimeState::default()
+            },
+        };
+        let import_transaction = state
+            .begin_transaction(OperationScope::All)
+            .expect("begin backup import transaction");
+        state
+            .apply_backup_file(backup)
+            .expect("import replacement data");
+        import_transaction.commit(
+            RevisionChanges::RECORDS
+                .with(RevisionChanges::TODOS)
+                .with(RevisionChanges::TIMER_PREFERENCES)
+                .with(RevisionChanges::FOCUS_PLAN)
+                .with(RevisionChanges::TIMER_OPERATION),
+        );
+
+        assert!(state
+            .pending_bookmark_notices
+            .lock()
+            .expect("lock imported bookmark queue")
+            .notices
+            .is_empty());
         cleanup_isolated_root(&root);
     }
 
@@ -1054,6 +2004,9 @@ mod tests {
             alert_sound_key: AlertSoundKey::Custom,
         };
         let source_state = TimerEngineState {
+            operation_lock: Mutex::new(()),
+            revisions: Mutex::new(DataRevisions::new()),
+            timer_sample_sequence: AtomicU64::new(0),
             timer: Mutex::new(TimerEngine {
                 mode: TimerMode::Pomodoro,
                 stopwatch_elapsed_ms: 1_600_000,
@@ -1076,6 +2029,8 @@ mod tests {
                 ..TimerEngine::default()
             }),
             timer_preferences: Mutex::new(preferences),
+            app_preferences: Mutex::new(AppPreferences::default()),
+            focus_plan: Mutex::new(FocusPlanState::default()),
             focus_records: Mutex::new(vec![FocusRecord {
                 id: 41,
                 title: "完成迁移验证".to_string(),
@@ -1089,7 +2044,11 @@ mod tests {
                 completed_at: "2026-09-09T16:30:00+08:00".to_string(),
                 completed_date: "2026-09-09".to_string(),
                 completed_time: "16:30".to_string(),
+                source: "timer".to_string(),
+                time_basis: "completion_day".to_string(),
+                edited_at: None,
             }]),
+            pending_bookmark_notices: Mutex::new(PendingBookmarkQueue::default()),
             next_record_id: Mutex::new(42),
             todo_items: Mutex::new(vec![TodoItem {
                 id: 42,
@@ -1098,6 +2057,8 @@ mod tests {
                 scheduled_date: "2026-09-10".to_string(),
                 scheduled_time: "09:30".to_string(),
                 importance_key: "high".to_string(),
+                continuation_note: String::new(),
+                continuation_updated_at: None,
             }]),
             next_todo_id: Mutex::new(43),
             persistence: Some(source_store.clone()),
@@ -1475,6 +2436,9 @@ mod tests {
             completed_at: format!("{date} 12:00:00"),
             completed_date: date.to_string(),
             completed_time: "12:00".to_string(),
+            source: "timer".to_string(),
+            time_basis: "completion_day".to_string(),
+            edited_at: None,
         };
 
         let snapshot = analytics_snapshot(
@@ -1494,9 +2458,8 @@ mod tests {
     }
 
     #[test]
-    fn analytics_splits_a_session_across_midnight_without_splitting_the_record() {
+    fn record_duration_is_attributed_to_completed_day_without_fabricated_cross_midnight_split() {
         let today = Local::now().date_naive();
-        let yesterday = today - ChronoDuration::days(1);
         let record = FocusRecord {
             id: 1,
             title: "跨午夜专注".to_string(),
@@ -1510,14 +2473,12 @@ mod tests {
             completed_at: format!("{today} 00:10:00"),
             completed_date: today.to_string(),
             completed_time: "00:10".to_string(),
+            source: "timer".to_string(),
+            time_basis: "completion_day".to_string(),
+            edited_at: None,
         };
 
         let snapshot = analytics_snapshot(&[record], &[]);
-        let yesterday_breakdown = snapshot
-            .daily_breakdown
-            .iter()
-            .find(|day| day.date == yesterday.to_string())
-            .expect("yesterday is included");
         let today_breakdown = snapshot
             .daily_breakdown
             .iter()
@@ -1525,9 +2486,7 @@ mod tests {
             .expect("today is included");
 
         assert_eq!(snapshot.total_focus_duration_ms, 20 * 60_000);
-        assert_eq!(yesterday_breakdown.total_duration_ms, 10 * 60_000);
-        assert_eq!(today_breakdown.total_duration_ms, 10 * 60_000);
-        assert_eq!(yesterday_breakdown.session_count, 1);
+        assert_eq!(today_breakdown.total_duration_ms, 20 * 60_000);
         assert_eq!(today_breakdown.session_count, 1);
     }
 
@@ -1557,6 +2516,17 @@ mod tests {
             CURRENT_STORAGE_SCHEMA_VERSION
         );
         assert_eq!(migrated.app_version, "1.10.0");
+
+        let mut v2 = migrated.clone();
+        v2.format_version = 2;
+        v2.schema_version = 2;
+        v2.state.schema_version = 2;
+        v2.runtime.schema_version = 2;
+        let (migrated_v2, source_version_v2) =
+            migrate_backup_file(v2).expect("v2 migration succeeds");
+        assert_eq!(source_version_v2, Some(2));
+        assert_eq!(migrated_v2.format_version, APP_BACKUP_FORMAT_VERSION);
+        assert_eq!(migrated_v2.schema_version, CURRENT_STORAGE_SCHEMA_VERSION);
     }
 
     #[test]
@@ -1583,7 +2553,7 @@ mod tests {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let builder = tauri::Builder::default();
+    let builder = tauri::Builder::default().plugin(tauri_plugin_dialog::init());
 
     #[cfg(target_os = "macos")]
     let builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
@@ -1629,26 +2599,44 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             bootstrap_shell,
             get_timer_snapshot,
+            get_data_revisions,
+            get_sync_snapshot,
+            get_timer_sync_snapshot,
+            get_custom_alert_audio,
             acknowledge_timer_alert,
             get_timer_preferences,
             update_timer_preferences,
+            get_app_preferences,
+            update_app_preferences,
+            update_custom_alert_audio,
+            get_focus_plan,
+            update_focus_plan,
             update_timer_context,
             switch_timer_mode,
             set_countdown_minutes,
             get_focus_records,
             update_focus_record_title,
+            update_focus_record,
             delete_focus_record,
             restore_focus_record,
             delete_focus_records,
             get_analytics_snapshot,
             clear_app_data,
+            export_recovery_material,
             list_app_backups,
             export_app_backup,
             import_app_backup,
+            preview_app_backup_path,
+            export_app_backup_to_path,
+            import_app_backup_path,
             open_app_backup_folder,
             get_todo_items,
             create_todo_item,
             update_todo_item,
+            update_todo_continuation_note,
+            save_continuation_bookmark,
+            get_pending_bookmark_notices,
+            acknowledge_pending_bookmark_notice,
             toggle_todo_item,
             delete_todo_item,
             restore_todo_item,
@@ -1656,6 +2644,7 @@ pub fn run() {
             pause_timer,
             reset_timer,
             complete_focus_session,
+            create_manual_focus_record,
             minimize_main_window,
             toggle_maximize_main_window,
             close_main_window,

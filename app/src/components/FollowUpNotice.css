@@ -1,0 +1,26 @@
+.follow-up-notices {
+  position: fixed;
+  inset-block-start: 5rem;
+  inset-inline-end: 1.25rem;
+  z-index: 80;
+  width: min(28rem, calc(100vw - 2rem));
+  display: grid;
+  gap: 0.5rem;
+}
+.follow-up-notice {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid #52665c;
+  border-radius: 8px;
+  background: #f5f9f7;
+  color: #172b22;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+.follow-up-notice .text-button { flex: none; color: #164832; }
+.floating-window .follow-up-notices { inset-block-start: 3.75rem; inset-inline-end: 0.5rem; width: calc(100vw - 1rem); }
+@media (max-width: 560px) {
+  .follow-up-notice { align-items: start; flex-direction: column; gap: 0.5rem; }
+}

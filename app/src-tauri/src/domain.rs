@@ -197,7 +197,10 @@ impl TimerPreferences {
             toast_reminder_enabled: self.toast_reminder_enabled,
             window_attention_reminder_enabled: self.window_attention_reminder_enabled,
             sound_reminder_enabled: self.sound_reminder_enabled,
-            alert_sound_key: self.alert_sound_key,
+            alert_sound_key: match self.alert_sound_key {
+                AlertSoundKey::ViralQuote => AlertSoundKey::SoftChime,
+                key => key,
+            },
         })
     }
 

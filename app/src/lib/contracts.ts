@@ -17,6 +17,7 @@ export interface ShellSnapshot {
 
 export interface TimerSnapshot {
   modeKey: "stopwatch" | "countdown" | "pomodoro";
+  sessionId: string;
   phaseKey: "stopwatch" | "countdown" | "focus" | "break";
   mode: string;
   phaseLabel: string;
@@ -56,6 +57,94 @@ export interface TimerPreferences {
 
 export type AlertSoundKey = "soft_chime" | "bright_bell" | "deep_pulse" | "wooden_tick" | "glass_ping" | "morning_chord" | "viral_quote" | "custom";
 
+export interface AppPreferences {
+  schemaVersion: number;
+  themeId: ThemeId;
+  visualIntensity: number;
+  motionIntensity: number;
+  density: "roomy" | "compact";
+  floatingOpacity: number;
+  autoMiniOnStart: boolean;
+  customAlertSoundName: string;
+  customAlertSoundData: string | null;
+}
+
+export interface AppPreferencesView extends Omit<AppPreferences, "customAlertSoundData"> {
+  hasCustomAlertSound: boolean;
+}
+
+export type AppPreferencesPatch = Partial<
+  Pick<
+    AppPreferences,
+    | "themeId"
+    | "visualIntensity"
+    | "motionIntensity"
+    | "density"
+    | "floatingOpacity"
+    | "autoMiniOnStart"
+  >
+>;
+
+export interface DataRevisions {
+  processId: number;
+  todoRevision: number;
+  recordRevision: number;
+  appPreferencesRevision: number;
+  timerPreferencesRevision: number;
+  focusPlanRevision: number;
+  audioRevision: number;
+  timerOperationRevision: number;
+}
+
+export type SyncDomain =
+  | "todos"
+  | "records"
+  | "appPreferences"
+  | "timerPreferences"
+  | "focusPlan"
+  | "analytics";
+
+export interface SyncSnapshot {
+  revisions: DataRevisions;
+  todos?: TodoItem[];
+  records?: FocusRecord[];
+  analytics?: AnalyticsSnapshot;
+  appPreferences?: AppPreferencesView;
+  timerPreferences?: TimerPreferences;
+  focusPlan?: FocusPlanState;
+}
+
+export interface TimerSyncSnapshot {
+  processId: number;
+  sampleSequence: number;
+  timerOperationRevision: number;
+  timer: TimerSnapshot;
+}
+
+export interface CustomAlertAudio {
+  processId: number;
+  revision: number;
+  name: string;
+  data: string | null;
+}
+
+export interface CustomAlertAudioMetadata {
+  processId: number;
+  revision: number;
+  name: string;
+  hasCustomAlertSound: boolean;
+}
+
+export interface RevisionedResult<T> {
+  revisions: DataRevisions;
+  value: T;
+}
+
+export interface FocusPlanState {
+  currentTodoId: number | null;
+  todayPickIds: number[];
+}
+
 export interface FocusRecord {
   id: number;
   title: string;
@@ -69,6 +158,9 @@ export interface FocusRecord {
   completedAt: string;
   completedDate: string;
   completedTime: string;
+  source: "timer" | "manual";
+  timeBasis: "completion_day" | "exact_interval";
+  editedAt: string | null;
 }
 
 export interface CompletionPayload {
@@ -102,6 +194,26 @@ export interface BackupImportResult {
   todoCount: number;
   restoredRuntimeSession: boolean;
   migratedFromFormatVersion: number | null;
+  restoredAppPreferences: boolean;
+}
+
+export interface BackupPreview {
+  sourcePath: string;
+  appVersion: string;
+  formatVersion: number;
+  schemaVersion: number;
+  exportedAt: string;
+  focusRecordCount: number;
+  todoCount: number;
+  hasRuntimeSession: boolean;
+  hasAppPreferences: boolean;
+  hasCustomAlertSound: boolean;
+  migrationNeeded: boolean;
+  warnings: string[];
+}
+
+export interface BackupImportOptions {
+  restoreAppPreferences: boolean;
 }
 
 export interface DailyInsight {
@@ -142,6 +254,14 @@ export interface TodoItem {
   scheduledDate: string;
   scheduledTime: string;
   importanceKey: TodoImportance;
+  continuationNote: string;
+  continuationUpdatedAt: string | null;
+}
+
+export interface PendingBookmarkNotice {
+  recordId: number;
+  todoId: number;
+  title: string;
 }
 
 export interface TodoDraft {
@@ -150,3 +270,4 @@ export interface TodoDraft {
   scheduledTime: string;
   importanceKey: TodoImportance;
 }
+import type { ThemeId } from "./themes";

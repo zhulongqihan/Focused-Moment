@@ -1459,3 +1459,195 @@
   cursor: move;
   user-select: none;
 }
+
+/* Graphite records: keep the log columns semantic and show the full
+   thirty-day trail without clipping its edge labels. */
+.minimal-app[data-theme="graphite-console"] .gc-event-log__intro {
+  margin: -4px 0 12px;
+  color: var(--gc-muted);
+  font-family: "Microsoft YaHei UI", sans-serif;
+  font-size: 0.62rem;
+  line-height: 1.55;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-event-log__heading,
+.minimal-app[data-theme="graphite-console"] .gc-event-row {
+  grid-template-columns: 51px 58px minmax(0, 1fr) 92px 72px minmax(104px, auto);
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-event-log__heading {
+  align-items: center;
+  gap: 7px;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-event-row {
+  min-height: 48px;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-event-row__status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--gc-lime);
+  font-size: 0.52rem;
+  white-space: nowrap;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-event-row__record,
+.minimal-app[data-theme="graphite-console"] .gc-event-row__duration {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-event-row__record > strong {
+  overflow: hidden;
+  color: var(--gc-text);
+  font-family: "Microsoft YaHei UI", sans-serif;
+  font-size: 0.61rem;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-event-row__record > small,
+.minimal-app[data-theme="graphite-console"] .gc-event-row__duration > small {
+  overflow: hidden;
+  color: var(--gc-muted);
+  font-size: 0.52rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-event-row__meter {
+  display: flex;
+  gap: 2px;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-event-row__meter i {
+  width: 5px;
+  height: 4px;
+  background: var(--gc-line);
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-event-row__meter i.is-filled {
+  background: var(--gc-lime);
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-event-row__source {
+  overflow: hidden;
+  color: var(--gc-lime);
+  font-size: 0.55rem;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-event-row__actions {
+  display: flex;
+  min-width: 0;
+  justify-content: flex-end;
+  gap: 2px;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-event-row__actions .gc-inline-button {
+  padding: 0 3px;
+  font-size: 0.55rem;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-trend-panel {
+  min-height: 170px;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-trend-lines {
+  height: 102px;
+  box-sizing: border-box;
+  padding-bottom: 20px;
+  background-size: 100% 20px, calc(100% / 30) 100%;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-trend-lines button {
+  top: 0;
+  bottom: auto;
+  height: calc(100% - 20px);
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-trend-lines button::after {
+  left: 50%;
+  bottom: 0;
+  width: 1px;
+  height: var(--gc-trend-level);
+  transform: translateX(-50%);
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-trend-lines i {
+  position: absolute;
+  left: 50%;
+  bottom: var(--gc-trend-level);
+  margin: 0;
+  transform: translate(-50%, 50%);
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-trend-lines span {
+  top: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-trend-lines button:first-child span {
+  left: 0;
+  transform: none;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-trend-lines button:last-child span {
+  right: 0;
+  left: auto;
+  transform: none;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-trend-footer {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.minimal-app[data-theme="graphite-console"] .gc-trend-footer strong {
+  min-width: 0;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .minimal-app[data-theme="graphite-console"] .gc-event-log__heading,
+  .minimal-app[data-theme="graphite-console"] .gc-event-row {
+    grid-template-columns: 45px 45px minmax(0, 1fr) 72px 62px;
+  }
+
+  .minimal-app[data-theme="graphite-console"] .gc-event-log__heading > :last-child,
+  .minimal-app[data-theme="graphite-console"] .gc-event-row__actions {
+    grid-column: 3 / -1;
+    justify-content: flex-start;
+  }
+
+  .minimal-app[data-theme="graphite-console"] .gc-event-row__actions {
+    padding-bottom: 6px;
+  }
+
+  .minimal-app[data-theme="graphite-console"] .gc-trend-panel {
+    min-height: 190px;
+  }
+
+  .minimal-app[data-theme="graphite-console"] .gc-trend-footer {
+    grid-template-columns: 1fr;
+    gap: 5px;
+    align-items: start;
+  }
+
+  .minimal-app[data-theme="graphite-console"] .gc-trend-footer strong {
+    text-align: left;
+    white-space: normal;
+  }
+}

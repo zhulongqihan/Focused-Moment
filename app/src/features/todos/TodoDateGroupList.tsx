@@ -58,7 +58,7 @@ function stabilizeTodoDateGroups(nextGroups: TodoDateGroup[], previousGroups: To
 }
 
 function TodoCard(props: TodoCardProps) {
-  const isOverdue = props.item.scheduledDate < localDateKey();
+  const isOverdue = props.item.scheduledDate !== "" && props.item.scheduledDate < localDateKey();
 
   return (
     <article classList={{ "todo-row": true, "nv-todo-card": true, "todo-row--overdue": isOverdue }}>
