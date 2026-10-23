@@ -389,3 +389,11 @@
 - 撤出全部诊断 hook 后，首页定向 23/23，完整 229/229（4 workers、0 retries、4.1 分钟）通过；原始日志、唯一 run 目录和受控实验源码见 `release-readiness-2.14.2.md`。没有增加超时、重试或弱化原断言。
 - 发布交叉审查修正 README 的托盘入口说明，并细化构建源码等价证据：174 项构建原始字节相同；170 项受控源码中 139 项 Git blob 字节相同，31 项只含 CRLF/LF 差异，无其它差异。原 dirty manifest 未改。
 - 本单元只有测试/文档变化，not rebuilt; entry unchanged；计划及用户文件保持保护。下一步推送新提交、核对远端完整 CI，再合并与发布。
+
+## 2026-10-23 Windows 正式发布完成（18:58，Asia/Shanghai）
+
+- 测试准备修正 `147834b` 的远程 Checks `39940599810` 完整日志为 229 passed / 0 flaky，Rust 57 passed / 1 ignored；静态检查和生产构建通过。实际 CI 合并树、开发分支树与正式合并树一致。
+- PR #1 已合并至 `main`，提交 `cd4b0eae9a5340845ac4d9a4e4f4e7cf2eb1c2b2`；本地 `main` 已正常快进，保留 PROJECT_PLAN 的用户 diff 和17项受保护文件。注释 tag `v2.14.2` 指向该合并提交，没有重写历史 tag。
+- [v2.14.2](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.14.2) 于18:57:54正式发布并设为 Latest，Release ID421734882。先上传草稿并逐项核对三资产名称、大小、SHA-256、发行说明和 tag，再公开；公开后复核通过。具体资产哈希和证据入口见 `release-readiness-2.14.2.md`。
+- 根入口仍为2.14.2、SHA-256 `9299A959D72C8CF81B5B751D1A61149A681E8C022E761F889574AA1B0A9BCCFA`，原 build `local-20261023-170710-9bdc15b316` 的 dirty provenance 保留。174项构建字节与最终源码内容等价（含31项纯行尾差异），没有借重建或复制旧文件伪造来源；此次文档收尾 not rebuilt; entry unchanged。
+- 本轮授权的修复、验收、合并和发布均完成。多人试用跳过，由用户本人使用；macOS冻结；安装器未执行，真实用户数据未访问。后续依据用户实际使用反馈确定新任务。

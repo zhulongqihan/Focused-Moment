@@ -4,6 +4,8 @@
 
 ## 当前交付状态
 
+- **最终发布（2026-10-23 18:58，Asia/Shanghai）**：[v2.14.2](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.14.2) 已正式发布并设为 Latest。PR #1 合并提交与 tag 目标均为 `cd4b0eae9a5340845ac4d9a4e4f4e7cf2eb1c2b2`；最终测试提交 `147834b` 的远程 Checks `39940599810` 为 229 passed / 0 flaky、Rust 57 passed / 1 ignored，实际测试的合并树与正式合并树一致。Windows portable、Setup、MSI 三资产远端大小和 SHA-256 均与最终本地候选相符。以下时间记录为推进历史；当前没有未收口的发布任务。
+
 - A 批 2.13.9 已完成源码提交推送、Release EXE 交付和最终候选的隔离 Windows 验收；其交付源码提交为 `ef6fc5fc19f0f5cb11c29169ab4d32cff9060b01`。
 - A 批首次交付的根入口为 2.13.9（SHA-256 `3542369B271858EDEAC71F70AF56F79EB9CEE55F98991498EA153BD1522A63B3`）；之后由 B、C、D、E 批依次替换。当前根目录 `Focused Moment.exe` 为含确认修复的 2.14.2，SHA-256 `9299A959D72C8CF81B5B751D1A61149A681E8C022E761F889574AA1B0A9BCCFA`，build ID `local-20261023-170710-9bdc15b316`。
 - B 批 2.13.10 本地验收已完成：四个应用/验收提交先快进推送至 `d1976da7669e55e979c24bdd319054a529f3d918`，后续文档提交 `589beec2a89cc967cccfe21e1dc52b1cc67203a6` 与发布说明指针校正 `0084a05` 也已推送。B 批相关实现、Release 候选和 Windows 原生验收证据见下方对应工作单元。
@@ -27,6 +29,8 @@
 
 - 2026-10-23 18:38 更新：修正后的完整浏览器 mock **229/229** 通过（4 workers、0 retries、4.1 分钟），最终状态 passed / failedTests=[]，日志和实验限制见 `release-readiness-2.14.2.md`。来源复核区分 139 项 Git 原始字节一致与 31 项仅行尾规范化等价；README 托盘说明已按实际入口校正。只有测试与文档变化，根 EXE 和三份发布资产保持 9299 候选，不重建。下一步提交推送并验证新 HEAD 的远程 CI。
 
+- 2026-10-23 18:40 提交断点：测试与维护说明已提交推送 `147834b2d5e74e31cae292efa7c44e4c6d850bbb`，对应远程 Checks `39940599810` 正在运行。来源等价审计已针对该提交复核通过；最终合并与发布继续等待完整日志确认无失败、无 flaky。
+
 ## 本轮原始基线（2026-10-11）
 
 - 权威执行目标：本轮《Focused Moment 优化重启计划》，按批次 0 → A → B → C → D → E 顺序推进；一批交付完成后才开始下一批应用改动。
@@ -46,7 +50,7 @@
 | D 降低持续运行开销 | 2.14.1 | 已完成 | 增量同步已实现；浏览器 mock 219/219、Rust 57 passed/0 failed/1 ignored、`pnpm verify` 通过；源码已推送。最终 Release build ID `local-20261022-183356-2a14d0298d` 的候选/根入口 SHA-256 同为 `71F0E8B24E1B3F99B51F39E57F6BFE42B24BDE22596608A7E22DAD5CFEA834C5`，旧 2.14.0 入口已按原哈希归档；同候选隔离 Windows smoke 通过。交互范围和证据路径见下方最终交付记录。 |
 | E 降低启动负担并完成总验收 | 2.14.2 | 已完成 | 源码提交已推送；`pnpm verify`、Rust 57 passed/0 failed/1 ignored、浏览器 224/224 通过；默认首页 JS 减少 75.58%；匹配 Release EXE 已替换根入口，同候选 Windows smoke 通过；C 基线与 E 候选的 42 项原生矩阵完成，README 和最终交接已更新。 |
 
-- **当前批次**：批次 0、A、B、C、D、E 和发布前本地验收均已完成。最终候选 2.14.2（9299…CCFA）已通过代码、浏览器、真实 Windows 六场景、隔离 smoke 和持续待决检查；Windows 三资产已生成并解包核对。主题设置测试准备已收窄修正，本地 229/229 零重试通过；当前等待新提交的远程稳定验证，再合并 PR 并正式发布。多人试用按用户要求跳过；macOS 冻结，安装器不执行。`PROJECT_PLAN.md` 继续只读保护。
+- **当前批次**：批次 0、A、B、C、D、E 及此次发布收口全部完成。最终 2.14.2（9299…CCFA）已通过本地与远端 229 项浏览器回归、静态/Rust、真实 Windows 六场景、隔离 smoke 和持续待决检查；PR 已合并，tag 和三份 Windows 资产已正式发布并核对。下一步由用户日常使用，后续任务依据实际反馈确定；多人试用按要求跳过，macOS 冻结，未执行安装器。`PROJECT_PLAN.md` 继续只读保护。
 
 ## 批次 0 证据
 

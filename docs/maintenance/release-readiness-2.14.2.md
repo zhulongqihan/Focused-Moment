@@ -1,8 +1,8 @@
 # Focused Moment 2.14.2 发布收口
 
-as_of: 2026-10-23 18:38（Asia/Shanghai）
+as_of: 2026-10-23 18:58（Asia/Shanghai）
 
-> **当前状态**：确认缺陷已修复并重建，最终候选为 9299…CCFA；229/229 浏览器 mock、静态/Rust、六个 Windows 原生交互、规定隔离 smoke 与 15 秒确认待决全部通过。源码修复已推送，最后的 QA 前提修正和证据整理待提交并完成远程 CI，随后合并发布。下方 B65 检查仅保留历史事实，不作为最终证据。
+> **当前状态**：[v2.14.2 已正式发布](https://github.com/zhulongqihan/Focused-Moment/releases/tag/v2.14.2)并设为 Latest，PR #1 已合并。最终候选 9299…CCFA 的本地与远端 229 项浏览器回归、静态/Rust、六个 Windows 原生交互、隔离 smoke 与 15 秒确认待决全部通过；三资产远端 digest 匹配。`1911db4` 的六个 flaky 与下方 B65 检查保留历史事实，不作为最终稳定通过证据。
 
 ## 授权与基线
 
@@ -16,9 +16,9 @@ as_of: 2026-10-23 18:38（Asia/Shanghai）
 | 单元 | 状态 | 验收 |
 | --- | --- | --- |
 | 初始错误恢复 | 已提交推送 | `a236df5`；完整 mock 225/225、静态/Rust 通过、审查后定向 2/2；远程 Checks 39925626053 成功 |
-| 数据确认与预览绑定 | 代码与原生验收通过 | 官方异步确认接口，待决/取消/失败不写入，预览路径绑定；新候选 9299…CCFA 的完整备份流程 10 项断言通过 |
+| 数据确认与预览绑定 | 已发布 | 官方异步确认接口，待决/取消/失败不写入，预览路径绑定；9299…CCFA 的完整备份流程 10 项断言通过 |
 | 最终 Windows 原生验收 | 全部通过 | 同一 9299 候选六场景、隔离 smoke、15 秒确认待决；证据索引与范围见下方 |
-| PR、合并、Windows 发布 | 测试修正通过，待远端验收 | 1911db4 的 CI 为 223 passed / 6 flaky；主题测试准备修正后本地 229/229 零重试通过，待新 HEAD 远端稳定验证后合并与核对资产 digest |
+| PR、合并、Windows 发布 | 已完成 | 最终 147834b 远端 229 passed / 0 flaky；PR #1 合并与 tag 指向 cd4b0ea，三资产 digest 一致，Release 为公开 Latest |
 | 多人真实试用 | 按用户要求跳过 | 由用户本人使用，不虚构反馈或观察结果 |
 
 ## 原生验收发现的数据确认缺陷
@@ -135,3 +135,12 @@ as_of: 2026-10-23 18:38（Asia/Shanghai）
 - 最终测试仅保留注释和 `toBeEnabled()` 两行；所有诊断 hook 已移除，未增加 timeout/retries。首页 23/23 通过（2 workers、0 retries、43.1 秒），目录 `artifacts/qa/frontend/home-actions-ready-final-20261023-inv-mvktymfq-48476-840835e9-89e3-4db5-865f-25d8a90047e0/`。
 - 修正后的完整浏览器 mock **229/229** 通过，4 workers、0 retries、4.1 分钟，exit 0，`.last-run.json` 为 passed / failedTests=[]。目录 `artifacts/qa/frontend/home-actions-ready-full-20261023-inv-mvku0ip1-14140-954b2f46-ed21-4198-97f2-f9e230ff2c15/`；完整日志 `artifacts/qa/verification/home-actions-ready-full-f6d45035b3fc45e581c9b6af2e1a73d7/playwright.log`。测试语法、路径限定 diff check 与 Playwright 输出 guardrail 通过。
 - 发布交叉审查修正 README 多写的托盘“设置”入口；实际支持今日、计时、待办、记录。源码等价审计补充 139 项 Git 原始字节一致、31 项仅 CRLF/LF 差异。均不改变应用输入，not rebuilt; entry unchanged。
+
+## 正式发布闭环
+
+- 最终修正提交 `147834b2d5e74e31cae292efa7c44e4c6d850bbb` 的 [Checks 39940599810](https://github.com/zhulongqihan/Focused-Moment/actions/runs/39940599810) 已完成：浏览器 **229 passed / 0 flaky**（9.2 分钟），Rust **57 passed / 0 failed / 1 ignored**，静态与生产前端构建通过。完整日志 `home-ready-ci.log`、结果 `home-ready-ci-result.json` 位于最终 release 证据目录；没有只凭 workflow 总状态作判断。
+- CI 实际 checkout 合并提交 `1f90e2c0a5e6792336df6c449855a2f9ddddce85`，其文件树与 `147834b` 完全相同。[PR #1](https://github.com/zhulongqihan/Focused-Moment/pull/1) 于 2026-10-23 18:54:18（Asia/Shanghai）合并为 `cd4b0eae9a5340845ac4d9a4e4f4e7cf2eb1c2b2`，正式合并树也相同。本地 `main` 已快进至该提交；用户计划与 17 项保护文件保持原字节及既有 diff。
+- 注释 tag `v2.14.2` 指向上述正式合并提交。先创建草稿并上传三份明确路径资产，核对名称、大小、远端 SHA-256、tag 目标和发行说明后，于 **2026-10-23 18:57:54（Asia/Shanghai）**正式公开并设为 Latest，Release ID `421734882`。发布后的 API 再次确认 draft=false、prerelease=false 和三份远端 digest 全匹配。
+- 证据仍在 `artifacts/qa/release/release-final-2.14.2-20261023-171233-f4ce110d/`：`merge-receipt.json`、`tested-merge-tree-147834b.json`、`candidate-source-equivalence-cd4b0ea.json`、`tag-verification.json`、`draft-release-response.json`、`published-release-response.json`。资产目录 `v2.14.2-20261023-171448-097d3e7f` 的 manifest 状态为 published；旧 B65 资产仍不可发布。
+- 最终构建等价复核维持 174 项原始构建输入匹配、139 项 Git 原始字节相同、31 项仅 CRLF/LF 差异、其它差异为零。原 build manifest 的 a236df5+dirty 来源未改写；根 EXE 仍为 9299…CCFA。发布收尾仅更新维护记录，not rebuilt; entry unchanged。
+- 本轮授权事项已完成。多人试用按用户要求跳过，不虚构使用反馈；macOS 继续冻结，两种安装器只解包校验、未执行。CI 另有 actions 运行时 Node 20 弃用提示；项目 Node 22 检查通过，该提示不是应用失败，未为此扩大本次产品变更。
